@@ -194,7 +194,15 @@ function activityCategory(
   if (['fs_read_file', 'fs_read_text_file', 'workspace_resource_read'].includes(tool.name))
     return 'read';
   if (['fs_write_file', 'fs_edit_file', 'apply_patch'].includes(tool.name)) return 'edit';
-  if (['web_search', 'search', 'workspace_resource_search', 'fs_search'].includes(tool.name))
+  if (
+    [
+      'web_search',
+      'literature_search',
+      'search',
+      'workspace_resource_search',
+      'fs_search',
+    ].includes(tool.name)
+  )
     return 'search';
   return 'other';
 }

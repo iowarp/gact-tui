@@ -76,6 +76,7 @@ export type ClioQueryNamespace =
   | 'sandbox-setup'
   | 'sandbox-status'
   | 'saved-servers'
+  | 'search-settings'
   | 'service-health'
   | 'session-agent'
   | 'session-artifacts'

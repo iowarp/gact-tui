@@ -44,7 +44,16 @@ export function useUnavailableSettingsSections(): Record<string, string> {
     retry: false,
     staleTime: 30_000,
   });
+  // The read Web search makes, so opening it reuses the answer.
+  const search = useQuery({
+    queryKey: queryKeys.key('search-settings', connectionScope(settings)),
+    queryFn: ({ signal }) => repository.searchSettings(signal),
+    retry: false,
+    staleTime: 30_000,
+  });
   const unavailable: Record<string, string> = {};
+  if (notOffered(search.error))
+    unavailable['web-search'] = t`This service doesn’t offer web search settings.`;
   if (prompts === false) unavailable.prompts = t`This service doesn’t offer prompt families.`;
   if (notOffered(accounts.error))
     unavailable['data-sources'] = t`This service doesn’t offer data sources.`;

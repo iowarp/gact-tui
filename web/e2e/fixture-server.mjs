@@ -1263,6 +1263,131 @@ function initialFleetSettings() {
   };
 }
 let fleetSettings = initialFleetSettings();
+// Settings > Web search: every web and scholarly source the backend offers.
+const searchSource = (id, name, fields = {}) => ({
+  id,
+  name,
+  description: `${name} search.`,
+  free_use: '',
+  key_page: '',
+  key_benefit: '',
+  reads_pages: false,
+  key_required: false,
+  has_key: false,
+  declined: false,
+  limited_until: null,
+  limited_kind: null,
+  last_answered: null,
+  last_failure: null,
+  last_failure_kind: null,
+  answered_today: 0,
+  failed_today: 0,
+  enabled: true,
+  ...fields,
+});
+// Two hours from when the fixture starts, so the resting source reads "until" a clock time.
+const searchRestingUntil = Math.floor(Date.now() / 1000) + 2 * 60 * 60;
+// The backend catalog's text (clio_agent/search/catalog.py), in its default web order.
+let searchSettings = {
+  enabled: true,
+  auto_switch: true,
+  service_url: '',
+  contact_email: '',
+  literature_approved: true,
+  web: [
+    searchSource('keenable', 'Keenable', {
+      description: 'Its own web index; filters by date, site and excluded sites.',
+      free_use: '1,000 searches per hour, shared by everyone on your network',
+      key_page: 'https://keenable.ai/signup',
+      key_benefit: 'A private allowance (100,000 requests a month free).',
+      reads_pages: true,
+      approved: true,
+      answered_today: 12,
+      failed_today: 1,
+      last_answered: searchRestingUntil - 3 * 60 * 60,
+    }),
+    searchSource('exa', 'Exa', {
+      description: 'Its own web index; filters by date, site and kind (papers, news, PDF).',
+      key_page: 'https://dashboard.exa.ai/api-keys',
+      key_benefit: 'Your own monthly allowance, and deeper search modes.',
+      reads_pages: true,
+      has_key: true,
+      approved: true,
+      answered_today: 3,
+    }),
+    searchSource('firecrawl', 'Firecrawl', {
+      description: 'Web search with research and PDF categories and full page text.',
+      key_page: 'https://firecrawl.dev',
+      key_benefit: '1,000 credits a month on a free key.',
+      approved: true,
+      limited_until: searchRestingUntil,
+      limited_kind: 'allowance_used',
+      last_failure: searchRestingUntil - 2 * 60 * 60,
+      last_failure_kind: 'allowance_used',
+      failed_today: 2,
+    }),
+    searchSource('you', 'You.com', {
+      description: 'Its own web index; filters by date and excluded sites.',
+      free_use: '100 searches per day, shared by everyone on your network',
+      key_page: 'https://you.com/platform',
+      key_benefit: 'A private allowance and site allowlists.',
+      approved: false,
+    }),
+    searchSource('parallel', 'Parallel', {
+      description: 'Web search for agents; the free tier is its faster, lighter mode.',
+      key_page: 'https://platform.parallel.ai',
+      key_benefit: 'Higher-quality search mode and date and site filters.',
+      reads_pages: true,
+      approved: false,
+      enabled: false,
+    }),
+  ].map((row, position) => ({ ...row, position })),
+  literature: [
+    searchSource('openalex', 'OpenAlex', {
+      description: 'Works across every field, with citations and open-access links.',
+      free_use: 'About 100 searches a day per network without a key; single-work lookups are free',
+      key_page: 'https://openalex.org',
+      key_benefit: 'A free key ($1 a day budget); CLIO can request one with your email.',
+      answered_today: 5,
+    }),
+    searchSource('crossref', 'Crossref', {
+      description: 'DOI metadata for journals, preprints and their links.',
+      free_use: 'No daily limit; paced',
+      answered_today: 5,
+    }),
+    searchSource('arxiv', 'arXiv', {
+      description: 'Preprints in physics, computing, mathematics and more.',
+      free_use: 'One request every 3 seconds',
+      answered_today: 4,
+      failed_today: 1,
+    }),
+    searchSource('europepmc', 'Europe PMC', {
+      description: 'Life-science literature and preprints, with full text where open.',
+      free_use: 'No key',
+    }),
+    searchSource('osti', 'OSTI.gov', {
+      description: 'U.S. Department of Energy reports and papers.',
+      free_use: 'No key',
+    }),
+    searchSource('opencitations', 'OpenCitations', {
+      description: 'Open citation links: what a work cites and who cites it.',
+      free_use: 'No key',
+    }),
+    searchSource('datacite', 'DataCite', {
+      description: 'DOIs for datasets and software.',
+      free_use: 'No key',
+    }),
+    searchSource('semantic_scholar', 'Semantic Scholar', {
+      description: 'Papers across fields with citation data.',
+      free_use: 'Needs your key',
+      key_page: 'https://www.semanticscholar.org/product/api#api-key-form',
+      key_benefit: 'Turns the source on.',
+      key_required: true,
+    }),
+  ],
+};
+const initialSearchSettings = structuredClone(searchSettings);
+
 // Settings > Usage accounts: none unless a settings scenario asks for them, so
 // the composer baselines keep no usage readout.
 let fleetAccounts = [];
@@ -1490,44 +1615,13 @@ const settingsFixture = createSettingsFixture({
 const agentFixture = createAgentFixture({ sendJson, readJson });
 
 // Infrastructure of "This computer": a Windows workstation with an AMD GPU and
-// Docker Desktop, serving llama.cpp and CLIO Web Search, with LM Studio saved.
+// Docker Desktop, serving llama.cpp, with LM Studio saved.
 // The service catalog is the production catalog captured for review.
 const observedEpoch = Date.parse(observedAt) / 1000;
 const localHome = 'C:\\Users\\researcher';
 const modelsRoot = `${localHome}\\.clio\\models`;
-const webSearchUrl = 'http://127.0.0.1:8089';
 const llamaCppUrl = 'http://127.0.0.1:8088';
-const webSearchSpec = {
-  name: 'CLIO Web Search',
-  command: 'clio-kit',
-  args: ['mcp-server', 'web', '--remote-url', webSearchUrl],
-  env: { WEB_STATE_DIR: '.clio-child-cache/web-mcp-state' },
-  always_load: true,
-};
-const webSearchTools = [
-  { name: 'web_search', description: 'Search the web and return ranked results with snippets.' },
-  { name: 'web_fetch', description: 'Fetch a page and return its readable text and links.' },
-];
-const webSearchConfiguration = {
-  name: 'web',
-  configured: true,
-  scope: 'user',
-  status: 'ready',
-  transport: 'stdio',
-  tools_count: webSearchTools.length,
-  tools: webSearchTools.map((tool) => tool.name),
-  tool_details: webSearchTools,
-  spec: webSearchSpec,
-  retryable: false,
-};
 const savedMcpServices = [
-  {
-    name: 'web',
-    label: 'CLIO Web Search',
-    transport: 'stdio',
-    always_load: true,
-    spec: webSearchSpec,
-  },
   {
     name: 'earthscope',
     label: 'EarthScope GNSS',
@@ -2159,6 +2253,22 @@ const builtinTools = [
     { query: stringField('What to look for.') },
   ],
   [
+    'web_search',
+    'Web search',
+    'web',
+    'Search the web and return ranked results with snippets.',
+    { query: stringField('Search query.'), max_results: { type: 'integer', minimum: 1 } },
+  ],
+  [
+    'web_fetch',
+    'Fetch page',
+    'web',
+    'Fetch a page and return its readable text and links.',
+    {
+      url: stringField('Page address.'),
+    },
+  ],
+  [
     'log_entry',
     'Log entry',
     'science',
@@ -2180,29 +2290,7 @@ const builtinTools = [
   output_schema: {},
   domain,
 }));
-const liveTools = [
-  ...builtinTools.filter((tool) => tool.name !== 'log_entry'),
-  ...webSearchTools.map(({ name, description }) => ({
-    id: `mcp_web:${name}`,
-    name,
-    title: name === 'web_search' ? 'Web search' : 'Fetch page',
-    description,
-    server_id: 'mcp_web',
-    source: 'mcp',
-    status: 'available',
-    enabled: true,
-    owner: 'web',
-    tags: ['web'],
-    visible_to: [],
-    input_schema: objectSchema(
-      name === 'web_search'
-        ? { query: stringField('Search query.'), max_results: { type: 'integer', minimum: 1 } }
-        : { url: stringField('Page address.') },
-      [name === 'web_search' ? 'query' : 'url'],
-    ),
-    output_schema: {},
-  })),
-];
+const liveTools = [...builtinTools.filter((tool) => tool.name !== 'log_entry')];
 const localTargetFacts = {
   target_id: 'local',
   label: 'This computer',
@@ -2257,18 +2345,6 @@ const runningServices = {
       detail: 'Protected by the key this agent made for it.',
       verified: true,
     },
-  },
-  web_search: {
-    state: 'running',
-    connection_url: webSearchUrl,
-    connection_strategy: 'loopback',
-    owned_resources: [
-      {
-        kind: 'directory',
-        ref: `${localHome}\\.clio\\services\\web_search`,
-        created_at: '2026-08-18T09:40:00.000Z',
-      },
-    ],
   },
   ollama: { state: 'stopped' },
 };
@@ -2451,7 +2527,7 @@ const infrastructure = createInfrastructureFixture({
   localCatalog: managedServiceCatalog,
   localModels: { root: modelsRoot, home: localHome, inventory: localModelInventory },
   catalogFor: (label) => reviewCatalog.find((scenario) => scenario.label === label).services,
-  serviceUrls: { llamaCpp: llamaCppUrl, webSearch: webSearchUrl },
+  serviceUrls: { llamaCpp: llamaCppUrl },
 });
 const provenanceConnections = [
   {
@@ -2482,6 +2558,7 @@ const server = createServer(async (request, response) => {
     sessionSummary.reset();
     scienceViews.reset();
     settingsFixture.reset();
+    searchSettings = structuredClone(initialSearchSettings);
     agentFixture.reset();
     branchArtifacts.reset();
     conversationFamily.reset();
@@ -3141,12 +3218,13 @@ const server = createServer(async (request, response) => {
   const mcpConfiguration = /^\/v1\/mcp\/configuration\/([^/]+)$/u.exec(url.pathname);
   if (request.method === 'GET' && mcpConfiguration) {
     const name = decodeURIComponent(mcpConfiguration[1]);
-    sendJson(
-      response,
-      name === 'web'
-        ? webSearchConfiguration
-        : { name, configured: false, scope: 'user', status: 'local_fallback', retryable: false },
-    );
+    sendJson(response, {
+      name,
+      configured: false,
+      scope: 'user',
+      status: 'local_fallback',
+      retryable: false,
+    });
     return;
   }
   if (await handleModelSettings(request, response, url)) return;
@@ -3527,6 +3605,49 @@ const server = createServer(async (request, response) => {
     sendJson(response, createResource(body), 201);
     return;
   }
+  // The fixture listens on loopback with nothing in between, so it is this computer.
+  if (request.method === 'GET' && url.pathname === '/v1/folder-attachments/locality') {
+    sendJson(response, { same_computer: true, reason: 'loopback', host: '127.0.0.1' });
+    return;
+  }
+  // A folder on the agent's computer: used in place or copied whole, then ready at once.
+  const folderAttachment = url.pathname.match(/^\/v1\/workspaces\/([^/]+)\/folder-attachments$/u);
+  if (request.method === 'POST' && folderAttachment) {
+    if (decodeURIComponent(folderAttachment[1]) !== workspaceId) {
+      sendJson(response, { detail: 'workspace not found' }, 404);
+      return;
+    }
+    let body;
+    try {
+      body = await readJson(request);
+    } catch (error) {
+      sendJson(response, { detail: error instanceof Error ? error.message : 'invalid JSON' }, 400);
+      return;
+    }
+    const path = String(body.path ?? '').trim();
+    if (!path || !['in_place', 'copy'].includes(body.placement)) {
+      sendJson(response, { detail: 'path and placement (in_place or copy) are required' }, 422);
+      return;
+    }
+    const name =
+      String(body.label ?? '') ||
+      path
+        .replace(/[/\\]+$/u, '')
+        .split(/[/\\]/u)
+        .pop() ||
+      path;
+    const {
+      idempotent_replay: _replay,
+      upload_url: _upload,
+      ...record
+    } = createResource({
+      name,
+      media_type: 'inode/directory',
+      size: 0,
+    });
+    sendJson(response, record, 201);
+    return;
+  }
   if (
     request.method === 'PATCH' &&
     resourceContentPath(url.pathname) !== undefined &&
@@ -3555,6 +3676,53 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && resources.has(resourcePath(url.pathname))) {
     sendJson(response, resources.get(resourcePath(url.pathname)).record);
+    return;
+  }
+  // Settings > Web search: the sources searches go to, their order and keys.
+  if (url.pathname === '/v1/search/providers' && ['GET', 'PATCH'].includes(request.method)) {
+    if (request.method === 'PATCH') {
+      const patch = await readJson(request);
+      if (Array.isArray(patch.web_order))
+        searchSettings.web = patch.web_order
+          .map((id) => searchSettings.web.find((row) => row.id === id))
+          .filter(Boolean)
+          .map((row, position) => ({ ...row, position }));
+      if (Array.isArray(patch.web_disabled))
+        searchSettings.web = searchSettings.web.map((row) => ({
+          ...row,
+          enabled: !patch.web_disabled.includes(row.id),
+        }));
+      if (Array.isArray(patch.literature_disabled))
+        searchSettings.literature = searchSettings.literature.map((row) => ({
+          ...row,
+          enabled: !patch.literature_disabled.includes(row.id),
+        }));
+      for (const key of ['enabled', 'auto_switch', 'service_url', 'contact_email'])
+        if (key in patch) searchSettings[key] = patch[key];
+    }
+    sendJson(response, searchSettings);
+    return;
+  }
+  const searchKey = /^\/v1\/search\/providers\/([^/]+)\/key$/u.exec(url.pathname);
+  if (searchKey && ['PUT', 'DELETE'].includes(request.method)) {
+    const id = decodeURIComponent(searchKey[1]);
+    const saved = request.method === 'PUT';
+    if (saved) await readJson(request);
+    for (const list of [searchSettings.web, searchSettings.literature])
+      for (const row of list) if (row.id === id) row.has_key = saved;
+    sendJson(
+      response,
+      saved ? { source: id, saved: true, settings: searchSettings } : { source: id, removed: true },
+    );
+    return;
+  }
+  if (request.method === 'POST' && url.pathname === '/v1/search/openalex-key') {
+    await readJson(request);
+    sendJson(response, {
+      saved: true,
+      status: 'pending',
+      message: 'Check your email and click the activation link.',
+    });
     return;
   }
   // Helper models: search on Codex, the judges inheriting the conversation model.

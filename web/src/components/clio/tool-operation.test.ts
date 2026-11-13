@@ -33,7 +33,7 @@ const context = {
 
 describe('semantic operation contract', () => {
   it('covers every supported operation without retaining obsolete aliases', () => {
-    expect(Object.keys(TOOL_OPERATIONS)).toHaveLength(84);
+    expect(Object.keys(TOOL_OPERATIONS)).toHaveLength(86);
     for (const name of [
       'wait_agent_tasks',
       'observe_agent_tasks',
@@ -300,5 +300,67 @@ describe('semantic operation contract', () => {
   it('preserves false, zero, null and an empty string as literal results', () => {
     for (const value of [false, 0, null, ''])
       expect(toolOperation(call('third_party', {}, value)).value).toBe(value);
+  });
+});
+
+describe('search tool operations', () => {
+  const hits = [
+    { title: 'Drift study', url: 'https://example.org/a', snippet: 'Velocities.' },
+    { title: 'Strain study', url: 'https://example.org/b', snippet: 'Strain.' },
+  ];
+  const searched = (name: string, input: Record<string, unknown>, summary: string) => ({
+    ...call(name, input, { structuredContent: { ok: true, results: hits } }),
+    presentation: {
+      subject: 'subject',
+      summary,
+      blocks: [
+        { id: 'subject', type: 'text' as const, text: String(input.query) },
+        ...hits.map((hit, i) => ({
+          id: `result-${i}`,
+          type: 'link' as const,
+          target: 'url' as const,
+          uri: hit.url,
+          label: hit.title,
+        })),
+      ],
+    },
+  });
+
+  it('says a web query once and keeps the producer’s count and source', () => {
+    const operation = toolOperation(
+      searched('web_search', { query: 'station drift' }, '2 results from Exa'),
+    );
+    expect(operation.action).toBe('Search web');
+    expect(operation.subjects).toEqual([]);
+    expect(operation.qualifier).toBe('for “station drift”');
+    expect(operation.metadata).toBe('2 results from Exa');
+  });
+
+  it('reads a literature search by its query and a lookup by the work it found', () => {
+    const literature = toolOperation(
+      searched('literature_search', { query: 'interseismic strain' }, '2 works from OpenAlex'),
+    );
+    expect(literature.action).toBe('Search literature');
+    expect(literature.qualifier).toBe('for “interseismic strain”');
+    expect(literature.metadata).toBe('2 works from OpenAlex');
+    const lookup = toolOperation({
+      ...call('literature_lookup', { id: '10.5555/x' }, { structuredContent: { ok: true } }),
+      presentation: {
+        subject: 'subject',
+        summary: '3 references, 1 cited by',
+        blocks: [
+          {
+            id: 'subject',
+            type: 'link',
+            target: 'url',
+            uri: 'https://doi.org/10.5555/x',
+            label: 'Strain accumulation',
+          },
+        ],
+      },
+    });
+    expect(lookup.action).toBe('Look up');
+    expect(lookup.subjects.map((subject) => subject.label)).toEqual(['Strain accumulation']);
+    expect(lookup.metadata).toBe('3 references, 1 cited by');
   });
 });

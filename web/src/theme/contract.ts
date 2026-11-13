@@ -26,6 +26,8 @@ export const COLOR_TOKENS = [
   'faint',
   'hover',
   'menu-highlight',
+  // The current row in a navigation rail: a step quieter than the menu highlight
+  'nav-current',
   'key',
   'key-border',
   'accent',
@@ -62,6 +64,9 @@ export const COLOR_TOKENS = [
   'destructive-foreground',
   // Destructive text. Dark lightens it to keep 4.5:1 on menus; icons and fills keep `destructive`.
   'destructive-text',
+  // The one solid danger button: its fill and its label
+  'destructive-solid',
+  'destructive-solid-foreground',
   'info',
   'info-foreground',
   'success',

@@ -2,7 +2,6 @@ import { inTauri } from '@/lib/transport/tauri-runtime';
 import { installerRequestedLlamaCpp } from '@/lib/installer-infrastructure';
 import {
   INSTALL_FROM_SCRATCH_KEY,
-  type McpUserConfiguration,
   type ServiceActionInput,
   type ManagedServiceDefinition,
   type ProvenanceConnectionInput,
@@ -28,8 +27,6 @@ import {
   type ServiceAction,
   type ServiceActionFeedback,
 } from './managed-service-card';
-import { WebSearchServiceConnection } from './web-search-service-connection';
-import { webSearchConnectionMatchesTarget } from './web-search-configuration';
 import { ManagedServiceHostSelector } from './managed-service-host-selector';
 import { ManagedServiceHostFacts } from './managed-service-host-facts';
 import type { SshTransportStatus } from '@/tauri/ssh-infrastructure-transport';
@@ -52,28 +49,14 @@ import { t, ph } from '@lingui/core/macro';
 
 /** Desktop controls for CLIO-managed providers and supporting resources. */
 export function ManagedServices({
-  onConnectWebSearch,
-  onDisconnectWebSearch,
-  webSearchConnected = false,
-  webSearchConnection,
-  webSearchConnecting = false,
-  webSearchDisconnecting = false,
   connectedAgentLocation,
   onConnectExistingService,
   onConnectProvenance,
-  onManageWebSearch,
 }: {
-  onConnectWebSearch?: (remoteUrl: string) => void;
-  onDisconnectWebSearch?: () => void;
-  webSearchConnected?: boolean;
-  webSearchConnection?: McpUserConfiguration;
-  webSearchConnecting?: boolean;
-  webSearchDisconnecting?: boolean;
   connectedAgentLabel?: string;
   connectedAgentLocation?: string;
   onConnectExistingService?: () => void;
   onConnectProvenance?: (input: ProvenanceConnectionInput) => void;
-  onManageWebSearch?: () => void;
 }) {
   const desktop = inTauri();
   const repository = useRepository();
@@ -334,9 +317,6 @@ export function ManagedServices({
     const configuredModelServer = agentConnectionUrl
       ? modelRuntimeServer(savedServers.servers.data, engineId(service), agentConnectionUrl)
       : undefined;
-    const webSearchTargetConnected =
-      service.id === 'web_search' &&
-      webSearchConnectionMatchesTarget(webSearchConnected, webSearchConnection, agentConnectionUrl);
     return service.category === 'monitoring' && service.state === 'running' && onConnectProvenance
       ? {
           label: t`Connect`,
@@ -376,28 +356,9 @@ export function ManagedServices({
                   presetId: engineId(service),
                 }),
             }
-        : service.id === 'web_search' && (webSearchTargetConnected || service.state === 'running')
-          ? {
-              label: webSearchTargetConnected
-                ? webSearchDisconnecting
-                  ? t`Disconnecting…`
-                  : t`Disconnect`
-                : webSearchConnecting
-                  ? t`Connecting…`
-                  : t`Connect`,
-              connected: webSearchTargetConnected,
-              onSelect: webSearchTargetConnected
-                ? onDisconnectWebSearch
-                : !agentConnectionUrl
-                  ? undefined
-                  : () => onConnectWebSearch?.(agentConnectionUrl),
-              pending: webSearchTargetConnected ? webSearchDisconnecting : webSearchConnecting,
-              blockedReason: undefined,
-            }
-          : undefined;
+        : undefined;
   };
   const renderService = (service: ManagedServiceDefinition, setup = false) => {
-    const agentConnectionUrl = service.connection_url;
     return (
       <ManagedServiceCard
         gpus={gpus}
@@ -412,15 +373,6 @@ export function ManagedServices({
             : (runningOperations[service.id]?.action as ServiceAction | undefined)
         }
         configuration={{ ...service.configuration, ...configuration[service.id] }}
-        connectionStatus={
-          service.id === 'web_search' && service.state === 'running' ? (
-            <WebSearchServiceConnection
-              connecting={action.isPending === false && webSearchConnecting}
-              connection={webSearchConnection}
-              targetUrl={agentConnectionUrl}
-            />
-          ) : undefined
-        }
         key={`${targetId}:${service.id}`}
         onAction={(requestedAction, options) => {
           const applying = requestedAction === 'install' || requestedAction === 'reinstall';
@@ -621,7 +573,6 @@ export function ManagedServices({
       ) : null}
       <ManagedServiceInventory
         endpoint={settings.endpoint}
-        targetId={targetId}
         hostLabel={executionHostLabel}
         services={services.filter((row) => row.category !== 'remote_access' || target === 'ssh')}
         selected={selectedProvider}
@@ -629,7 +580,6 @@ export function ManagedServices({
         deploying={deploying}
         onDeploying={setDeploying}
         renderService={renderService}
-        onEditWebSearch={onManageWebSearch}
         onOpenTab={(id, tab) => setTabs((current) => ({ ...current, [id]: tab }))}
         operations={{
           ...Object.fromEntries(Object.entries(runningOperations).map(([id, row]) => [id, row.id])),

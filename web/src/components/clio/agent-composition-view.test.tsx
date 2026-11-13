@@ -678,7 +678,7 @@ describe('an agent explored from the library', () => {
           .getAllByRole('radio')
           .map((radio) => radio.textContent),
       ).toEqual(['All']);
-      await user.click(screen.getByRole('button', { name: 'Other categories' }));
+      await user.click(screen.getByRole('button', { name: 'More categories' }));
       await user.click(await screen.findByRole('menuitemradio', { name: 'Subagents' }));
       expect(await screen.findByRole('radio', { name: 'Subagents' })).toBeChecked();
       expect(

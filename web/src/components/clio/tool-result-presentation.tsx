@@ -28,6 +28,8 @@ import {
   ResourceStructureResult,
 } from './tool-result-resource-memory';
 import { isProvenanceBlock } from './tool-result-shared';
+import { linkedMatchRuns } from './tool-result-linked-matches';
+import { ToolOperationSearch } from './tool-operation-search';
 import { WorkspaceFilePresentationBlock } from './tool-result-workspace-file';
 import { ToolTerminalResult } from './tool-terminal-result';
 import { TodoList } from './todo-list';
@@ -279,6 +281,10 @@ function ToolResultBody({
       </div>
     );
   }
+  // Found pages and works (a link and its snippet or citation line, repeated) read as one paged list.
+  const matchRuns = new Map(linkedMatchRuns(blocks).map((run) => [run.start, run]));
+  const inMatchRun = (index: number) =>
+    [...matchRuns.values()].some((run) => index > run.start && index < run.end);
   return (
     <div className="ml-7 flex min-w-0 flex-col gap-0.5" data-slot="tool-human-result">
       {tool.progress_message && tool.state === 'running' ? (
@@ -295,6 +301,14 @@ function ToolResultBody({
           block.type === 'markdown';
         const budget = collectedChildOutput ? Math.min(lines, 2) : lines;
         const running = block.type === 'terminal' && tool.state === 'running';
+        const matchRun = matchRuns.get(index);
+        if (matchRun)
+          return (
+            <div className="min-w-0 px-2" data-slot="tool-linked-matches" key={block.id}>
+              <ToolOperationSearch value={matchRun.rows} />
+            </div>
+          );
+        if (inMatchRun(index)) return null;
         if (block.type === 'link') {
           if (belongsToTerminal(blocks, index)) return null;
           return <PresentationLink key={block.id} block={block} />;

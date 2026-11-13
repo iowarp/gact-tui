@@ -133,8 +133,9 @@ describe('the picker survives the real provider-catalog decoder', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
 
-    for (const id of ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-mini', 'gpt-5.5']) {
-      expect(screen.getByText(id)).toBeVisible();
+    // Rows named only by their id read as the trigger names them (gpt-5.6-luna → luna 5.6).
+    for (const name of ['luna 5.6', 'sol 5.6', 'gpt-5.6-mini', 'gpt-5.5']) {
+      expect(screen.getByText(name, { selector: '[data-slot="model-row-name"]' })).toBeVisible();
     }
     // No transport headings, no "or" rule, no split groups, no per-transport log in.
     expect(screen.queryByText('SDK')).not.toBeInTheDocument();

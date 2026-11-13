@@ -110,9 +110,10 @@ for (const theme of ['dark', 'light'] as const) {
       const before = writes.length;
       await model.click();
       const picker = page.getByRole('dialog', { name: 'Choose a model for new sessions' });
-      await expect(picker.getByRole('button', { name: 'Hidden 0' })).toBeVisible();
+      await expect(picker.getByRole('button', { name: 'Hide providers' })).toBeVisible();
       await picker.getByPlaceholder('Search providers and models').fill('luna');
-      await picker.getByText('gpt-5.6-luna', { exact: true }).click();
+      // Rows show the same short name as the trigger: gpt-5.6-luna reads "luna 5.6".
+      await picker.getByText('luna 5.6', { exact: true }).click();
       await expect(picker).toHaveCount(0);
       const reset = page.getByRole('button', { name: 'Use model from Models settings' });
       await expect(reset).toBeVisible();

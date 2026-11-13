@@ -1,4 +1,4 @@
-import type { InfrastructureInventory, McpUserConfiguration, SavedServer } from '@clio/core/v3';
+import type { InfrastructureInventory, SavedServer } from '@clio/core/v3';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronRightIcon,
@@ -14,8 +14,6 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
 import { vocab } from '@/lib/brand-vocabulary';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
-import { infrastructureServiceName } from '@/lib/infrastructure-service-labels';
-import { managedServiceStatus } from '@/lib/managed-service-status';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { cn } from '@/lib/utils';
@@ -24,12 +22,8 @@ import { agentIdentity } from './connection-names';
 import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
 import { InfraTabActions } from './infrastructure-tab-actions';
 import { InfrastructureTopology } from './infrastructure-topology';
-import { AGENT_COMPUTER } from './managed-service-target-utils';
 import { IconButton, NamedTooltip } from './primitives/icon-button';
-import type { StatusTone } from './primitives/status-indicator';
 import { StateView } from './primitives/state-view';
-import type { ClioStatusValue } from './status';
-import { remoteUrlFromSpec } from './web-search-configuration';
 import { ph, t } from '@lingui/core/macro';
 
 const MORE = [
@@ -53,13 +47,10 @@ const MORE = [
   },
 ] as const;
 
-/** Where the agent, inference and web research stand, then the map of what connects to what. */
+/** Where the agent and inference stand, where web search is set up, then the map of what connects to what. */
 export function InfrastructureOverview({
   data,
   targetId,
-  webSearch,
-  webSearchConnected = false,
-  onManageWebSearch,
   onReconnect,
   reconnecting = false,
   reconnectError,
@@ -67,9 +58,6 @@ export function InfrastructureOverview({
   data: InfrastructureInventory;
   /** The selected computer; Inspect again re-reads its capabilities too. */
   targetId: string;
-  webSearch?: McpUserConfiguration;
-  webSearchConnected?: boolean;
-  onManageWebSearch?: () => void;
   /** Reconnect a computer that needs sign-in, from its node on the map. */
   onReconnect?: (host: SshHost) => Promise<unknown>;
   reconnecting?: boolean;
@@ -92,7 +80,6 @@ export function InfrastructureOverview({
         servers.refetch(),
       ]),
   });
-  const research = webResearchRow(data, webSearch, webSearchConnected);
   const inference = inferenceRow(servers.data, Boolean(servers.error));
   const agent = agentDetail(settings.label, settings.endpoint, settings.location);
   return (
@@ -124,30 +111,13 @@ export function InfrastructureOverview({
           title={named(t`Inference`)}
         />
         <InfraRow
-          description={named(research.description)}
-          details={
-            research.reason ? (
-              <p className="truncate text-caption text-muted-foreground" title={research.reason}>
-                {research.reason}
-              </p>
-            ) : undefined
-          }
+          description={named(t`Built in. Choose its sources and keys in Settings.`)}
           icon={<GlobeIcon />}
-          meta={research.meta}
           primaryAction={
-            research.to || !onManageWebSearch ? (
-              <OpenLink label={research.action} to={research.to ?? '/infrastructure/services'} />
-            ) : (
-              <IconButton
-                icon={<ChevronRightIcon />}
-                label={research.action}
-                size="sm"
-                onClick={onManageWebSearch}
-              />
-            )
+            <OpenLink label={t`Open web search settings`} to="/settings/web-search" />
           }
-          status={{ tone: statusTone(research.state), label: research.status }}
-          title={named(t`Web research`)}
+          status={{ tone: 'idle', label: t`Built in` }}
+          title={named(t`Web search`)}
         />
       </InfraList>
       {servers.error ? (
@@ -228,21 +198,6 @@ function named(text: string) {
   return <span title={text}>{text}</span>;
 }
 
-function statusTone(value: ClioStatusValue): StatusTone {
-  switch (value) {
-    case 'healthy':
-      return 'success';
-    case 'degraded':
-      return 'warning';
-    case 'running':
-      return 'running';
-    case 'failed':
-      return 'error';
-    default:
-      return 'idle';
-  }
-}
-
 /** Saved model servers summarised: how many answered their last check, and which. */
 function inferenceRow(
   servers: SavedServer[] | undefined,
@@ -263,86 +218,6 @@ function inferenceRow(
   if (servers.some((server) => server.check))
     return { status: { tone: 'warning', label: t`Not reachable` }, meta };
   return { status: { tone: 'idle', label: t`Not checked` }, meta };
-}
-
-/**
- * Web research reads the same records as Services: a connected research service
- * first, then the agent's built-in search engine and what its record says it is.
- */
-function webResearchRow(
-  data: InfrastructureInventory,
-  webSearch: McpUserConfiguration | undefined,
-  connected: boolean,
-): {
-  description: string;
-  meta?: string;
-  reason?: string;
-  action: string;
-  status: string;
-  state: ClioStatusValue;
-  to?: string;
-} {
-  const description = t`Add source reading and research tools to your agent.`;
-  if (connected) {
-    const url = remoteUrlFromSpec(webSearch?.spec);
-    return {
-      description: t`Source reading and research tools are connected.`,
-      meta: url ? hostName(url, data) : undefined,
-      action: t`Manage web research`,
-      status: t`Connected`,
-      state: 'healthy',
-    };
-  }
-  if (webSearch?.configured)
-    return {
-      description,
-      action: t`Manage web research`,
-      status: t`Needs attention`,
-      state: 'degraded',
-    };
-  const builtIn = data.services.find(
-    (row) => row.target_id === 'local' && row.service_id === 'searxng',
-  );
-  if (builtIn) {
-    const status = managedServiceStatus(builtIn);
-    const name = infrastructureServiceName(builtIn.service_id);
-    return {
-      description: t`Built-in search engine: ${name}`,
-      meta:
-        builtIn.target_id === 'local'
-          ? AGENT_COMPUTER
-          : data.targets.find((target) => target.id === builtIn.target_id)?.label || t`Local`,
-      reason: status.reason,
-      action:
-        status.action === 'install'
-          ? t`Install ${name}`
-          : status.action === 'start'
-            ? t`Start ${name}`
-            : t`Manage web research`,
-      status: status.label,
-      state: status.value,
-      to: status.action ? '/infrastructure/services?target=local&service=searxng' : undefined,
-    };
-  }
-  return {
-    description: t`No research service connected`,
-    action: t`Connect web research`,
-    status: t`Not connected`,
-    state: 'unavailable',
-  };
-}
-
-/** The computer a service URL points at, by its saved name when there is one, never the URL. */
-function hostName(url: string, data: InfrastructureInventory): string | undefined {
-  let host: string;
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    return undefined;
-  }
-  if (!host) return undefined;
-  if (['localhost', '127.0.0.1', '::1', '[::1]'].includes(host)) return t`This computer`;
-  return data.targets.find((target) => target.ssh?.host === host)?.label || host;
 }
 
 /** The agent row names the computer it runs on: its given name, or its host, never a URL. */

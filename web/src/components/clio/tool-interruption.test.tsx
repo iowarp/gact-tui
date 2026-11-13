@@ -1,6 +1,8 @@
 import type { ToolInvocation } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
+import { renderWithTooltips } from '@/test/render-with-tooltips';
+import { expectStatusMark } from '@/test/status-mark';
 import { ClioToolInvocation } from './tool-invocation';
 import { ConversationTurn } from './conversation-turn';
 import {
@@ -71,10 +73,10 @@ function iteration(tool: ToolInvocation): ConversationIteration {
 it.each([
   ['mail_received', 'Interrupted by mail'],
   ['stopped', 'Interrupted by a stop request'],
-])('shows a stopped wait as one stop icon with its %s reason on hover', (cause, reason) => {
+])('shows a stopped wait as one stop icon with its %s reason on hover', async (cause, reason) => {
   const tool = wait(cause);
   const before = JSON.stringify(tool);
-  const view = render(<ClioToolInvocation compact tool={tool} />);
+  const view = renderWithTooltips(<ClioToolInvocation compact tool={tool} />);
   expect(getToolStatus(tool)).toBe('interrupted');
   expect(getToolFailureDetail(tool)).toBeUndefined();
   expect(
@@ -82,7 +84,7 @@ it.each([
   ).toHaveLength(1);
   expect(view.container.querySelector('.text-destructive')).toBeNull();
   expect(screen.queryByText('Interrupted', { exact: true })).not.toBeInTheDocument();
-  expect(screen.getByRole('img', { name: reason })).toHaveAttribute('title', reason);
+  await expectStatusMark(reason, reason);
   expect(JSON.stringify(tool)).toBe(before);
 });
 it('projects the exact retained cancellation marker without claiming mail or user attribution', () => {
@@ -134,13 +136,13 @@ it('keeps an independent wait error failed even if its partial snapshot also men
   };
   expect(getToolStatus(tool)).toBe('failed');
   expect(getToolFailureDetail(tool)).toBe('Task history is unavailable.');
-  const view = render(<ClioToolInvocation compact tool={tool} />);
+  const view = renderWithTooltips(<ClioToolInvocation compact tool={tool} />);
   expect(screen.getByRole('img', { name: /^Failed/ })).toBeVisible();
   expect(
     view.container.querySelector('[data-slot="status-indicator"][data-tone="stopped"]'),
   ).toBeNull();
-  expect(screen.getByRole('img', { name: /^Failed/ })).toHaveAttribute(
-    'title',
+  await expectStatusMark(
+    'Failed: Task history is unavailable.',
     'Failed: Task history is unavailable.',
   );
 });
@@ -150,7 +152,7 @@ it('does not reclassify another operation carrying the same recorder marker', ()
 it('retains unknown completion state even with an interruption-shaped receipt', () => {
   expect(getToolStatus({ ...legacy(), state: 'unknown' })).toBe('unknown');
 });
-it('uses an authored interruption cause in the noncompact row without a failure alert', () => {
+it('uses an authored interruption cause in the noncompact row without a failure alert', async () => {
   const tool: ToolInvocation = {
     ...wait(),
     state: 'failed',
@@ -162,10 +164,7 @@ it('uses an authored interruption cause in the noncompact row without a failure 
       blocks: [],
     },
   };
-  render(<ClioToolInvocation tool={tool} />);
-  expect(screen.getByRole('img', { name: 'Interrupted by user' })).toHaveAttribute(
-    'title',
-    'Interrupted by user',
-  );
+  renderWithTooltips(<ClioToolInvocation tool={tool} />);
+  await expectStatusMark('Interrupted by user', 'Interrupted by user');
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });

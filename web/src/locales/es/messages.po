@@ -510,6 +510,11 @@ msgstr "{0, plural, one {# fila} other {# filas}}"
 msgid "{0, plural, one {# run} other {# runs}}"
 msgstr "{0, plural, one {# ejecución} other {# ejecuciones}}"
 
+#. placeholder {0}: source.answered_today
+#: src/lib/search-source-status.ts
+msgid "{0, plural, one {# search} other {# searches}}"
+msgstr "{0, plural, one {# búsqueda} other {# búsquedas}}"
+
 #. placeholder {0}: selected.length
 #: src/components/clio/a2ui-map-geojson-source.tsx
 msgid "{0, plural, one {# selected feature of {totalText}} other {# selected features of {totalText}}}"
@@ -577,20 +582,10 @@ msgstr "{0, plural, one {# triángulo de superficie} other {# triángulos de sup
 msgid "{0, plural, one {# token} other {# tokens}}"
 msgstr "{0, plural, one {# token} other {# tokens}}"
 
-#. placeholder {0}: connection.tools_count
-#: src/components/clio/web-search-service-connection.tsx
-msgid "{0, plural, one {# tool available: {tools}} other {# tools available: {tools}}}"
-msgstr "{0, plural, one {# herramienta disponible: {tools}} other {# herramientas disponibles: {tools}}}"
-
 #. placeholder {0}: result.tools_count
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "{0, plural, one {# tool available. Compose a plugin to add it to an agent.} other {# tools available. Compose a plugin to add it to an agent.}}"
 msgstr "{0, plural, one {# herramienta disponible. Compón un complemento para añadirla a un agente.} other {# herramientas disponibles. Compón un complemento para añadirlas a un agente.}}"
-
-#. placeholder {0}: connection.tools_count
-#: src/components/clio/web-search-service-connection.tsx
-msgid "{0, plural, one {# tool available.} other {# tools available.}}"
-msgstr "{0, plural, one {# herramienta disponible.} other {# herramientas disponibles.}}"
 
 #. placeholder {0}: flow.tools.length
 #: src/components/clio/mcp-sign-in.tsx
@@ -706,12 +701,6 @@ msgstr "{0, plural, one {Llamada # vez, {span}} other {Llamada # veces, {span}}}
 #: src/components/clio/nested-tool-calls.tsx
 msgid "{0, plural, one {Called # time} other {Called # times}}"
 msgstr "{0, plural, one {Llamada # vez} other {Llamada # veces}}"
-
-#. placeholder {0}: result.tools_count
-#: src/components/clio/web-search-setup.tsx
-#: src/routes/infrastructure-page.tsx
-msgid "{0, plural, one {CLIO Web Search connected with # tool} other {CLIO Web Search connected with # tools}}"
-msgstr "{0, plural, one {CLIO Web Search conectado con # herramienta} other {CLIO Web Search conectado con # herramientas}}"
 
 #. placeholder {0}: compacted.length
 #: src/components/clio/conversation-summarization.tsx
@@ -1116,10 +1105,6 @@ msgstr "{agent} cerró la conexión SSH antes de vincularla (código {code})."
 msgid "{agent} could not be reached after the update."
 msgstr "No se pudo contactar con {agent} después de la actualización."
 
-#: src/components/clio/web-search-service-connection.tsx
-msgid "{agent} could not determine this service address."
-msgstr "{agent} no pudo determinar la dirección de este servicio."
-
 #: src/components/clio/settings-runtime.tsx
 msgid "{agent} default"
 msgstr "Predeterminado de {agent}"
@@ -1258,10 +1243,6 @@ msgstr "Intentos de {agent}"
 msgid "{agent} update failed."
 msgstr "Falló la actualización de {agent}."
 
-#: src/lib/infrastructure-service-labels.ts
-msgid "{agent} Web Search"
-msgstr "Búsqueda web de {agent}"
-
 #: src/components/clio/sandbox-inactive-banner.tsx
 msgid "{agent} will run commands without OS isolation."
 msgstr "{agent} ejecutará comandos sin aislamiento del sistema operativo."
@@ -1385,10 +1366,6 @@ msgstr "{command} en {computer}"
 #: src/components/clio/composer.tsx
 msgid "{command} was not run"
 msgstr "{command} no se ejecutó"
-
-#: src/components/clio/web-search-service-connection.tsx
-msgid "{connectedUrl} is connected to {agent}. Connect this deployment to switch targets."
-msgstr "{connectedUrl} está conectado a {agent}. Conecta esta implementación para cambiar de destino."
 
 #: src/components/clio/conversation-fork-checkpoint.tsx
 msgid "{copied} Files remain shared."
@@ -2995,14 +2972,6 @@ msgstr "{product} y {agent} están actualizados"
 msgid "{product} did not respond to the local service request. Retry local startup or reopen the app."
 msgstr "{product} no respondió a la solicitud del servicio local. Reintenta el inicio local o vuelve a abrir la aplicación."
 
-#: src/lib/installer-native-search.ts
-msgid "{product} Search is ready"
-msgstr "La búsqueda de {product} está lista"
-
-#: src/lib/installer-native-search.ts
-msgid "{product} Search still needs setup"
-msgstr "La búsqueda de {product} aún necesita configuración"
-
 #: src/offline-review.tsx
 msgid "{product} session archive"
 msgstr "Archivo de sesión de {product}"
@@ -3256,6 +3225,10 @@ msgstr "{selectedRows, plural, one {# fila seleccionada de {totalText}} other {#
 msgid "{sent} in, {received} out"
 msgstr "{sent} de entrada, {received} de salida"
 
+#: src/lib/search-source-status.ts
+msgid "{sentence}; {source} says {left} left"
+msgstr "{sentence}; {source} indica que quedan {left}"
+
 #: src/lib/command-table.ts
 msgid "{server} prompts"
 msgstr "Instrucciones de {server}"
@@ -3360,6 +3333,14 @@ msgstr "{skills, plural, one {# carga de habilidad} other {# cargas de habilidad
 #: src/components/clio/action-alert-card.tsx
 msgid "{source} finding: {title}"
 msgstr "Hallazgo de {source}: {title}"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "{source} is now tried first."
+msgstr "Ahora se prueba primero {source}."
+
+#: src/components/clio/settings-web-search.tsx
+msgid "{source} key saved."
+msgstr "Clave de {source} guardada."
 
 #: src/components/clio/settings-about.tsx
 msgid "{source}, ref {ref}, installed {commit}"
@@ -3907,6 +3888,10 @@ msgstr "<0>{host}</0> presentó un certificado en el que este navegador no conf�
 msgid "<0>{severity}</0>: {message}"
 msgstr "<0>{severity}</0>: {message}"
 
+#: src/components/clio/search-contact-email.tsx
+msgid "<0>Add an email in Profile</0> to use it here."
+msgstr "<0>Añade un correo en Perfil</0> para usarlo aquí."
+
 #. placeholder {0}: setting.effect
 #: src/components/clio/settings-runtime.tsx
 msgid "<0>Effect:</0> {0}"
@@ -4046,10 +4031,6 @@ msgstr "Un cheurón"
 msgid "A complete source is required to save a variation."
 msgstr "Se necesita el código fuente completo para guardar una variación."
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "A configured SearXNG engine. Availability and key requirements depend on the installed SearXNG version."
-msgstr "Un motor de SearXNG configurado. La disponibilidad y los requisitos de clave dependen de la versión de SearXNG instalada."
-
 #: src/components/clio/memory-inbox.tsx
 msgid "a conversation"
 msgstr "una conversación"
@@ -4093,10 +4074,6 @@ msgstr "Un repositorio GGUF de Hugging Face y una cuantización opcional. Úsalo
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "A JSON array of strings, passed to the command as they are."
 msgstr "Una matriz JSON de cadenas, que se pasan al comando tal cual."
-
-#: src/components/clio/web-search-setup.tsx
-msgid "A key in {agent}’s credential source; the secret is never stored here."
-msgstr "Una clave en la fuente de credenciales de {agent}; el secreto nunca se almacena aquí."
 
 #: src/components/clio/settings-add-server-dialog.tsx
 msgid "A known runtime, or Other for any OpenAI-compatible address (vLLM or llama.cpp on a cluster node or another machine)."
@@ -4177,10 +4154,6 @@ msgstr "Un host guardado, o añade uno"
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "A script (call {call})"
 msgstr "Un script (llamada {call})"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "A search service run outside {agent}. {agent} checks it and uses its tools."
-msgstr "Un servicio de búsqueda que se ejecuta fuera de {agent}. {agent} lo comprueba y usa sus herramientas."
 
 #: src/components/clio/deploy-name.ts
 msgid "A service named “{trimmed}” already exists."
@@ -4265,7 +4238,6 @@ msgid "About {modelId}"
 msgstr "Acerca de {modelId}"
 
 #: src/components/clio/model-description-hint.tsx
-#: src/components/clio/search-engine-picker.tsx
 #: src/components/clio/source-provider-info.tsx
 #: src/tauri/native-copy.ts
 msgid "About {name}"
@@ -4715,7 +4687,6 @@ msgstr "Tamaño real ({percent} %)"
 #: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/memory-inbox.tsx
-#: src/components/clio/search-engine-picker.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-connection-dialogs.tsx
 #: src/components/clio/settings-row.tsx
@@ -4808,17 +4779,9 @@ msgstr "Añadir una conexión MCP"
 msgid "Add an SSH host"
 msgstr "Añadir un host SSH"
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Add and explicitly allow opt-in engine"
-msgstr "Añadir y permitir explícitamente un motor opcional"
-
 #: src/components/clio/ssh-jump-host-list.tsx
 msgid "Add another computer…"
 msgstr "Añadir otro equipo…"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Add another engine"
-msgstr "Añadir otro motor"
 
 #: src/components/clio/more-details-panel.tsx
 msgid "Add answer to chat"
@@ -4886,6 +4849,7 @@ msgid "Add item"
 msgstr "Añadir elemento"
 
 #: src/components/clio/model-picker-provider-panel.tsx
+#: src/components/clio/search-source-row.tsx
 msgid "Add key"
 msgstr "Añadir clave"
 
@@ -4945,10 +4909,6 @@ msgstr "Añadir servidor"
 msgid "Add skill"
 msgstr "Añadir habilidad"
 
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Add source reading and research tools to your agent."
-msgstr "Añade herramientas de lectura de fuentes e investigación a tu agente."
-
 #: src/components/clio/connected-source-detail.tsx
 msgid "Add source to message"
 msgstr "Añadir la fuente al mensaje"
@@ -5000,6 +4960,10 @@ msgstr "Añade bloques completos al conjunto de atención, incluida la actividad
 msgid "Add your {name} API key."
 msgstr "Añade tu clave de API de {name}."
 
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "Add your {name} key"
+msgstr "Añade tu clave de {name}"
+
 #: src/components/clio/provider-setup-state.ts
 msgid "Add your {name} key to use its models."
 msgstr "Añade tu clave de {name} para usar sus modelos."
@@ -5011,6 +4975,10 @@ msgstr "Añade tu clave de API de {provider} para usar sus modelos."
 #: src/lib/provider-availability.ts
 msgid "Add your {providerLabel} API key."
 msgstr "Añade tu clave de API de {providerLabel}."
+
+#: src/components/clio/search-source-row.tsx
+msgid "Add your {source} key"
+msgstr "Añade tu clave de {source}"
 
 #: src/components/clio/flow-run-edits.ts
 msgctxt "workflow change"
@@ -5095,10 +5063,6 @@ msgstr "Añadiendo…"
 msgid "Additional folders"
 msgstr "Carpetas adicionales"
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Additional SearXNG engine"
-msgstr "Motor adicional de SearXNG"
-
 #: src/components/clio/browser-frame.tsx
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
@@ -5150,6 +5114,7 @@ msgstr "Administrador"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/settings-response-settings.tsx
+#: src/components/clio/settings-web-search.tsx
 msgid "Advanced"
 msgstr "Avanzado"
 
@@ -5650,6 +5615,10 @@ msgstr "¿Permitir la escritura en {folder}?"
 msgid "Allow writing to a folder?"
 msgstr "¿Permitir escribir en una carpeta?"
 
+#: src/lib/search-source-status.ts
+msgid "Allowance used up until {time}"
+msgstr "Cuota agotada hasta las {time}"
+
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/settings-access-rule-model.ts
 #: src/components/clio/settings-permissions-requests.tsx
@@ -5844,6 +5813,10 @@ msgstr "Otro asistente"
 msgid "Another command file of the same name wins."
 msgstr "Prevalece otro archivo de comando con el mismo nombre."
 
+#: src/components/clio/search-contact-email.tsx
+msgid "Another contact email (optional)"
+msgstr "Otro correo de contacto (opcional)"
+
 #: src/lib/plugin-presentation.ts
 msgid "Another plugin needs this plugin. Removing it also removes what needs it."
 msgstr "Otro complemento necesita este complemento. Quitarlo también quita lo que lo necesita."
@@ -5856,10 +5829,6 @@ msgstr "La instalación de otro servidor retrasó esta durante demasiado tiempo.
 #: src/components/clio/settings-prompts.tsx
 msgid "Another source also has {name}; this one runs as {qualified_id}."
 msgstr "Otra fuente también tiene {name}; este se ejecuta como {qualified_id}."
-
-#: src/components/clio/web-search-service-connection.tsx
-msgid "Another Web Search deployment is connected"
-msgstr "Hay otra implementación de Web Search conectada"
 
 #: src/components/clio/browser-surface.tsx
 msgid "Another window is using this page"
@@ -6131,6 +6100,11 @@ msgstr "aprobar"
 #: src/widget-gallery-scenarios.ts
 msgid "Approve"
 msgstr "Aprobar"
+
+#: src/lib/search-source-status.ts
+msgctxt "search source state"
+msgid "Approved"
+msgstr "Aprobada"
 
 #: src/components/clio/activity-projection-labels.ts
 msgid "Approved {actionText}"
@@ -6792,7 +6766,6 @@ msgstr "atrás"
 #: src/components/clio/onboarding/tour-overlay.tsx
 #: src/components/clio/question-bundle-response.tsx
 #: src/components/clio/source-edit-form.tsx
-#: src/components/clio/web-search-setup.tsx
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Back"
 msgstr "Atrás"
@@ -7068,10 +7041,6 @@ msgstr "Entre {minimum} y {maximum} tokens."
 #: src/components/clio/context-control.tsx
 msgid "Between {minimum} tokens."
 msgstr "Entre {minimum} tokens."
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Biomedical literature."
-msgstr "Literatura biomédica."
 
 #: src/lib/onboarding/tour-practice-data.ts
 msgid "BKL1 rose about 4.7 mm over 90 days, with most of the uplift between days 45 and 70."
@@ -7373,11 +7342,16 @@ msgid "Built for {value}."
 msgstr "Creado para {value}."
 
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/infrastructure-tools.tsx
 #: src/lib/mcp-service-presentation.ts
 #: src/lib/plugin-presentation.ts
 msgid "Built in"
 msgstr "Integrado"
+
+#: src/components/clio/infrastructure-overview.tsx
+msgid "Built in. Choose its sources and keys in Settings."
+msgstr "Integrada. Elige sus fuentes y claves en Configuración."
 
 #: src/components/clio/latex-model.ts
 msgid "built just now"
@@ -7391,14 +7365,6 @@ msgstr "Integrado"
 #: src/components/clio/observability-provenance.tsx
 msgid "Built-in {agent} records"
 msgstr "Registros integrados de {agent}"
-
-#: src/components/clio/managed-service-inventory-row.tsx
-msgid "Built-in search engine"
-msgstr "Motor de búsqueda integrado"
-
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Built-in search engine: {name}"
-msgstr "Motor de búsqueda integrado: {name}"
 
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Bundled"
@@ -7570,6 +7536,7 @@ msgstr "No se puede iniciar"
 #: src/components/clio/ndp-endpoint-actions.tsx
 #: src/components/clio/ndp-endpoint-editor.tsx
 #: src/components/clio/ndp-workflow-form.tsx
+#: src/components/clio/openalex-key-request.tsx
 #: src/components/clio/path-picker.tsx
 #: src/components/clio/plugin-marketplace-dialog.tsx
 #: src/components/clio/primitives/dialog-frame.tsx
@@ -8241,6 +8208,10 @@ msgstr "Comprueba el emisor de identidad y el rol que requiere esta dirección."
 msgid "Check updates"
 msgstr "Buscar actualizaciones"
 
+#: src/components/clio/openalex-key-request.tsx
+msgid "Check your email and click the activation link. The key works after that."
+msgstr "Revisa tu correo y abre el enlace de activación. La clave funcionará después."
+
 #: src/components/clio/provider-panel-footer.tsx
 msgid "checked {short} ago"
 msgstr "comprobado hace {short}"
@@ -8378,10 +8349,6 @@ msgstr "Comprobando la conexión MCP…"
 msgid "Checking the operating system, Docker, local runtimes, acceleration, and existing {agent} services."
 msgstr "Comprobando el sistema operativo, Docker, los entornos de ejecución locales, la aceleración y los servicios de {agent} existentes."
 
-#: src/components/clio/web-search-service-connection.tsx
-msgid "Checking the service and loading its tool catalog."
-msgstr "Comprobando el servicio y cargando su catálogo de herramientas."
-
 #: src/components/clio/managed-services.tsx
 msgid "Checking the SSH connection, operating system, Docker, runtimes, acceleration, and existing {agent} services."
 msgstr "Comprobando la conexión SSH, el sistema operativo, Docker, los entornos de ejecución, la aceleración y los servicios de {agent} existentes."
@@ -8427,7 +8394,6 @@ msgstr "Comprobando tu clave…"
 #: src/components/clio/provider-action-flows.ts
 #: src/components/clio/provider-actions.ts
 #: src/components/clio/service-management-panel.tsx
-#: src/components/clio/web-search-setup.tsx
 #: src/components/clio/workspace-resource-derivatives.tsx
 msgid "Checking…"
 msgstr "Comprobando…"
@@ -9075,38 +9041,6 @@ msgstr "Cliente y catálogo actualizados."
 #: src/components/clio/provider-model-refresh.ts
 msgid "Client updated; no new models found. New models may need an official {company} client update."
 msgstr "Cliente actualizado; no se encontraron modelos nuevos. Puede que los modelos nuevos necesiten una actualización oficial del cliente de {company}."
-
-#: src/lib/installer-infrastructure.ts
-msgid "CLIO Search is ready"
-msgstr "La búsqueda de CLIO está lista"
-
-#: src/lib/installer-infrastructure.ts
-msgid "CLIO Search still needs setup"
-msgstr "La búsqueda de CLIO aún necesita configuración"
-
-#: src/lib/installer-infrastructure.ts
-msgid "CLIO Search was installed but is not ready"
-msgstr "La búsqueda de CLIO se instaló, pero no está lista"
-
-#: src/components/clio/infrastructure-services-section.tsx
-msgid "CLIO Web Search"
-msgstr "CLIO Web Search"
-
-#: src/routes/infrastructure-page.tsx
-msgid "CLIO Web Search could not be connected"
-msgstr "No se pudo conectar CLIO Web Search"
-
-#: src/routes/infrastructure-page.tsx
-msgid "CLIO Web Search could not be disconnected"
-msgstr "No se pudo desconectar CLIO Web Search"
-
-#: src/routes/infrastructure-page.tsx
-msgid "CLIO Web Search could not complete the connection"
-msgstr "CLIO Web Search no pudo completar la conexión"
-
-#: src/routes/infrastructure-page.tsx
-msgid "CLIO Web Search disconnected"
-msgstr "CLIO Web Search desconectado"
 
 #: src/lib/context-mode.ts
 msgid "clio-core is not installed on this server, so conversations are kept in memory only and are lost on restart. Context editing and compaction are off."
@@ -9835,10 +9769,6 @@ msgstr "Configurar esta conexión"
 msgid "Configured in"
 msgstr "Configurado en"
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Configured search engines"
-msgstr "Motores de búsqueda configurados"
-
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Confirm"
 msgstr "Confirmar"
@@ -9885,7 +9815,6 @@ msgstr "Conflicto"
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/provenance-connections.tsx
 #: src/components/clio/provider-setup-action.tsx
-#: src/components/clio/web-search-setup.tsx
 msgid "Connect"
 msgstr "Conectar"
 
@@ -9985,11 +9914,6 @@ msgstr "Conectar por dirección"
 msgid "Connect by Address…"
 msgstr "Conectar por dirección…"
 
-#: src/components/clio/infrastructure-services-section.tsx
-#: src/components/clio/web-search-setup.tsx
-msgid "Connect CLIO Web Search"
-msgstr "Conectar CLIO Web Search"
-
 #: src/components/clio/connected-data-setup-link.tsx
 msgid "Connect data"
 msgstr "Conectar datos"
@@ -10048,10 +9972,6 @@ msgstr "Conéctate primero al servicio."
 msgid "Connect vault"
 msgstr "Conectar bóveda"
 
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Connect web research"
-msgstr "Conectar investigación web"
-
 #: src/components/clio/extension-discover.tsx
 msgid "Connect your Home Assistant deployment, or run the ha-mcp package on the agent host."
 msgstr "Conecta tu instalación de Home Assistant o ejecuta el paquete ha-mcp en el host del agente."
@@ -10060,7 +9980,6 @@ msgstr "Conecta tu instalación de Home Assistant o ejecuta el paquete ha-mcp en
 #: src/components/clio/connected-source-detail.tsx
 #: src/components/clio/infrastructure-hosts.tsx
 #: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/infrastructure-services-section.tsx
 #: src/components/clio/managed-service-host-selector.tsx
 #: src/components/clio/managed-services.tsx
 #: src/lib/infrastructure-service-labels.ts
@@ -10116,7 +10035,6 @@ msgid "Connected sources could not be loaded."
 msgstr "No se pudieron cargar las fuentes conectadas."
 
 #: src/components/clio/managed-service-inventory-row.tsx
-#: src/components/clio/web-search-service-connection.tsx
 msgid "Connected to {agent}"
 msgstr "Conectado a {agent}"
 
@@ -10148,10 +10066,6 @@ msgstr "Conectando el agente secundario"
 #: src/components/clio/deploy-progress-model.ts
 msgid "Connecting over SSH"
 msgstr "Conectando por SSH"
-
-#: src/components/clio/web-search-service-connection.tsx
-msgid "Connecting search tools to {agent}…"
-msgstr "Conectando las herramientas de búsqueda a {agent}…"
 
 #: src/lib/mcp-preparation.ts
 msgid "Connecting the server for this conversation; its tools join when it is ready."
@@ -10236,10 +10150,6 @@ msgstr "La conexión pone este servicio a disposición de {agent}. Su entorno de
 msgid "Connection map"
 msgstr "Mapa de conexiones"
 
-#: src/components/clio/web-search-service-connection.tsx
-msgid "Connection needs attention"
-msgstr "La conexión requiere atención"
-
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Connection route"
 msgstr "Ruta de conexión"
@@ -10273,6 +10183,14 @@ msgstr "Conexiones de este cliente al agente y a los equipos gestionados"
 #: src/components/clio/sftp-authentication-fields.tsx
 msgid "Connects from {hostLabel}. A selected key or password is sent privately to this {agent} and kept in memory until disconnect or restart. It is never included in the conversation. Without a selected key, this host's configured keys or SSH agent are used. Interactive Duo/2FA, security-key prompts and Kerberos require {product}."
 msgstr "Se conecta desde {hostLabel}. La clave o contraseña seleccionada se envía de forma privada a este {agent} y se mantiene en memoria hasta la desconexión o el reinicio. Nunca se incluye en la conversación. Sin una clave seleccionada, se usan las claves configuradas de este host o el agente SSH. Duo/2FA interactivo, las solicitudes de llave de seguridad y Kerberos requieren {product}."
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Contact email"
+msgstr "Correo de contacto"
+
+#: src/components/clio/search-contact-email.tsx
+msgid "Contact email for Crossref and OpenAlex (optional)"
+msgstr "Correo de contacto para Crossref y OpenAlex (opcional)"
 
 #: src/components/clio/managed-service-parameters.tsx
 msgid "Container"
@@ -10684,6 +10602,7 @@ msgstr "Espacio de trabajo de la conversación: {label}"
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
 #: src/components/clio/workspace-navigation.tsx
 #: src/lib/command-menu-scopes.ts
+#: src/lib/workspace-labels.ts
 msgid "Conversations"
 msgstr "Conversaciones"
 
@@ -11711,10 +11630,6 @@ msgstr "Creando…"
 msgid "Creation log"
 msgstr "Registro de creación"
 
-#: src/components/clio/web-search-setup.tsx
-msgid "Credential reference"
-msgstr "Referencia de credenciales"
-
 #: src/components/clio/settings-model-server-details.tsx
 #: src/lib/provider-availability.ts
 msgid "Credentials"
@@ -11731,6 +11646,10 @@ msgstr "Crédito"
 #: src/components/clio/settings-permissions-requests.tsx
 msgid "Critical risk"
 msgstr "Riesgo crítico"
+
+#: src/components/clio/search-contact-email.tsx
+msgid "Crossref and OpenAlex answer faster when a search names a contact."
+msgstr "Crossref y OpenAlex responden más rápido cuando una búsqueda indica un contacto."
 
 #: src/widget-gallery-demos.ts
 msgid "Crushed tomatoes"
@@ -12018,6 +11937,10 @@ msgstr "Rechazar"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Declined by you"
 msgstr "Rechazada por ti"
+
+#: src/lib/search-source-status.ts
+msgid "Declined this session"
+msgstr "Rechazada en esta sesión"
 
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Decoded host"
@@ -12694,7 +12617,6 @@ msgstr "Descartando…"
 #: src/components/clio/connected-source-detail.tsx
 #: src/components/clio/managed-services.tsx
 #: src/components/clio/settings-mcp-services.tsx
-#: src/components/clio/web-search-setup.tsx
 msgid "Disconnect"
 msgstr "Desconectar"
 
@@ -12754,6 +12676,7 @@ msgstr "Comentar"
 
 #: src/components/clio/infrastructure-activity-row.tsx
 #: src/components/clio/interaction-frame-header.tsx
+#: src/components/clio/settings-web-search.tsx
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Dismiss"
 msgstr "Descartar"
@@ -13256,6 +13179,10 @@ msgstr "Arrastra para desplazar, {primary}+desplazamiento para hacer zoom"
 msgid "Drag to reorder"
 msgstr "Arrastra para reordenar"
 
+#: src/components/clio/search-source-row.tsx
+msgid "Drag to reorder {source}"
+msgstr "Arrastra para reordenar {source}"
+
 #: src/components/clio/session-rail-customize.tsx
 msgid "Drag to reorder, or {keys}"
 msgstr "Arrastra para reordenar, o {keys}"
@@ -13426,13 +13353,8 @@ msgid "Edit address"
 msgstr "Editar dirección"
 
 #: src/components/clio/managed-service-host-selector.tsx
-#: src/components/clio/managed-service-inventory-row.tsx
 msgid "Edit connection"
 msgstr "Editar conexión"
-
-#: src/components/clio/infrastructure-services-section.tsx
-msgid "Edit connection CLIO Web Search"
-msgstr "Editar la conexión de CLIO Web Search"
 
 #: src/components/clio/ndp-endpoint-actions.tsx
 msgid "Edit endpoint"
@@ -13643,21 +13565,9 @@ msgstr "Vacío"
 msgid "Empty text"
 msgstr "Texto vacío"
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Enable {name}"
-msgstr "Activar {name}"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Enable the sources you want. Drag to arrange the list; result ranking is handled by SearXNG."
-msgstr "Activa las fuentes que quieras. Arrastra para ordenar la lista; SearXNG se encarga de clasificar los resultados."
-
 #: src/components/clio/settings-health-views.tsx
 msgid "Enabled"
 msgstr "Activado"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Encyclopedia articles."
-msgstr "Artículos de enciclopedia."
 
 #: src/components/clio/ndp-station-filters.tsx
 msgid "End time"
@@ -13980,6 +13890,10 @@ msgstr "Todos los lunes"
 msgid "Every Saturday"
 msgstr "Todos los sábados"
 
+#: src/components/clio/settings-web-search.tsx
+msgid "Every source that is on is searched together, so there is no order to set."
+msgstr "Todas las fuentes activas se consultan a la vez, así que no hay orden que fijar."
+
 #: src/components/clio/settings-schedule-time.ts
 msgid "Every Sunday"
 msgstr "Todos los domingos"
@@ -14051,10 +13965,6 @@ msgstr "Fuentes de evidencia"
 #: src/components/clio/attention-lookup-panel.tsx
 msgid "Evidence: {field}"
 msgstr "Evidencia: {field}"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Exact SearXNG engine name"
-msgstr "Nombre exacto del motor de SearXNG"
 
 #: src/lib/session-export/archive-evidence.tsx
 msgid "Exact tool records"
@@ -15413,6 +15323,14 @@ msgstr "gratis"
 msgid "Free"
 msgstr "Gratis"
 
+#: src/lib/search-source-status.ts
+msgid "Free allowance used by {agent}: {used} of {limit} this hour"
+msgstr "Cuota gratuita usada por {agent}: {used} de {limit} en esta hora"
+
+#: src/lib/search-source-status.ts
+msgid "Free allowance used by {agent}: {used} of {limit} today"
+msgstr "Cuota gratuita usada por {agent}: {used} de {limit} hoy"
+
 #: src/components/clio/context-usage.tsx
 msgid "Free space"
 msgstr "Espacio libre"
@@ -15420,6 +15338,18 @@ msgstr "Espacio libre"
 #: src/components/clio/model-acquisition.tsx
 msgid "Free space in {path}"
 msgstr "Espacio libre en {path}"
+
+#: src/components/clio/search-source-row.tsx
+msgid "Free use: {freeUse}"
+msgstr "Uso gratuito: {freeUse}"
+
+#: src/lib/search-source-status.ts
+msgid "Free, no key"
+msgstr "Gratis, sin clave"
+
+#: src/lib/search-source-status.ts
+msgid "Free, with your contact email"
+msgstr "Gratis, con tu correo de contacto"
 
 #: src/components/clio/settings-models-form.ts
 msgid "Frequency penalty"
@@ -15653,18 +15583,6 @@ msgstr "gateway o alice@gateway.example.edu:2222"
 msgid "General"
 msgstr "General"
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "General web search using an independent index."
-msgstr "Búsqueda web general con un índice independiente."
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "General web search using Brave’s index."
-msgstr "Búsqueda web general con el índice de Brave."
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "General web search."
-msgstr "Búsqueda web general."
-
 #: src/components/clio/tool-presentation.ts
 msgid "Generate widget"
 msgstr "Generar widget"
@@ -15692,6 +15610,14 @@ msgstr "Datos GeoJSON"
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "geometry only"
 msgstr "solo geometría"
+
+#: src/components/clio/openalex-key-request.tsx
+msgid "Get a free OpenAlex key"
+msgstr "Obtener una clave gratuita de OpenAlex"
+
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "Get a key"
+msgstr "Obtener una clave"
 
 #: src/components/clio/tool-presentation.ts
 msgid "Get execution environment"
@@ -16594,6 +16520,18 @@ msgstr "Importado: revísalo antes de que se aplique"
 msgid "Importing…"
 msgstr "Importando…"
 
+#: src/lib/search-source-status.ts
+msgid "In {agent}'s queue: {running} running"
+msgstr "En la cola de {agent}: {running} en curso"
+
+#: src/lib/search-source-status.ts
+msgid "In {agent}'s queue: {running} running, {waiting} waiting"
+msgstr "En la cola de {agent}: {running} en curso, {waiting} en espera"
+
+#: src/lib/search-source-status.ts
+msgid "In {agent}'s queue: {waiting} waiting"
+msgstr "En la cola de {agent}: {waiting} en espera"
+
 #: src/components/clio/tool-operation.ts
 msgid "in {delay}"
 msgstr "en {delay}"
@@ -17189,10 +17127,6 @@ msgstr "Instalar {agentName} en un equipo"
 msgid "Install {label}"
 msgstr "Instalar {label}"
 
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Install {name}"
-msgstr "Instalar {name}"
-
 #: src/tauri/native-copy.ts
 msgid "Install {name} on a Computer…"
 msgstr "Instalar {name} en un equipo…"
@@ -17265,10 +17199,6 @@ msgstr "{name} instalado"
 #: src/components/clio/settings-agents.tsx
 msgid "Installed agents"
 msgstr "Agentes instalados"
-
-#: src/components/clio/managed-service-inventory-row.tsx
-msgid "Installed as"
-msgstr "Instalado como"
 
 #: src/components/clio/installed-plugin-list.tsx
 msgid "Installed plugins"
@@ -17752,6 +17682,11 @@ msgstr "Tema de Kafka"
 msgid "Keep"
 msgstr "Conservar"
 
+#: src/components/clio/search-source-row.tsx
+msgctxt "verb: keep the saved key"
+msgid "Keep"
+msgstr "Conservar"
+
 #: src/components/clio/tool-operation-contract.ts
 msgctxt "verb: tool action"
 msgid "Keep"
@@ -17861,6 +17796,10 @@ msgstr "Conserva la región de la imagen y la fuente registrada. El mapa de calo
 msgid "Kept in"
 msgstr "Guardado en"
 
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "Key"
+msgstr "Clave"
+
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Key file on {hostLabel}"
 msgstr "Archivo de clave en {hostLabel}"
@@ -17876,6 +17815,14 @@ msgstr "Frase de contraseña de la clave"
 #: src/components/clio/sftp-authentication-fields.tsx
 msgid "Key passphrase (optional)"
 msgstr "Frase de contraseña de la clave (opcional)"
+
+#: src/lib/search-source-status.ts
+msgid "Key rejected"
+msgstr "Clave rechazada"
+
+#: src/lib/search-source-status.ts
+msgid "Key required"
+msgstr "Requiere clave"
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "key sha256/{fingerprint}"
@@ -18125,6 +18072,10 @@ msgstr "Limitado"
 msgid "Limited history"
 msgstr "Historial limitado"
 
+#: src/lib/search-source-status.ts
+msgid "Limited until {time}"
+msgstr "Limitada hasta las {time}"
+
 #: src/components/clio/session-usage-readout.tsx
 #: src/components/clio/settings-usage.tsx
 msgid "Limits"
@@ -18269,6 +18220,11 @@ msgstr "Listar recursos del espacio de trabajo"
 #: src/components/clio/knowledge-vault-files.tsx
 msgid "Listing notes"
 msgstr "Listando notas"
+
+#: src/components/clio/settings-web-search.tsx
+msgctxt "search settings tab"
+msgid "Literature"
+msgstr "Literatura"
 
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "live"
@@ -18881,6 +18837,10 @@ msgstr "Cargando programaciones…"
 msgid "Loading science log"
 msgstr "Cargando registro científico"
 
+#: src/components/clio/settings-web-search.tsx
+msgid "Loading search sources…"
+msgstr "Cargando fuentes de búsqueda…"
+
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Loading service…"
 msgstr "Cargando servicio…"
@@ -19058,7 +19018,6 @@ msgstr "Cargando…"
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/infrastructure-hosts.tsx
 #: src/components/clio/infrastructure-inventory.tsx
-#: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/infrastructure-topology.tsx
 #: src/components/clio/managed-service-host-selector.tsx
 #: src/components/clio/managed-services.tsx
@@ -19208,6 +19167,10 @@ msgstr "Respuesta más larga"
 msgid "Look inside a file"
 msgstr "Ver el interior de un archivo"
 
+#: src/components/clio/tool-operation-contract.ts
+msgid "Look up"
+msgstr "Consultar"
+
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Look-alike address warning"
 msgstr "Advertencia de dirección similar"
@@ -19354,10 +19317,6 @@ msgstr "Gestionar servicios en {agent} {agentLabel} conectado"
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Manage SSH hosts"
 msgstr "Administrar hosts SSH"
-
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Manage web research"
-msgstr "Gestionar investigación web"
 
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Managed"
@@ -20343,6 +20302,14 @@ msgstr "Mover"
 msgid "Move {name} to Applications?"
 msgstr "¿Mover {name} a Aplicaciones?"
 
+#: src/components/clio/search-source-row.tsx
+msgid "Move {source} down"
+msgstr "Bajar {source}"
+
+#: src/components/clio/search-source-row.tsx
+msgid "Move {source} up"
+msgstr "Subir {source}"
+
 #: src/lib/shortcuts/catalog.ts
 msgid "Move between nodes"
 msgstr "Moverse entre nodos"
@@ -20478,10 +20445,6 @@ msgstr "National Data Platform"
 msgid "Native"
 msgstr "Nativo"
 
-#: src/lib/installer-native-search.ts
-msgid "Native web search is available to your agents. No Docker service is required."
-msgstr "La búsqueda web nativa está disponible para tus agentes. No se requiere ningún servicio de Docker."
-
 #: src/components/clio/map-initial-view.ts
 msgid "Natural Earth coarse land outline"
 msgstr "Contorno terrestre aproximado de Natural Earth"
@@ -20571,8 +20534,6 @@ msgstr "Requiere aprobación en un espacio de trabajo"
 msgid "Needs approval, set by you"
 msgstr "Requiere aprobación, establecido por ti"
 
-#: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/infrastructure-services-section.tsx
 #: src/components/clio/model-picker-model.ts
 #: src/components/clio/settings-app-updates.tsx
 #: src/components/clio/settings-operations.tsx
@@ -20659,6 +20620,10 @@ msgstr "Te necesita"
 #: src/components/clio/workbench-activity-model.ts
 msgid "needs your answer"
 msgstr "necesita tu respuesta"
+
+#: src/lib/search-source-status.ts
+msgid "Needs your key"
+msgstr "Necesita tu clave"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Needs your response"
@@ -21612,6 +21577,10 @@ msgstr "Ningún paquete aporta subagentes."
 msgid "No package brings tools."
 msgstr "Ningún paquete aporta herramientas."
 
+#: src/components/clio/settings-web-search.tsx
+msgid "No paper or dataset sources are available on this service."
+msgstr "Este servicio no ofrece fuentes de artículos ni de datos."
+
 #: src/components/clio/latex-workspace.tsx
 msgid "No PDF: the build stopped before making one"
 msgstr "Sin PDF: la compilación se detuvo antes de generarlo"
@@ -21705,10 +21674,6 @@ msgstr "No hay ninguna versión con la que comparar."
 #: src/components/clio/relay-settings.tsx
 msgid "No remote MCP servers yet."
 msgstr "Aún no hay servidores MCP remotos."
-
-#: src/components/clio/infrastructure-overview.tsx
-msgid "No research service connected"
-msgstr "No hay ningún servicio de investigación conectado"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "No resources in this dataset"
@@ -21970,6 +21935,10 @@ msgstr "Aún no hay visor para este formato"
 msgid "No visible endpoints. Connect an API or show hidden connections."
 msgstr "No hay direcciones visibles. Conecta una API o muestra las conexiones ocultas."
 
+#: src/components/clio/settings-web-search.tsx
+msgid "No web sources are available on this service."
+msgstr "Este servicio no ofrece fuentes web."
+
 #: src/lib/fleet-usage.ts
 msgid "No windows"
 msgstr "Sin ventanas"
@@ -22080,6 +22049,10 @@ msgstr "Todavía no permitidas"
 msgid "Not answered: {status}"
 msgstr "Sin responder: {status}"
 
+#: src/lib/search-source-status.ts
+msgid "Not approved yet"
+msgstr "Aún no aprobada"
+
 #: src/components/clio/file-viewer-take-hooks.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/hooks/use-connection-availability.ts
@@ -22160,14 +22133,11 @@ msgstr "no confirmado"
 msgid "Not confirmed"
 msgstr "No confirmado"
 
-#: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/infrastructure-services-section.tsx
 #: src/components/clio/session-usage-readout.tsx
 msgid "Not connected"
 msgstr "No conectado"
 
 #: src/components/clio/managed-service-inventory-row.tsx
-#: src/components/clio/web-search-service-connection.tsx
 msgid "Not connected to {agent}"
 msgstr "No conectado a {agent}"
 
@@ -22277,14 +22247,9 @@ msgstr "No proporcionado"
 
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/settings-connection-runtime.ts
-#: src/components/clio/web-search-setup.tsx
 #: src/hooks/use-connection-availability.ts
 msgid "Not reachable"
 msgstr "No accesible"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Not reachable, checked {checked}"
-msgstr "No accesible, comprobado {checked}"
 
 #: src/components/clio/science-log-sources.tsx
 msgid "not recorded"
@@ -22730,6 +22695,11 @@ msgstr "Bóveda de Obsidian Sync"
 #: src/lib/reasoning-levels.ts
 msgid "Off"
 msgstr "Desactivado"
+
+#: src/lib/search-source-status.ts
+msgctxt "search source state"
+msgid "Off"
+msgstr "Desactivada"
 
 #: src/components/clio/managed-service-access.tsx
 msgid "Off: {agent} protects it with a key it makes and sends for you."
@@ -23279,15 +23249,6 @@ msgstr "Abrir archivo fuente incluido: {name}"
 msgid "Open Inference"
 msgstr "Abrir Inferencia"
 
-#: src/lib/installer-infrastructure.ts
-msgid "Open Infrastructure to inspect the service."
-msgstr "Abre Infraestructura para revisar el servicio."
-
-#: src/lib/installer-infrastructure.ts
-#: src/lib/installer-native-search.ts
-msgid "Open Infrastructure to inspect this computer."
-msgstr "Abre Infraestructura para revisar este equipo."
-
 #: src/components/clio/pending-a2ui-response.tsx
 msgid "Open interactive surface full screen"
 msgstr "Abrir la superficie interactiva a pantalla completa"
@@ -23517,6 +23478,10 @@ msgstr "Abrir el esquema de la transcripción"
 msgid "Open transcript outline with attention"
 msgstr "Abrir el esquema de la transcripción con atención"
 
+#: src/components/clio/infrastructure-overview.tsx
+msgid "Open web search settings"
+msgstr "Abrir la configuración de búsqueda web"
+
 #: src/components/clio/goal-notice.tsx
 msgid "Open Work"
 msgstr "Abrir Trabajo"
@@ -23663,10 +23628,6 @@ msgstr "opcional"
 #: src/gallery-skill-dialog.tsx
 msgid "Optional"
 msgstr "Opcional"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Optional, e.g. infrastructure:nsf-search"
-msgstr "Opcional, p. ej. infrastructure:nsf-search"
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Optional. Leave unchanged to use {placeholder}."
@@ -23990,6 +23951,10 @@ msgstr "página {pageNumber}, x {xRange}, y {yRange}"
 msgid "Pages you or the agent open appear here."
 msgstr "Aquí aparecen las páginas que abres tú o el agente."
 
+#: src/components/clio/search-source-row.tsx
+msgid "Paid plan: {agent} sets no free allowance and runs more requests at once"
+msgstr "Plan de pago: {agent} no aplica cuota gratuita y envía más solicitudes a la vez"
+
 #: src/components/clio/document-view-controls.tsx
 #: src/components/clio/latex-frame-controls.tsx
 msgid "Paper"
@@ -24006,6 +23971,14 @@ msgstr "Vistas del artículo"
 #: src/components/clio/settings-appearance.tsx
 msgid "Paper, ink and verdigris."
 msgstr "Papel, tinta y verdín."
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Papers & datasets"
+msgstr "Artículos y datos"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Papers & datasets sources"
+msgstr "Fuentes de artículos y datos"
 
 #: src/lib/model-capability-tags.ts
 msgid "Parallel tools"
@@ -24111,6 +24084,10 @@ msgstr "Pega la URL de redirección o el código."
 msgid "Paste token"
 msgstr "Pegar token"
 
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "Paste your {name} key"
+msgstr "Pega tu clave de {name}"
+
 #: src/components/clio/provider-setup-action.tsx
 msgid "Paste your {provider} key"
 msgstr "Pega tu clave de {provider}"
@@ -24199,6 +24176,10 @@ msgstr "en pausa"
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Paused"
 msgstr "En pausa"
+
+#: src/lib/search-source-status.ts
+msgid "Paused after errors until {time}"
+msgstr "En pausa por errores hasta las {time}"
 
 #: src/components/clio/run-presentation.ts
 msgctxt "run state"
@@ -25764,14 +25745,9 @@ msgstr "Transcripción sin procesar"
 msgid "Raw values"
 msgstr "Valores sin procesar"
 
-#: src/components/clio/web-search-setup.tsx
 #: src/lib/provider-availability.ts
 msgid "Reachable"
 msgstr "Accesible"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Reachable, checked {checked}"
-msgstr "Accesible, comprobado {checked}"
 
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Reached {host} via {route}."
@@ -26117,6 +26093,11 @@ msgstr "Lee hasta {tokens} tokens a la vez. El propio modelo lee hasta {native}.
 msgid "Ready"
 msgstr "Listo"
 
+#: src/lib/search-source-status.ts
+msgctxt "search source state"
+msgid "Ready"
+msgstr "Lista"
+
 #: src/routes/infrastructure-foundation-groups.tsx
 msgid "Ready and working"
 msgstr "Listo y funcionando"
@@ -26288,10 +26269,6 @@ msgstr "Registros recientes en {hostLabel}"
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Recent session excerpts"
 msgstr "Extractos recientes de la sesión"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Recheck"
-msgstr "Volver a comprobar"
 
 #: src/components/clio/plan-decision-controls.tsx
 msgid "Recommended"
@@ -26915,6 +26892,11 @@ msgstr "Herramientas remotas"
 msgid "Remove"
 msgstr "Quitar"
 
+#: src/components/clio/search-source-row.tsx
+msgctxt "verb: remove the saved key"
+msgid "Remove"
+msgstr "Quitar"
+
 #. placeholder {0}: row?.title ?? value
 #: src/components/clio/capability-picker.tsx
 msgid "Remove {0}"
@@ -27061,6 +27043,7 @@ msgid "Remove jump host {number}"
 msgstr "Quitar host de salto {number}"
 
 #: src/components/clio/model-picker-provider-panel.tsx
+#: src/components/clio/search-source-row.tsx
 msgid "Remove key"
 msgstr "Quitar clave"
 
@@ -27124,6 +27107,10 @@ msgstr "Quitar fuente"
 msgid "Remove the copy and its local edits? Originals are kept."
 msgstr "¿Quitar la copia y sus ediciones locales? Los originales se conservan."
 
+#: src/components/clio/search-source-row.tsx
+msgid "Remove the key?"
+msgstr "¿Quitar la clave?"
+
 #: src/components/clio/connected-source-detail.tsx
 msgid "Remove the workspace copy? Originals are kept."
 msgstr "¿Quitar la copia del espacio de trabajo? Los originales se conservan."
@@ -27147,6 +27134,10 @@ msgstr "Quitar widget"
 #: src/components/clio/workspace-actions-menu.tsx
 msgid "Remove workspace…"
 msgstr "Quitar espacio de trabajo…"
+
+#: src/components/clio/search-source-row.tsx
+msgid "Remove your {source} key"
+msgstr "Quitar tu clave de {source}"
 
 #: src/components/clio/diff-lines.tsx
 #: src/components/clio/infrastructure-activity.tsx
@@ -27310,10 +27301,6 @@ msgstr "Representando..."
 #: src/widget-gallery-demos.ts
 msgid "Reno"
 msgstr "Reno"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Reorder {name}"
-msgstr "Reordenar {name}"
 
 #: src/components/clio/ssh-jump-host-list.tsx
 msgid "Reorder destination"
@@ -27518,6 +27505,10 @@ msgstr "Encabezados de solicitud"
 msgid "Request JSON"
 msgstr "JSON de la solicitud"
 
+#: src/components/clio/openalex-key-request.tsx
+msgid "Request key"
+msgstr "Solicitar clave"
+
 #: src/components/clio/settings-models-rows.tsx
 #: src/lib/settings-search-rows.ts
 msgid "Request timeout"
@@ -27535,6 +27526,10 @@ msgstr "Solicitado por la sesión {session}"
 #: src/routes/runs-page.tsx
 msgid "Requesting cancellation…"
 msgstr "Solicitando la cancelación…"
+
+#: src/components/clio/openalex-key-request.tsx
+msgid "Requesting…"
+msgstr "Solicitando…"
 
 #: src/components/clio/settings-permissions-requests.tsx
 msgid "Requests"
@@ -27587,14 +27582,6 @@ msgstr "Reordenador"
 #: src/lib/model-filter-tokens.ts
 msgid "Rerankers can't hold a conversation."
 msgstr "Los reordenadores no pueden mantener una conversación."
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Research papers and citations."
-msgstr "Artículos de investigación y citas."
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Research preprints."
-msgstr "Preprints de investigación."
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/settings-prompts.tsx
@@ -28097,6 +28084,7 @@ msgstr "Recuperación"
 #: src/components/clio/settings-tools-group-row.tsx
 #: src/components/clio/settings-tools.tsx
 #: src/components/clio/settings-usage.tsx
+#: src/components/clio/settings-web-search.tsx
 #: src/components/clio/surface-question-notice.tsx
 #: src/components/clio/transcript-inline-states.tsx
 #: src/components/clio/workbench-file-tree.tsx
@@ -28128,7 +28116,6 @@ msgid "Retry attachment"
 msgstr "Reintentar adjunto"
 
 #: src/components/clio/managed-service-host-selector.tsx
-#: src/components/clio/web-search-setup.tsx
 msgid "Retry connection"
 msgstr "Reintentar conexión"
 
@@ -28862,6 +28849,11 @@ msgstr "Sábado"
 msgid "Save"
 msgstr "Guardar"
 
+#: src/components/clio/search-text-setting.tsx
+msgctxt "verb: save a setting"
+msgid "Save"
+msgstr "Guardar"
+
 #: src/components/clio/tool-operation-contract.ts
 msgctxt "verb: tool action"
 msgid "Save"
@@ -28886,10 +28878,6 @@ msgstr "Primero guarda un agente, una habilidad o un complemento."
 #: src/components/clio/provider-endpoint-editor.tsx
 msgid "Save and check"
 msgstr "Guardar y comprobar"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Save and reconnect"
-msgstr "Guardar y reconectar"
 
 #: src/components/clio/settings-connection-dialogs.tsx
 msgid "Save another agent to switch to. Nothing changes until you switch."
@@ -28930,6 +28918,10 @@ msgstr "Guardar para"
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Save host"
 msgstr "Guardar host"
+
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "Save key"
+msgstr "Guardar clave"
 
 #: src/components/clio/plugin-source-editor.tsx
 msgid "Save local copy"
@@ -28979,10 +28971,6 @@ msgstr "Guardar sustitución del servicio"
 #: src/lib/shortcuts/catalog.ts
 msgid "Save the draft for later"
 msgstr "Guardar el borrador para más tarde"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Save this endpoint before checking it."
-msgstr "Guarda esta dirección antes de comprobarla."
 
 #: src/components/clio/settings-prompt-editor.tsx
 msgid "Save this new prompt before rendering it against live context"
@@ -29160,10 +29148,6 @@ msgstr "Guardado en el catálogo de complementos local privado"
 msgid "Saved without a model call"
 msgstr "Guardado sin llamar a un modelo"
 
-#: src/components/clio/web-search-setup.tsx
-msgid "Saved, but the service isn’t answering. Start it or fix the address."
-msgstr "Guardado, pero el servicio no responde. Inícialo o corrige la dirección."
-
 #: src/lib/provider-availability.ts
 msgid "Saved, not verified"
 msgstr "Guardada, sin verificar"
@@ -29221,6 +29205,8 @@ msgstr "Guardando tu clave…"
 #: src/components/clio/primitives/save-bar.tsx
 #: src/components/clio/resource-dialogs.tsx
 #: src/components/clio/save-user-agent-dialog.tsx
+#: src/components/clio/search-source-key-dialog.tsx
+#: src/components/clio/search-text-setting.tsx
 #: src/components/clio/session-plan-section.tsx
 #: src/components/clio/settings-models.tsx
 #: src/components/clio/settings-prompt-editor.tsx
@@ -29311,10 +29297,6 @@ msgstr "Programaciones"
 msgid "Schedules could not be loaded."
 msgstr "No se pudieron cargar las programaciones."
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Scholarly publications and DOI metadata."
-msgstr "Publicaciones académicas y metadatos DOI."
-
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/components/clio/science-log-tab-state.ts
 #: src/components/clio/science-log-tab.tsx
@@ -29344,6 +29326,10 @@ msgstr "Científico"
 #: src/components/clio/settings-health-views.tsx
 msgid "Scientific remote connection"
 msgstr "Conexión remota científica"
+
+#: src/components/clio/managed-service-groups.ts
+msgid "Scientific services"
+msgstr "Servicios científicos"
 
 #: src/lib/model-capability-tags.ts
 msgid "Scientific surrogate"
@@ -29498,10 +29484,6 @@ msgstr "Buscar en todos los tipos"
 msgid "Search and commands"
 msgstr "Búsqueda y comandos"
 
-#: src/components/clio/infrastructure-services-section.tsx
-msgid "Search and read sources through CLIO Web Search."
-msgstr "Busca y lee fuentes mediante CLIO Web Search."
-
 #: src/components/clio/ndp-action-picker.tsx
 msgid "Search API actions…"
 msgstr "Buscar acciones de la API…"
@@ -29542,14 +29524,6 @@ msgstr "Buscar conjuntos de datos"
 #: src/components/clio/ndp-action-picker.tsx
 msgid "Search endpoint actions"
 msgstr "Buscar acciones de la dirección"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Search engines"
-msgstr "Motores de búsqueda"
-
-#: src/components/clio/search-engine-picker.tsx
-msgid "Search engines <0>{enabledCount} enabled</0>"
-msgstr "Motores de búsqueda <0>{enabledCount} activados</0>"
 
 #: src/components/clio/model-picker-no-match.tsx
 msgid "Search every model type"
@@ -29596,6 +29570,10 @@ msgstr "Buscar en los archivos incluidos"
 #: src/components/clio/search-assistant.tsx
 msgid "Search is unavailable on this connection. Update its agent to enable it."
 msgstr "La búsqueda no está disponible en esta conexión. Actualiza su agente para activarla."
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Search literature"
+msgstr "Buscar en la literatura"
 
 #: src/components/clio/memory-documents.tsx
 #: src/components/clio/settings-memory.tsx
@@ -29668,6 +29646,10 @@ msgstr "Buscar ejecuciones"
 msgid "Search sections…"
 msgstr "Buscar secciones…"
 
+#: src/components/clio/settings-web-search.tsx
+msgid "Search service address"
+msgstr "Dirección del servicio de búsqueda"
+
 #: src/components/clio/managed-service-inventory.tsx
 #: src/components/clio/ndp-endpoint-data.ts
 msgid "Search services"
@@ -29692,6 +29674,10 @@ msgstr "Buscar archivos de la fuente"
 #: src/components/clio/workbench-sources-list.tsx
 msgid "Search sources"
 msgstr "Buscar fuentes"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Search sources couldn’t be loaded."
+msgstr "No se pudieron cargar las fuentes de búsqueda."
 
 #: src/components/clio/ndp-endpoint-data.ts
 msgid "Search stations"
@@ -29790,6 +29776,10 @@ msgstr "Buscar…"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "searched"
 msgstr "buscó"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Searches are sent to the services below. Each one asks for your approval the first time."
+msgstr "Las búsquedas se envían a los servicios de abajo. Cada uno pide tu aprobación la primera vez."
 
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/search-results-tab.tsx
@@ -30323,10 +30313,6 @@ msgstr "Servicio"
 #: src/components/clio/known-service-actions.tsx
 msgid "Service actions for {name}"
 msgstr "Acciones del servicio {name}"
-
-#: src/components/clio/web-search-setup.tsx
-msgid "Service address"
-msgstr "Dirección del servicio"
 
 #: src/components/clio/settings-context-history.tsx
 msgid "Service compaction"
@@ -31649,10 +31635,6 @@ msgstr "Parte del contenido no está disponible."
 msgid "Some dependencies or workspace folders were unavailable or excluded. See <0>Evidence and coverage</0>."
 msgstr "Algunas dependencias o carpetas del espacio de trabajo no estaban disponibles o se excluyeron. Consulta <0>Evidencia y cobertura</0>."
 
-#: src/components/clio/search-engine-picker.tsx
-msgid "Some engines need a key. Engines such as baidu, sogou and 360search require explicit opt-in."
-msgstr "Algunos motores necesitan una clave. Motores como baidu, sogou y 360search requieren una activación explícita."
-
 #: src/components/clio/observability-provenance.tsx
 msgid "Some events or relationships may be missing. Review the available records before relying on the full sequence or timings."
 msgstr "Puede que falten algunos eventos o relaciones. Revisa los registros disponibles antes de fiarte de la secuencia o los tiempos completos."
@@ -31719,6 +31701,7 @@ msgstr "Sonido incluso mientras estás aquí."
 msgid "Sound only while this app is not focused."
 msgstr "Sonido solo cuando esta aplicación no tiene el foco."
 
+#: src/components/clio/search-source-key-dialog.tsx
 #: src/components/clio/workbench-activity-model.ts
 #: src/lib/composer-reference-domain.ts
 msgid "source"
@@ -31823,10 +31806,6 @@ msgstr "Fuente de {file}"
 #: src/components/clio/file-source-view.tsx
 msgid "Source of {name}"
 msgstr "Código fuente de {name}"
-
-#: src/components/clio/infrastructure-overview.tsx
-msgid "Source reading and research tools are connected."
-msgstr "Las herramientas de lectura de fuentes e investigación están conectadas."
 
 #: src/components/clio/connected-source-auth.tsx
 msgid "Source sign in"
@@ -32047,7 +32026,6 @@ msgstr "Inicia {label} y carga un modelo; luego vuelve a comprobarlo."
 msgid "Start {label}, then choose Use"
 msgstr "Inicia {label} y luego elige Usar"
 
-#: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Start {name}"
 msgstr "Iniciar {name}"
@@ -32997,6 +32975,10 @@ msgstr "Cambiar"
 msgid "Switch agent"
 msgstr "Cambiar de agente"
 
+#: src/components/clio/settings-web-search.tsx
+msgid "Switch sources automatically"
+msgstr "Cambiar de fuente automáticamente"
+
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/desktop-title-bar.tsx
 #: src/components/clio/settings-connection.tsx
@@ -33670,6 +33652,10 @@ msgstr "el modelo del llamador"
 msgid "The certificate could not be trusted."
 msgstr "No se pudo confiar en el certificado."
 
+#: src/components/clio/settings-web-search.tsx
+msgid "The change could not be saved."
+msgstr "No se pudo guardar el cambio."
+
 #: src/components/clio/diff-canvas-view.tsx
 msgid "The change was not undone"
 msgstr "El cambio no se deshizo"
@@ -33828,10 +33814,6 @@ msgstr "La asignación delegada, el agente que la ejecutó y sus tiempos."
 msgid "The deployment failed."
 msgstr "El despliegue falló."
 
-#: src/routes/infrastructure-page.tsx
-msgid "The deployment is still running and can be connected again at any time."
-msgstr "El despliegue sigue en ejecución y se puede volver a conectar en cualquier momento."
-
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "The deployment was cancelled."
 msgstr "El despliegue se canceló."
@@ -33879,10 +33861,6 @@ msgstr "No se pudo leer el final"
 #: src/components/clio/workspace-text-view.tsx
 msgid "The end of {name} couldn't be read."
 msgstr "No se pudo leer el final de {name}."
-
-#: src/components/clio/web-search-setup.tsx
-msgid "The endpoint did not report its tools."
-msgstr "La dirección no informó de sus herramientas."
 
 #: src/components/clio/observability-provenance.tsx
 msgid "The evidence shown here may be limited to records available from other parts of the conversation. Technical details contain the source diagnostic."
@@ -34101,6 +34079,10 @@ msgstr "La justificación del juez"
 msgid "The key file could not be read. Choose it again."
 msgstr "No se pudo leer el archivo de clave. Vuelve a elegirlo."
 
+#: src/components/clio/search-source-key-dialog.tsx
+msgid "The key is saved securely and never shown again."
+msgstr "La clave se guarda de forma segura y no se vuelve a mostrar."
+
 #: src/components/clio/settings-language.tsx
 msgid "The language of menus, settings and messages from this app. Conversations stay in the language you and the agent write in. Changing it reloads the window."
 msgstr "El idioma de los menús, los ajustes y los mensajes de esta aplicación. Las conversaciones se mantienen en el idioma en que escriben tú y el agente. Al cambiarlo se recarga la ventana."
@@ -34136,10 +34118,6 @@ msgstr "La vista vinculada no está disponible."
 #: src/components/clio/browser-live-socket.ts
 msgid "The live view ended."
 msgstr "La vista en directo terminó."
-
-#: src/components/clio/managed-service-inventory-row.tsx
-msgid "The local {agent} uses its built-in SearXNG automatically. A remote SearXNG installation is not automatically selected for this agent."
-msgstr "El {agent} local usa automáticamente su SearXNG integrado. Una instalación remota de SearXNG no se selecciona automáticamente para este agente."
 
 #: src/tauri/desktop-updater.ts
 msgid "The local installation needs repair"
@@ -34755,15 +34733,6 @@ msgstr "El servicio encontró un error al iniciarlo."
 #: src/components/clio/composer-failure.ts
 msgid "The service hit an error."
 msgstr "El servicio encontró un error."
-
-#: src/components/clio/web-search-service-connection.tsx
-msgid "The service is running, but its search and document tools are not available to sessions."
-msgstr "El servicio está en ejecución, pero sus herramientas de búsqueda y de documentos no están disponibles para las sesiones."
-
-#: src/components/clio/web-search-service-connection.tsx
-#: src/routes/infrastructure-page.tsx
-msgid "The service is saved, but its tools did not respond."
-msgstr "El servicio está guardado, pero sus herramientas no respondieron."
 
 #: src/components/clio/settings-context-history.tsx
 msgid "The service recommends compacting this session."
@@ -35894,6 +35863,11 @@ msgstr "Este servicio no ofrece familias de instrucciones."
 msgid "This service doesn’t offer reminders."
 msgstr "Este servicio no ofrece recordatorios."
 
+#: src/components/clio/settings-web-search.tsx
+#: src/hooks/use-unavailable-settings-sections.ts
+msgid "This service doesn’t offer web search settings."
+msgstr "Este servicio no ofrece configuración de búsqueda web."
+
 #: src/components/clio/path-picker.tsx
 msgid "This service has not exposed any folders yet. Enter a path manually, or use {product} for native folder browsing."
 msgstr "Este servicio aún no ha expuesto ninguna carpeta. Introduce una ruta manualmente o usa {product} para explorar carpetas de forma nativa."
@@ -36204,6 +36178,10 @@ msgstr "Año final de {label}"
 #: src/components/reui/date-selector.tsx
 msgid "Today"
 msgstr "Hoy"
+
+#: src/lib/search-source-status.ts
+msgid "Today on this computer: {searches}, {failed} failed"
+msgstr "Hoy en este equipo: {searches}, {failed} fallidas"
 
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Todo list reminder"
@@ -36607,6 +36585,10 @@ msgstr "Transporte"
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Transport: {0}"
 msgstr "Transporte: {0}"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Tried from the top. Drag a source, or use Move up and Move down, to change the order."
+msgstr "Se prueban de arriba abajo. Arrastra una fuente, o usa Subir y Bajar, para cambiar el orden."
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "tried to edit files"
@@ -37013,6 +36995,7 @@ msgstr "Entiende archivos PDF."
 
 #: src/components/clio/diff-canvas-view.tsx
 #: src/components/clio/settings-folders.tsx
+#: src/components/clio/settings-web-search.tsx
 msgid "Undo"
 msgstr "Deshacer"
 
@@ -37715,6 +37698,10 @@ msgstr "Usar"
 msgid "Use {label}"
 msgstr "Usar {label}"
 
+#: src/components/clio/search-source-row.tsx
+msgid "Use {source}"
+msgstr "Usar {source}"
+
 #: src/components/clio/settings-appearance.tsx
 msgid "Use a focused reading column or give tables and diagrams more room."
 msgstr "Usa una columna de lectura centrada o da más espacio a las tablas y diagramas."
@@ -37780,6 +37767,10 @@ msgstr "Usar el modelo de los ajustes de Modelos"
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Use my NDP sign-in"
 msgstr "Usar mi inicio de sesión de NDP"
+
+#: src/components/clio/search-contact-email.tsx
+msgid "Use my profile email ({profileEmail})"
+msgstr "Usar el correo de mi perfil ({profileEmail})"
 
 #: src/components/clio/ssh-route-utils.ts
 msgid "Use one OpenSSH destination, without spaces, commas, quotes or #."
@@ -38610,36 +38601,39 @@ msgstr "Tiempo en {location}"
 msgid "Weather unavailable: {error}"
 msgstr "Tiempo no disponible: {error}"
 
+#: src/components/clio/settings-web-search.tsx
+msgctxt "search settings tab"
+msgid "Web"
+msgstr "Web"
+
 #: src/components/clio/settings-about.tsx
 #: src/routes/infrastructure-foundation.ts
 msgid "Web browser"
 msgstr "Navegador web"
 
 #: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/managed-service-groups.ts
-msgid "Web research"
-msgstr "Investigación web"
-
+#: src/components/clio/settings-web-search.tsx
+#: src/lib/application-destinations.ts
 #: src/lib/model-capability-tags.ts
 #: src/lib/model-quick-filters.ts
 msgid "Web search"
 msgstr "Búsqueda web"
 
-#: src/components/clio/web-search-setup.tsx
-msgid "Web Search did not answer"
-msgstr "Web Search no respondió"
+#: src/components/clio/settings-web-search.tsx
+msgid "Web search pages"
+msgstr "Páginas de búsqueda web"
 
-#: src/components/clio/web-search-setup.tsx
-msgid "Web Search disconnected"
-msgstr "Web Search desconectado"
+#: src/components/clio/settings-web-search.tsx
+msgid "Web searches try the sources below in order and use the first one that answers. Searches for papers and datasets ask every scholarly source that is on at once."
+msgstr "Las búsquedas web prueban las fuentes de abajo en orden y usan la primera que responde. Las búsquedas de artículos y datos consultan a la vez todas las fuentes académicas activas."
 
-#: src/lib/installer-infrastructure.ts
-msgid "Web search is available to your agents. Document conversion is an optional service feature."
-msgstr "La búsqueda web está disponible para tus agentes. La conversión de documentos es una función opcional del servicio."
+#: src/components/clio/settings-web-search.tsx
+msgid "Web sources"
+msgstr "Fuentes web"
 
-#: src/components/clio/web-search-setup.tsx
-msgid "Web Search is reachable"
-msgstr "Web Search es accesible"
+#: src/components/clio/settings-web-search.tsx
+msgid "Web sources, in the order they are tried"
+msgstr "Fuentes web, en el orden en que se prueban"
 
 #: src/components/clio/settings-about.tsx
 msgid "Website"
@@ -38781,6 +38775,10 @@ msgstr "Novedades"
 #: src/components/clio/settings-reminders.tsx
 msgid "When {trigger}"
 msgstr "Cuando {trigger}"
+
+#: src/components/clio/settings-web-search.tsx
+msgid "When a source's free allowance runs out, use the next one without asking."
+msgstr "Cuando se agote la cuota gratuita de una fuente, usar la siguiente sin preguntar."
 
 #: src/components/clio/settings-notifications.tsx
 msgid "When to show a system notice while the app is in the background. The system asks for permission the first time."
@@ -39537,6 +39535,18 @@ msgstr "Tu conversación con {agent} aparece aquí."
 msgid "Your edits after version {head_version} were not saved"
 msgstr "Tus ediciones posteriores a la versión {head_version} no se guardaron"
 
+#: src/components/clio/openalex-key-request.tsx
+msgid "Your email address. OpenAlex sends the key’s activation link there."
+msgstr "Tu dirección de correo. OpenAlex envía allí el enlace de activación de la clave."
+
+#: src/lib/search-source-status.ts
+msgid "Your key"
+msgstr "Tu clave"
+
+#: src/lib/search-source-status.ts
+msgid "Your key, paid plan"
+msgstr "Tu clave, plan de pago"
+
 #: src/components/clio/settings-tool-permissions.tsx
 msgid "Your MCP server"
 msgstr "Tu servidor MCP"
@@ -39588,6 +39598,10 @@ msgstr "Tu inicio de sesión se guarda en este {agent} y se puede usar en cualqu
 #: src/routes/mcp-oauth-return.tsx
 msgid "Your sign-in return was sent to the window that opened it. {agent} will check the connection there."
 msgstr "El retorno de tu inicio de sesión se envió a la ventana que lo abrió. {agent} comprobará la conexión allí."
+
+#: src/components/clio/settings-web-search.tsx
+msgid "Your site's search service, always tried first"
+msgstr "El servicio de búsqueda de tu sitio, siempre se prueba primero"
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Your sources"

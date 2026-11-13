@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { downloadFromFrame, selectFileView } from './file-viewer-setup';
+import { downloadFromFrame, frameSettled, selectFileView } from './file-viewer-setup';
 import { showWorkbenchList } from './workspace-setup';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
@@ -114,7 +114,13 @@ test('a narrow image pane keeps every action reachable in one bounded toolbar', 
   await expect(toolbar.getByRole('tab', { name: 'Lineage', exact: true })).toBeVisible();
   const image = canvas.getByRole('img', { name: 'vertical-displacement.png', exact: true });
   const before = await imageWidth(image);
-  await toolbar.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  // In the narrow pane the Format icons fold first, so zoom is a row in File actions (#1220).
+  await frameSettled(toolbar);
+  await expect(toolbar).toHaveAttribute('data-fold-tools');
+  await expect(toolbar.getByRole('button', { name: 'Zoom in', exact: true })).toBeHidden();
+  await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toBeVisible();
+  await toolbar.getByRole('button', { name: 'File actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: /^Zoom in/u }).click();
   await expect.poll(() => imageWidth(image)).toBeGreaterThan(before);
   const imageBefore = await image.boundingBox();
   expect(imageBefore).not.toBeNull();
@@ -160,8 +166,9 @@ test('a wide viewer exposes labelled controls while the browser headers align', 
   await page.getByRole('button', { name: 'Open vertical-displacement.png', exact: true }).click();
   const header = await page.locator('[data-slot="workspace-header"]').boundingBox();
   const canvasHeader = await page.locator('[data-slot="canvas-header"]').boundingBox();
-  expect(header!.height).toBe(40);
-  expect(canvasHeader!.height).toBe(40);
+  // The conversation header and workbench tab row share one 48px top row.
+  expect(header!.height).toBe(48);
+  expect(canvasHeader!.height).toBe(48);
   expect(header!.y).toBe(canvasHeader!.y);
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await canvas.getByRole('button', { name: 'Maximize canvas', exact: true }).click();

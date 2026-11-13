@@ -20,31 +20,6 @@
     "reason": "Fixed wire prefix of recorded plan-approval decisions; matching the selected UI brand would stop decoding recorded evidence."
   },
   {
-    "file": "web/src/components/clio/web-search-setup.tsx",
-    "match": "CLIO Web Search",
-    "reason": "Web Search is a distinct, named companion service brand, not the agent identity itself; it has no vocab field yet."
-  },
-  {
-    "file": "web/src/lib/installer-infrastructure.ts",
-    "match": "CLIO Web Search",
-    "reason": "Web Search is a distinct, named companion service brand, not the agent identity itself; it has no vocab field yet."
-  },
-  {
-    "file": "web/src/lib/installer-infrastructure.ts",
-    "match": "CLIO Search",
-    "reason": "Short toast form of the Web Search companion service brand; not the agent identity."
-  },
-  {
-    "file": "web/src/routes/infrastructure-page.tsx",
-    "match": "CLIO Web Search",
-    "reason": "Web Search is a distinct, named companion service brand, not the agent identity itself; it has no vocab field yet."
-  },
-  {
-    "file": "web/src/components/clio/infrastructure-services-section.tsx",
-    "match": "CLIO Web Search",
-    "reason": "Web Search is a distinct, named companion service brand, not the agent identity itself; it has no vocab field yet."
-  },
-  {
     "file": "web/src/components/clio/tool-operation-data.ts",
     "match": "CLIO|Subagent|Session|Tasks",
     "reason": "Generic identity labels the server records for a task or session (the agent's wire name among them); they are skipped as names, never rendered as product copy."
