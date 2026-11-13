@@ -546,6 +546,7 @@ export function ConnectedSourceContents({
                 <ItemRow
                   key={row.id}
                   className="border-b-0"
+                  wrapMeta
                   icon={<SourceProviderLogo provider={row.id} size="icon" />}
                   iconWidth={providerIconWidth}
                   title={

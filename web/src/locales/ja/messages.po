@@ -35751,7 +35751,11 @@ msgstr "このコマンドは実行できません。"
 #: src/components/clio/connected-source-picker.tsx
 #: src/components/clio/connection-names.ts
 #: src/components/clio/managed-service-target-utils.ts
+msgid "this computer"
+msgstr "このコンピューター"
+
 #: src/components/clio/navigation-agent-menu.tsx
+msgctxt "agent place"
 msgid "this computer"
 msgstr "このコンピューター"
 

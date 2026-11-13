@@ -102,12 +102,12 @@ export function SettingsRow({
             wideControl && 'flex-auto max-[1023px]:in-data-window-content:basis-full',
           )}
         >
-          <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+          {/* A long name (Greek, Japanese) wraps whole rather than ending in an ellipsis. */}
+          <div className="flex min-w-0 items-center gap-1.5">
             {htmlFor ? (
-              // Block, not the label's flex, so a long name ends in an ellipsis.
               <Label
                 htmlFor={htmlFor}
-                className="block min-w-0 truncate text-ui leading-normal font-normal"
+                className="block min-w-0 text-ui leading-snug font-normal text-pretty break-words"
                 data-slot="settings-label"
                 title={title}
               >
@@ -115,7 +115,7 @@ export function SettingsRow({
               </Label>
             ) : (
               <h2
-                className="min-w-0 truncate text-ui font-normal"
+                className="min-w-0 text-ui leading-snug font-normal text-pretty break-words"
                 data-slot="settings-label"
                 title={title}
               >
