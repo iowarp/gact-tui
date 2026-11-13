@@ -195,7 +195,8 @@ it('submits three answers together, preserves drafts across requests, and retain
   expect(onResponse).not.toHaveBeenCalled();
   await user.type(screen.getByRole('textbox', { name: 'What should I emphasize?' }), 'Uncertainty');
   await user.click(screen.getByRole('button', { name: 'Submit all answers' }));
-  expect(await screen.findByText('Try again')).toBeVisible();
+  // The card keeps the service's short reason as a sentence.
+  expect(await screen.findByText('Try again.')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Back' }));
   await user.click(screen.getByRole('button', { name: 'Back' }));
   expect(screen.getByRole('radio', { name: 'Table' })).toBeChecked();
