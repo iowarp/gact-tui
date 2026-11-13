@@ -6123,7 +6123,7 @@ msgstr "API URL"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "API version"
-msgstr "API バージョン"
+msgstr "APIバージョン"
 
 #: src/lib/global-search-commands.ts
 #: src/routes/settings-window.tsx
@@ -6177,7 +6177,7 @@ msgstr "次回のバックグラウンドスケジューラーの実行時に適
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Applies on the next scheduler pass, normally checked once a minute."
-msgstr "次回のスケジューラーの実行時に適用されます。通常は 1 分に 1 回確認されます。"
+msgstr "次回のスケジューラーの実行時に適用されます。通常は1分に1回確認されます。"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Applies to"
@@ -6959,15 +6959,15 @@ msgstr "承認待ち"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "AWS profile"
-msgstr "AWS プロファイル"
+msgstr "AWSプロファイル"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "AWS region"
-msgstr "AWS リージョン"
+msgstr "AWSリージョン"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Azure OpenAI API version."
-msgstr "Azure OpenAI の API バージョン。"
+msgstr "Azure OpenAIのAPIバージョン。"
 
 #: src/components/clio/clio-menu.tsx
 msgctxt "menu key hint"
@@ -7601,7 +7601,7 @@ msgstr "同梱の{name}"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Bundled Chromium"
-msgstr "同梱の Chromium"
+msgstr "同梱のChromium"
 
 #: src/components/clio/flow-run-view.tsx
 msgid "by {by}"
@@ -10509,7 +10509,7 @@ msgstr "コンテキストフレームを利用できません"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
-msgstr "{agent} が要約を準備するコンテキストの使用率です。セッションの設定が優先されます。"
+msgstr "{agent}が要約を準備するコンテキストの使用率です。セッションの設定が優先されます。"
 
 #: src/components/clio/context-control.tsx
 msgid "Context length"
@@ -16062,11 +16062,11 @@ msgstr "良い応答"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Google Cloud location"
-msgstr "Google Cloud のロケーション"
+msgstr "Google Cloudのロケーション"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Google Cloud project"
-msgstr "Google Cloud プロジェクト"
+msgstr "Google Cloudプロジェクト"
 
 #: src/components/clio/source-fields.tsx
 msgid "Google Drive folder link"
@@ -16528,7 +16528,7 @@ msgstr "モデルがリリースされてからの期間"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "How many levels of subagents may be created. The first child is level 1."
-msgstr "作成できるサブエージェントの階層数です。最初の子がレベル 1 です。"
+msgstr "作成できるサブエージェントの階層数です。最初の子がレベル1です。"
 
 #: src/components/clio/settings-models-form.ts
 msgid "How many replies the server works on at the same time."
@@ -17525,11 +17525,11 @@ msgstr "インストール済みのエージェント"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Installed Google Chrome"
-msgstr "インストール済みの Google Chrome"
+msgstr "インストール済みのGoogle Chrome"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Installed Microsoft Edge"
-msgstr "インストール済みの Microsoft Edge"
+msgstr "インストール済みのMicrosoft Edge"
 
 #: src/components/clio/installed-plugin-list.tsx
 msgid "Installed plugins"
@@ -20673,11 +20673,11 @@ msgstr "エージェントが別の方向を試すために作成できる自身
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Most rounds of edits in one workflow run. A workflow may ask for fewer."
-msgstr "1 回のワークフロー実行での編集ラウンドの最大数です。ワークフロー側でより少なく指定できます。"
+msgstr "1回のワークフロー実行での編集ラウンドの最大数です。ワークフロー側でより少なく指定できます。"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Most steps a workflow's editors may add to one run. A workflow may ask for fewer."
-msgstr "ワークフローの編集者が 1 回の実行に追加できるステップの最大数です。ワークフロー側でより少なく指定できます。"
+msgstr "ワークフローの編集者が1回の実行に追加できるステップの最大数です。ワークフロー側でより少なく指定できます。"
 
 #: src/components/clio/settings-appearance.tsx
 #: src/lib/settings-search-rows.ts
@@ -24085,7 +24085,7 @@ msgstr "任意"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Optional shared AWS profile name."
-msgstr "共有 AWS プロファイル名(省略可)。"
+msgstr "共有AWSプロファイル名(省略可)。"
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Optional. Leave unchanged to use {placeholder}."
@@ -28323,15 +28323,15 @@ msgstr "サブエージェントを再開始"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Restart the connected {agent} service for this change to take effect."
-msgstr "変更を反映するには、接続中の {agent} サービスを再起動してください。"
+msgstr "変更を反映するには、接続中の{agent}サービスを再起動してください。"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Restart the connected {agent} service to update existing model clients."
-msgstr "既存のモデルクライアントを更新するには、接続中の {agent} サービスを再起動してください。"
+msgstr "既存のモデルクライアントを更新するには、接続中の{agent}サービスを再起動してください。"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Restart the connected {agent} service to update existing tool clients."
-msgstr "既存のツールクライアントを更新するには、接続中の {agent} サービスを再起動してください。"
+msgstr "既存のツールクライアントを更新するには、接続中の{agent}サービスを再起動してください。"
 
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Restart the shell"
@@ -29338,7 +29338,7 @@ msgstr "確率の合計がこの値になるまでの、最も可能性の高い
 
 #: src/components/clio/settings-models-form.ts
 msgid "Sample only from this many of the most likely tokens (0 turns it off)."
-msgstr "最も可能性の高いこの数のトークンだけからサンプリングします(0 でオフ)。"
+msgstr "最も可能性の高いこの数のトークンだけからサンプリングします(0でオフ)。"
 
 #: src/components/clio/science-log-panel.tsx
 msgid "Sample size"
@@ -33250,7 +33250,7 @@ msgstr "ストリーム{name}"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Stream each denoising step of a diffusion model (such as Mercury) in place. Only the final answer is stored."
-msgstr "拡散モデル(Mercury など)のノイズ除去の各ステップをその場でストリーミング表示します。保存されるのは最終回答だけです。"
+msgstr "拡散モデル(Mercuryなど)のノイズ除去の各ステップをその場でストリーミング表示します。保存されるのは最終回答だけです。"
 
 #: src/components/clio/subagent-canvas-view.tsx
 msgctxt "transcript connection state"
@@ -34250,7 +34250,7 @@ msgstr "ブラウザーがこのリンクをブロックしました。承諾さ
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "The browser that shows the pages the agent opens. A separate browser keeps its own sign-ins; your running Chrome or Edge has yours."
-msgstr "エージェントが開くページを表示するブラウザーです。別のブラウザーは独自のサインイン情報を保持し、実行中の Chrome または Edge にはあなたのサインイン情報があります。"
+msgstr "エージェントが開くページを表示するブラウザーです。別のブラウザーは独自のサインイン情報を保持し、実行中のChromeまたはEdgeにはあなたのサインイン情報があります。"
 
 #: src/components/clio/science-log-sources.tsx
 msgid "The call's record is not available: {message}"
@@ -34830,7 +34830,7 @@ msgstr "最新の変換がキャンセルされたため、この構造はその
 
 #: src/components/clio/settings-models-form.ts
 msgid "The most tokens one reply may use."
-msgstr "1 回の応答で使えるトークンの最大数です。"
+msgstr "1回の応答で使えるトークンの最大数です。"
 
 #: src/components/clio/known-service-actions.tsx
 msgid "The name shown for this service on this device."
@@ -36122,7 +36122,7 @@ msgstr "このコンピューター"
 #: src/components/clio/navigation-agent-menu.tsx
 msgctxt "agent place"
 msgid "this computer"
-msgstr "このコンピューター"
+msgstr "ローカル"
 
 #: src/components/clio/connected-source-form.tsx
 #: src/components/clio/deploy-clio-dialog.tsx
@@ -38612,11 +38612,11 @@ msgstr "ツール呼び出しに明示的なタイムアウトがない場合に
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Used with a separate browser: the bundled Chromium, downloaded on first use, or the Chrome or Edge installed on that computer, with a profile of its own."
-msgstr "別のブラウザーで使用します。初回使用時にダウンロードされる同梱の Chromium、またはそのコンピューターにインストールされた Chrome か Edge を、専用のプロファイルで使います。"
+msgstr "別のブラウザーで使用します。初回使用時にダウンロードされる同梱のChromium、またはそのコンピューターにインストールされたChromeかEdgeを、専用のプロファイルで使います。"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Used with your running Chrome or Edge: {chrome} or {edge} for the one on that computer, after you turn on remote debugging at {page} (Chrome 144 or later), or a DevTools address such as {address}."
-msgstr "実行中の Chrome または Edge で使用します。そのコンピューター上のものなら {page} でリモートデバッグをオンにした後(Chrome 144 以降)に {chrome} または {edge}、もしくは {address} のような DevTools アドレスを指定します。"
+msgstr "実行中のChromeまたはEdgeで使用します。そのコンピューター上のものなら{page}でリモートデバッグをオンにした後(Chrome 144以降)に{chrome}または{edge}、もしくは{address}のようなDevToolsアドレスを指定します。"
 
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-family-navigation.ts
@@ -38678,11 +38678,11 @@ msgstr "ユタのクラスター"
 
 #: src/components/clio/clio-menu.tsx
 msgid "v{version} available"
-msgstr "v{version} を利用できます"
+msgstr "v{version}を利用できます"
 
 #: src/components/clio/clio-menu.tsx
 msgid "v{version} ready"
-msgstr "v{version} の準備ができました"
+msgstr "v{version}の準備ができました"
 
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "Valid until: {date}"
@@ -38722,7 +38722,7 @@ msgstr "値。平均: {MEAN_UNAVAILABLE}"
 
 #: src/components/clio/settings-models-form.ts
 msgid "Values above 1 discourage repeating recent tokens; 1 turns it off."
-msgstr "1 より大きい値にすると直近のトークンを繰り返しにくくなります。1 でオフです。"
+msgstr "1より大きい値にすると直近のトークンを繰り返しにくくなります。1でオフです。"
 
 #: src/gallery-skill-dialog.tsx
 msgid "Values: {values}"
@@ -38901,7 +38901,7 @@ msgstr "{name}のバージョン"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Vertex region."
-msgstr "Vertex のリージョン。"
+msgstr "Vertexのリージョン。"
 
 #: src/widget-gallery-demos.ts
 msgid "Vertical displacement chart"
@@ -40331,7 +40331,7 @@ msgstr "あなたのルール"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Your running Chrome or Edge"
-msgstr "実行中の Chrome または Edge"
+msgstr "実行中のChromeまたはEdge"
 
 #: src/components/clio/app-error-boundary.tsx
 msgid "Your service and saved work were not changed. Reload the workspace to reconnect and try the view again."

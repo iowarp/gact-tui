@@ -125,7 +125,10 @@ export function NavigationAgentMenu({
               />
               {line.parts ? (
                 <span
-                  className={cn('flex min-w-0', line.at ? 'gap-1' : 'gap-1.5')}
+                  className={cn(
+                    'flex min-w-0',
+                    line.at ? 'gap-1' : 'h-[1lh] flex-wrap gap-x-1.5 overflow-hidden',
+                  )}
                   data-truncation-gap="space"
                 >
                   <span className={cn('shrink-0', line.leadClassName)}>{line.parts[0]}</span>
@@ -134,7 +137,11 @@ export function NavigationAgentMenu({
                       @
                     </span>
                   ) : null}
-                  <span className="truncate">{line.parts[1]}</span>
+                  {/* After a long state ("Update ready" in Greek) the name keeps a few
+                      letters; with less room it wraps onto the clipped line and hides whole. */}
+                  <span className={cn('truncate', !line.at && 'min-w-[4ch] grow basis-[4ch]')}>
+                    {line.parts[1]}
+                  </span>
                 </span>
               ) : (
                 <span className="truncate">{line.text}</span>
