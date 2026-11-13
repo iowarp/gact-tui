@@ -238,6 +238,8 @@ describe('McpAppRestoringTab', () => {
 
     await screen.findByRole('button', { name: 'Reopen' });
     expect(repo.reopenMcpApp).not.toHaveBeenCalled(); // hidden: not replayed yet
+    // Its card already points at the tab.
+    expect(useMcpAppLiveSetStore.getState().apps.app_1?.placement).toBe('tab');
 
     sizes.mockReturnValue(800);
     for (const observer of resizeObservers) observer.fire();

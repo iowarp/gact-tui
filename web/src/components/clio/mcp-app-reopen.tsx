@@ -238,7 +238,8 @@ export function McpAppReopenableCard({
   if (closed) {
     return (
       <McpAppReopenLine
-        appInstanceId={block.app_instance_id}
+        // The newest view this card showed: its saved call holds the mode it was last in.
+        appInstanceId={reopened?.appInstanceId ?? block.app_instance_id}
         label={mcpAppLabel(block.tool_name, block.source_server, block.title)}
         onReopened={onReopened}
         repository={repository}
@@ -284,6 +285,16 @@ export function McpAppRestoringTab({
   );
   const [shown, setShown] = useState(false);
   const frame = useRef<HTMLDivElement>(null);
+  // The view's place is this tab even before it replays, so its card shows the in-tab row.
+  useEffect(() => {
+    if (held !== false) return;
+    const entry = noteMcpApp(target, repository, 'tab');
+    if (entry.placement === 'inline') {
+      useMcpAppLiveSetStore.setState((state) => ({
+        apps: { ...state.apps, [target.appInstanceId]: { ...entry, placement: 'tab' } },
+      }));
+    }
+  }, [held, repository, target]);
   useEffect(() => {
     const element = frame.current;
     if (!element || shown) return;
