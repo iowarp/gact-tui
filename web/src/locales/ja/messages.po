@@ -510,6 +510,11 @@ msgstr "{0, plural, one {#件のリソース} other {#件のリソース}}"
 msgid "{0, plural, one {# result} other {# results}}"
 msgstr "{0, plural, one {#件の結果} other {#件の結果}}"
 
+#. placeholder {0}: sections.risks
+#: src/components/clio/plan-outline.ts
+msgid "{0, plural, one {# risk} other {# risks}}"
+msgstr "{0, plural, one {#件のリスク} other {#件のリスク}}"
+
 #. placeholder {0}: preview.rows.length
 #. placeholder {0}: rows.length
 #. placeholder {0}: server ? server.totalRows : rows.length
@@ -569,8 +574,10 @@ msgstr "{0, plural, one {#件選択} other {#件選択}}"
 msgid "{0, plural, one {# step, {state}} other {# steps, {state}}}"
 msgstr "{0, plural, one {#ステップ、{state}} other {#ステップ、{state}}}"
 
+#. placeholder {0}: sections.steps
 #. placeholder {0}: steps.length
 #. placeholder {0}: tab.activity.length
+#: src/components/clio/plan-outline.ts
 #: src/components/clio/workbench-activity-model.ts
 #: src/components/clio/workbench-variant-try-tab.tsx
 msgid "{0, plural, one {# step} other {# steps}}"
@@ -2175,6 +2182,11 @@ msgstr "{kind}：{title}"
 msgid "{kind}: {title}, {state}"
 msgstr "{kind}：{title}、{state}"
 
+#. Screen-reader announcement: request kind, then its title
+#: src/components/clio/pending-interactions.tsx
+msgid "{kind}: {words}"
+msgstr "{kind}：{words}"
+
 #: src/components/clio/refresh-button.tsx
 msgid "{label} — refreshing"
 msgstr "{label} — 更新中"
@@ -3029,6 +3041,7 @@ msgid "{plugin} was not removed"
 msgstr "{plugin}は削除されませんでした"
 
 #: src/components/clio/a2ui-carousel.tsx
+#: src/components/clio/pending-interactions.tsx
 msgid "{position} of {total}"
 msgstr "{position} / {total}"
 
@@ -3667,6 +3680,11 @@ msgstr "{tasks, plural, one {#件のタスク} other {#件のタスク}}"
 msgid "{tasks, plural, one {ran # task} other {ran # tasks}}"
 msgstr "{tasks, plural, one {#件のタスクを実行} other {#件のタスクを実行}}"
 
+#. Joins sentences of a screen-reader announcement
+#: src/components/clio/pending-interactions.tsx
+msgid "{text}. {sentence}"
+msgstr "{text}。{sentence}"
+
 #: src/components/clio/transcript-activity-summary.ts
 msgid "{thoughts, plural, =1 {thought once} other {thought # times}}"
 msgstr "{thoughts, plural, =1 {1回思考} other {#回思考}}"
@@ -3787,6 +3805,11 @@ msgstr "{setupToolCount}中{toolCount}"
 #: src/components/clio/agent-tab-values.ts
 msgid "{toolCount}, the setup has {setupToolCount}"
 msgstr "{toolCount}（セットアップには{setupToolCount}）"
+
+#. Spoken tool call: tool name, then its arguments
+#: src/components/clio/permission-response.tsx
+msgid "{toolName}: {list}"
+msgstr "{toolName}：{list}"
 
 #: src/offline-review.tsx
 msgid "{tools, plural, one {# tool record} other {# tool records}}"
@@ -6775,6 +6798,7 @@ msgid "Attaching…"
 msgstr "添付中…"
 
 #: src/components/ai-elements/attachments.tsx
+#: src/components/clio/question-answer-presentation.ts
 msgid "Attachment"
 msgstr "添付ファイル"
 
@@ -9544,6 +9568,10 @@ msgstr "{group}を折りたたむ"
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "{label}を折りたたむ"
+
+#: src/components/clio/ask-answered-row.tsx
+msgid "Collapse {verb}"
+msgstr "{verb}を折りたたむ"
 
 #: src/components/clio/agent-plugin-tree.tsx
 #: src/components/clio/composed-prompt-view.tsx
@@ -14378,6 +14406,11 @@ msgstr "実行またはクリーンアップを確認できませんでした。
 msgid "Execution protection coverage"
 msgstr "実行保護の適用範囲"
 
+#. Plan summary item, mid-list
+#: src/components/clio/plan-outline.ts
+msgid "execution recommendation"
+msgstr "実行の推奨"
+
 #: src/components/clio/plan-exit-interaction.tsx
 msgid "Execution recommendation"
 msgstr "実行の推奨"
@@ -14457,6 +14490,10 @@ msgstr "{group}を展開"
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "{label}を展開"
+
+#: src/components/clio/ask-answered-row.tsx
+msgid "Expand {verb}"
+msgstr "{verb}を展開"
 
 #: src/components/clio/agent-plugin-tree.tsx
 #: src/components/clio/composed-prompt-view.tsx
@@ -25060,6 +25097,7 @@ msgid "plan"
 msgstr "計画"
 
 #: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/pending-interactions.tsx
 #: src/components/clio/plan-exit-interaction.tsx
 #: src/components/clio/session-behavior-options.ts
 #: src/components/clio/session-plan-section.tsx
@@ -28138,6 +28176,7 @@ msgid "Reprocess resource"
 msgstr "リソースを再処理"
 
 #: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/pending-interactions.tsx
 msgid "Request"
 msgstr "リクエスト"
 
@@ -29095,6 +29134,11 @@ msgstr "リッチな結果"
 #: src/lib/shortcuts/catalog.ts
 msgid "Right pocket"
 msgstr "右ポケット"
+
+#. Plan summary item, mid-list
+#: src/components/clio/plan-outline.ts
+msgid "risk notes"
+msgstr "リスクに関する注記"
 
 #: src/lib/a2ui/kernel-catalog.tsx
 msgid "Risk: {risk}"
