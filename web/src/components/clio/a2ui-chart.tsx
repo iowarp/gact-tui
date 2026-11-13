@@ -699,7 +699,7 @@ export function ClioChart(props: ClioChartProps) {
       data-visual-state={failure ? 'failed' : loading ? 'loading' : 'ready'}
       role="group"
       style={dataViewFlexStyle(weight)}
-      // A tap focuses a dashboard chart, which reveals its actions in a narrow pane on touch.
+      // A click focuses a dashboard chart, which reveals its hover-only actions in a narrow pane.
       tabIndex={dashboard ? -1 : undefined}
     >
       <ChartHeader
