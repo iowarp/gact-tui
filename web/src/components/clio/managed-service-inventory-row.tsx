@@ -6,7 +6,6 @@ import {
   HardDriveIcon,
   LinkIcon,
   MonitorIcon,
-  PackageIcon,
   PlayIcon,
   PlugIcon,
   SquareIcon,
@@ -16,7 +15,7 @@ import { useState, type ComponentProps, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { vocab } from '@/lib/brand-vocabulary';
-import { AddIcon, ConfigureIcon, EditIcon, ManageIcon, RefreshIcon } from '@/lib/icon-vocabulary';
+import { AddIcon, ConfigureIcon, ManageIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { managedServiceStatus } from '@/lib/managed-service-status';
 import { InfraRow, type InfraStatus } from './infrastructure-row';
 import { InfraRowMenu } from './infrastructure-row-menu';
@@ -75,7 +74,6 @@ function serviceSummary(service: ManagedServiceDefinition): string {
 /** One managed service: state, port, a pinned lifecycle verb and the rest behind hover. */
 export function ManagedServiceInventoryRow({
   service,
-  targetId,
   hostLabel,
   gpus,
   connection,
@@ -85,13 +83,11 @@ export function ManagedServiceInventoryRow({
   canAddInstance,
   addInstanceForm,
   onAddInstance,
-  onEditWebSearch,
   onManage,
   onOpenTab,
   onRun,
 }: {
   service: ManagedServiceDefinition;
-  targetId: string;
   hostLabel: string;
   gpus: GpuFact[];
   connection?: ServiceConnection;
@@ -103,8 +99,6 @@ export function ManagedServiceInventoryRow({
   /** The open "Add instance" name field, shown under the row. */
   addInstanceForm?: ReactNode;
   onAddInstance: () => void;
-  /** Web Search only: edit how the agent reaches it. */
-  onEditWebSearch?: () => void;
   onManage: () => void;
   onOpenTab: (tab: ServicePanelTab) => void;
   onRun?: (action: ServiceRowAction) => void;
@@ -114,12 +108,6 @@ export function ManagedServiceInventoryRow({
   const working = busy || Boolean(operation);
   const devices = deploymentDevices(service, { gpus });
   const port = servicePort(service);
-  const searxngNote =
-    service.id === 'searxng'
-      ? targetId === 'local'
-        ? t`Built-in search engine`
-        : t`Not connected to ${ph({ agent: vocab.agent })}`
-      : undefined;
   const canStop = status.kind === 'running' && service.supports_stop;
   const lifecycle:
     | { label: string; icon: ReactNode; onClick: () => void; checksStatus?: boolean }
@@ -188,19 +176,6 @@ export function ManagedServiceInventoryRow({
           },
         ]
       : []),
-    ...(searxngNote
-      ? [
-          {
-            label: t`Agent connection`,
-            icon: <PlugIcon />,
-            value: searxngNote,
-            title: t`The local ${ph({ agent: vocab.agent })} uses its built-in SearXNG automatically. A remote SearXNG installation is not automatically selected for this agent.`,
-          },
-        ]
-      : []),
-    ...(service.id === 'searxng' && installedAs(service)
-      ? [{ label: t`Installed as`, icon: <PackageIcon />, value: installedAs(service), mono: true }]
-      : []),
   ];
   const error = feedback?.error ? feedback.text : undefined;
   const showDetails = expanded || Boolean(error) || Boolean(addInstanceForm);
@@ -238,19 +213,12 @@ export function ManagedServiceInventoryRow({
           menu={
             <>
               {connectionItem}
-              {onEditWebSearch ? (
-                <DropdownMenuItem onSelect={onEditWebSearch}>
-                  <MenuRow icon={<EditIcon />} label={t`Edit connection`} />
-                </DropdownMenuItem>
-              ) : null}
               {canAddInstance ? (
                 <DropdownMenuItem onSelect={onAddInstance}>
                   <MenuRow icon={<AddIcon />} label={t`Add named instance`} />
                 </DropdownMenuItem>
               ) : null}
-              {connectionItem || onEditWebSearch || canAddInstance ? (
-                <DropdownMenuSeparator />
-              ) : null}
+              {connectionItem || canAddInstance ? <DropdownMenuSeparator /> : null}
               {onRun && !lifecycle?.checksStatus ? (
                 <DropdownMenuItem disabled={working} onSelect={() => onRun('status')}>
                   <MenuRow icon={<RefreshIcon />} label={t`Check status`} />
@@ -272,10 +240,7 @@ export function ManagedServiceInventoryRow({
       className="cursor-pointer"
       description={
         <>
-          <span title={service.description}>
-            {status.reason ??
-              (service.id === 'searxng' ? t`Built-in search engine` : serviceSummary(service))}
-          </span>
+          <span title={service.description}>{status.reason ?? serviceSummary(service)}</span>
           {devices ? (
             <span className="ml-2" title={t`The GPUs this deployment may use`}>
               {devices}

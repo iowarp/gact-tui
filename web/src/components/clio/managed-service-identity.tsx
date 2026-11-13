@@ -25,7 +25,7 @@ export function ManagedServiceLogo({
         />
       ) : service.id === 'flowcept' ? (
         <img src="/provider-logos/flowcept.png" alt="" className="size-7 object-contain" />
-      ) : ['web_search', 'relay'].includes(service.id) ? (
+      ) : service.id === 'relay' ? (
         <BrandIcon className="size-7" />
       ) : service.id === 'cmf' ? (
         <NetworkIcon aria-hidden="true" className="size-5 text-primary" />

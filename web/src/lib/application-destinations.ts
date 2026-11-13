@@ -19,6 +19,7 @@ import {
   PlugIcon,
   PlugZapIcon,
   ScrollTextIcon,
+  SearchIcon,
   ServerIcon,
   ShieldCheckIcon,
   UserRoundIcon,
@@ -209,6 +210,14 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     group: 'Agent',
     host: 'runtime',
     keywords: 'browser chrome edge chromium installed remote debugging sign-ins web pages',
+  },
+  {
+    id: 'web-search',
+    label: t`Web search`,
+    icon: SearchIcon,
+    group: 'Agent',
+    keywords:
+      'search web literature papers datasets sources keys api exa keenable firecrawl you parallel openalex crossref arxiv semantic scholar',
   },
   {
     id: 'data-sources',

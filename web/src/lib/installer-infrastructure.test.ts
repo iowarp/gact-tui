@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  complete: vi.fn(),
   configure: vi.fn(),
   infrastructureOperation: vi.fn(),
   installProviderSupport: vi.fn(),
@@ -15,7 +14,9 @@ const mocks = vi.hoisted(() => ({
   warning: vi.fn(),
 }));
 
-vi.mock('sonner', () => ({ toast: { dismiss: vi.fn(), success: mocks.success, warning: mocks.warning } }));
+vi.mock('sonner', () => ({
+  toast: { dismiss: vi.fn(), success: mocks.success, warning: mocks.warning },
+}));
 vi.mock('@/lib/connection', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/connection')>()),
   createRepository: () => ({
@@ -30,7 +31,6 @@ vi.mock('@/lib/connection', async (importOriginal) => ({
   }),
 }));
 vi.mock('@/tauri/installer-options', () => ({
-  completeInstallerWebSearch: mocks.complete,
   readInstallerOptions: mocks.read,
 }));
 
@@ -50,63 +50,6 @@ describe('finishInstallerInfrastructure', () => {
       installed: true,
       instructions: 'installed',
     });
-    mocks.managedServiceCatalog.mockResolvedValue({
-      services: [
-        {
-          id: 'web_search',
-          state: 'running',
-          variants: [{ id: 'docker', compatible: true }],
-        },
-      ],
-    });
-  });
-
-  it('installs native search without the Docker gateway or MCP sidecar for current installers', async () => {
-    mocks.read.mockResolvedValue({
-      schema: 4,
-      web_search: 'native_requested',
-      clio_kit: 'bundled',
-    });
-    mocks.managedServiceCatalog.mockResolvedValue({
-      services: [
-        { id: 'searxng', state: 'not_installed', variants: [{ id: 'native', compatible: true }] },
-      ],
-    });
-    mocks.runManagedServiceAction.mockResolvedValue({ id: 'owned-native-operation' });
-    mocks.infrastructureOperation.mockResolvedValue({ state: 'succeeded' });
-    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
-    expect(mocks.runManagedServiceAction.mock.calls).toEqual([
-      [
-        'searxng',
-        { target_id: 'local', action: 'install', variant_id: 'native', configuration: {} },
-      ],
-      ['searxng', { target_id: 'local', action: 'start', variant_id: 'native', configuration: {} }],
-    ]);
-    expect(mocks.configure).not.toHaveBeenCalled();
-    expect(mocks.complete).toHaveBeenCalledOnce();
-  });
-
-  it('does not mark native setup complete when its real operation fails', async () => {
-    mocks.read.mockResolvedValue({
-      schema: 4,
-      web_search: 'native_requested',
-      clio_kit: 'bundled',
-    });
-    mocks.managedServiceCatalog.mockResolvedValue({
-      services: [
-        { id: 'searxng', state: 'stopped', variants: [{ id: 'native', compatible: true }] },
-      ],
-    });
-    mocks.runManagedServiceAction.mockResolvedValue({ id: 'owned-native-operation' });
-    mocks.infrastructureOperation.mockResolvedValue({
-      state: 'failed',
-      error: 'Start refused: occupied port',
-    });
-    await expect(
-      finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' }),
-    ).rejects.toThrow('occupied port');
-    expect(mocks.complete).not.toHaveBeenCalled();
-    expect(mocks.configure).not.toHaveBeenCalled();
   });
 
   it('keeps MAG and each selected ALCF server visible as independent choices', () => {
@@ -143,7 +86,6 @@ describe('finishInstallerInfrastructure', () => {
     window.localStorage.setItem('clio.installer-applied-revision.v1', 'old-install');
     mocks.read.mockResolvedValue({
       schema: 4,
-      web_search: 'not_requested',
       provider_ids: providerIds,
       installed_at: 'old-install',
     });
@@ -171,7 +113,6 @@ describe('finishInstallerInfrastructure', () => {
     window.localStorage.setItem('clio.installer-applied-revision.v1', 'old-install');
     mocks.read.mockResolvedValue({
       schema: 4,
-      web_search: 'not_requested',
       provider_ids: 'argonne_sophia,argonne_metis',
       installed_at: 'old-install',
     });
@@ -185,7 +126,6 @@ describe('finishInstallerInfrastructure', () => {
   it('respects explicit choices from the complete schema5 provider inventory', async () => {
     mocks.read.mockResolvedValue({
       schema: 5,
-      web_search: 'not_requested',
       provider_ids: 'argonne_sophia',
       installed_at: 'new-install',
     });
@@ -199,7 +139,6 @@ describe('finishInstallerInfrastructure', () => {
   it('makes installer-selected providers visible without activating one', async () => {
     mocks.read.mockResolvedValue({
       schema: 4,
-      web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
       provider_ids: 'codex,openai',
@@ -217,7 +156,6 @@ describe('finishInstallerInfrastructure', () => {
   it('applies visibility once per installed_at revision through finishInstallerInfrastructure, then leaves later Settings changes alone', async () => {
     mocks.read.mockResolvedValue({
       schema: 4,
-      web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
       provider_ids: 'claude_code',
@@ -305,7 +243,6 @@ describe('finishInstallerInfrastructure', () => {
   it('expands the legacy Argonne family into all four ALCF servers', async () => {
     mocks.read.mockResolvedValue({
       schema: 3,
-      web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
       provider_families: 'argonne',
@@ -330,7 +267,6 @@ describe('finishInstallerInfrastructure', () => {
   it('installs Claude Code support when the installer selected it', async () => {
     mocks.read.mockResolvedValue({
       schema: 4,
-      web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
       provider_ids: 'claude_code',
@@ -347,7 +283,6 @@ describe('finishInstallerInfrastructure', () => {
     // It must follow the same apply-once stamp as provider visibility.
     mocks.read.mockResolvedValue({
       schema: 4,
-      web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
       provider_ids: 'claude_code',
@@ -410,7 +345,6 @@ describe('finishInstallerInfrastructure', () => {
 
     mocks.read.mockResolvedValueOnce({
       schema: 4,
-      web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
       provider_ids: '',
@@ -424,7 +358,6 @@ describe('finishInstallerInfrastructure', () => {
     infoSpy.mockClear();
     mocks.read.mockResolvedValueOnce({
       schema: 4,
-      web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
     });
@@ -444,7 +377,6 @@ describe('finishInstallerInfrastructure', () => {
     // was actually asked, so this is "no preference," not "hide everything."
     mocks.read.mockResolvedValue({
       schema: 4,
-      web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
       provider_ids: '',
@@ -456,113 +388,23 @@ describe('finishInstallerInfrastructure', () => {
     expect(window.localStorage.getItem('clio.installer-applied-revision.v1')).toBeNull();
   });
 
-  it('registers an installer-deployed Web Search service', async () => {
+  it('never installs or registers a search service, even when an older installer asked for one', async () => {
+    // Search is built into the agent now; an installer file from before that still
+    // records its old web search choice, which is ignored.
     mocks.read.mockResolvedValue({
       schema: 4,
       web_search: 'deployed',
-      llama_cpp: 'not_requested',
-      clio_kit: 'bundled',
-      provider_ids: 'codex,openai,argonne_sophia,argonne_metis',
-    });
-    mocks.configure.mockResolvedValue({ status: 'ready' });
-
-    await finishInstallerInfrastructure({
-      endpoint: 'http://127.0.0.1:17800',
-      token: 'managed-token',
-    });
-
-    expect(mocks.configure).toHaveBeenCalledWith('web', {
-      name: 'CLIO Web Search',
-      transport: 'stdio',
-      command: 'clio-kit',
-      args: ['mcp-server', 'web', '--remote-url', 'http://127.0.0.1:8089'],
-      env: { WEB_STATE_DIR: '.clio-child-cache/web-mcp-state' },
-      always_load: true,
-    });
-    expect(mocks.complete).toHaveBeenCalledOnce();
-    expect(mocks.success).toHaveBeenCalledWith('CLIO Search is ready', expect.any(Object));
-    // No installed_at was mocked, so this file is treated as one stable
-    // "legacy" revision (still applied exactly once, just without a real
-    // per-install timestamp to key off).
-    expect(window.localStorage.getItem('clio.installer-applied-revision.v1')).toBe('legacy');
-    expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).not.toEqual(
-      expect.arrayContaining(['argonne_sophia', 'argonne_metis']),
-    );
-  });
-
-  it('waits for an installer-started Web Search service before asking the user to intervene', async () => {
-    vi.useFakeTimers();
-    mocks.read.mockResolvedValue({
-      schema: 4,
-      web_search: 'deployed',
-      llama_cpp: 'not_requested',
-      clio_kit: 'bundled',
-      provider_ids: 'codex,openai',
-    });
-    mocks.configure
-      .mockResolvedValueOnce({ status: 'degraded', error: 'service is still starting' })
-      .mockResolvedValueOnce({ status: 'ready' });
-
-    const completion = finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
-    await vi.advanceTimersByTimeAsync(2_000);
-    await completion;
-
-    expect(mocks.configure).toHaveBeenCalledTimes(2);
-    expect(mocks.warning).not.toHaveBeenCalled();
-    expect(mocks.complete).toHaveBeenCalledOnce();
-    vi.useRealTimers();
-  });
-
-  it('leaves a recoverable notice when Docker was unavailable during installation', async () => {
-    mocks.read.mockResolvedValue({
-      schema: 2,
-      web_search: 'needs_attention',
-      llama_cpp: 'not_requested',
-      clio_kit: 'bundled',
-    });
-    mocks.managedServiceCatalog.mockResolvedValue({
-      services: [
-        {
-          id: 'web_search',
-          state: 'not_installed',
-          variants: [{ id: 'docker', compatible: false, reason: 'Docker is not available.' }],
-        },
-      ],
-    });
-
-    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
-
-    expect(mocks.configure).not.toHaveBeenCalled();
-    expect(mocks.warning).toHaveBeenCalledWith('CLIO Search still needs setup', expect.any(Object));
-  });
-
-  it('does nothing when Web Search was never requested', async () => {
-    mocks.read.mockResolvedValue({
-      schema: 2,
-      web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
     });
 
     await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
 
+    expect(mocks.managedServiceCatalog).not.toHaveBeenCalled();
+    expect(mocks.runManagedServiceAction).not.toHaveBeenCalled();
     expect(mocks.configure).not.toHaveBeenCalled();
     expect(mocks.warning).not.toHaveBeenCalled();
     expect(mocks.success).not.toHaveBeenCalled();
-  });
-
-  it('does nothing once Web Search is already configured', async () => {
-    mocks.read.mockResolvedValue({
-      schema: 2,
-      web_search: 'configured',
-      llama_cpp: 'not_requested',
-      clio_kit: 'bundled',
-    });
-
-    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
-
-    expect(mocks.configure).not.toHaveBeenCalled();
-    expect(mocks.warning).not.toHaveBeenCalled();
   });
 });
 
@@ -574,7 +416,6 @@ describe('installerRequestedLlamaCpp', () => {
   it('reports true when the installer recorded a llama.cpp request', async () => {
     mocks.read.mockResolvedValue({
       schema: 2,
-      web_search: 'not_requested',
       llama_cpp: 'requested',
       clio_kit: 'bundled',
     });
@@ -584,7 +425,6 @@ describe('installerRequestedLlamaCpp', () => {
   it('reports false when llama.cpp was not requested', async () => {
     mocks.read.mockResolvedValue({
       schema: 2,
-      web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
     });

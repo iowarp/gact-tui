@@ -323,6 +323,11 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
     operation.query = String(input[definition.query]);
     const query = operation.query;
     operation.qualifier = tx`for “${query}”`;
+    // A producer that names the query as its subject is already said by `for “…”`.
+    operation.subjects = operation.subjects.filter(
+      (subject) =>
+        !(subject.type === 'text' && (subject.text ?? subject.label) === operation.query),
+    );
   }
   if (definition.family === 'search') {
     const rows = result?.matches ?? result?.results ?? result?.tasks ?? result?.hits;
@@ -332,7 +337,11 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
         : Array.isArray(rows)
           ? rows.length
           : undefined;
-    if (count !== undefined)
+    // A producer that links each match itself also counts them in its own words
+    // ("8 results from Keenable"), which say more than a bare match count.
+    const linkedMatches = blocks.some((b) => b.type === 'link');
+    const producerCount = /^\d/u.test(tool.presentation?.summary?.trim() ?? '');
+    if (count !== undefined && !(linkedMatches && producerCount))
       operation.metadata = plural(count, { one: '# match', other: '# matches' });
     const filters = [text(input.scope), text(input.status)].filter(Boolean);
     if (filters.length)
@@ -341,7 +350,6 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
         .join(' ');
     // A producer that links each match itself (file hits that open at their line, with
     // numbered context) keeps its view; the shared search reader covers the rest.
-    const linkedMatches = blocks.some((b) => b.type === 'link');
     if (Array.isArray(rows) && rows.length && declared?.target !== 'resource' && !linkedMatches) {
       operation.kind = 'search';
       operation.value = rows;

@@ -315,15 +315,15 @@ const failedInstallInventory = {
   targets: [],
   services: [
     {
-      id: 'local:searxng',
+      id: 'local:flowcept',
       target_id: 'local',
-      service_id: 'searxng',
+      service_id: 'flowcept',
       // What the agent records after an install that exited 1 and was stopped.
       state: 'unknown',
       updated_at: '2026-10-23T19:16:35Z',
       configuration: {},
       observation: {
-        definition_version: 'searxng-native-2',
+        definition_version: 'flowcept-2',
         configuration_revision: 'abc',
         phase: 'stopped',
         installed: false,
@@ -343,26 +343,17 @@ const failedInstallInventory = {
   model_acquisitions: [],
 } as InfrastructureInventory;
 
-it('says the built-in search engine is not installed, with Install, in the map and the web research row', async () => {
-  show(
-    <InfrastructureOverview
-      data={failedInstallInventory}
-      targetId="local"
-      onManageWebSearch={vi.fn()}
-    />,
-  );
+it('says a service is not installed in the map, and points web search to Settings', async () => {
+  show(<InfrastructureOverview data={failedInstallInventory} targetId="local" />);
   const map = screen.getByLabelText('Connection map');
-  expect(within(map).getByText('SearXNG')).toBeVisible();
+  expect(within(map).getByText('Flowcept')).toBeVisible();
   expect(within(map).getByText('Not installed')).toBeVisible();
   expect(within(map).queryByText('Not checked')).not.toBeInTheDocument();
-  expect(screen.queryByText('No research service connected')).not.toBeInTheDocument();
-  expect(screen.getByText('Built-in search engine: SearXNG')).toBeVisible();
-  expect(
-    screen.getByText('The last installation did not finish. Install it to use it.'),
-  ).toBeVisible();
-  expect(screen.getByRole('link', { name: /Install SearXNG/u })).toHaveAttribute(
+  expect(screen.queryByText(/SearXNG|research service/u)).not.toBeInTheDocument();
+  expect(screen.getByText('Built in. Choose its sources and keys in Settings.')).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Open web search settings' })).toHaveAttribute(
     'href',
-    '/infrastructure/services?target=local&service=searxng',
+    '/settings/web-search',
   );
 });
 

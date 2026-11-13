@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }));
 
-import { completeInstallerWebSearch, readInstallerOptions } from './installer-options';
+import { readInstallerOptions } from './installer-options';
 
 describe('desktop installer options', () => {
   beforeEach(() => {
@@ -22,7 +22,6 @@ describe('desktop installer options', () => {
       installed_at: '20260923215032',
     });
     await expect(readInstallerOptions()).resolves.toMatchObject({
-      web_search: 'deployed',
       llama_cpp: 'requested',
       clio_kit: 'bundled',
       provider_ids: 'codex,openai,argonne_sophia',
@@ -48,12 +47,6 @@ describe('desktop installer options', () => {
     expect(options.installed_at).toBeFalsy();
   });
 
-  it('marks successful registration complete', async () => {
-    mocks.invoke.mockResolvedValue(undefined);
-    await completeInstallerWebSearch();
-    expect(mocks.invoke).toHaveBeenCalledWith('complete_installer_web_search');
-  });
-
   it('records no installer preference outside Tauri, without invoking anything', async () => {
     // The plain web client has no native installer at all — it must not
     // silently assume a desktop-installer default like "codex,openai".
@@ -61,7 +54,6 @@ describe('desktop installer options', () => {
     const options = await readInstallerOptions();
     expect(options).toEqual({
       schema: 4,
-      web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
     });

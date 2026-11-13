@@ -29,7 +29,6 @@ const groupFor = (service: ManagedServiceDefinition) => service.category;
 
 /** Installed inventory first; deployment is a separate choose/configure flow. */
 export function ManagedServiceInventory({
-  targetId,
   hostLabel,
   services,
   selected,
@@ -37,7 +36,6 @@ export function ManagedServiceInventory({
   deploying,
   onDeploying,
   renderService,
-  onEditWebSearch,
   onOpenTab,
   operations,
   loading,
@@ -51,7 +49,6 @@ export function ManagedServiceInventory({
   onAddInstance,
 }: {
   endpoint: string;
-  targetId: string;
   hostLabel: string;
   services: ManagedServiceDefinition[];
   selected: string;
@@ -60,7 +57,6 @@ export function ManagedServiceInventory({
   onDeploying: (value: boolean) => void;
   renderService: (service: ManagedServiceDefinition, setup: boolean) => ReactNode;
   /** Opens the agent's Web Search connection settings. */
-  onEditWebSearch?: () => void;
   /** Opens a service's management panel on one tab. */
   onOpenTab?: (serviceId: string, tab: ServicePanelTab) => void;
   operations: Record<string, string>;
@@ -142,7 +138,6 @@ export function ManagedServiceInventory({
                   hostLabel={hostLabel}
                   key={service.id}
                   onAddInstance={() => setNaming({ id: service.id, where: 'inventory' })}
-                  onEditWebSearch={service.id === 'web_search' ? onEditWebSearch : undefined}
                   onManage={manage}
                   onOpenTab={(tab) => {
                     onOpenTab?.(service.id, tab);
@@ -151,7 +146,6 @@ export function ManagedServiceInventory({
                   onRun={onRun ? (requested) => onRun(service, requested) : undefined}
                   operation={operations[service.id]}
                   service={service}
-                  targetId={targetId}
                 />
               );
             })}
