@@ -79,9 +79,10 @@ export function ExtensionAddMenu({
     return true;
   });
   return (
-    <span className="inline-flex shrink-0 items-center gap-2.5">
+    // Without room for both, the button wraps under the status instead of off the row.
+    <span className="inline-flex max-w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-x-2.5 gap-y-1">
       {supported !== true ? (
-        <span className="text-xs whitespace-nowrap text-muted-foreground" role="status">
+        <span className="min-w-0 text-xs whitespace-normal text-muted-foreground" role="status">
           {supported === false ? t`Needs a newer agent service` : t`Checking the agent service…`}
         </span>
       ) : null}
@@ -371,7 +372,8 @@ function ExtensionSourceDialog({
             <span className="text-sm text-muted-foreground">
               {choice.category === 'skills'
                 ? t`A skill folder containing SKILL.md and its references.`
-                : t`A plugin folder containing plugin.json or .claude-plugin/plugin.json.`}{sentenceGap()}
+                : t`A plugin folder containing plugin.json or .claude-plugin/plugin.json.`}
+              {sentenceGap()}
               {t`Up to 128 UTF-8 files, 2 MiB uncompressed.`}
             </span>
           </div>
