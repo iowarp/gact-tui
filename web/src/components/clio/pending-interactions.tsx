@@ -26,6 +26,7 @@ import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
 import { QuestionResponse } from './pending-interaction-question-response';
 import { PendingSurfaceNotices } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
+import { useScrollClipped } from './use-scroll-clipped';
 import { planArtifact } from './plan-artifact';
 import { plainQuestionText, questionPrompt } from './question-card-model';
 import { plural, t } from '@lingui/core/macro';
@@ -110,6 +111,7 @@ export function ClioPendingInteractions({
   const viewportRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLElement>(null);
   const docked = pending.length > 0 || Boolean(error) || Boolean(capabilityError);
+  useScrollClipped(viewportRef, docked);
   useLayoutEffect(() => {
     // The cap is 45% of the conversation, not of the window: publish its height to the dock.
     const dock = dockRef.current;
@@ -260,7 +262,9 @@ export function ClioPendingInteractions({
             one: '# pending response',
             other: '# pending responses',
           }),
-          className: 'pending-interactions-viewport overscroll-contain',
+          // The scrollbar hides at rest, so the bottom edge fades while the card continues.
+          className:
+            'pending-interactions-viewport overscroll-contain data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
           onKeyDown: handleScrollableRegionKeys,
           // The sticky card header draws its hairline only while content is under it.
           onScroll: (event) =>

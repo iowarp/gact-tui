@@ -1,7 +1,10 @@
 import { useLayoutEffect, type RefObject } from 'react';
 
-/** Marks a capped scroll region `data-clipped` while content remains below its edge. */
-export function useScrollClipped(ref: RefObject<HTMLElement | null>) {
+/**
+ * Marks a capped scroll region `data-clipped` while content remains below its edge.
+ * Pass `mounted` when the region renders conditionally, so the hook attaches once it exists.
+ */
+export function useScrollClipped(ref: RefObject<HTMLElement | null>, mounted?: boolean) {
   useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
@@ -18,5 +21,5 @@ export function useScrollClipped(ref: RefObject<HTMLElement | null>) {
       element.removeEventListener('scroll', update);
       observer?.disconnect();
     };
-  }, [ref]);
+  }, [ref, mounted]);
 }
