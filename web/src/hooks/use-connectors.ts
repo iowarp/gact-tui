@@ -43,6 +43,28 @@ export function useConnector(id: string | undefined) {
 }
 
 /**
+ * One connector as a conversation sees it (its own values over the defaults). Kept under
+ * the `connectors` key, so every connector change refreshes it too.
+ */
+export function useSessionConnector(id: string | undefined, sessionId: string | undefined) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const query = useQuery({
+    queryKey: queryKeys.key(
+      'connectors',
+      settings.endpoint,
+      connectionScope(settings),
+      'conversation',
+      id ?? '',
+      sessionId ?? '',
+    ),
+    queryFn: ({ signal }) => repository.sessionConnector(id!, sessionId!, signal),
+    enabled: Boolean(id && sessionId),
+  });
+  return { ...query, connector: query.data };
+}
+
+/**
  * A connector's logo as an image address. The SVG is read through the repository (so
  * it carries the service's credentials on every transport) and shown in an `<img>`,
  * where it cannot run anything.

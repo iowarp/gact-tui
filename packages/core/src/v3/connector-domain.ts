@@ -38,6 +38,15 @@ export const connectorNeedSchema = z
       .nullish()
       .transform((value) => value ?? null),
     has_value: z.boolean().default(false),
+    /**
+     * Read for one conversation (`?session_id=`): the person's default for an address or
+     * value need, and whether this conversation set its own (`value` is then its own).
+     */
+    default_value: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? null),
+    conversation: z.boolean().default(false),
     /** A value chosen from a list: the card shows a picker. Empty means free text. */
     options: z
       .array(z.string())

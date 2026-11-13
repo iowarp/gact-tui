@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repository = vi.hoisted(() => ({
   connectors: vi.fn(),
+  sessionConnector: vi.fn(),
   connectorLogo: vi.fn(),
   capabilities: vi.fn(async () => ({ capabilities: {} })),
   agents: vi.fn(async () => []),
@@ -89,6 +90,7 @@ function renderDock(onResponse = vi.fn(async () => undefined)) {
 
 beforeEach(() => {
   repository.connectors.mockResolvedValue([viewer()]);
+  repository.sessionConnector.mockImplementation(async () => viewer());
   repository.connectorLogo.mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg"/>');
 });
 
@@ -123,7 +125,7 @@ describe('the agent offers a connector that is off', () => {
     expect(onResponse).toHaveBeenCalledWith(offer, {
       action: 'submit',
       values: { token: 'zz-token', address: 'node08' },
-      metadata: { scope: 'all' },
+      metadata: { scope: 'all', save_as_default: [] },
     });
   });
 
@@ -137,7 +139,7 @@ describe('the agent offers a connector that is off', () => {
     expect(onResponse).toHaveBeenCalledWith(offer, {
       action: 'submit',
       values: { token: 't' },
-      metadata: { scope: 'agent' },
+      metadata: { scope: 'agent', save_as_default: [] },
     });
   });
 

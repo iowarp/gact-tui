@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repository = vi.hoisted(() => ({
   connectors: vi.fn(),
+  sessionConnector: vi.fn(),
   connectorLogo: vi.fn(),
   setConnectorValues: vi.fn(),
   enableConnector: vi.fn(),
@@ -71,6 +72,7 @@ function renderWith(children: ReactNode) {
 
 beforeEach(() => {
   repository.connectors.mockResolvedValue([connector()]);
+  repository.sessionConnector.mockImplementation(async () => connector());
   repository.connectorLogo.mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg"/>');
 });
 
@@ -311,6 +313,44 @@ describe('the setup card in the conversation', () => {
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'submit',
       values: { address: 'http://127.0.0.1:19201/mcp' },
+      metadata: { save_as_default: [] },
+    });
+    expect(repository.sessionConnector).toHaveBeenCalledWith(
+      'fixture-address',
+      'sess_root',
+      expect.anything(),
+    );
+  });
+
+  it('keeps a value to this conversation unless "Save as default" is ticked (CV-D5)', async () => {
+    const user = userEvent.setup();
+    repository.sessionConnector.mockImplementation(async () =>
+      connector({
+        needs: [
+          {
+            key: 'address',
+            kind: 'address',
+            label: 'Server address',
+            required: true,
+            value: 'http://node08:1/mcp',
+            default_value: 'http://here:1/mcp',
+            conversation: true,
+          },
+        ],
+      }),
+    );
+    const onResponse = renderDock();
+    expect(
+      await screen.findByText('This conversation only. Default: http://here:1/mcp'),
+    ).toBeTruthy();
+    await user.click(screen.getByRole('checkbox', { name: 'Save as default' }));
+    expect(screen.getByText('New conversations use it too.')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /Continue/u }));
+    // Unchanged but ticked: its current value goes with it, so the default takes it.
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'submit',
+      values: { address: 'http://node08:1/mcp' },
+      metadata: { save_as_default: ['address'] },
     });
   });
 

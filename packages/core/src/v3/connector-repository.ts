@@ -24,6 +24,19 @@ export class ConnectorRepository extends McpRepository {
   }
 
   /**
+   * One connector as a conversation sees it: its own values over the person's defaults,
+   * with each address or value row's `default_value` and `conversation`.
+   */
+  public sessionConnector(id: string, sessionId: string, signal?: AbortSignal): Promise<Connector> {
+    return this.transport.request({
+      method: 'GET',
+      path: `${connectorPath(id)}?session_id=${encodeURIComponent(sessionId)}`,
+      decode: (value) => connectorSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
    * The connector's SVG, as text. It is read through the transport (which carries the
    * service's credentials) and shown as an image, never inserted into the page.
    */

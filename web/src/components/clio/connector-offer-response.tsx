@@ -2,8 +2,8 @@ import { connectorSetupPayload, type PendingInteraction } from '@clio/core/v3';
 import { ChevronRightIcon, PlugIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
-import { useConnector } from '@/hooks/use-connectors';
-import { draftValues, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
+import { useConnector, useSessionConnector } from '@/hooks/use-connectors';
+import { conversationAnswer, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
 import { cn } from '@/lib/utils';
 import { AskBody, AskButton, AskCard, AskError, AskOptions, AskSection } from './ask-card';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
@@ -30,7 +30,14 @@ export function ConnectorOfferResponse({
 }) {
   const payload = connectorSetupPayload(interaction.payload);
   const id = payload?.connector_id ?? '';
-  const { connector } = useConnector(id || undefined);
+  // The rows as this conversation sees them: its own values over the defaults (CV-D5).
+  const { connector: everywhereRow } = useConnector(id || undefined);
+  const { connector: conversationRow } = useSessionConnector(
+    id || undefined,
+    interaction.owner_session_id || undefined,
+  );
+  const connector = conversationRow ?? everywhereRow;
+  const [saveAsDefault, setSaveAsDefault] = useState<Record<string, boolean>>({});
   const [draft, setDraft] = useState<ConnectorDraft>({});
   const [everywhere, setEverywhere] = useState(true);
   const rows = (payload?.missing ?? []).map(
@@ -49,11 +56,12 @@ export function ConnectorOfferResponse({
   const offered = (action: string) => !interaction.actions || interaction.actions.includes(action);
   const turnOn = () => {
     if (disabled || unfilled.length) return;
+    const { values, save_as_default } = conversationAnswer(rows, draft, saveAsDefault);
     respondFromControl(
       onResponse(interaction, {
         action: 'submit',
-        values: draftValues(rows, draft),
-        metadata: { scope: everywhere ? 'all' : 'agent' },
+        values,
+        metadata: { scope: everywhere ? 'all' : 'agent', save_as_default },
       }),
     );
   };
@@ -63,7 +71,10 @@ export function ConnectorOfferResponse({
     draft,
     onDraft: (key: string, value: string) => setDraft((current) => ({ ...current, [key]: value })),
     onSignIn: () => undefined,
+    onSaveAsDefault: (key: string, save: boolean) =>
+      setSaveAsDefault((current) => ({ ...current, [key]: save })),
     onSubmit: turnOn,
+    saveAsDefault,
     submitLabel: `Turn on ${name}`,
   };
   return (
