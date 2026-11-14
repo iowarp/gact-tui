@@ -55,6 +55,8 @@ function onScreen(frame: Element): boolean {
 export function trackViewLook(
   look: Omit<WaitingViewLook, 'visible'>,
   frame: Element | null | undefined,
+  /** No mount in this window holds the view: it is hidden until one does. */
+  unheld = false,
 ): TrackedLook {
   const observerType = (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
     .IntersectionObserver;
@@ -62,7 +64,7 @@ export function trackViewLook(
   const watched = Boolean(frame && observerType);
   publish([
     ...looks.filter((row) => row.callId !== look.callId),
-    { ...look, visible: watched ? onScreen(frame!) : true },
+    { ...look, visible: unheld ? false : watched ? onScreen(frame!) : true },
   ]);
   let shown = () => undefined as void;
   const whenShown = new Promise<void>((resolve) => {

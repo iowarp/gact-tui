@@ -6,7 +6,7 @@ import { McpAppInTabRow } from './mcp-app-card';
 import { dispatchMcpAppLookFrame, McpAppLooks } from './mcp-app-look';
 import { resetWaitingViewLooks, trackViewLook, useWaitingViewLook } from './mcp-app-look-waiting';
 import { ViewLookWaiting } from './mcp-app-look-waiting-notice';
-import { OPEN_MCP_APP_TAB_EVENT } from './mcp-app-live-set';
+import { noteMcpApp, OPEN_MCP_APP_TAB_EVENT, resetMcpAppLiveSet } from './mcp-app-live-set';
 
 /** An IntersectionObserver the test drives: `show(false)` scrolls the frame away. */
 class FakeObserver {
@@ -200,6 +200,36 @@ describe('a look that waits on a view the person cannot see (DOCS-F2)', () => {
     await vi.waitFor(() => expect(postMcpAppLook).toHaveBeenCalledTimes(1));
     expect(postMcpAppLook.mock.calls[0]![2]).toMatchObject({ image: expect.any(String) });
     looks.stop();
+  });
+
+  it('a look at a view no mount here holds says so, opens its tab, or answers at 30 s', async () => {
+    vi.useFakeTimers();
+    try {
+      const postMcpAppLook = vi.fn().mockResolvedValue({});
+      const repository = {
+        closeMcpApp: vi.fn(),
+        setMcpAppDisplayMode: vi.fn().mockResolvedValue({}),
+        pinMcpApp: vi.fn(),
+        postMcpAppLook,
+      };
+      noteMcpApp(target, repository as never);
+      const opened = vi.fn();
+      window.addEventListener(OPEN_MCP_APP_TAB_EVENT, opened);
+      render(<Probe sessionId="s1" />);
+      act(() => dispatchMcpAppLookFrame(lookFrame('look_unheld')));
+      expect(screen.getByText('waiting to see the view')).toBeTruthy();
+      act(() => screen.getByRole('button', { name: 'Show it' }).click());
+      expect(opened).toHaveBeenCalledTimes(1);
+      await act(async () => vi.advanceTimersByTimeAsync(30_000));
+      expect(postMcpAppLook).toHaveBeenCalledTimes(1);
+      expect(postMcpAppLook.mock.calls[0]![1]).toBe('look_unheld');
+      expect(postMcpAppLook.mock.calls[0]![2].error.reason).toBe('view_not_visible');
+      expect(screen.getByText('nothing hidden')).toBeTruthy();
+      window.removeEventListener(OPEN_MCP_APP_TAB_EVENT, opened);
+    } finally {
+      vi.useRealTimers();
+      resetMcpAppLiveSet();
+    }
   });
 
   it('the in-tab row of a view whose tab is hidden says the agent waits, and shows the tab', async () => {

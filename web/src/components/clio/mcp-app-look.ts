@@ -6,7 +6,13 @@ import {
   type McpAppSnapshot,
   type TransportFrame,
 } from '@clio/core/v3';
-import { mcpAppEnded } from './mcp-app-live-set';
+import {
+  mcpAppEnded,
+  mcpAppIdentity,
+  openMcpAppInTab,
+  useMcpAppLiveSetStore,
+} from './mcp-app-live-set';
+import { trackViewLook } from './mcp-app-look-waiting';
 
 /**
  * The agent looks at a view (CM1). The surface holding a view says so to CLIO
@@ -81,7 +87,61 @@ export function dispatchMcpAppLookFrame(frame: TransportFrame): void {
     return; // Frame reduction owns malformed-envelope reporting.
   }
   const look = lookEvent(payload);
-  if (look) lookHandlers.get(key(look.session_id, look.app_instance_id))?.at(-1)?.(look);
+  if (!look) return;
+  const handler = lookHandlers.get(key(look.session_id, look.app_instance_id))?.at(-1);
+  if (handler) {
+    unheldLooks.get(look.call_id)?.();
+    handler(look);
+  } else waitUnheld(look);
+}
+
+/** The words a look gets when the view stayed out of sight for the whole wait (DOCS-F2). */
+const NOT_VISIBLE = (seconds: number) =>
+  // i18n-ignore: error returned to the agent's look_at_view result
+  `The view was not on screen for ${seconds} s (its card scrolled out of sight, its tab not shown, or it is not open in this window), so it could not be seen. Ask the person to show the view, then look again.`;
+
+/** Looks at a view this window knows but no mount here holds, by call: their end. */
+const unheldLooks = new Map<string, () => void>();
+
+/**
+ * CLIO thinks the view is shown (a window that closed without unloading it may still hold
+ * it), but no mount in this window holds it: say the agent is waiting, offer to open the
+ * view in its tab (its mount then answers), and answer view_not_visible after the same
+ * 30 s if none did. Another window that holds it answers first; this answer then 404s.
+ */
+function waitUnheld(look: McpAppLookEvent): void {
+  const entry = useMcpAppLiveSetStore.getState().apps[look.app_instance_id];
+  const repository = entry?.repository as Partial<McpAppLookClient> | undefined;
+  if (
+    !entry ||
+    unheldLooks.has(look.call_id) ||
+    entry.placement === 'ended' ||
+    entry.sessionId !== look.session_id ||
+    !repository?.postMcpAppLook
+  )
+    return;
+  const tracked = trackViewLook(
+    {
+      callId: look.call_id,
+      sessionId: look.session_id,
+      appInstanceId: look.app_instance_id,
+      reveal: () => openMcpAppInTab(entry, entry.repository),
+    },
+    null,
+    true,
+  );
+  const end = () => {
+    clearTimeout(timer);
+    tracked.end();
+    unheldLooks.delete(look.call_id);
+  };
+  const timer = setTimeout(() => {
+    end();
+    void repository.postMcpAppLook!(mcpAppIdentity(entry), look.call_id, {
+      error: { reason: 'view_not_visible', message: NOT_VISIBLE(SNAPSHOT_ANSWER_MS / 1000) },
+    }).catch(() => undefined);
+  }, SNAPSHOT_ANSWER_MS);
+  unheldLooks.set(look.call_id, end);
 }
 
 function lookEvent(value: unknown): McpAppLookEvent | undefined {
@@ -186,8 +246,7 @@ export class McpAppLooks {
               ? {
                   error: {
                     reason: 'view_not_visible',
-                    // i18n-ignore: error returned to the agent's look_at_view result
-                    message: `The view was not on screen for ${SNAPSHOT_ANSWER_MS / 1000} s (its card scrolled out of sight, or its tab not shown), so it could not be seen. Ask the person to show the view, then look again.`,
+                    message: NOT_VISIBLE(SNAPSHOT_ANSWER_MS / 1000),
                   },
                 }
               : {
