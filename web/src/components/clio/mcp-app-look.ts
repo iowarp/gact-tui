@@ -123,6 +123,8 @@ export class McpAppLooks {
     private readonly repository: Partial<McpAppLookClient>,
     private readonly identity: McpAppIdentity,
     private readonly snapshot: TakeSnapshot,
+    /** Lists a snapshot in progress (a hidden frame waits for the person, DOCS-F2). */
+    private readonly track?: (callId: string) => () => void,
   ) {}
 
   /** The view finished initializing: this mount holds it. */
@@ -157,6 +159,7 @@ export class McpAppLooks {
     if (this.stopped || this.handled.has(look.call_id) || !this.repository.postMcpAppLook) return;
     this.handled.add(look.call_id);
     let answer: McpAppSnapshot;
+    const untrack = this.track?.(look.call_id);
     try {
       const scale = (globalThis as { devicePixelRatio?: number }).devicePixelRatio || 1;
       answer = await this.snapshot({ scale, maxSide: look.max_side });
@@ -167,6 +170,8 @@ export class McpAppLooks {
           message: error instanceof Error ? error.message : String(error),
         },
       };
+    } finally {
+      untrack?.();
     }
     await this.repository
       .postMcpAppLook(this.identity, look.call_id, answer)

@@ -34,6 +34,8 @@ import { PresentationNavigation } from './presentation-navigation';
 import { focusAttentionEvidence } from '@/lib/attention-evidence-navigation';
 import { ToolCompactRow } from './tool-compact-row';
 import { WaitingForYou } from './agent-answer-activity';
+import { useWaitingViewLook } from './mcp-app-look-waiting';
+import { ViewLookWaiting } from './mcp-app-look-waiting-notice';
 import { withPermissionDecision } from './agent-answer-domain';
 import { ActivityInfoButton } from './activity-row';
 import { TechnicalDetailsLink, ToolTechnicalDetailsDialog } from './tool-technical-details';
@@ -140,6 +142,9 @@ export function ClioToolInvocation({
       window.removeEventListener('hashchange', inspect);
     };
   }, [attentionFields]);
+  const hiddenViewLook = useWaitingViewLook(
+    tool?.name === 'look_at_view' && surface !== 'evidence' ? { sessionId } : undefined,
+  );
   if (!tool) return <p className="text-sm text-muted-foreground">{t`Tool details unavailable`}</p>;
   const flow = flowToolDescriptor(tool);
   const openFlow =
@@ -214,6 +219,8 @@ export function ClioToolInvocation({
 
   const actionLabel = operation.action;
   const active = status === 'running' || status === 'pending';
+  // A look waits on a view the person cannot see; the row says so and shows it (DOCS-F2).
+  const viewLook = status === 'running' ? hiddenViewLook : undefined;
   // A stopped call is not an error; its declared outcome already says how it ended.
   const stopped = status === 'cancelled' || status === 'interrupted';
   const declaredOutcome = presentedTool.presentation?.blocks.some(
@@ -296,6 +303,8 @@ export function ClioToolInvocation({
           waiting={
             waitingFor || tool.state === 'pending' ? (
               <WaitingForYou interaction={waitingFor} />
+            ) : viewLook ? (
+              <ViewLookWaiting look={viewLook} />
             ) : undefined
           }
           // A call the sandbox blocked says so before it is opened (#1905).
