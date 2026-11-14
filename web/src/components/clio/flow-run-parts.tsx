@@ -158,7 +158,7 @@ export function FlowScript({
           aria-hidden="true"
           className="size-3.5 text-muted-foreground transition-transform group-open/script:rotate-90 motion-reduce:transition-none"
         />
-        {workflow ? t`Show the workflow` : t`Show what the agent asked`}
+        {workflow ? t`Show the workflow` : t`Input to the flow`}
       </summary>
       <div className="grid min-w-0 gap-2 border-t p-2">
         <div className="flex flex-wrap items-center gap-1">

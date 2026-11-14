@@ -5404,6 +5404,7 @@ msgstr "agente"
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/desktop-title-bar.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/global-search-results.tsx
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/message-reply-facts.tsx
@@ -6083,7 +6084,6 @@ msgid "Another window is using this page."
 msgstr "Otra ventana está usando esta página."
 
 #: src/components/clio/attention-center.tsx
-#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/pending-interaction-question-response.tsx
 #: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
@@ -6099,6 +6099,10 @@ msgstr "Responde abajo"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Answer below: {label}"
 msgstr "Responde abajo: {label}"
+
+#: src/components/clio/flow-step-details.tsx
+msgid "Answer from {agent}"
+msgstr "Respuesta de {agent}"
 
 #: src/components/clio/agent-question-dialog.tsx
 msgid "Answer in message box"
@@ -12715,7 +12719,6 @@ msgstr "Desc"
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/extension-add-dialog.tsx
-#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/settings-prompt-editor.tsx
 msgid "Description"
@@ -17460,6 +17463,14 @@ msgstr "Precio de entrada en USD por 1M de tokens"
 msgid "Input price per 1M tokens"
 msgstr "Precio de entrada por 1M de tokens"
 
+#: src/components/clio/flow-step-details.tsx
+msgid "Input to {agent}"
+msgstr "Entrada para {agent}"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Input to the flow"
+msgstr "Entrada del flujo"
+
 #: src/lib/model-quick-filters.ts
 msgid "Input under $1 per 1M tokens"
 msgstr "Entrada por menos de $1 por 1M de tokens"
@@ -19513,6 +19524,10 @@ msgstr "Cargando el contenido de la carpeta"
 #: src/components/clio/artifact-image-preview.tsx
 msgid "Loading the image…"
 msgstr "Cargando la imagen…"
+
+#: src/components/clio/flow-step-details.tsx
+msgid "Loading the input…"
+msgstr "Cargando la entrada…"
 
 #: src/components/clio/surface-question-notice.tsx
 msgid "Loading the linked view…"
@@ -22943,6 +22958,10 @@ msgstr "no registrado"
 msgid "Not recorded"
 msgstr "No registrado"
 
+#: src/components/clio/flow-step-details.tsx
+msgid "Not recorded here. See conversation shows what it was given."
+msgstr "No se registró aquí. Ver conversación muestra lo que recibió."
+
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
@@ -23250,6 +23269,10 @@ msgstr "Nada que revisar"
 #: src/components/clio/session-rail.tsx
 msgid "Nothing yet."
 msgstr "Nada todavía."
+
+#: src/components/clio/flow-step-details.tsx
+msgid "nothing; starts first"
+msgstr "nada; empieza primero"
 
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Notice from a background task"
@@ -23619,7 +23642,6 @@ msgstr "abierta"
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/file-viewer-take.tsx
-#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Open"
 msgstr "Abrir"
@@ -23692,7 +23714,6 @@ msgstr "Abrir {label}, {status}"
 #: src/components/clio/artifact-markdown-image.tsx
 #: src/components/clio/artifact-rail-row.tsx
 #: src/components/clio/composer-attachment-chip.tsx
-#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/tool-result-workspace-file.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 #: src/components/clio/workbench-activity-detail.tsx
@@ -23961,10 +23982,6 @@ msgstr "Ábrelo en otra aplicación."
 #: src/components/clio/attention-away.ts
 msgid "Open it to recover the run"
 msgstr "Ábrela para recuperar la ejecución"
-
-#: src/components/clio/flow-run-view.tsx
-msgid "Open its conversation"
-msgstr "Abrir su conversación"
 
 #: src/components/clio/connected-source-detail.tsx
 msgid "Open knowledge"
@@ -29451,7 +29468,6 @@ msgid "Running, but no model is loaded yet."
 msgstr "En ejecución, pero aún no hay ningún modelo cargado."
 
 #: src/components/clio/activity-timeline-list.tsx
-#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
@@ -30721,9 +30737,18 @@ msgstr "Secciones"
 msgid "Secure credential storage is unavailable."
 msgstr "El almacenamiento seguro de credenciales no está disponible."
 
+#: src/components/clio/flow-step-details.tsx
+msgid "See {name}'s conversation"
+msgstr "Ver la conversación de {name}"
+
 #: src/components/clio/composed-prompt-view.tsx
 msgid "See all"
 msgstr "Ver todo"
+
+#: src/components/clio/flow-run-view.tsx
+#: src/components/clio/flow-step-details.tsx
+msgid "See conversation"
+msgstr "Ver conversación"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "See each step"
@@ -32037,10 +32062,6 @@ msgstr "Mostrar los archivos no disponibles o excluidos"
 #: src/components/clio/agent-package-filter.tsx
 msgid "Show what packages bring"
 msgstr "Mostrar lo que aportan los paquetes"
-
-#: src/components/clio/flow-run-parts.tsx
-msgid "Show what the agent asked"
-msgstr "Mostrar lo que preguntó el agente"
 
 #: src/components/clio/a2ui-map-data-source.tsx
 msgid "Showing {returned} of {matched} points."
@@ -35015,6 +35036,10 @@ msgstr "No se pudo cargar la imagen."
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "The image was not saved: {snapshotError}"
 msgstr "No se guardó la imagen: {snapshotError}"
+
+#: src/components/clio/flow-step-details.tsx
+msgid "The input could not be loaded: {message}"
+msgstr "No se pudo cargar la entrada: {message}"
 
 #: src/components/clio/provider-install-jobs.ts
 msgid "The install failed."
@@ -39867,6 +39892,10 @@ msgstr "Lo que recibe una conversación nueva en este espacio de trabajo: los se
 #: src/components/clio/whats-new-dialog.tsx
 msgid "What changed in your update."
 msgstr "Qué cambió en tu actualización."
+
+#: src/components/clio/flow-step-details.tsx
+msgid "What happened"
+msgstr "Qué pasó"
 
 #: src/components/clio/flow-run-view.tsx
 msgid "What happened, in order ({count})"

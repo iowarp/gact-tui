@@ -128,6 +128,29 @@ export function useFlowTaskAnswer(handle: string | undefined, enabled: boolean, 
   });
 }
 
+/**
+ * What a run's step was given: its task's full assignment text, read from the task
+ * index of the conversation that started the run. ``''`` when it was not recorded.
+ * The input never changes, so it is read once.
+ */
+export function useFlowTaskInput(
+  sessionId: string | undefined,
+  handle: string | undefined,
+  enabled: boolean,
+) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  return useQuery({
+    queryKey: queryKeys.key('flow-task-input', settings.endpoint, sessionId ?? '', handle ?? ''),
+    enabled: Boolean(sessionId && handle) && enabled,
+    staleTime: Infinity,
+    queryFn: async ({ signal }) => {
+      const task = await repository.taskInput(sessionId!, handle!, signal);
+      return (task?.description ?? '').trim();
+    },
+  });
+}
+
 const NO_QUESTIONS: FlowQuestion[] = [];
 
 /**

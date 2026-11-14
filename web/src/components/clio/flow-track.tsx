@@ -25,8 +25,11 @@ export function FlowTrack({
   usage,
   historyUnavailable,
   questions,
+  sessionId,
   active = true,
 }: {
+  /** The conversation that started the run: the selected step's input is read from it. */
+  sessionId?: string;
   /** The approval questions the run asked, shown on the step each is about. */
   questions?: readonly FlowQuestion[];
   flow: string;
@@ -123,6 +126,7 @@ export function FlowTrack({
           onOpenHandle={onOpenHandle}
           pick={pick}
           questions={questions}
+          sessionId={sessionId}
           usage={usage}
         />
       ) : null}

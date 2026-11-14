@@ -5396,6 +5396,7 @@ msgstr ""
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/desktop-title-bar.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/global-search-results.tsx
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/message-reply-facts.tsx
@@ -6075,7 +6076,6 @@ msgid "Another window is using this page."
 msgstr ""
 
 #: src/components/clio/attention-center.tsx
-#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/pending-interaction-question-response.tsx
 #: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
@@ -6090,6 +6090,10 @@ msgstr ""
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Answer below: {label}"
+msgstr ""
+
+#: src/components/clio/flow-step-details.tsx
+msgid "Answer from {agent}"
 msgstr ""
 
 #: src/components/clio/agent-question-dialog.tsx
@@ -12707,7 +12711,6 @@ msgstr ""
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/extension-add-dialog.tsx
-#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/settings-prompt-editor.tsx
 msgid "Description"
@@ -17443,6 +17446,14 @@ msgstr ""
 msgid "Input price per 1M tokens"
 msgstr ""
 
+#: src/components/clio/flow-step-details.tsx
+msgid "Input to {agent}"
+msgstr ""
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Input to the flow"
+msgstr ""
+
 #: src/lib/model-quick-filters.ts
 msgid "Input under $1 per 1M tokens"
 msgstr ""
@@ -19495,6 +19506,10 @@ msgstr ""
 
 #: src/components/clio/artifact-image-preview.tsx
 msgid "Loading the image…"
+msgstr ""
+
+#: src/components/clio/flow-step-details.tsx
+msgid "Loading the input…"
 msgstr ""
 
 #: src/components/clio/surface-question-notice.tsx
@@ -22926,6 +22941,10 @@ msgstr ""
 msgid "Not recorded"
 msgstr ""
 
+#: src/components/clio/flow-step-details.tsx
+msgid "Not recorded here. See conversation shows what it was given."
+msgstr ""
+
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
@@ -23232,6 +23251,10 @@ msgstr ""
 
 #: src/components/clio/session-rail.tsx
 msgid "Nothing yet."
+msgstr ""
+
+#: src/components/clio/flow-step-details.tsx
+msgid "nothing; starts first"
 msgstr ""
 
 #: src/components/clio/conversation-harness-injection.tsx
@@ -23602,7 +23625,6 @@ msgstr ""
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/file-viewer-take.tsx
-#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Open"
 msgstr ""
@@ -23675,7 +23697,6 @@ msgstr ""
 #: src/components/clio/artifact-markdown-image.tsx
 #: src/components/clio/artifact-rail-row.tsx
 #: src/components/clio/composer-attachment-chip.tsx
-#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/tool-result-workspace-file.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 #: src/components/clio/workbench-activity-detail.tsx
@@ -23943,10 +23964,6 @@ msgstr ""
 
 #: src/components/clio/attention-away.ts
 msgid "Open it to recover the run"
-msgstr ""
-
-#: src/components/clio/flow-run-view.tsx
-msgid "Open its conversation"
 msgstr ""
 
 #: src/components/clio/connected-source-detail.tsx
@@ -29434,7 +29451,6 @@ msgid "Running, but no model is loaded yet."
 msgstr ""
 
 #: src/components/clio/activity-timeline-list.tsx
-#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
@@ -30704,8 +30720,17 @@ msgstr ""
 msgid "Secure credential storage is unavailable."
 msgstr ""
 
+#: src/components/clio/flow-step-details.tsx
+msgid "See {name}'s conversation"
+msgstr ""
+
 #: src/components/clio/composed-prompt-view.tsx
 msgid "See all"
+msgstr ""
+
+#: src/components/clio/flow-run-view.tsx
+#: src/components/clio/flow-step-details.tsx
+msgid "See conversation"
 msgstr ""
 
 #: src/lib/onboarding/tour-script.ts
@@ -32019,10 +32044,6 @@ msgstr ""
 
 #: src/components/clio/agent-package-filter.tsx
 msgid "Show what packages bring"
-msgstr ""
-
-#: src/components/clio/flow-run-parts.tsx
-msgid "Show what the agent asked"
 msgstr ""
 
 #: src/components/clio/a2ui-map-data-source.tsx
@@ -34996,6 +35017,10 @@ msgstr ""
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "The image was not saved: {snapshotError}"
+msgstr ""
+
+#: src/components/clio/flow-step-details.tsx
+msgid "The input could not be loaded: {message}"
 msgstr ""
 
 #: src/components/clio/provider-install-jobs.ts
@@ -39848,6 +39873,10 @@ msgstr ""
 
 #: src/components/clio/whats-new-dialog.tsx
 msgid "What changed in your update."
+msgstr ""
+
+#: src/components/clio/flow-step-details.tsx
+msgid "What happened"
 msgstr ""
 
 #: src/components/clio/flow-run-view.tsx

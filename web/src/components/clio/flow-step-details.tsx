@@ -1,9 +1,10 @@
 import type { FlowRunUsage } from '@clio/core/v3';
+import { MessagesSquareIcon } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useFlowTaskAnswer } from '@/hooks/use-flow-run';
+import { useFlowTaskAnswer, useFlowTaskInput } from '@/hooks/use-flow-run';
 import { rowDuration, type FlowInfo } from '@/hooks/use-flow-presentation';
 import { callModel } from '@/lib/flow-run-usage';
 import { ContentMarkdown } from './content-markdown';
@@ -28,10 +29,13 @@ export function FlowPickDetails({
   flows,
   usage,
   questions = [],
+  sessionId,
   onOpenHandle,
   onClose,
 }: {
   pick: FlowPick;
+  /** The conversation that started the run, whose task index holds each step's input. */
+  sessionId?: string;
   /** The run's approval questions; a step shows those about it. */
   questions?: readonly FlowQuestion[];
   elapsed: ReadonlyMap<string, number>;
@@ -68,10 +72,12 @@ export function FlowPickDetails({
         model={callModel(usage, pick.member.handle)}
         onClose={onClose}
         onOpenHandle={onOpenHandle}
+        sessionId={sessionId}
       />
     );
   }
   const step = pick.step;
+  const agent = step.targetLabel || step.label || step.id;
   return (
     <PickFrame
       badge={
@@ -94,49 +100,57 @@ export function FlowPickDetails({
       status={step.status}
       time={rowDuration(elapsed.get(step.id))}
     >
-      {step.asked ? <Fact label={t`Investigates`}>{step.asked}</Fact> : null}
-      {step.targetLabel ? (
-        <Fact label={t`Runs`}>
-          {step.kind === 'flow' ? (
-            <FlowName info={flows?.get(step.target)} name={step.targetLabel} />
-          ) : (
-            step.targetLabel
-          )}
-        </Fact>
+      {step.kind !== 'action' ? (
+        <StepInput
+          agent={agent}
+          handle={step.handle}
+          input={step.input}
+          sessionId={sessionId}
+          written={!step.label || step.input !== undefined}
+        />
       ) : null}
-      {!step.label ? (
-        <Fact label={t`Waits on`}>
-          {step.after.length
-            ? step.after.map((id) => (id.startsWith('run:') ? id.slice(4) : id)).join(', ')
-            : 'nothing; starts first'}
-        </Fact>
-      ) : null}
-      {callModel(usage, step.handle) ? (
-        <Fact label={t`Model`}>{callModel(usage, step.handle)}</Fact>
-      ) : null}
-      {step.attempts > 1 ? <Fact label={t`Attempts`}>{step.attempts}</Fact> : null}
-      {step.forkOf ? <Fact label={t`Fork of`}>{step.forkOf}</Fact> : null}
-      {step.alsoWaitsOn?.length ? (
-        <Fact label={t`Also waits on its forks`}>{step.alsoWaitsOn.join(', ')}</Fact>
-      ) : null}
-      {step.forkOf && step.note ? (
-        <Fact label={t`Fork note`}>{step.note}</Fact>
-      ) : step.addedBy ? (
-        <Fact label={step.kind === 'proposal' ? t`Proposed by` : t`Added by`}>
-          {step.addedBy}
-          {step.note ? `: ${step.note}` : ''}
-        </Fact>
-      ) : step.note ? (
-        <Fact label={t`Description`}>{step.note}</Fact>
-      ) : null}
-      <StepFolder handle={step.handle} name={step.label ?? step.id} />
+      {step.handle ? <TaskAnswer agent={agent} handle={step.handle} status={step.status} /> : null}
       <StepQuestions
         questions={questions.filter((question) => question.step === (step.forkOf ?? step.id))}
       />
-      {step.kind !== 'action' && (!step.label || step.input !== undefined) ? (
-        <Instructions input={step.input} />
-      ) : null}
-      {step.handle ? <TaskAnswer handle={step.handle} status={step.status} /> : null}
+      <div className="grid min-w-0 gap-0.5 border-t pt-2">
+        {step.asked ? <Fact label={t`Investigates`}>{step.asked}</Fact> : null}
+        {step.targetLabel ? (
+          <Fact label={step.kind === 'flow' ? t`Flow` : t`Agent`}>
+            {step.kind === 'flow' ? (
+              <FlowName info={flows?.get(step.target)} name={step.targetLabel} />
+            ) : (
+              step.targetLabel
+            )}
+          </Fact>
+        ) : null}
+        {!step.label ? (
+          <Fact label={t`Waits on`}>
+            {step.after.length
+              ? step.after.map((id) => (id.startsWith('run:') ? id.slice(4) : id)).join(', ')
+              : t`nothing; starts first`}
+          </Fact>
+        ) : null}
+        {callModel(usage, step.handle) ? (
+          <Fact label={t`Model`}>{callModel(usage, step.handle)}</Fact>
+        ) : null}
+        {step.attempts > 1 ? <Fact label={t`Attempts`}>{step.attempts}</Fact> : null}
+        {step.forkOf ? <Fact label={t`Fork of`}>{step.forkOf}</Fact> : null}
+        {step.alsoWaitsOn?.length ? (
+          <Fact label={t`Also waits on its forks`}>{step.alsoWaitsOn.join(', ')}</Fact>
+        ) : null}
+        {step.forkOf && step.note ? (
+          <Fact label={t`Fork note`}>{step.note}</Fact>
+        ) : step.addedBy ? (
+          <Fact label={step.kind === 'proposal' ? t`Proposed by` : t`Added by`}>
+            {step.addedBy}
+            {step.note ? `: ${step.note}` : ''}
+          </Fact>
+        ) : step.note ? (
+          <Fact label={t`What happened`}>{step.note}</Fact>
+        ) : null}
+        <StepFolder handle={step.handle} name={step.label ?? step.id} />
+      </div>
     </PickFrame>
   );
 }
@@ -181,13 +195,14 @@ function PickFrame({
           {time ? <span className="text-xs tabular-nums text-muted-foreground">{time}</span> : null}
           {handle && onOpenHandle ? (
             <Button
-              aria-label={t`Open ${name}`}
+              aria-label={t`See ${name}'s conversation`}
               className="h-6 px-2 text-xs"
               onClick={() => onOpenHandle(handle)}
               size="xs"
-              variant="ghost"
+              variant="outline"
             >
-              {t`Open`}
+              <MessagesSquareIcon aria-hidden="true" className="size-3.5" />
+              {t`See conversation`}
             </Button>
           ) : null}
           <Button
@@ -211,11 +226,13 @@ function MemberDetails({
   elapsed,
   flows,
   model,
+  sessionId,
   onOpenHandle,
   onClose,
 }: {
   member: FlowMember;
   model?: string;
+  sessionId?: string;
   elapsed?: number;
   flows?: ReadonlyMap<string, FlowInfo>;
   onOpenHandle: (handle: string) => void;
@@ -231,23 +248,86 @@ function MemberDetails({
       status={member.status}
       time={rowDuration(elapsed)}
     >
-      <Fact label={t`Runs`}>
-        <FlowName info={flows?.get(member.target)} name={member.targetLabel} />
-      </Fact>
-      {model ? <Fact label={t`Model`}>{model}</Fact> : null}
-      {member.perspective ? <Fact label={t`Asked to answer as`}>{member.perspective}</Fact> : null}
-      <TaskAnswer handle={member.handle} status={member.status} />
+      <StepInput
+        agent={member.label}
+        handle={member.handle}
+        input={undefined}
+        sessionId={sessionId}
+        written={false}
+      />
+      <TaskAnswer agent={member.label} handle={member.handle} status={member.status} />
+      <div className="grid min-w-0 gap-0.5 border-t pt-2">
+        <Fact label={t`Agent`}>
+          <FlowName info={flows?.get(member.target)} name={member.targetLabel} />
+        </Fact>
+        {model ? <Fact label={t`Model`}>{model}</Fact> : null}
+        {member.perspective ? (
+          <Fact label={t`Asked to answer as`}>{member.perspective}</Fact>
+        ) : null}
+      </div>
     </PickFrame>
   );
 }
 
+/**
+ * What the selected step was given. A workflow step's written instructions come
+ * with the run; a flow's call was given its assignment text, read from the task
+ * index once the step is selected.
+ */
+function StepInput({
+  agent,
+  handle,
+  input,
+  sessionId,
+  written,
+}: {
+  agent: string;
+  handle?: string;
+  input: unknown;
+  sessionId?: string;
+  /** The run carries this step's instructions (a workflow step). */
+  written: boolean;
+}) {
+  const title = t`Input to ${agent}`;
+  const fetched = useFlowTaskInput(sessionId, handle, !written);
+  if (written) return <Instructions input={input} title={title} />;
+  return (
+    <div className="grid min-w-0 gap-1">
+      <p className="text-muted-foreground">{title}</p>
+      {!handle ? (
+        <p>{t`Not started yet.`}</p>
+      ) : fetched.isPending ? (
+        <p role="status">{t`Loading the input…`}</p>
+      ) : fetched.error ? (
+        <p className="text-destructive" role="alert">
+          {t`The input could not be loaded: ${ph({ message: fetched.error.message })}`}
+        </p>
+      ) : fetched.data ? (
+        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2 font-sans text-xs leading-5 text-foreground">
+          {fetched.data}
+        </pre>
+      ) : (
+        <p>{t`Not recorded here. See conversation shows what it was given.`}</p>
+      )}
+    </div>
+  );
+}
+
 /** Fetch only the selected child's answer, shared by workflow steps and flow members. */
-function TaskAnswer({ handle, status }: { handle?: string; status: FlowState }) {
+function TaskAnswer({
+  agent,
+  handle,
+  status,
+}: {
+  agent: string;
+  handle?: string;
+  status: FlowState;
+}) {
   const settled = !['running', 'waiting', 'proposed'].includes(status.tone);
   const answer = useFlowTaskAnswer(handle, true, settled);
   return (
     <div className="grid min-w-0 gap-1">
-      <p className="text-muted-foreground">{t`Answer`}</p>
+      <p className="text-muted-foreground">{t`Answer from ${agent}`}</p>
       {!handle ? (
         <p>{t`Not started yet.`}</p>
       ) : answer.isPending ? (

@@ -52,7 +52,7 @@ import { t, ph } from '@lingui/core/macro';
  * answers, and any typed stall. Each task handle opens its conversation; Full
  * screen shows the same run large, for following (or recording) it as it
  * changes. Given `crumbs`, it brings its own frame bar (where it ran, its state,
- * elapsed time and counts, Full screen and Open its conversation) and the body
+ * elapsed time and counts, Full screen and See conversation) and the body
  * drops the matching header.
  */
 export function FlowRunView({
@@ -165,6 +165,7 @@ export function FlowRunView({
       }}
       openError={open.error?.message}
       presentation={presentation}
+      sessionId={sessionId}
       questions={questions}
       run={data}
     />
@@ -196,7 +197,7 @@ export function FlowRunView({
             />
             <IconButton
               icon={<MessagesSquareIcon />}
-              label={t`Open its conversation`}
+              label={t`See conversation`}
               onClick={() => openHandle(handle)}
               size="sm"
             />
@@ -299,8 +300,11 @@ export function FlowRunDetails({
   onFullScreen,
   openError,
   questions = [],
+  sessionId,
 }: {
   run: FlowRun;
+  /** The conversation that started the run: a selected step's input is read from it. */
+  sessionId?: string;
   /** A frame bar above already names the run, its facts, Full screen and its conversation. */
   framed?: boolean;
   /** The approval questions the run asked, with the answers. */
@@ -345,7 +349,7 @@ export function FlowRunDetails({
               </Button>
             ) : null}
             <Button onClick={() => onOpenHandle(handle)} size="xs" variant="ghost">
-              {t`Open its conversation`}
+              {t`See conversation`}
             </Button>
           </div>
         </div>
@@ -368,6 +372,7 @@ export function FlowRunDetails({
       presentation={presentation}
       questions={questions}
       scale={wide ? 1.5 : 1}
+      sessionId={sessionId}
       usage={run.usage}
       historyUnavailable={historyUnavailable}
     />

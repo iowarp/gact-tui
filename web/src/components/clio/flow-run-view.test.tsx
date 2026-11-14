@@ -171,7 +171,10 @@ describe('FlowRunView', () => {
         name: /The workflow's 3 steps in order: draft, done; review, running/u,
       }),
     ).toHaveAttribute('data-kind', 'railroad');
-    await user.click(within(details).getByRole('button', { name: 'Open review' }));
+    // A workflow step shows what it was given and its answer under plain names.
+    expect(within(details).getByText(/^Input to /u)).toBeVisible();
+    expect(within(details).getByText(/^Answer from /u)).toBeVisible();
+    await user.click(within(details).getByRole('button', { name: "See review's conversation" }));
     await waitFor(() =>
       expect(onOpen).toHaveBeenCalledWith(
         expect.objectContaining({ child_session_id: 'sess_review' }),
