@@ -25,6 +25,8 @@ export interface PluginChange {
   failure: string;
   /** The plugin being removed: the dialog shows everything that leaves with it. */
   removing?: string;
+  /** How the dialog names the plugin being removed: a connector's plugin by its connector. */
+  removingName?: string;
 }
 
 const NOTE_APPLIED =

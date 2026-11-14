@@ -1,4 +1,9 @@
-import { connectorSetupPayload, isConnectorOffer, type PendingInteraction } from '@clio/core/v3';
+import {
+  connectorSetupPayload,
+  isConnectorOffer,
+  isPluginOffer,
+  type PendingInteraction,
+} from '@clio/core/v3';
 import { PlugIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useConnector, useInvalidateConnectors, useSessionConnector } from '@/hooks/use-connectors';
@@ -18,8 +23,8 @@ import { StatusIndicator } from './primitives/status-indicator';
  * them continues the same call. Declining returns a refusal that names the connector.
  */
 export function ConnectorSetupResponse(props: ConnectorCardProps) {
-  // The agent's offer of a connector that is off is the same card, in its enable form.
-  return isConnectorOffer(props.interaction.payload) ? (
+  // The agent's offer of a connector or a plugin is the same card, in its offer form.
+  return isConnectorOffer(props.interaction.payload) || isPluginOffer(props.interaction.payload) ? (
     <ConnectorOfferResponse {...props} />
   ) : (
     <ConnectorSetupCard {...props} />
@@ -74,34 +79,37 @@ function ConnectorSetupCard({
     <AskCard
       data-connector={id}
       data-interaction-kind="connector_setup"
+      headerActions={
+        status ? (
+          <span className="shrink-0 pl-1 text-xs" data-slot="connector-setup-state">
+            <StatusIndicator label={status.label} tone={status.tone} />
+          </span>
+        ) : undefined
+      }
       icon={PlugIcon}
       id={pendingInteractionDomId(interaction.id)}
       kind="question"
-      meta={tool}
-      metaMono
+      leading={
+        <ConnectorLogo
+          className="size-4 text-[8px]"
+          connector={connector ?? { id, name, logo_url: null }}
+        />
+      }
       spokenDetail={status ? `${name}: ${status.label}` : undefined}
       title={`Set up ${name}`}
       titleText={`Set up ${name}`}
       wrapTitle
     >
       <AskBody>
-        <AskSection className="grid gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <ConnectorLogo
-              className="size-5 text-[9px]"
-              connector={connector ?? { id, name, logo_url: null }}
-            />
-            <span className="min-w-0 truncate font-medium">{name}</span>
-            {status ? <StatusIndicator label={status.label} tone={status.tone} /> : null}
-          </div>
-          <p className="leading-5 text-muted-foreground">
+        <AskSection className="mt-1.5 grid gap-2">
+          <p className="truncate leading-5 text-muted-foreground" title={tool || undefined}>
             {tool ? (
               <>
-                The agent’s call to <span className="font-mono text-[11.5px]">{tool}</span> waits
-                until this is set up, then continues.
+                <span className="font-mono text-[11.5px]">{tool}</span> waits for this, then
+                continues.
               </>
             ) : (
-              'The agent’s call waits until this is set up, then continues.'
+              'The agent’s call waits for this, then continues.'
             )}
           </p>
           {payload ? (

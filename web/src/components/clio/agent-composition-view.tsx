@@ -16,7 +16,7 @@ import { usePluginChange, type PluginChange } from '@/hooks/use-plugin-change';
 import { useInstalledAgents, usePluginCatalog } from '@/hooks/use-session-agent';
 import { offeredPlugins } from '@/lib/connector-presentation';
 import { ScrollTextIcon } from 'lucide-react';
-import { agentDisplayName } from '@/lib/plugin-presentation';
+import { agentDisplayName, resolvedPluginName } from '@/lib/plugin-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
@@ -177,21 +177,32 @@ function AgentComposition({
   });
   const change = (next: AgentDelta, rest: Omit<PluginChange, 'delta'>) =>
     propose({ delta: next, ...rest });
-  const add = (plugin: string) => {
+  // A connector's plugin is named by its connector, as the plugin rows name it (CS-D5).
+  const pluginName = (plugin: string) => {
     const id = pluginReferenceId(plugin);
+    const resolved = resolution?.plugins.find((row) => row.id === id);
+    if (resolved) return resolvedPluginName(resolved);
+    const entry = catalog.data?.plugins.find((row) => row.ref === plugin || row.id === id);
+    return entry?.connector?.name || id;
+  };
+  const add = (plugin: string) => {
+    const name = pluginName(plugin);
     change(deltaWith(delta, { add: plugin }), {
-      summary: `Adds ${id} to this conversation.`,
-      success: `Added ${id}`,
-      failure: `${id} was not added`,
+      summary: `Adds ${name} to this conversation.`,
+      success: `Added ${name}`,
+      failure: `${name} was not added`,
     });
   };
-  const remove = (plugin: string) =>
+  const remove = (plugin: string) => {
+    const name = pluginName(plugin);
     change(deltaWith(delta, { remove: plugin }), {
       removing: plugin,
-      summary: `Removes ${plugin} from this conversation.`,
-      success: `Removed ${plugin}`,
-      failure: `${plugin} was not removed`,
+      removingName: name,
+      summary: `Removes ${name} from this conversation.`,
+      success: `Removed ${name}`,
+      failure: `${name} was not removed`,
     });
+  };
 
   if (supported === false) {
     return (
@@ -220,7 +231,7 @@ function AgentComposition({
   const parentName = agentDisplayName(resolution.agent.ref, agents.data);
   const setupName = resolution.agent.name || resolution.agent.id;
   const values = agentUseValues(resolution, changed ? setup.data : resolution);
-  const summary = deltaSummary(delta, draft, library, parentName);
+  const summary = deltaSummary(delta, draft, library, parentName, pluginName);
   const setupFacts = [
     `${resolution.agent.ref}${resolution.agent.version ? `, version ${resolution.agent.version}` : ''}`,
     resolution.agent.role,
@@ -472,14 +483,15 @@ function deltaSummary(
   draft: boolean,
   library: boolean,
   parentName: string,
+  name: (plugin: string) => string,
 ): string {
   const lead = library
     ? 'This local variation changes'
     : draft
       ? 'This new conversation will change'
       : 'This conversation changes';
-  const adds = delta.add.length ? `: adds ${delta.add.join(', ')}` : '';
+  const adds = delta.add.length ? `: adds ${delta.add.map(name).join(', ')}` : '';
   const joiner = delta.add.length && delta.remove.length ? ';' : delta.remove.length ? ':' : '';
-  const removes = delta.remove.length ? ` removes ${delta.remove.join(', ')}` : '';
+  const removes = delta.remove.length ? ` removes ${delta.remove.map(name).join(', ')}` : '';
   return `${lead} ${parentName}${adds}${joiner}${removes}.`;
 }

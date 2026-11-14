@@ -1,4 +1,4 @@
-import { isConnectorOffer, type PendingInteraction } from '@clio/core/v3';
+import { isConnectorOffer, isPluginOffer, type PendingInteraction } from '@clio/core/v3';
 import {
   ArrowDownToLineIcon,
   ArrowUpToLineIcon,
@@ -66,7 +66,7 @@ export function WaitingForYou({ interaction }: { interaction?: PendingInteractio
     interaction.kind === 'permission'
       ? 'Review below'
       : interaction.kind === 'connector_setup'
-        ? isConnectorOffer(interaction.payload)
+        ? isConnectorOffer(interaction.payload) || isPluginOffer(interaction.payload)
           ? 'Choose below'
           : 'Set up below'
         : 'Answer below';
