@@ -416,7 +416,11 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
             size="sm"
             title={selectedWorkspaceName ?? t`No workspace`}
           >
-            <FolderIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+            <FolderIcon
+              aria-hidden="true"
+              // Below 20rem the value needs the icon's room to keep "workspace" whole.
+              className={cn('size-3.5 text-muted-foreground', tight && 'max-[20rem]:hidden')}
+            />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

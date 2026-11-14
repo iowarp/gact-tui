@@ -156,6 +156,13 @@ export const ItemRow = memo(
           stacks && '@max-sm:data-confirm:grid-cols-[var(--item-icon)_minmax(0,1fr)]!',
           // Stacked, an empty slot kept only for alignment gives its width to the name and status.
           stacks && !hasSlot && '@max-sm:[--item-slot:0px]!',
+          // With the actions over the status, a row with no slot drops that track and its gap,
+          // so a status word ("Αξιόπιστο") fits whole beside the dot.
+          stacks &&
+            overlay &&
+            !folds &&
+            !hasSlot &&
+            '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)]!',
           // Stacked, a labelled slot button takes its own line under the text, so its column goes too.
           stacks &&
             !floats &&
@@ -324,7 +331,7 @@ export const ItemRow = memo(
                   (hasSlot && !folds
                     ? '@max-sm:col-end-[-1] @max-sm:row-start-1'
                     : '@max-sm:row-span-2'),
-                floatsOverName && '@max-sm:hidden',
+                (floatsOverName || (overlay && !folds && !hasSlot)) && '@max-sm:hidden',
                 // A labelled button ("Update", "Change") gets a line of its own, start-aligned
                 // under the name and meta, so a localized label never squeezes the name. Its
                 // indent is a spacer that gives way first, so a label wider than the name column

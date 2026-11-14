@@ -82,7 +82,9 @@ function SegmentedControlImpl<Value extends string>({
               bare && (option.count === undefined ? 'w-[27px] px-0' : 'gap-1 px-1.5'),
               wraps &&
                 // auto-phrase: Japanese wraps between words ("メモリーの/エクスポート").
-                'h-auto min-h-6 min-w-min shrink py-0.5 text-left leading-tight whitespace-normal [word-break:auto-phrase] [line-break:strict]',
+                'h-auto min-h-6 min-w-min shrink whitespace-normal [word-break:auto-phrase] [line-break:strict]',
+              // Folded names also tighten and start-align; `wrap` keeps a one-line label's metrics.
+              wraps && iconOnly === 'others' && 'py-0.5 text-left leading-tight',
             )}
           >
             {option.icon}

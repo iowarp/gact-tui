@@ -27,7 +27,10 @@ function NamePart({ part }: { part: string }) {
  * stays whole; one wider than the line breaks after a dot, colon or hyphen first.
  */
 export function PathText({ path }: { path: string }) {
-  const parts = path.split(/(?<=[/\\])/u);
+  // A leading root ("\\" of a share, "/") belongs to the first name, never a line of its own.
+  const [, root = '', rest = ''] = /^([/\\]*)(.*)$/su.exec(path) ?? [];
+  const parts = rest.split(/(?<=[/\\])/u);
+  parts[0] = root + (parts[0] ?? '');
   const keys = parts.map((_, index) => parts.slice(0, index + 1).join(''));
   return (
     <>

@@ -141,8 +141,9 @@ export function SearchSourceRow({
           {confirming ? (
             <span className="flex items-center gap-1 text-xs max-sm:max-w-full max-sm:min-w-0 max-sm:flex-wrap">
               <span className="min-w-0 text-muted-foreground">{t`Remove the key?`}</span>
-              {/* Keep and Remove wrap together, so neither answer sits alone on a line. */}
-              <span className="flex max-w-full min-w-0 items-center gap-1">
+              {/* Keep and Remove wrap together, so neither answer sits alone on a line; a
+                  line too narrow for both stacks the pair instead of overflowing the card. */}
+              <span className="flex max-w-full min-w-0 flex-wrap items-center gap-1">
                 <Button
                   className={action}
                   onClick={() => setConfirming(false)}
