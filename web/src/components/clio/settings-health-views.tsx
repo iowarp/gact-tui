@@ -47,7 +47,9 @@ function metricContext(name: string) {
 function ValueRow({ title, value, note }: { title: string; value: string; note?: string }) {
   return (
     <SettingsRow fullWidth inlineControl note={note} title={title}>
-      <span className="text-ui text-foreground tabular-nums">{value}</span>
+      <span className="text-ui text-foreground tabular-nums" data-slot="settings-value">
+        {value}
+      </span>
     </SettingsRow>
   );
 }

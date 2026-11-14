@@ -192,7 +192,8 @@ export const ItemRow = memo(
               size === 'line' ? 'max-w-full shrink-0 text-menu' : 'text-ui font-medium',
               wrapTitle &&
                 stacks &&
-                '@max-sm:leading-snug @max-sm:break-words @max-sm:whitespace-normal @max-sm:[word-break:auto-phrase] @max-sm:[line-break:strict]',
+                // A word wider than the column breaks at a hyphen, not mid-syllable.
+                '@max-sm:leading-snug @max-sm:break-words @max-sm:hyphens-auto @max-sm:whitespace-normal @max-sm:[word-break:auto-phrase] @max-sm:[line-break:strict]',
             )}
             data-slot="item-row-title"
           >
