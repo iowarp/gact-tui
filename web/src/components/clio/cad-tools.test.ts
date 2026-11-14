@@ -16,6 +16,7 @@ import {
 } from './cad-plate';
 import {
   clampSection,
+  cutSegments,
   defaultSection,
   keepsPoint,
   sectionOutline,
@@ -241,6 +242,30 @@ describe('section plane', () => {
   });
 });
 
+describe('section cut outline', () => {
+  it('outlines where the plane cuts the peg: a circle of radius 3 at its height', () => {
+    const peg = mesh.parts![1]!;
+    const index = mesh.triangles.slice(peg.triangleStart * 3, (peg.triangleStart + peg.triangleCount) * 3);
+    const cut = cutSegments(mesh.positions, index, [0, 0, 0], sectionPlane({ axis: 'z', position: 11, flipped: false }));
+    expect(cut.length).toBeGreaterThan(6 * 8);
+    for (let i = 0; i < cut.length; i += 3) {
+      expect(cut[i + 2]).toBeCloseTo(11, 4);
+      expect(Math.hypot(cut[i]!, cut[i + 1]!)).toBeGreaterThan(2.9);
+    }
+    // The cut outline is an edge like any other: its rim reads as a circle.
+    const circle = fitCircle(edgeChain(cut, 0), 0.05);
+    expect(circle?.radius).toBeCloseTo(3, 1);
+  });
+
+  it('moves with an exploded part and is empty where the plane misses', () => {
+    const peg = mesh.parts![1]!;
+    const index = mesh.triangles.slice(peg.triangleStart * 3, (peg.triangleStart + peg.triangleCount) * 3);
+    const plane = sectionPlane({ axis: 'z', position: 30, flipped: false });
+    expect(cutSegments(mesh.positions, index, [0, 0, 0], plane)).toHaveLength(0);
+    expect(cutSegments(mesh.positions, index, [0, 0, 18], plane).length).toBeGreaterThan(0);
+  });
+});
+
 describe('print plate', () => {
   it('lists common plates by name and size', () => {
     expect(plateOf({ kind: 'preset', id: 'bambu-a1' })).toEqual({
@@ -309,5 +334,32 @@ describe('units', () => {
     expect(formatBox([63, 20, 24], 'mm')).toBe('63.0 × 20.0 × 24.0 mm');
     expect(formatBox([63, 20, 24], 'in')).toBe('2.48 × 0.79 × 0.94 in');
     expect(formatAngle(45)).toBe('45.0°');
+  });
+});
+
+describe('snapping behind the surface', () => {
+  it('does not snap to an edge hidden behind the picked face', () => {
+    // Two edges project onto the same screen line; the far one is 12 mm behind the face.
+    const segments = Float32Array.from([0, 0, 0, 10, 0, 0, 0, 12, 0, 10, 12, 0]);
+    const project = (p: Vec3): [number, number] => [p[0] * 10, 0];
+    const depth = (p: Vec3) => p[1];
+    const near = snapPoint({
+      hit: [5, 0.5, 0],
+      segments,
+      project,
+      pointer: [50, 0],
+      radius: 8,
+      occlusion: { depth, tolerance: 1 },
+    });
+    expect(near.point[1]).toBe(0);
+    const behind = snapPoint({
+      hit: [5, 0, 0],
+      segments: segments.subarray(6),
+      project,
+      pointer: [50, 0],
+      radius: 8,
+      occlusion: { depth, tolerance: 1 },
+    });
+    expect(behind.kind).toBe('face');
   });
 });

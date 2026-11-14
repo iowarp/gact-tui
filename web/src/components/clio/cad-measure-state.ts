@@ -18,10 +18,15 @@ import { formatAngle, formatLength, type LengthUnit } from './cad-units';
 
 export type MeasureMode = 'distance' | 'radius' | 'angle';
 
+/**
+ * A measurement, held in the assembled model's coordinates with the part each point is on,
+ * so its value is the design's and its line follows the parts in an exploded view.
+ */
 export interface Measurement {
   id: string;
   mode: MeasureMode;
   points: Vec3[];
+  parts: number[];
   snaps: SnapKind[];
   distance?: Distance;
   circle?: CircleFit;
@@ -30,6 +35,7 @@ export interface Measurement {
 
 interface Pending {
   point: Vec3;
+  part: number;
   normal: Vec3;
   snap: SnapKind;
 }
@@ -48,8 +54,14 @@ export function snapName(kind: SnapKind): string {
   return t`Face`;
 }
 
-/** The measuring tool's state: picks with snapping, finished measurements and a notice. */
-export function useCadMeasure(scene: CadScene | undefined) {
+const shift = (point: Vec3, by: Vec3 | undefined, sign: 1 | -1): Vec3 =>
+  by ? [point[0] + sign * by[0], point[1] + sign * by[1], point[2] + sign * by[2]] : point;
+
+/**
+ * The measuring tool's state: picks with snapping, finished measurements and a notice.
+ * `offsets` are the parts' exploded-view moves (picks are taken back to the assembly).
+ */
+export function useCadMeasure(scene: CadScene | undefined, offsets: readonly Vec3[]) {
   const [mode, setModeState] = useState<MeasureMode>('distance');
   const [items, setItems] = useState<Measurement[]>([]);
   const [pending, setPending] = useState<Pending>();
@@ -66,6 +78,8 @@ export function useCadMeasure(scene: CadScene | undefined) {
         project: (point) => scene.project(point),
         pointer: [x, y],
         radius: touch ? 18 : 10,
+        // Corners and edges hidden behind the picked surface do not snap.
+        occlusion: { depth: (point) => scene.viewDepth(point), tolerance: scene.modelSize * 0.02 },
       });
       return { pick, snap };
     },
@@ -91,6 +105,7 @@ export function useCadMeasure(scene: CadScene | undefined) {
         return;
       }
       const { pick, snap } = found;
+      const assembled = (at: Vec3) => shift(at, offsets[pick.part], -1);
       setNotice(undefined);
       const id = `m${(nextId += 1)}`;
       if (mode === 'radius') {
@@ -106,25 +121,30 @@ export function useCadMeasure(scene: CadScene | undefined) {
           );
           return;
         }
-        setItems((list) => [...list, { id, mode, points: [snap.point], snaps: [snap.kind], circle }]);
+        const center = assembled(circle.center);
+        setItems((list) => [
+          ...list,
+          { id, mode, points: [assembled(snap.point)], parts: [pick.part], snaps: [snap.kind], circle: { ...circle, center } },
+        ]);
         return;
       }
       const next: Pending =
         mode === 'angle'
-          ? { point: pick.point, normal: pick.normal, snap: 'face' }
-          : { point: snap.point, normal: pick.normal, snap: snap.kind };
+          ? { point: assembled(pick.point), part: pick.part, normal: pick.normal, snap: 'face' }
+          : { point: assembled(snap.point), part: pick.part, normal: pick.normal, snap: snap.kind };
       if (!pending) return setPending(next);
       setPending(undefined);
       const points = [pending.point, next.point];
+      const parts = [pending.part, next.part];
       const snaps = [pending.snap, next.snap];
       setItems((list) => [
         ...list,
         mode === 'angle'
-          ? { id, mode, points, snaps, angle: faceAngle(pending.normal, next.normal) }
-          : { id, mode, points, snaps, distance: measureDistance(pending.point, next.point) },
+          ? { id, mode, points, parts, snaps, angle: faceAngle(pending.normal, next.normal) }
+          : { id, mode, points, parts, snaps, distance: measureDistance(pending.point, next.point) },
       ]);
     },
-    [mode, pending, snapAt],
+    [mode, offsets, pending, snapAt],
   );
 
   const setMode = useCallback((next: MeasureMode) => {
@@ -148,11 +168,35 @@ export function useCadMeasure(scene: CadScene | undefined) {
     setNotice(undefined);
   }, []);
 
+  // Where each measurement is drawn now: moved with its parts.
   const shapes = useMemo<MeasureShape[]>(
-    () => items.map(({ id, points, circle }) => ({ id, points, circle })),
-    [items],
+    () =>
+      items.map(({ id, points, parts, circle }) => ({
+        id,
+        points: points.map((point, index) => shift(point, offsets[parts[index]!], 1)),
+        circle: circle && { ...circle, center: shift(circle.center, offsets[parts[0]!], 1) },
+      })),
+    [items, offsets],
   );
-  return { mode, setMode, items, pending, hover, notice, onHover, onClick, cancel, remove, clear, shapes };
+  const pendingPoint = useMemo(
+    () => pending && shift(pending.point, offsets[pending.part], 1),
+    [offsets, pending],
+  );
+  return {
+    mode,
+    setMode,
+    items,
+    pending,
+    pendingPoint,
+    hover,
+    notice,
+    onHover,
+    onClick,
+    cancel,
+    remove,
+    clear,
+    shapes,
+  };
 }
 
 export type CadMeasureState = ReturnType<typeof useCadMeasure>;

@@ -108,7 +108,6 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
   const [plate, setPlateState] = useState<PlateChoice>(readPlateChoice);
   const [selectedState, setSelected] = useState<number>();
   const [focus, setFocus] = useState<PartFocus>('normal');
-  const measure = useCadMeasure(scene);
   const selected = selectedState !== undefined && !hidden.has(selectedState) ? selectedState : undefined;
 
   // The palette follows the theme, so it is read again when the theme changes.
@@ -128,6 +127,7 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
     () => explodeOffsets(facts, mesh.bounds, explode, UP_VECTORS[up]),
     [explode, facts, mesh.bounds, up],
   );
+  const measure = useCadMeasure(scene, offsets);
   const shownPart = useCallback(
     (index: number) => !hidden.has(index) && (focus !== 'isolate' || selected === undefined || index === selected),
     [focus, hidden, selected],
@@ -183,8 +183,8 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
     );
   }, [scene, sectionShown?.axis, sectionShown?.position, sectionShown?.flipped, drawn, ink, mesh]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(
-    () => scene?.overlays.setMeasurements(measure.shapes, measure.pending?.point, ink.accent),
-    [scene, measure.shapes, measure.pending, ink],
+    () => scene?.overlays.setMeasurements(measure.shapes, measure.pendingPoint, ink.accent),
+    [scene, measure.shapes, measure.pendingPoint, ink],
   );
   useEffect(() => scene?.requestRender(), [scene, measure.shapes, measure.pending]);
   const plateSpec = plateOf(plate);
@@ -205,20 +205,33 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
   useEffect(() => {
     explodeNow.current = explode;
   }, [explode]);
+  // Once the parts settle (opened, closed or a slider let go), the camera frames them.
+  const frameExploded = useCallback(
+    (amount: number) => {
+      const bounds = unionBounds(facts, shownPart, explodeOffsets(facts, mesh.bounds, amount, UP_VECTORS[up]));
+      if (scene && bounds) scene.fit(bounds);
+    },
+    [facts, mesh.bounds, scene, shownPart, up],
+  );
   const explodeTo = useCallback(
     (target: number, animate = true) => {
       cancelAnimationFrame(animation.current);
       const from = explodeNow.current;
-      if (!animate || reducedMotion) return setExplodeState(target);
+      if (!animate || reducedMotion) {
+        setExplodeState(target);
+        if (animate) frameExploded(target);
+        return;
+      }
       const start = performance.now();
       const step = (now: number) => {
         const k = Math.min(1, (now - start) / EXPLODE_MS);
         setExplodeState(from + (target - from) * (1 - (1 - k) ** 3));
         if (k < 1) animation.current = requestAnimationFrame(step);
+        else frameExploded(target);
       };
       animation.current = requestAnimationFrame(step);
     },
-    [reducedMotion],
+    [frameExploded, reducedMotion],
   );
   useEffect(() => () => cancelAnimationFrame(animation.current), []);
 
@@ -242,10 +255,12 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
       // The default cut runs through the model's long axis: across the narrower plan axis.
       const [w, d] = plateAxes(up);
       const extent = boxExtent(drawn);
-      const axis = (['x', 'y', 'z'] as const)[extent[w]! <= extent[d]! ? w : d]!;
-      return defaultSection(drawn, axis);
+      const index = extent[w]! <= extent[d]! ? w : d;
+      // Keep the far half, so the cut faces the camera.
+      const flipped = (scene?.viewDirection().getComponent(index) ?? 1) < 0;
+      return { ...defaultSection(drawn, (['x', 'y', 'z'] as const)[index]!), flipped };
     });
-  }, [drawn, up]);
+  }, [drawn, scene, up]);
   const toggleExplode = useCallback(() => {
     if (explodeOpen) {
       setExplodeOpen(false);
@@ -267,7 +282,9 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
   };
   const lookAlong = (axis: number, sign: 1 | -1) => {
     if (!scene || !drawn) return;
-    const direction = new THREE.Vector3().setComponent(axis, sign);
+    // Clicking the side already in view looks from the opposite side, as a view cube does.
+    const already = scene.viewDirection().getComponent(axis) * sign > 0.999;
+    const direction = new THREE.Vector3().setComponent(axis, already ? -sign : sign);
     const upIndex = axisIndex(up);
     const screenUp =
       axis === upIndex ? standardViewFrame('top', up).up : (UP_VECTORS[up] as Vec3);
@@ -285,17 +302,34 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
     if (!measureOpen) measure.onHover(undefined);
   }, [measureOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Escape is read before the page's own layers (a maximized canvas restores on Escape), so a
+  // half-made measurement, the measuring mode or a selection is cancelled first, one per key.
+  const viewRef = useRef<HTMLDivElement>(null);
+  const escape = useRef<() => boolean>(() => false);
+  useEffect(() => {
+    escape.current = () => {
+      if (measureOpen && measure.cancel()) return true;
+      if (measureOpen) setMeasureOpen(false);
+      else if (selected !== undefined) setSelected(undefined);
+      else return false;
+      return true;
+    };
+  });
+  useEffect(() => {
+    const onEscape = (event: globalThis.KeyboardEvent) => {
+      const root = viewRef.current;
+      if (event.key !== 'Escape' || event.defaultPrevented || !root) return;
+      if (!(document.activeElement instanceof Node) || !root.contains(document.activeElement)) return;
+      if (typing(document.activeElement) || !escape.current()) return;
+      event.preventDefault();
+    };
+    window.addEventListener('keydown', onEscape, true);
+    return () => window.removeEventListener('keydown', onEscape, true);
+  }, []);
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || typing(event.target)) return;
     const key = event.key.toLowerCase();
-    if (key === 'escape') {
-      if (measureOpen && measure.cancel()) return event.preventDefault();
-      if (measureOpen) setMeasureOpen(false);
-      else if (selected !== undefined) setSelected(undefined);
-      else return;
-      event.preventDefault();
-      return;
-    }
     const actions: Record<string, () => void> = {
       m: toggleMeasure,
       s: toggleSection,
@@ -395,6 +429,7 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
     // The keys act on the view whichever of its controls has focus.
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
+      ref={viewRef}
       className="@container relative size-full min-h-0 overflow-hidden bg-muted/40"
       data-slot="cad-view"
       onKeyDown={onKeyDown}
@@ -493,6 +528,7 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
             <CadExplodePanel
               amount={explode}
               onChange={(value) => explodeTo(value, false)}
+              onCommit={frameExploded}
               onClose={toggleExplode}
             />
           ) : null}

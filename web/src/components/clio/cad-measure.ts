@@ -24,6 +24,11 @@ export interface SnapInput {
   pointer: [number, number];
   /** How close (pixels) the pointer must be to snap. */
   radius: number;
+  /**
+   * Distance of a point from the camera along the view, with how far behind the picked
+   * surface a corner or edge may lie and still snap; one farther back is hidden by it.
+   */
+  occlusion?: { depth: (point: Vec3) => number; tolerance: number };
 }
 
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -53,8 +58,10 @@ function segmentAt(segments: ArrayLike<number>, index: number): [Vec3, Vec3] {
  * feature edge, within `radius` pixels of the pointer; otherwise the face point itself.
  * Corners win over edges, as in CAD tools, so a corner is easy to hit.
  */
-export function snapPoint({ hit, segments, project, pointer, radius }: SnapInput): SnapPoint {
+export function snapPoint({ hit, segments, project, pointer, radius, occlusion }: SnapInput): SnapPoint {
   const count = Math.floor(segments.length / 6);
+  const limit = occlusion ? occlusion.depth(hit) + occlusion.tolerance : Infinity;
+  const hidden = (point: Vec3) => (occlusion ? occlusion.depth(point) > limit : false);
   const [px, py] = pointer;
   let vertex: SnapPoint | undefined;
   let vertexDistance = radius;
@@ -70,7 +77,7 @@ export function snapPoint({ hit, segments, project, pointer, radius }: SnapInput
       [b, sb],
     ] as const) {
       const distance = Math.hypot(screen[0] - px, screen[1] - py);
-      if (distance <= vertexDistance) {
+      if (distance <= vertexDistance && !hidden(point)) {
         vertexDistance = distance;
         vertex = { kind: 'vertex', point, segment: s };
       }
@@ -80,9 +87,10 @@ export function snapPoint({ hit, segments, project, pointer, radius }: SnapInput
     const span = dx * dx + dy * dy;
     const along = span > 0 ? Math.min(1, Math.max(0, ((px - sa[0]) * dx + (py - sa[1]) * dy) / span)) : 0;
     const distance = Math.hypot(sa[0] + dx * along - px, sa[1] + dy * along - py);
-    if (distance <= edgeDistance) {
+    const point = lerp(a, b, along);
+    if (distance <= edgeDistance && !hidden(point)) {
       edgeDistance = distance;
-      edge = { kind: 'edge', point: lerp(a, b, along), segment: s };
+      edge = { kind: 'edge', point, segment: s };
     }
   }
   return vertex ?? edge ?? { kind: 'face', point: hit };

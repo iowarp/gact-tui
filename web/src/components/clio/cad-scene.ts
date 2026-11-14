@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { Vec3 } from './cad-parts';
 import { CadOverlays } from './cad-scene-overlays';
 import { CadSectionCaps } from './cad-scene-section';
+import { cutSegments } from './cad-section';
 import { modelParts } from './cad-view-model';
 import { fitBoxDistance } from './mesh-viewport-framing';
 import type { ParsedFeaMesh } from './mesh-viewport-mesh';
@@ -64,6 +65,8 @@ export class CadScene {
   private focus: PartFocus = 'normal';
   private edgesShown = true;
   private frame = 0;
+  /** Each part's cut outline while a section is on (empty for a part not drawn solid). */
+  private cuts: Float32Array[] = [];
 
   public constructor(private readonly container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true });
@@ -185,6 +188,7 @@ export class CadScene {
   /** Move each part by its exploded-view offset. */
   public setOffsets(offsets: readonly Vec3[]): void {
     this.parts.forEach(({ group }, index) => group.position.set(...(offsets[index] ?? [0, 0, 0])));
+    this.refreshCuts();
     this.requestRender();
   }
 
@@ -278,9 +282,26 @@ export class CadScene {
     this.frameFrom(bounds, direction, this.camera.up.clone());
   }
 
+  /** The unit direction from the view's centre towards the camera. */
+  public viewDirection(): THREE.Vector3 {
+    return this.camera.position.clone().sub(this.controls.target).normalize();
+  }
+
   /** The camera's orientation, for the axis gizmo. */
   public viewQuaternion(): THREE.Quaternion {
     return this.camera.quaternion.clone();
+  }
+
+  /** The model's diagonal, in millimetres (0 before a model is shown). */
+  public get modelSize(): number {
+    const sphere = this.geometry?.boundingSphere;
+    return sphere ? sphere.radius * 2 : 0;
+  }
+
+  /** How far a model point lies in front of the camera, along its view direction. */
+  public viewDepth(point: Vec3): number {
+    this.camera.updateMatrixWorld();
+    return -new THREE.Vector3(...point).applyMatrix4(this.camera.matrixWorldInverse).z;
   }
 
   /** A model point on the canvas in CSS pixels; undefined behind the camera. */
@@ -304,14 +325,20 @@ export class CadScene {
       if (this.section.active && this.section.plane.distanceToPoint(hit.point) < 0) continue;
       const part = this.parts.findIndex(({ mesh }) => mesh === hit.object);
       if (part < 0 || !hit.face) continue;
-      const offset = this.parts[part]!.group.position;
-      const segments = Float32Array.from(this.parts[part]!.segments, (value, i) => value + offset.getComponent(i % 3));
-      return {
-        part,
-        point: hit.point.toArray() as Vec3,
-        normal: hit.face.normal.clone().normalize().toArray() as Vec3,
-        segments,
-      };
+      const segments = this.shownSegments(part);
+      const ray = this.raycaster.ray;
+      const normal = hit.face.normal.clone().normalize();
+      // A back face seen first through a section means the ray entered the solid at the cut:
+      // what shows there is the cap, so the pick lands on the cut face.
+      if (this.section.active && normal.dot(ray.direction) > 0) {
+        const onCut = ray.intersectPlane(this.section.plane, new THREE.Vector3());
+        if (onCut) {
+          const facing = this.section.plane.normal.clone();
+          if (facing.dot(ray.direction) > 0) facing.negate();
+          return { part, point: onCut.toArray() as Vec3, normal: facing.toArray() as Vec3, segments };
+        }
+      }
+      return { part, point: hit.point.toArray() as Vec3, normal: normal.toArray() as Vec3, segments };
     }
     return undefined;
   }
@@ -345,6 +372,45 @@ export class CadScene {
     this.listeners.clear();
   }
 
+  /** A part's feature edges where they are drawn: moved with the part, none the section cut away. */
+  private shownSegments(part: number): Float32Array {
+    const { segments, group } = this.parts[part]!;
+    const offset = group.position;
+    const cut = this.section.active ? this.section.plane : undefined;
+    const kept: number[] = [];
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    for (let i = 0; i + 5 < segments.length; i += 6) {
+      a.set(segments[i]!, segments[i + 1]!, segments[i + 2]!).add(offset);
+      b.set(segments[i + 3]!, segments[i + 4]!, segments[i + 5]!).add(offset);
+      if (cut && (cut.distanceToPoint(a) < 0 || cut.distanceToPoint(b) < 0)) continue;
+      kept.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    }
+    // The cut face's outline is an edge too: a wall's thickness is measured across it.
+    for (const value of this.cuts[part] ?? []) kept.push(value);
+    return Float32Array.from(kept);
+  }
+
+  /** Recompute where the section cuts each solid part, and outline it. */
+  private refreshCuts(): void {
+    const position = this.geometry?.getAttribute('position');
+    if (!this.section.active || !position) {
+      this.cuts = [];
+      this.section.setCutLines([], this.edgeMaterial.color);
+      return;
+    }
+    const plane = {
+      normal: this.section.plane.normal.toArray() as Vec3,
+      constant: this.section.plane.constant,
+    };
+    this.cuts = this.parts.map(({ mesh, group }, index) =>
+      this.solid(index) && mesh.geometry.index
+        ? cutSegments(position.array, mesh.geometry.index.array, group.position.toArray() as Vec3, plane)
+        : new Float32Array(),
+    );
+    this.section.setCutLines(this.cuts, this.edgeMaterial.color);
+  }
+
   /** Whether a part is drawn solid: shown, and not ghosted or isolated away. */
   private solid(index: number): boolean {
     if (this.hidden.has(index)) return false;
@@ -365,6 +431,7 @@ export class CadScene {
       edges.visible = (this.edgesShown || index === this.selected) && !ghost;
     });
     this.section.setPartsShown(this.parts.map((_, index) => this.solid(index)));
+    this.refreshCuts();
     this.requestRender();
   }
 

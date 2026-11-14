@@ -12,6 +12,7 @@ import {
   type MeasureMode,
 } from './cad-measure-state';
 import type { CadScene } from './cad-scene';
+import type { MeasureShape } from './cad-scene-overlays';
 import { formatNumber, type LengthUnit } from './cad-units';
 import { CadToolPanel } from './cad-tool-panel';
 
@@ -22,9 +23,9 @@ function deltaText(item: Measurement, unit: LengthUnit): string | undefined {
 }
 
 /** Where a measurement's label sits: the middle of its line, or the circle's centre. */
-function anchorOf(item: Measurement): Vec3 {
-  if (item.circle) return item.circle.center;
-  const [a, b] = item.points;
+function anchorOf(shape: MeasureShape): Vec3 {
+  if (shape.circle) return shape.circle.center;
+  const [a, b] = shape.points;
   return b ? (a!.map((value, axis) => (value + b[axis]!) / 2) as Vec3) : a!;
 }
 
@@ -39,13 +40,13 @@ export function CadMeasureLabels({
   unit: LengthUnit;
 }) {
   const labels = useRef(new Map<string, HTMLElement>());
-  const { items, hover } = measure;
+  const { items, hover, shapes } = measure;
   useEffect(() => {
     const place = () => {
-      for (const item of items) {
-        const element = labels.current.get(item.id);
+      for (const shape of shapes) {
+        const element = labels.current.get(shape.id);
         if (!element) continue;
-        const at = scene.project(anchorOf(item));
+        const at = scene.project(anchorOf(shape));
         element.style.visibility = at ? 'visible' : 'hidden';
         if (at) element.style.transform = `translate(${at[0]}px, ${at[1]}px) translate(-50%, -50%)`;
       }
@@ -53,7 +54,7 @@ export function CadMeasureLabels({
     place();
     scene.requestRender();
     return scene.subscribe(place);
-  }, [items, scene]);
+  }, [shapes, scene]);
   const last = items[items.length - 1];
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden" data-slot="cad-measure-labels">
@@ -115,7 +116,11 @@ export function CadMeasurePanel({
           ? t`Click the second face. Esc cancels.`
           : t`Click two faces.`
         : pending
-          ? t`First point on a ${ph({ snap: snapName(pending.snap).toLowerCase() })}. Click the second point; Esc cancels.`
+          ? pending.snap === 'vertex'
+            ? t`First point on a vertex. Click the second point; Esc cancels.`
+            : pending.snap === 'edge'
+              ? t`First point on an edge. Click the second point; Esc cancels.`
+              : t`First point on a face. Click the second point; Esc cancels.`
           : t`Click two points. Vertices and edges snap.`;
   return (
     <CadToolPanel onClose={onClose} slot="cad-measure" title={t`Measure`}>

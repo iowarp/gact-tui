@@ -22,6 +22,8 @@ function capColor(color: THREE.Color): THREE.Color {
 export class CadSectionCaps {
   public readonly plane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
   private readonly caps: PartCap[] = [];
+  private readonly cuts = new THREE.Group();
+  private readonly cutMaterial = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.85 });
   private readonly outline: THREE.LineLoop<THREE.BufferGeometry, THREE.LineBasicMaterial>;
   private enabled = false;
 
@@ -32,7 +34,25 @@ export class CadSectionCaps {
     );
     this.outline.renderOrder = 1000;
     this.outline.visible = false;
-    root.add(this.outline);
+    root.add(this.outline, this.cuts);
+  }
+
+  /** Outline each cut face (segments in the view's coordinates), drawn over its cap. */
+  public setCutLines(lines: readonly Float32Array[], color: THREE.ColorRepresentation): void {
+    for (const child of [...this.cuts.children]) {
+      this.cuts.remove(child);
+      (child as THREE.LineSegments).geometry.dispose();
+    }
+    this.cutMaterial.color.set(color);
+    for (const segments of lines) {
+      if (!segments.length) continue;
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(segments, 3));
+      const line = new THREE.LineSegments(geometry, this.cutMaterial);
+      line.renderOrder = 400;
+      line.raycast = () => undefined;
+      this.cuts.add(line);
+    }
   }
 
   /** Make the counting meshes and the cap of every part (after a new model). */
@@ -138,7 +158,9 @@ export class CadSectionCaps {
 
   public dispose(): void {
     this.clear();
-    this.root.remove(this.outline);
+    this.setCutLines([], 0);
+    this.cutMaterial.dispose();
+    this.root.remove(this.outline, this.cuts);
     this.outline.geometry.dispose();
     this.outline.material.dispose();
   }

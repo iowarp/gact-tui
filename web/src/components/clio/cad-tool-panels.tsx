@@ -100,10 +100,13 @@ export function CadSectionPanel({
 export function CadExplodePanel({
   amount,
   onChange,
+  onCommit,
   onClose,
 }: {
   amount: number;
   onChange: (amount: number) => void;
+  /** The slider is let go (or a key step ends): the view frames the parts. */
+  onCommit: (amount: number) => void;
   onClose: () => void;
 }) {
   const percent = Math.round(amount * 100);
@@ -116,6 +119,7 @@ export function CadExplodePanel({
           max={100}
           min={0}
           onValueChange={([value]) => value !== undefined && onChange(value / 100)}
+          onValueCommit={([value]) => value !== undefined && onCommit(value / 100)}
           step={1}
           thumbProps={() => ({ 'aria-label': t`Explode distance`, 'aria-valuetext': t`${ph({ percent })} %` })}
           value={[percent]}
@@ -125,7 +129,10 @@ export function CadExplodePanel({
           aria-label={t`Put the parts back together`}
           className="size-7"
           disabled={amount === 0}
-          onClick={() => onChange(0)}
+          onClick={() => {
+            onChange(0);
+            onCommit(0);
+          }}
           size="icon"
           variant="ghost"
         >
