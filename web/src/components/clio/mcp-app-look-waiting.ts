@@ -38,10 +38,19 @@ function patch(callId: string, change: Partial<WaitingViewLook>): void {
   publish(looks.map((look) => (look.callId === callId ? { ...look, ...change } : look)));
 }
 
+/** Whether any part of the frame is in the window now (a hidden tab has no boxes). */
+function onScreen(frame: Element): boolean {
+  if (!frame.getClientRects().length) return false;
+  const box = frame.getBoundingClientRect();
+  const width = globalThis.innerWidth || document.documentElement.clientWidth;
+  const height = globalThis.innerHeight || document.documentElement.clientHeight;
+  return box.right > 0 && box.bottom > 0 && box.left < width && box.top < height;
+}
+
 /**
- * A mount began a snapshot for a look: list it, follow whether its frame is on screen,
- * and return whether it is on screen now and the call that lists it no more (the snapshot
- * answered or failed).
+ * A mount began a snapshot for a look: list it and follow whether its frame is on screen.
+ * Returns whether it is on screen now, a promise for when it is, and the call that lists
+ * it no more (the snapshot answered or failed).
  */
 export function trackViewLook(
   look: Omit<WaitingViewLook, 'visible'>,
@@ -50,17 +59,30 @@ export function trackViewLook(
   const observerType = (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
     .IntersectionObserver;
   // Without a frame or an observer nothing can tell; the look is not said to be hidden.
-  publish([...looks.filter((row) => row.callId !== look.callId), { ...look, visible: true }]);
+  const watched = Boolean(frame && observerType);
+  publish([
+    ...looks.filter((row) => row.callId !== look.callId),
+    { ...look, visible: watched ? onScreen(frame!) : true },
+  ]);
+  let shown = () => undefined as void;
+  const whenShown = new Promise<void>((resolve) => {
+    shown = resolve;
+  });
+  const visible = () => looks.find((row) => row.callId === look.callId)?.visible ?? true;
   let observer: IntersectionObserver | undefined;
-  if (frame && observerType) {
-    observer = new observerType((entries) => {
+  if (watched) {
+    observer = new observerType!((entries) => {
       const entry = entries.at(-1);
-      if (entry) patch(look.callId, { visible: entry.isIntersecting });
+      if (!entry) return;
+      patch(look.callId, { visible: entry.isIntersecting });
+      if (entry.isIntersecting) shown();
     });
-    observer.observe(frame);
+    observer.observe(frame!);
   }
+  if (visible()) shown();
   return {
-    visible: () => looks.find((row) => row.callId === look.callId)?.visible ?? true,
+    visible,
+    whenVisible: () => whenShown,
     end: () => {
       observer?.disconnect();
       if (looks.some((row) => row.callId === look.callId))

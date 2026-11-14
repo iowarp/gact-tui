@@ -49,6 +49,14 @@ function lookFrame(callId: string): TransportFrame {
   };
 }
 
+/** A frame laid out in the window (jsdom lays nothing out), or one with no box at all. */
+function frameOnScreen(shown = true): Element {
+  return {
+    getClientRects: () => (shown ? [{}] : []),
+    getBoundingClientRect: () => ({ left: 10, top: 10, right: 400, bottom: 300 }),
+  } as unknown as Element;
+}
+
 function Probe({ sessionId, appInstanceId }: { sessionId?: string; appInstanceId?: string }) {
   const look = useWaitingViewLook({ sessionId, appInstanceId });
   return look ? <ViewLookWaiting look={look} /> : <span>nothing hidden</span>;
@@ -70,9 +78,10 @@ describe('a look that waits on a view the person cannot see (DOCS-F2)', () => {
     render(<Probe sessionId="s1" />);
     let done = () => undefined as void;
     act(() => {
-      done = trackViewLook({ callId: 'c1', sessionId: 's1', appInstanceId: 'app1', reveal }, {
-        nodeName: 'IFRAME',
-      } as Element).end;
+      done = trackViewLook(
+        { callId: 'c1', sessionId: 's1', appInstanceId: 'app1', reveal },
+        frameOnScreen(),
+      ).end;
     });
     // On screen (or not known yet): the look will answer by itself; nothing to say.
     expect(screen.getByText('nothing hidden')).toBeTruthy();
@@ -93,7 +102,7 @@ describe('a look that waits on a view the person cannot see (DOCS-F2)', () => {
     act(() => {
       trackViewLook(
         { callId: 'c1', sessionId: 's1', appInstanceId: 'app1', reveal: vi.fn() },
-        {} as Element,
+        frameOnScreen(),
       );
       FakeObserver.last!.show(false);
     });
@@ -116,7 +125,7 @@ describe('a look that waits on a view the person cannot see (DOCS-F2)', () => {
       (callId) =>
         trackViewLook(
           { callId, sessionId: 's1', appInstanceId: 'app1', reveal: vi.fn() },
-          {} as Element,
+          frameOnScreen(),
         ),
     );
     looks.start();
@@ -146,7 +155,7 @@ describe('a look that waits on a view the person cannot see (DOCS-F2)', () => {
           (callId) =>
             trackViewLook(
               { callId, sessionId: 's1', appInstanceId: 'app1', reveal: vi.fn() },
-              {} as Element,
+              frameOnScreen(),
             ),
         );
         looks.start();
@@ -167,6 +176,32 @@ describe('a look that waits on a view the person cannot see (DOCS-F2)', () => {
     }
   });
 
+  it('waits for a hidden frame to be shown, then takes the snapshot', async () => {
+    const snapshot = vi.fn().mockResolvedValue({ image: 'data:image/png;base64,iVBORw0KGgo=' });
+    const postMcpAppLook = vi.fn().mockResolvedValue({});
+    const looks = new McpAppLooks(
+      { setMcpAppShown: vi.fn().mockResolvedValue({}), postMcpAppLook },
+      { sessionId: 's1', appInstanceId: 'app1', dataRef: 'ref' },
+      snapshot,
+      (callId) =>
+        trackViewLook(
+          { callId, sessionId: 's1', appInstanceId: 'app1', reveal: vi.fn() },
+          frameOnScreen(false),
+        ),
+    );
+    looks.start();
+    render(<Probe appInstanceId="app1" />);
+    act(() => dispatchMcpAppLookFrame(lookFrame('look_hidden')));
+    // Hidden from the start: said at once, and no snapshot of a frame with no size.
+    expect(screen.getByText('waiting to see the view')).toBeTruthy();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(snapshot).not.toHaveBeenCalled();
+    act(() => FakeObserver.last!.show(true));
+    await vi.waitFor(() => expect(postMcpAppLook).toHaveBeenCalledTimes(1));
+    expect(postMcpAppLook.mock.calls[0]![2]).toMatchObject({ image: expect.any(String) });
+    looks.stop();
+  });
+
   it('the in-tab row of a view whose tab is hidden says the agent waits, and shows the tab', async () => {
     const opened = vi.fn();
     window.addEventListener(OPEN_MCP_APP_TAB_EVENT, opened);
@@ -176,7 +211,7 @@ describe('a look that waits on a view the person cannot see (DOCS-F2)', () => {
     act(() => {
       trackViewLook(
         { callId: 'c1', sessionId: 's1', appInstanceId: 'app1', reveal },
-        {} as Element,
+        frameOnScreen(),
       );
       FakeObserver.last!.show(false);
     });

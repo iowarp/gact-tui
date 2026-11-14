@@ -32,6 +32,8 @@ export interface SnapshotOptions {
  * the end of the listing. */
 export interface TrackedLook {
   visible: () => boolean;
+  /** Resolves once the frame is on screen (at once when it is). */
+  whenVisible: () => Promise<void>;
   end: () => void;
 }
 
@@ -201,7 +203,13 @@ export class McpAppLooks {
     });
     try {
       const scale = (globalThis as { devicePixelRatio?: number }).devicePixelRatio || 1;
-      answer = await Promise.race([this.snapshot({ scale, maxSide: look.max_side }), unanswered]);
+      // A frame off screen is not drawn (or has no size): wait, within the same 30 s, for
+      // the person to show it, as the row and card ask; then take the snapshot.
+      const taken = (async () => {
+        if (tracked && !tracked.visible()) await tracked.whenVisible();
+        return this.snapshot({ scale, maxSide: look.max_side });
+      })();
+      answer = await Promise.race([taken, unanswered]);
     } catch (error) {
       answer = {
         error: {
