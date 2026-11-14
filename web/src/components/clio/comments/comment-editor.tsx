@@ -22,8 +22,9 @@ type Box = { x: number; y: number; width: number; height: number };
 
 /**
  * The editor beside one mark, first built for A2UI region capture: the mark's label and the
- * surface it is on, its box as numbers (a region), what it points at (a quote, an element),
- * the comment, "Send to agent" where comments become threads, and Delete, Cancel and Done.
+ * surface it is on, the comment (focused), what it points at (a quote, an element), a region's
+ * box as numbers behind a collapsed "Adjust region", "Send to agent" where comments become
+ * threads, and Delete, Cancel and Done.
  * Enter finishes, Escape cancels. It opens just below the mark, kept on screen.
  */
 /** Whether the heading's title only repeats the quote shown under it. */
@@ -70,17 +71,29 @@ export function CommentEditor({
     left: clamp(left, 8, Math.max(8, window.innerWidth - 424)),
     top: clamp(top, 8, Math.max(8, window.innerHeight - 340)),
   });
-  // Measured once it is drawn, so it opens clear of the comment controls (FP-D6).
+  // Measured once it is drawn, and again when it grows (Adjust region opened), so it
+  // stays on screen and clear of the comment controls (FP-D6).
   useLayoutEffect(() => {
-    const own = box.current?.getBoundingClientRect();
-    const tray = document.querySelector('[data-slot="comment-controls"]')?.getBoundingClientRect();
-    if (!own?.width) return;
-    setPlaced(
-      placeCommentEditor({ left, top }, { width: own.width, height: own.height }, tray, {
-        width: window.innerWidth,
-        height: window.innerHeight,
-      }),
-    );
+    const node = box.current;
+    if (!node) return;
+    const place = () => {
+      const own = node.getBoundingClientRect();
+      if (!own.width) return;
+      const tray = document
+        .querySelector('[data-slot="comment-controls"]')
+        ?.getBoundingClientRect();
+      setPlaced(
+        placeCommentEditor({ left, top }, { width: own.width, height: own.height }, tray, {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        }),
+      );
+    };
+    place();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(place);
+    observer.observe(node);
+    return () => observer.disconnect();
   }, [left, top]);
   return (
     <div
@@ -92,17 +105,20 @@ export function CommentEditor({
       role="dialog"
       style={placed}
     >
-      <p className="mb-2 text-sm font-semibold">
-        {label}
-        {repeats(title, detail) ? null : ` — ${title}`}
+      <p className="mb-2 flex min-w-0 items-center gap-2 text-sm">
+        <span className="shrink-0 rounded bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+          {label}
+        </span>
+        {repeats(title, detail) ? null : (
+          <span className="min-w-0 truncate font-semibold" title={title}>
+            {title}
+          </span>
+        )}
       </p>
-      {detail ? (
+      {detail && !coordinates ? (
         <p className="mb-2 line-clamp-3 text-xs text-muted-foreground" title={detail}>
           {detail}
         </p>
-      ) : null}
-      {coordinates ? (
-        <RegionCoordinateInputs box={coordinates.box} onChange={coordinates.onChange} />
       ) : null}
       <textarea
         aria-label={`Comment for ${label}`}
@@ -119,6 +135,20 @@ export function CommentEditor({
         placeholder="What should the agent notice here?"
         value={text}
       />
+      {coordinates ? (
+        // The person drew the region; its numbers are for fine adjustment (and keyboards).
+        <details className="mt-1 text-xs" data-slot="comment-region-adjust">
+          <summary className="cursor-pointer text-muted-foreground select-none">
+            Adjust region
+          </summary>
+          {detail ? (
+            <p className="mt-1 line-clamp-3 text-muted-foreground" title={detail}>
+              {detail}
+            </p>
+          ) : null}
+          <RegionCoordinateInputs box={coordinates.box} onChange={coordinates.onChange} />
+        </details>
+      ) : null}
       {sendToAgent ? (
         <label className="mt-1 flex items-center gap-2 text-xs">
           <Checkbox
