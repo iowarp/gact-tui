@@ -2073,6 +2073,10 @@ msgstr "{free}."
 msgid "{from} - {to} of {recordCount}"
 msgstr "{from} - {to} από {recordCount}"
 
+#: src/components/clio/discover-catalog.tsx
+msgid "{group} ({count})"
+msgstr "{group} ({count})"
+
 #: src/lib/plugin-presentation.ts
 msgid "{heading} ({count})"
 msgstr "{heading} ({count})"
@@ -5461,6 +5465,7 @@ msgid "added by {addedBy}"
 msgstr "προστέθηκε από {addedBy}"
 
 #: src/components/clio/connector-pane.tsx
+#: src/lib/discover-card.ts
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
 msgid "Added by you"
@@ -7757,6 +7762,10 @@ msgstr "Μεταφορά όλων μπροστά"
 msgid "Bring back the saved draft"
 msgstr "Επαναφορά του αποθηκευμένου πρόχειρου"
 
+#: src/lib/onboarding/tour-script.ts
+msgid "Bring in tools"
+msgstr "Προσθέστε εργαλεία"
+
 #: src/components/clio/extension-discover.tsx
 msgid "Bring your own plugin"
 msgstr "Φέρτε το δικό σας πρόσθετο"
@@ -8430,9 +8439,21 @@ msgstr "Κατάλογος"
 msgid "Catalog access filter"
 msgstr "Φίλτρο πρόσβασης καταλόγου"
 
+#: src/components/clio/extension-library.tsx
+msgid "Catalog connectors"
+msgstr "Σύνδεσμοι του καταλόγου"
+
 #: src/components/clio/settings-model-server-details.tsx
 msgid "Catalog health"
 msgstr "Κατάσταση καταλόγου"
+
+#: src/components/clio/extension-library.tsx
+msgid "Catalog plugins"
+msgstr "Πρόσθετα του καταλόγου"
+
+#: src/components/clio/extension-library.tsx
+msgid "Catalog plugins and connectors"
+msgstr "Πρόσθετα και σύνδεσμοι του καταλόγου"
 
 #: src/components/clio/provider-model-refresh.ts
 msgid "Catalog refreshed; no compatible client update is available yet."
@@ -8905,6 +8926,7 @@ msgstr "Έλεγχος κάλυψης σταθμών"
 msgid "Checking sync"
 msgstr "Έλεγχος συγχρονισμού"
 
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library.tsx
 msgid "Checking the agent service…"
@@ -9559,6 +9581,7 @@ msgstr "Εκκαθάριση φίλτρων"
 msgid "Clear measurement {number}"
 msgstr "Διαγραφή μέτρησης {number}"
 
+#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -9742,7 +9765,6 @@ msgid "Close review"
 msgstr "Κλείσιμο ελέγχου"
 
 #: src/components/clio/activity-timeline-list.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workbench-list-column.tsx
 #: src/components/clio/workbench-list-search.tsx
@@ -10844,13 +10866,13 @@ msgstr "Σύνδεσμος που προσθέσατε"
 msgid "Connectors"
 msgstr "Σύνδεσμοι"
 
+#: src/lib/onboarding/tour-script.ts
+msgid "Connectors and plugins add tools to a conversation. Just ask, and {agent} offers what fits, like this card, or browse Discover in Settings."
+msgstr "Οι σύνδεσμοι και τα πρόσθετα προσθέτουν εργαλεία σε μια συνομιλία. Απλώς ζητήστε το και ο {agent} προτείνει ό,τι ταιριάζει, όπως σε αυτή την κάρτα, ή εξερευνήστε την Ανακάλυψη στις Ρυθμίσεις."
+
 #: src/lib/plugin-presentation.ts
 msgid "Connectors changed"
 msgstr "Οι σύνδεσμοι άλλαξαν"
-
-#: src/components/clio/extension-library.tsx
-msgid "Connectors to enable"
-msgstr "Σύνδεσμοι προς ενεργοποίηση"
 
 #: src/components/clio/extension-scope-heading.tsx
 msgid "Connectors, plugins, marketplaces and skills for your agents."
@@ -13801,6 +13823,7 @@ msgid "Downloading folder…"
 msgstr "Λήψη φακέλου…"
 
 #: src/lib/agent-needs.ts
+#: src/lib/discover-card.ts
 msgid "Downloading its tools…"
 msgstr "Λήψη των εργαλείων του…"
 
@@ -14337,6 +14360,7 @@ msgid "Empty text"
 msgstr "Κενό κείμενο"
 
 #: src/components/clio/connector-pane.tsx
+#: src/components/clio/discover-catalog.tsx
 msgid "Enable"
 msgstr "Ενεργοποίηση"
 
@@ -14360,6 +14384,7 @@ msgid "Enable all"
 msgstr "Ενεργοποίηση όλων"
 
 #: src/components/clio/connector-offer-response.tsx
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Enabled"
 msgstr "Ενεργοποιημένο"
@@ -14371,6 +14396,10 @@ msgstr "Ενεργό. Προσθέστε το ({name}) σε μια συνομι�
 #: src/lib/agent-needs.ts
 msgid "Enabling {names}…"
 msgstr "Ενεργοποίηση: {names}…"
+
+#: src/components/clio/discover-catalog.tsx
+msgid "Enabling needs a newer agent service"
+msgstr "Η ενεργοποίηση χρειάζεται νεότερη υπηρεσία πράκτορα"
 
 #: src/components/clio/ndp-station-filters.tsx
 msgid "End time"
@@ -14786,6 +14815,10 @@ msgstr "Δεδομένα παραδείγματος"
 #: src/widget-gallery-demos.ts
 msgid "Example forecast"
 msgstr "Παράδειγμα πρόγνωσης"
+
+#: src/components/clio/onboarding/tour-offer-card.tsx
+msgid "Example offer"
+msgstr "Παράδειγμα πρότασης"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Excel workbook"
@@ -16294,6 +16327,10 @@ msgstr "Από: {hostLabel}"
 msgid "from {marketplace}"
 msgstr "από {marketplace}"
 
+#: src/lib/discover-card.ts
+msgid "From {marketplace}"
+msgstr "Από {marketplace}"
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "from {profile}"
 msgstr "από {profile}"
@@ -16335,6 +16372,10 @@ msgstr "Από αποτέλεσμα εργαλείου"
 msgid "From an unknown source"
 msgstr "Από άγνωστη πηγή"
 
+#: src/lib/discover-card.ts
+msgid "From clio-kit"
+msgstr "Από το clio-kit"
+
 #: src/components/clio/composer-add-context-button.tsx
 msgid "From connected data…"
 msgstr "Από συνδεδεμένα δεδομένα…"
@@ -16370,6 +16411,10 @@ msgstr "Από την αρχή"
 #: src/components/clio/flow-name.tsx
 msgid "From the {plugin} plugin"
 msgstr "Από το πρόσθετο {plugin}"
+
+#: src/lib/discover-card.ts
+msgid "From the {product} catalog"
+msgstr "Από τον κατάλογο του {product}"
 
 #: src/gallery-skill-dialog.tsx
 msgid "From the **{name}** catalog. The agent loads its exact contract with:"
@@ -21692,6 +21737,7 @@ msgstr "χρειάζεται {missing}"
 
 #: src/lib/connector-plugin.ts
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Needs {needs}"
 msgstr "Χρειάζεται: {needs}"
 
@@ -24109,6 +24155,10 @@ msgstr "Σε αυτόν τον υπολογιστή, σε άλλο μηχάνη�
 msgid "On this host"
 msgstr "Σε αυτόν τον κεντρικό υπολογιστή"
 
+#: src/components/clio/discover-catalog.tsx
+msgid "On this machine"
+msgstr "Σε αυτόν τον υπολογιστή"
+
 #: src/components/clio/tool-technical-details.tsx
 msgid "On, blocked a write to <0>{roots}</0>"
 msgstr "Ενεργό, απέκλεισε εγγραφή στο <0>{roots}</0>"
@@ -24927,6 +24977,10 @@ msgstr "Ανοίγει σε καρτέλα."
 #: src/components/clio/markdown-content-link.tsx
 msgid "Opens in the shared browser; shift-click opens it outside"
 msgstr "Ανοίγει στο κοινόχρηστο πρόγραμμα περιήγησης· με Shift+κλικ ανοίγει εξωτερικά"
+
+#: src/components/clio/discover-catalog.tsx
+msgid "Opens the setup of {name}"
+msgstr "Ανοίγει τη ρύθμιση του {name}"
 
 #: src/components/clio/comment-review-chip.tsx
 msgid "Opens this version with its comments."
@@ -26006,10 +26060,6 @@ msgstr "Πρόσθετα"
 msgid "Plugins and connectors changed"
 msgstr "Τα πρόσθετα και οι σύνδεσμοι άλλαξαν"
 
-#: src/components/clio/extension-library.tsx
-msgid "Plugins and connectors to enable"
-msgstr "Πρόσθετα και σύνδεσμοι για ενεργοποίηση"
-
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/lib/plugin-presentation.ts
 msgid "Plugins changed"
@@ -26030,10 +26080,6 @@ msgstr "Πρόσθετα σε αυτό το πακέτο"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "Πρόσθετα που φεύγουν επίσης"
-
-#: src/components/clio/extension-library.tsx
-msgid "Plugins to enable"
-msgstr "Πρόσθετα για ενεργοποίηση"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -31008,7 +31054,6 @@ msgid "SDK Python interpreter"
 msgstr "Διερμηνέας Python του SDK"
 
 #: src/components/clio/desktop-title-bar.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/navigation-header.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -31213,6 +31258,10 @@ msgstr "Αναζήτηση οργανισμών…"
 msgid "Search past sessions"
 msgstr "Αναζήτηση σε προηγούμενες συνεδρίες"
 
+#: src/components/clio/extension-library-toolbar.tsx
+msgid "Search plugins, connectors and skills"
+msgstr "Αναζήτηση προσθέτων, συνδέσμων και δεξιοτήτων"
+
 #: src/components/clio/model-picker-search.tsx
 msgid "Search providers and models"
 msgstr "Αναζήτηση παρόχων και μοντέλων"
@@ -31298,6 +31347,10 @@ msgstr "Αναζήτηση εργασιών"
 msgid "Search the list"
 msgstr "Αναζήτηση στη λίστα"
 
+#: src/components/clio/extension-registry-section.tsx
+msgid "Search the MCP Registry for “{query}”"
+msgstr "Αναζήτηση του «{query}» στο MCP Registry"
+
 #: src/components/clio/latex-workspace.tsx
 msgid "Search the outline"
 msgstr "Αναζήτηση στη διάρθρωση"
@@ -31354,10 +31407,6 @@ msgstr "Αναζήτηση στο πλαίσιο του χώρου εργασί�
 #: src/components/clio/memory-scope-picker.tsx
 msgid "Search workspaces…"
 msgstr "Αναζήτηση χώρων εργασίας…"
-
-#: src/components/clio/extension-library-toolbar.tsx
-msgid "Search, Enter for the registry"
-msgstr "Αναζήτηση, Enter για το μητρώο"
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Search..."
@@ -32493,6 +32542,10 @@ msgstr "Εμφάνιση όλων"
 msgid "Show All"
 msgstr "Εμφάνιση όλων"
 
+#: src/components/clio/discover-catalog.tsx
+msgid "Show all ({count})"
+msgstr "Εμφάνιση όλων ({count})"
+
 #: src/components/clio/nested-tool-calls.tsx
 msgid "Show all {calls}"
 msgstr "Εμφάνιση όλων των {calls}"
@@ -32578,6 +32631,7 @@ msgstr "Εμφάνιση διεύθυνσης"
 msgid "Show every section"
 msgstr "Εμφάνιση όλων των ενοτήτων"
 
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
@@ -32730,6 +32784,10 @@ msgstr "Εμφάνιση επιλεγμένων ({count})"
 #: src/components/clio/notebook-view.tsx
 msgid "Show source"
 msgstr "Εμφάνιση πηγαίου κώδικα"
+
+#: src/lib/onboarding/tour-offer.ts
+msgid "Show stations, regions, footprints and tracks from GeoJSON on an interactive 3D globe, make map images, and find places by name."
+msgstr "Εμφανίζει σταθμούς, περιοχές, αποτυπώματα και διαδρομές από GeoJSON σε διαδραστική τρισδιάστατη υδρόγειο, δημιουργεί εικόνες χαρτών και βρίσκει τοποθεσίες με το όνομά τους."
 
 #: src/components/clio/mcp-app-card.tsx
 msgid "Show tab"
@@ -33920,6 +33978,7 @@ msgstr "Έναρξη μεταφόρτωσης"
 #: src/components/clio/connector-pane.tsx
 #: src/components/clio/service-management-panel.tsx
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Starting…"
 msgstr "Εκκίνηση…"
 
@@ -38750,6 +38809,7 @@ msgstr "Ενεργοποίηση…"
 
 #: src/components/clio/connector-pane.tsx
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Turning off…"
 msgstr "Απενεργοποίηση…"
 
@@ -41558,6 +41618,10 @@ msgstr "Ζητήσατε {target} σε αυτό το μήνυμα"
 #: src/components/clio/injection-presentation.ts
 msgid "You asked for changes. The agent stays in plan mode and revises the plan."
 msgstr "Ζητήσατε αλλαγές. Ο πράκτορας παραμένει σε λειτουργία σχεδίου και αναθεωρεί το σχέδιο."
+
+#: src/lib/onboarding/tour-offer.ts
+msgid "You asked for hurricane tracks; this shows them on an interactive 3D globe."
+msgstr "Ζητήσατε τις διαδρομές των τυφώνων· αυτό τις εμφανίζει σε διαδραστική τρισδιάστατη υδρόγειο."
 
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "You asked for the flow {target} on this message"
