@@ -67,12 +67,25 @@ const viewReport = [
     (_, i) => `probe_${i + 1}: ${(0.1 * i).toFixed(2)} K at depth ${i * 25} m`,
   ),
 ];
+const modelState = [
+  'Model: whistle_assembly.step, 2 parts (body, plug); Z is up; lengths in millimetres',
+  'Size of the shown parts, as modelled: 74.0 × 20.0 × 16.0 mm',
+  'Camera: looking from the front (camera on the −Y side), orthographic projection',
+  'Section: plane across Y at Y = 0.0 mm, keeping the side above (+Y); cut faces are filled solid',
+  'Selected part: plug, 23.0 × 20.0 × 16.0 mm, 28 triangles',
+  ...Array.from(
+    { length: 36 },
+    (_, i) =>
+      `Measurement ${i + 1}: distance ${(1.6 + i * 0.25).toFixed(2)} mm (ΔX 0.00, ΔY 0.00, ΔZ ${(1.6 + i * 0.25).toFixed(2)}), edge to edge, on body`,
+  ),
+];
 const lookPresented = (
   id: string,
   presentation: ToolInvocation['presentation'],
   state: ToolInvocation['state'] = 'succeeded',
+  view = 'Open a ParaView view',
 ): ToolInvocation => ({
-  ...tool(id, 'look_at_view', { view: 'Open a ParaView view' }, { ok: state === 'succeeded' }),
+  ...tool(id, 'look_at_view', { view }, { ok: state === 'succeeded' }),
   state,
   presentation,
 });
@@ -105,6 +118,33 @@ const looks: ToolInvocation[] = [
       },
     ],
   }),
+  // A look at a client-rendered file view (FV-D3): the 3D view's composite and its state.
+  lookPresented(
+    'look-file',
+    {
+      action: 'Look at view',
+      subject: 'whistle_assembly.step',
+      summary: '1339×818 image, shown to the model',
+      blocks: [
+        {
+          id: 'image',
+          type: 'link',
+          target: 'artifact',
+          uri: 'art_look_2',
+          label: 'What whistle_assembly.step showed',
+        },
+        {
+          id: 'view',
+          type: 'text',
+          label: 'View',
+          text: '3D model view of out/whistle_assembly.step',
+        },
+        { id: 'context', type: 'code', label: 'View state', text: modelState.join('\n') },
+      ],
+    },
+    'succeeded',
+    'whistle',
+  ),
   { ...tool('look-running', 'look_at_view', { view: '' }, null), state: 'running' },
   lookPresented(
     'look-refused',
@@ -758,7 +798,7 @@ for (const width of [1440, 390]) {
     await expect(row('look')).toContainText('probe_40: 3.90 K at depth 975 m');
     await expect(row('look')).toContainText('frame_cross_origin');
     await expect(row('look-refused').getByRole('img', { name: /Failed/ })).toHaveAccessibleName(
-      'Failed: The view is not on screen',
+      'Failed: The view is not on screen.',
     );
     await opener('look-refused', 'Look at view').click();
     await expect(row('look-refused')).toContainText('is not on screen, so it cannot be looked at');
@@ -766,6 +806,10 @@ for (const width of [1440, 390]) {
     await row('look-refused').screenshot({
       path: test.info().outputPath(`look-refused-${width}.png`),
     });
+    await opener('look-file', 'Look at view').click();
+    await expect(row('look-file')).toContainText('3D model view of out/whistle_assembly.step');
+    await expect(row('look-file')).toContainText('Measurement 36: distance 10.35 mm');
+    await row('look-file').screenshot({ path: test.info().outputPath(`look-file-${width}.png`) });
     await expect(row('look-running')).toContainText('Look at view');
     await opener('skill-failed', 'Load skill').click();
     await expect(row('skill-failed')).toContainText("bundled file 'missing.md' not found");
