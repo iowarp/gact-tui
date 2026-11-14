@@ -1,5 +1,6 @@
 import { MAX_DIAGRAM_SOURCE_CHARS } from '@/lib/runtime-limits';
 import { workspaceFolderPath } from '@/lib/workspace-folder-reference';
+import { t } from '@lingui/core/macro';
 
 export interface DiagramFolderLink {
   id: string;
@@ -12,9 +13,9 @@ export function parseDiagramSource(source: string): {
   source: string;
   folders: DiagramFolderLink[];
 } {
-  if (!source.trim()) throw new Error('Diagram source is empty');
+  if (!source.trim()) throw new Error(t`Diagram source is empty`);
   if (source.length > MAX_DIAGRAM_SOURCE_CHARS)
-    throw new Error('Diagram exceeds the rendering limit');
+    throw new Error(t`Diagram exceeds the rendering limit`);
   const folders: DiagramFolderLink[] = [];
   const rendered = source
     .split('\n')
@@ -23,13 +24,13 @@ export function parseDiagramSource(source: string): {
       const match = line.match(
         /^\s*click\s+([\w-]+)\s+(?:href\s+)?"(workspace-folder:[^"]+)"(?:\s+"([^"]*)")?\s*;?\s*$/u,
       );
-      if (!match) throw new Error('Diagram contains an unsupported executable or HTML directive');
+      if (!match) throw new Error(t`Diagram contains an unsupported executable or HTML directive`);
       const path = workspaceFolderPath(match[2]!);
       if (path === undefined)
-        throw new Error('Diagram clicks must name a relative workspace-folder target.');
+        throw new Error(t`Diagram clicks must name a relative workspace-folder target.`);
       if (folders.some((folder) => folder.id === match[1]))
-        throw new Error('Diagram repeats a folder target for one node.');
-      folders.push({ id: match[1]!, path, label: match[3] || `Open folder ${path}` });
+        throw new Error(t`Diagram repeats a folder target for one node.`);
+      folders.push({ id: match[1]!, path, label: match[3] || t`Open folder ${path}` });
       return false;
     })
     .join('\n');
@@ -38,7 +39,7 @@ export function parseDiagramSource(source: string): {
       rendered,
     )
   ) {
-    throw new Error('Diagram contains an unsupported executable or HTML directive');
+    throw new Error(t`Diagram contains an unsupported executable or HTML directive`);
   }
   return { source: rendered, folders };
 }
@@ -48,7 +49,8 @@ const EXTERNAL_CSS = /@import|url\s*\(\s*['"]?\s*(?!#)|expression\s*\(/iu;
 
 export function sanitizeMermaidSvg(svg: string): SVGElement {
   const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
-  if (parsed.querySelector('parsererror')) throw new Error('Diagram renderer returned invalid SVG');
+  if (parsed.querySelector('parsererror'))
+    throw new Error(t`Diagram renderer returned invalid SVG`);
   // Animation elements can set any attribute later (an href, an event handler), after
   // the attribute pass below has run; a drawing needs none of them.
   parsed
@@ -71,6 +73,6 @@ export function sanitizeMermaidSvg(svg: string): SVGElement {
     }
   });
   const root = parsed.documentElement;
-  if (root.localName !== 'svg') throw new Error('Diagram renderer did not return SVG');
+  if (root.localName !== 'svg') throw new Error(t`Diagram renderer did not return SVG`);
   return root as unknown as SVGElement;
 }

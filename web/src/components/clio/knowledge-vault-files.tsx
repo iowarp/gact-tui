@@ -8,6 +8,7 @@ import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
 import { MetaValue } from './primitives/tag';
+import { t, ph } from '@lingui/core/macro';
 
 const PAGE = 200;
 
@@ -69,28 +70,28 @@ export function KnowledgeVaultFiles({
     <div className="flex h-full min-h-0 flex-col" data-slot="knowledge-vault-files">
       <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
         <Input
-          aria-label="Search notes"
+          aria-label={t`Search notes`}
           className="h-7 text-xs"
-          placeholder="Search notes"
+          placeholder={t`Search notes`}
           value={query}
           onChange={(event) => onQuery(event.target.value)}
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
         {snapshot.isPending ? (
-          <StateView kind="loading" size="row" title="Listing notes" />
+          <StateView kind="loading" size="row" title={t`Listing notes`} />
         ) : snapshot.error ? (
           <StateView
             kind="error"
             size="row"
-            title="The notes could not be listed"
+            title={t`The notes could not be listed`}
             detail={snapshot.error.message}
-            action={{ label: 'Retry', onClick: () => void snapshot.refetch() }}
+            action={{ label: t`Retry`, onClick: () => void snapshot.refetch() }}
           />
         ) : !data?.notes.length ? (
-          <StateView kind="empty" size="row" title={search ? 'No notes match' : 'No notes yet'} />
+          <StateView kind="empty" size="row" title={search ? t`No notes match` : t`No notes yet`} />
         ) : (
-          <div role="list" aria-label="Vault files">
+          <div role="list" aria-label={t`Vault files`}>
             {data.notes.map((note) => {
               const count = degrees.get(note.path) ?? 0;
               const folder = folders.size > 1 ? folderOf(note.path) : undefined;
@@ -130,22 +131,22 @@ export function KnowledgeVaultFiles({
         )}
       </div>
       {data && paged ? (
-        <div className="flex h-8 shrink-0 items-center gap-1 border-t border-border px-2 text-[11.5px] text-muted-foreground">
+        <div className="flex h-8 shrink-0 items-center gap-1 border-t border-border px-2 text-label text-muted-foreground">
           <span className="min-w-0 flex-1 truncate tabular-nums">
-            {offset + 1}–{offset + data.notes.length} of {data.total}
+            {t`${ph({ first: offset + 1 })}–${ph({ last: offset + data.notes.length })} of ${ph({ total: data.total })}`}
           </span>
           <IconButton
             size="sm"
-            label="Previous notes"
+            label={t`Previous notes`}
             icon={<ChevronLeftIcon aria-hidden="true" />}
-            disabledReason={offset ? undefined : 'At the first notes'}
+            disabledReason={offset ? undefined : t`At the first notes`}
             onClick={() => offset && setPage({ key: pageKey, offset: Math.max(0, offset - PAGE) })}
           />
           <IconButton
             size="sm"
-            label="Next notes"
+            label={t`Next notes`}
             icon={<ChevronRightIcon aria-hidden="true" />}
-            disabledReason={data.next_offset == null ? 'At the last notes' : undefined}
+            disabledReason={data.next_offset == null ? t`At the last notes` : undefined}
             onClick={() =>
               data.next_offset != null && setPage({ key: pageKey, offset: data.next_offset })
             }

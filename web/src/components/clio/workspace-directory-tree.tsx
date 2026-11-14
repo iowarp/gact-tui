@@ -10,6 +10,7 @@ import { FileTypeIcon } from './file-type-icon';
 import { serviceErrorDetail } from './service-error';
 import { WindowedFileTree, type FileTreeRow } from './workbench-file-tree';
 import type { ChangeCounts } from './workbench-shared';
+import { t } from '@lingui/core/macro';
 
 interface TreeProps {
   directory?: string;
@@ -106,7 +107,7 @@ export function WorkspaceDirectoryTree(props: TreeProps) {
             kind: 'note',
             key: `${entry.path}#note`,
             depth: depth + 1,
-            label: 'Sandbox cache contents are private.',
+            label: t`Sandbox cache contents are private.`,
           });
         else walk(entry.path, depth + 1);
       }
@@ -115,14 +116,14 @@ export function WorkspaceDirectoryTree(props: TreeProps) {
           kind: 'loading',
           key: `${directory}#loading`,
           depth,
-          label: 'Loading folder',
+          label: t`Loading folder`,
         });
       else if (listing.error)
         result.push({
           kind: 'error',
           key: `${directory}#error`,
           depth,
-          label: directory ? "Couldn't list this folder" : "Files couldn't be listed",
+          label: directory ? t`Couldn't list this folder` : t`Files couldn't be listed`,
           detail: serviceErrorDetail(listing.error),
           onRetry: listing.retry,
         });
@@ -131,14 +132,14 @@ export function WorkspaceDirectoryTree(props: TreeProps) {
           kind: 'note',
           key: `${directory}#empty`,
           depth,
-          label: 'No files in this folder',
+          label: t`No files in this folder`,
         });
       if (listing?.hasNext)
         result.push({
           kind: 'more',
           key: `${directory}#more`,
           depth,
-          label: listing.fetchingNext ? 'Loading…' : 'Load more files',
+          label: listing.fetchingNext ? t`Loading…` : t`Load more files`,
           disabled: listing.fetchingNext,
           onActivate: listing.fetchNext,
         });

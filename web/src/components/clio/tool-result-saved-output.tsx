@@ -4,6 +4,7 @@ import type { ToolPresentationBlock } from '@clio/core/v3';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PresentationNavigation } from './presentation-navigation';
+import { t } from '@lingui/core/macro';
 
 /**
  * Saved-file metadata and its open action, attached to the single output section.
@@ -42,7 +43,7 @@ export function SavedTerminalOutput({ block }: { block: ToolPresentationBlock })
                 <span tabIndex={0}>{action}</span>
               </TooltipTrigger>
               <TooltipContent className="max-w-sm text-sm">
-                Open this session in its workspace to view the saved file.
+                {t`Open this session in its workspace to view the saved file.`}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

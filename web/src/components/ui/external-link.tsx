@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { openExternalUrl } from '@/tauri/external-url';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { t } from '@lingui/core/macro';
 
 export interface ExternalLinkProps
   extends Omit<React.ComponentPropsWithoutRef<'a'>, 'target' | 'rel'> {
@@ -40,7 +41,7 @@ export const ExternalLink = React.forwardRef<HTMLAnchorElement, ExternalLinkProp
       event.preventDefault();
       openExternalUrl(href).catch((error: unknown) => {
         if (onOpenError) onOpenError(error);
-        else toast.error(error instanceof Error ? error.message : 'Could not open the link.');
+        else toast.error(error instanceof Error ? error.message : t`Could not open the link.`);
       });
     };
 

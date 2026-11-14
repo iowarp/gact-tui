@@ -12,7 +12,7 @@ import {
   NoMatchingConversations,
   type ConversationFilter,
 } from './conversation-list-groups';
-import { groupConversationsByDay } from './conversation-day-groups';
+import { DAY_LABEL_TEXT, groupConversationsByDay } from './conversation-day-groups';
 import { nestAgentForks } from './conversation-fork-origin';
 import { useConversationList } from './use-conversation-list';
 import {
@@ -22,6 +22,7 @@ import {
   RailState,
   ShowMoreRow,
 } from './workspace-navigation-rail-rows';
+import { ph, t } from '@lingui/core/macro';
 
 interface LooseConversationsProps {
   /** Undefined while the workspace list is loading or failed: the conversations still list. */
@@ -30,7 +31,6 @@ interface LooseConversationsProps {
   sessions: readonly Session[];
   excludedSessionIds: ReadonlySet<string>;
   expanded: boolean;
-  activeWorkspaceId: string;
   actions: ResourceActions;
   onExpandedChange: (open: boolean) => void;
   onCreateSession: (workspaceId: string) => void;
@@ -38,7 +38,7 @@ interface LooseConversationsProps {
   onRename: (target: ResourceTarget) => void;
   onDelete: (target: ResourceTarget) => void;
   onEditWorkspace: (workspaceId: string) => void;
-  onOpenWorkspaceFiles?: () => void;
+  onOpenWorkspaceFiles?: (workspaceId: string) => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   renderSession: (session: Session, topLevel: boolean, depth?: number) => ReactNode;
   matchesFilter: (session: Session, filter: ConversationFilter) => boolean;
@@ -52,7 +52,6 @@ export function LooseConversations({
   sessions,
   excludedSessionIds,
   expanded,
-  activeWorkspaceId,
   actions,
   onExpandedChange,
   onCreateSession,
@@ -67,6 +66,7 @@ export function LooseConversations({
   draft,
 }: LooseConversationsProps) {
   const [filter, setFilter] = useState<ConversationFilter>('all');
+  const [menuOpen, setMenuOpen] = useState(false);
   const filtering = filter !== 'all';
   // A filter looks through every loaded row, not only the first eight.
   const { rail, total, visible } = useConversationList(
@@ -89,7 +89,6 @@ export function LooseConversations({
             <ConversationFilterMenu onChange={setFilter} value={filter} />
             {workspace ? (
               <WorkspaceActionsMenu
-                activeWorkspaceId={activeWorkspaceId}
                 actions={actions}
                 label={label}
                 onAction={onAction}
@@ -97,29 +96,39 @@ export function LooseConversations({
                 onImportSession={onImportSession}
                 onDelete={onDelete}
                 onEditWorkspace={onEditWorkspace}
+                onOpenChange={setMenuOpen}
                 onOpenWorkspaceFiles={onOpenWorkspaceFiles}
                 onRename={onRename}
+                open={menuOpen}
                 triggerIcon={<SettingsIcon />}
-                triggerLabel="Conversation settings"
+                triggerLabel={t`Conversation settings`}
                 workspace={workspace}
               />
             ) : null}
           </>
         }
         className="mt-2.5 h-[26px] items-center pb-0 pr-1"
+        onContextMenu={
+          workspace
+            ? (event) => {
+                event.preventDefault();
+                setMenuOpen(true);
+              }
+            : undefined
+        }
       >
-        Conversations
+        {t`Conversations`}
       </ListGroupLabel>
       <SidebarGroupContent className="grid min-w-0 gap-px">
         {draft && !draftOpensToday ? (
           <>
-            <ConversationDayLabel>Today</ConversationDayLabel>
+            <ConversationDayLabel>{t`Today`}</ConversationDayLabel>
             <DraftConversationRow topLevel />
           </>
         ) : null}
         {groups.map((group, index) => (
           <Fragment key={group.label}>
-            <ConversationDayLabel>{group.label}</ConversationDayLabel>
+            <ConversationDayLabel>{DAY_LABEL_TEXT[group.label]}</ConversationDayLabel>
             {index === 0 && draftOpensToday ? <DraftConversationRow topLevel /> : null}
             {group.rows.map(({ session, depth }) => renderSession(session, true, depth))}
           </Fragment>
@@ -127,7 +136,7 @@ export function LooseConversations({
         {filtering && shown.length === 0 ? (
           <NoMatchingConversations onShowAll={() => setFilter('all')} />
         ) : null}
-        {empty ? <RailState kind="empty" title="No conversations yet" /> : null}
+        {empty ? <RailState kind="empty" title={t`No conversations yet`} /> : null}
         <RailListState rail={rail} />
         {expanded && !filtering && (rail.hasMore || rail.loadingMore || rail.loadMoreError) ? (
           <RailLoadMore rail={rail} />
@@ -138,8 +147,10 @@ export function LooseConversations({
             railKey="more:conversations"
             label={
               expanded
-                ? 'Show recent conversations'
-                : `Show ${total - visible.length > 0 ? `${total - visible.length} more` : `all ${total}`}`
+                ? t`Show recent conversations`
+                : total > visible.length
+                  ? t`Show ${ph({ remaining: total - visible.length })} more`
+                  : t`Show all ${total}`
             }
             onToggle={() => onExpandedChange(!expanded)}
           />

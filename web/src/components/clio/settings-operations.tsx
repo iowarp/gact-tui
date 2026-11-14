@@ -14,7 +14,6 @@ import { DetailPane, ListDetailLayout } from './primitives/detail-pane';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
-import { AnnounceStates } from './settings-a11y';
 import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { SettingsLoadError, UnofferedParts } from './settings-health-load-error';
 import { notOffered } from './settings-health-reason';
@@ -22,6 +21,7 @@ import { HooksGroup, MetricsGroup, StorageGroup } from './settings-health-views'
 import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { humanizeToolName } from './tool-presentation';
+import { t, ph } from '@lingui/core/macro';
 
 function statusValue(status: string) {
   if (['ready', 'healthy', 'live'].includes(status)) return 'healthy';
@@ -31,36 +31,36 @@ function statusValue(status: string) {
 
 function statusOf(status: string): { tone: StatusTone; label: string } {
   const value = statusValue(status);
-  if (value === 'healthy') return { tone: 'success', label: 'Ready' };
-  if (value === 'degraded') return { tone: 'warning', label: 'Needs attention' };
-  return { tone: 'error', label: 'Unavailable' };
+  if (value === 'healthy') return { tone: 'success', label: t`Ready` };
+  if (value === 'degraded') return { tone: 'warning', label: t`Needs attention` };
+  return { tone: 'error', label: t`Unavailable` };
 }
 
 const integrationTitles: Record<string, string> = {
-  lm_provider: 'Language model provider',
-  arc: 'Conversation memory',
-  clio_core_ram_cap: 'Memory working limit',
-  clio_core_liveness: 'Memory service connection',
-  clio_core_daemon_memory: 'Memory service process',
-  cte_cold_tier_disk: 'Stored memory capacity',
-  file_policy: 'File access policy',
-  gateway: 'Tools',
-  api: 'Workspace service',
-  clio_core: 'Memory storage',
-  clio_core_attach: 'Memory service attachment',
-  cte_store_location: 'Stored memory location',
-  cte_metadata_log: 'Stored memory log',
-  sandbox: 'Protected execution',
-  sandbox_conformance: 'Execution protection coverage',
-  child_reaper: 'Process cleanup',
-  child_processes: 'Background processes',
-  child_parentage: 'Background process ownership',
-  compaction_prompt: 'Compaction instructions',
-  browser: 'Browser',
-  ripgrep: 'File search',
-  managed_packages: 'Managed packages',
-  store_migrations: 'Stored data upgrades',
-  arc_store_format: 'Stored data format',
+  lm_provider: t`Language model provider`,
+  arc: t`Conversation memory`,
+  clio_core_ram_cap: t`Memory working limit`,
+  clio_core_liveness: t`Memory service connection`,
+  clio_core_daemon_memory: t`Memory service process`,
+  cte_cold_tier_disk: t`Stored memory capacity`,
+  file_policy: t`File access policy`,
+  gateway: t`Tools`,
+  api: t`Workspace service`,
+  clio_core: t`Memory storage`,
+  clio_core_attach: t`Memory service attachment`,
+  cte_store_location: t`Stored memory location`,
+  cte_metadata_log: t`Stored memory log`,
+  sandbox: t`Protected execution`,
+  sandbox_conformance: t`Execution protection coverage`,
+  child_reaper: t`Process cleanup`,
+  child_processes: t`Background processes`,
+  child_parentage: t`Background process ownership`,
+  compaction_prompt: t`Compaction instructions`,
+  browser: t`Browser`,
+  ripgrep: t`File search`,
+  managed_packages: t`Managed packages`,
+  store_migrations: t`Stored data upgrades`,
+  arc_store_format: t`Stored data format`,
 };
 
 function integrationTitle(name: string) {
@@ -72,20 +72,18 @@ function integrationTitle(name: string) {
 }
 
 function integrationCopy(integration: ServiceIntegrationHealth) {
-  const fallbackSummary = integration.summary ?? integration.detail ?? 'No detail reported.';
+  const fallbackSummary = integration.summary ?? integration.detail ?? t`No detail reported.`;
   if (integration.name === 'arc' && statusValue(integration.status) === 'degraded') {
     return {
-      summary:
-        'Conversation memory is using a limited local store. Some retention and cross-session recall features may be unavailable.',
-      nextAction: 'Use the standard memory service when you need complete retention and recall.',
+      summary: t`Conversation memory is using a limited local store. Some retention and cross-session recall features may be unavailable.`,
+      nextAction: t`Use the standard memory service when you need complete retention and recall.`,
       fallbackSummary,
     };
   }
   if (integration.name === 'child_parentage' && statusValue(integration.status) === 'degraded') {
     return {
-      summary:
-        'Some background work is no longer attached to this service and may continue after the service stops.',
-      nextAction: 'Review and stop orphaned background work, then restart the affected task.',
+      summary: t`Some background work is no longer attached to this service and may continue after the service stops.`,
+      nextAction: t`Review and stop orphaned background work, then restart the affected task.`,
       fallbackSummary,
     };
   }
@@ -129,7 +127,7 @@ function IntegrationDetail({
         <p className="text-muted-foreground">{copy.summary}</p>
         {next ? (
           <div>
-            <SettingsGroupLabel className="mt-0">What to do next</SettingsGroupLabel>
+            <SettingsGroupLabel className="mt-0">{t`What to do next`}</SettingsGroupLabel>
             <p>{next}</p>
           </div>
         ) : null}
@@ -137,7 +135,7 @@ function IntegrationDetail({
           <Collapsible>
             <CollapsibleTrigger asChild>
               <Button className="group -ml-2" size="sm" variant="ghost">
-                Technical details
+                {t`Technical details`}
                 <ChevronDownIcon
                   aria-hidden="true"
                   className="motion-safe:transition-transform group-data-[state=open]:rotate-180"
@@ -146,7 +144,7 @@ function IntegrationDetail({
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-1 grid gap-1.5 border-l border-border pl-3 text-xs text-muted-foreground">
               <p>{copy.fallbackSummary}</p>
-              {recorded ? <p>Recorded next action: {recorded}</p> : null}
+              {recorded ? <p>{t`Recorded next action: ${recorded}`}</p> : null}
               {integration.endpoint ? (
                 <p className="font-mono break-all">{integration.endpoint}</p>
               ) : null}
@@ -170,7 +168,7 @@ function IntegrationList({
   return (
     <>
       {integrations.length ? (
-        <ItemList label="Integrations">
+        <ItemList label={t`Integrations`}>
           {integrations.map((integration) => {
             const copy = integrationCopy(integration);
             const status = statusOf(integration.status);
@@ -207,7 +205,7 @@ function IntegrationList({
           })}
         </ItemList>
       ) : (
-        <StateView kind="empty" size="row" title="No integrations reported" />
+        <StateView kind="empty" size="row" title={t`No integrations reported`} />
       )}
     </>
   );
@@ -287,13 +285,13 @@ export function SystemSettings() {
             actions={
               integrations.length ? (
                 <span className="tabular-nums">
-                  {ready} of {integrations.length} ready
+                  {t`${ready} of ${ph({ total: integrations.length })} ready`}
                 </span>
               ) : undefined
             }
-            info="Each service the agent depends on. Open one for what to do next."
+            info={t`Each service the agent depends on. Open one for what to do next.`}
           >
-            Integrations
+            {t`Integrations`}
           </SettingsGroupLabel>
         )}
         {health.data ? (
@@ -305,65 +303,70 @@ export function SystemSettings() {
         ) : null}
         <QueryState
           error={health.error}
-          loading="Checking service health…"
+          loading={t`Checking service health…`}
           pending={health.isPending}
           retry={() => void health.refetch()}
           retrying={health.isFetching}
           noun="health details"
-          title="Health details unavailable."
+          title={t`Health details unavailable.`}
         />
         {notOffered(memory.error) ? null : (
-          <SettingsGroupLabel info="What the agent's memory store holds and how often its cache answers.">
-            Storage
+          <SettingsGroupLabel
+            info={t`What the agent's memory store holds and how often its cache answers.`}
+          >
+            {t`Storage`}
           </SettingsGroupLabel>
         )}
         {memory.data ? <StorageGroup memory={memory.data} /> : null}
         <QueryState
           error={memory.error}
-          loading="Loading memory statistics…"
+          loading={t`Loading memory statistics…`}
           pending={memory.isPending}
           retry={() => void memory.refetch()}
           retrying={memory.isFetching}
           noun="storage statistics"
-          title="Storage statistics unavailable."
+          title={t`Storage statistics unavailable.`}
         />
         {notOffered(metrics.error) ? null : (
-          <SettingsGroupLabel info="Totals since the agent started.">Metrics</SettingsGroupLabel>
+          <SettingsGroupLabel
+            info={t`Totals since the agent started.`}
+          >{t`Metrics`}</SettingsGroupLabel>
         )}
         {metrics.data ? <MetricsGroup metrics={metrics.data} /> : null}
         <QueryState
           error={metrics.error}
-          loading="Loading activity…"
+          loading={t`Loading activity…`}
           pending={metrics.isPending}
           retry={() => void metrics.refetch()}
           retrying={metrics.isFetching}
           noun="activity metrics"
-          title="Activity metrics unavailable."
+          title={t`Activity metrics unavailable.`}
         />
         {notOffered(hooks.error) ? null : (
-          <SettingsGroupLabel info="Automation that runs before or after tools, and what it recently did.">
-            Hooks
+          <SettingsGroupLabel
+            info={t`Automation that runs before or after tools, and what it recently did.`}
+          >
+            {t`Hooks`}
           </SettingsGroupLabel>
         )}
         {hooks.data ? <HooksGroup hooks={hooks.data} /> : null}
         <QueryState
           error={hooks.error}
-          loading="Loading hooks…"
+          loading={t`Loading hooks…`}
           pending={hooks.isPending}
           retry={() => void hooks.refetch()}
           retrying={hooks.isFetching}
           noun="hook inspection"
-          title="Hook inspection unavailable."
+          title={t`Hook inspection unavailable.`}
         />
       </div>
     </UnofferedParts>
   );
   return (
-    <div className="min-w-0" onKeyDown={rowArrowKeyDown}>
-      <AnnounceStates />
+    <div className="min-w-0" data-row-keys="" onKeyDown={rowArrowKeyDown}>
       <SettingsSectionHeading
-        info="Review service health, storage, activity and automation hooks. Status comes from your connected service."
-        title="Health"
+        info={t`Review service health, storage, activity and automation hooks. Status comes from your connected service.`}
+        title={t`Health`}
       />
       <ListDetailLayout
         detail={

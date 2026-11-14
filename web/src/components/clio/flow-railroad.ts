@@ -7,6 +7,7 @@ import {
   type FlowTone,
   type FlowVerdict,
 } from './flow-run-presentation';
+import { t, ph, plural } from '@lingui/core/macro';
 
 /**
  * A flow as a Pele `railroad-beta` grammar.
@@ -72,8 +73,8 @@ export interface RailroadParallel {
  * under a bound of one ran in sequence, so "in parallel" would be false.
  */
 export function parallelLabel({ count, atOnce }: Pick<RailroadParallel, 'count' | 'atOnce'>) {
-  if (!atOnce || atOnce >= count) return `${count} in parallel`;
-  return atOnce === 1 ? `${count}, one at a time` : `${count}, up to ${atOnce} at a time`;
+  if (!atOnce || atOnce >= count) return t`${count} in parallel`;
+  return atOnce === 1 ? t`${count}, one at a time` : t`${count}, up to ${atOnce} at a time`;
 }
 
 export interface RailroadBox {
@@ -195,11 +196,20 @@ export function workflowRailroadExpr(
       };
     }
     const step = byId.get(part.id)!;
-    const attempts = step.attempts > 1 ? `, ${step.attempts} attempts` : '';
     const name = stepName(step);
+    const status = step.status.label;
+    const runs = step.targetLabel;
     const mark: RailroadMark = {
       tone: step.status.tone,
-      title: `${name}: ${step.status.label}${attempts}.${step.targetLabel ? ` Runs ${step.targetLabel}.` : ''}${forkWords(step)}`,
+      title: [
+        step.attempts > 1
+          ? t`${name}: ${status}, ${ph({ attempts: step.attempts })} attempts.`
+          : t`${name}: ${status}.`,
+        runs ? t`Runs ${runs}.` : '',
+        ...forkSentences(step),
+      ]
+        .filter(Boolean)
+        .join(' '),
       key: step.id,
       pick: { kind: 'step', step },
       ...(step.forkOf ? { fork: true } : {}),
@@ -221,32 +231,38 @@ export function workflowRailroadExpr(
 /** A step's drawn name; a fork carries its mark in words: "draft~1 · fork of draft". */
 export function stepName(step: Pick<FlowStep, 'id' | 'label' | 'forkOf'>): string {
   const name = step.label ?? step.id;
-  return step.forkOf ? `${name} (fork of ${step.forkOf})` : name;
+  return step.forkOf ? t`${name} (fork of ${ph({ forkOf: step.forkOf })})` : name;
 }
 
 /** The tooltip's fork sentences: a fork's note, and the forks a dependent also waits on. */
-function forkWords(step: FlowStep): string {
-  const words: string[] = [];
-  if (step.forkOf)
-    words.push(
-      step.note
-        ? ` Fork of ${step.forkOf}: ${step.note.trim().replace(/[.\s]+$/u, '')}.`
-        : ` Fork of ${step.forkOf}.`,
+function forkSentences(step: FlowStep): string[] {
+  const sentences: string[] = [];
+  if (step.forkOf) {
+    const forkOf = step.forkOf;
+    const note = step.note?.trim().replace(/[.\s]+$/u, '');
+    sentences.push(note ? t`Fork of ${forkOf}: ${note}.` : t`Fork of ${forkOf}.`);
+  }
+  if (step.alsoWaitsOn?.length) {
+    const forks = step.alsoWaitsOn.join(', ');
+    sentences.push(
+      plural(step.alsoWaitsOn.length, {
+        one: `Also waits on the fork ${forks}.`,
+        other: `Also waits on the forks ${forks}.`,
+      }),
     );
-  if (step.alsoWaitsOn?.length)
-    words.push(
-      ` Also waits on the fork${step.alsoWaitsOn.length > 1 ? 's' : ''} ${step.alsoWaitsOn.join(', ')}.`,
-    );
-  return words.join('');
+  }
+  return sentences;
 }
 
 function memberTerminal(member: FlowMember): RailroadExpr {
   return {
     kind: 'terminal',
-    label: member.label.toLowerCase(),
+    label: member.drawnLabel ?? member.label.toLowerCase(),
     mark: {
       tone: member.status.tone,
-      title: `${member.label}: ${member.status.label}${member.chosen ? ", the judge's choice" : ''}. Runs ${member.targetLabel}.`,
+      title: member.chosen
+        ? t`${ph({ member: member.label })}: ${ph({ status: member.status.label })}, the judge's choice. Runs ${ph({ target: member.targetLabel })}.`
+        : t`${ph({ member: member.label })}: ${ph({ status: member.status.label })}. Runs ${ph({ target: member.targetLabel })}.`,
       key: member.key,
       pick: { kind: 'member', member },
       ...(member.chosen ? { chosen: true } : {}),
@@ -277,7 +293,10 @@ export function membersRailroadExpr(
         label: closing.label,
         mark: {
           tone: closing.state.tone,
-          title: `The ${closing.label}: ${closing.state.word}.`,
+          title:
+            flow === 'arena'
+              ? t`The judge: ${ph({ state: closing.state.word })}.`
+              : t`The synthesis: ${ph({ state: closing.state.word })}.`,
           key: 'closing',
           pick: { kind: 'closing', ...closing, flow, verdict },
         },

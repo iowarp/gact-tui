@@ -15,6 +15,8 @@ import {
   type SessionRailItem,
   type SessionRailSectionId,
 } from './session-rail-layout';
+import { t } from '@lingui/core/macro';
+import { formatNumber } from '@/lib/locale-format';
 
 const ROW = '[data-rail-row]';
 
@@ -68,7 +70,7 @@ export function SessionRail({
           ))}
           {!groups.length ? (
             <p className="px-2 py-4 text-xs text-muted-foreground">
-              No sections to show. Add sections with Customize.
+              {t`No sections to show. Add sections with Customize.`}
             </p>
           ) : null}
         </div>
@@ -94,16 +96,18 @@ function RailSection({ id, item }: { id: SessionRailSectionId; item?: SessionRai
     `conversation-rail:${id}`,
     item?.defaultOpen ?? id === 'running',
   );
-  const tally = item ? (item.summary ?? item.count?.toLocaleString()) : '0';
+  const tally = item
+    ? (item.summary ?? (item.count === undefined ? undefined : formatNumber(item.count)))
+    : '0';
   return (
-    <section role="region" tabIndex={-1} aria-label={`${label} section`} className="min-w-0">
+    <section role="region" tabIndex={-1} aria-label={t`${label} section`} className="min-w-0">
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger asChild>
           <button
             type="button"
             data-rail-row=""
-            aria-label={`${open ? 'Collapse' : 'Expand'} ${label}`}
-            className="flex h-7 w-full min-w-0 items-center gap-1.5 rounded-[5px] px-1 text-left text-[13px] hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            aria-label={open ? t`Collapse ${label}` : t`Expand ${label}`}
+            className="flex h-7 w-full min-w-0 items-center gap-1.5 rounded-[5px] px-1 text-left text-ui hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <ChevronRightIcon
               aria-hidden="true"
@@ -121,7 +125,7 @@ function RailSection({ id, item }: { id: SessionRailSectionId; item?: SessionRai
         </CollapsibleTrigger>
         {item?.below ? <div className="pl-[26px] pr-1 pb-1">{item.below}</div> : null}
         <CollapsibleContent className="ml-[13px] min-w-0 border-l border-border/70 pb-1.5 pl-3 text-xs">
-          {item ? item.content : <p className="py-1 text-muted-foreground">Nothing yet.</p>}
+          {item ? item.content : <p className="py-1 text-muted-foreground">{t`Nothing yet.`}</p>}
         </CollapsibleContent>
       </Collapsible>
     </section>

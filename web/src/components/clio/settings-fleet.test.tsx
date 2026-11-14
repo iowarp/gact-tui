@@ -1,12 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { FleetSettingsPanel } from './settings-fleet';
 
 const { repository } = vi.hoisted(() => ({
-  repository: { fleetSettings: vi.fn(), updateFleetSettings: vi.fn() },
+  repository: {
+    fleetSettings: vi.fn(),
+    updateFleetSettings: vi.fn(),
+    fleet: vi.fn(),
+    setDelegationAllowed: vi.fn(),
+  },
 }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -34,12 +39,15 @@ vi.mock('./model-picker', () => ({
     </div>
   ),
 }));
+beforeEach(() => {
+  repository.fleet.mockResolvedValue({ observed_at: '', accounts: [], entries: [] });
+});
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
 
-it('inherits three conversation models and changes only the selected judge role', async () => {
+it("keeps an older agent's defaults: three conversation models, and changes only the selected judge role", async () => {
   const initial = { revision: 'r1', judges: { goals: null, variants: null, permissions: null } };
   repository.fleetSettings.mockResolvedValue(initial);
   repository.updateFleetSettings.mockImplementation(async (value) => ({
@@ -171,4 +179,89 @@ it('hides the SPOTTER row for a service that predates it', async () => {
   );
   expect(await screen.findByRole('button', { name: 'Choose Goals judge' })).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Choose SPOTTER model' })).toBeNull();
+});
+
+it('runs every unset helper on the fast model, and ↶ returns a chosen one to it', async () => {
+  const initial = {
+    revision: 'r1',
+    fast: null,
+    judges: {
+      goals: null,
+      variants: null,
+      permissions: null,
+      memory_extract: null,
+      explore: null,
+    },
+    search: null,
+  };
+  repository.fleetSettings.mockResolvedValue(initial);
+  repository.updateFleetSettings.mockImplementation(async (value) => ({
+    ...value,
+    revision: 'r2',
+  }));
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <TooltipProvider>
+        <FleetSettingsPanel />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  // Search, Goals, Best of N, Automode, Memory noticing and Explore.
+  expect(await screen.findAllByText('Fast model')).toHaveLength(6);
+  expect(screen.queryByText('Conversation model')).toBeNull();
+  expect(screen.queryByText('Server default model')).toBeNull();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Choose Explore judge' }));
+  await user.click(await screen.findByRole('button', { name: 'Use the fast model' }));
+  await waitFor(() =>
+    expect(repository.updateFleetSettings).toHaveBeenLastCalledWith({
+      ...initial,
+      revision: 'r2',
+    }),
+  );
+});
+
+it('lists every account under Delegation with its switch', async () => {
+  repository.fleetSettings.mockResolvedValue({
+    revision: 'r1',
+    fast: null,
+    judges: { goals: null, variants: null, permissions: null },
+  });
+  const account = {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    provider_kind: 'openrouter',
+    billing: 'credit',
+    health: 'ok',
+    failure: '',
+    endpoint: '',
+    usage: null,
+    usage_missing_reason: '',
+    spend: null,
+    delegation_allowed: false,
+  };
+  repository.fleet.mockResolvedValue({ observed_at: '', accounts: [account], entries: [] });
+  repository.setDelegationAllowed.mockResolvedValue({
+    account: 'openrouter',
+    delegation_allowed: true,
+  });
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <TooltipProvider>
+        <FleetSettingsPanel />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  const toggle = await screen.findByRole('switch', {
+    name: /may use OpenRouter for delegated work/,
+  });
+  expect(toggle).not.toBeChecked();
+  await userEvent.setup().click(toggle);
+  await waitFor(() =>
+    expect(repository.setDelegationAllowed).toHaveBeenCalledWith('openrouter', true),
+  );
 });

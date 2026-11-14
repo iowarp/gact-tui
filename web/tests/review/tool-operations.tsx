@@ -1,4 +1,4 @@
-import type { SubagentRun, ToolInvocation } from '@clio/core/v3';
+import { isNestedToolInvocation, type SubagentRun, type ToolInvocation } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -15,6 +15,9 @@ const fixture: { tools: ToolInvocation[]; subagents: Record<string, SubagentRun>
   await fetch('/__test/operation-tools')
 ).json();
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+const tools = Object.fromEntries(fixture.tools.map((tool) => [tool.id, tool]));
+// A script's calls show nested under its row, not again at the top level.
+const topLevel = fixture.tools.filter((tool) => !isNestedToolInvocation(tool, tools));
 
 export function Review() {
   const [all, setAll] = useState(false);
@@ -24,6 +27,8 @@ export function Review() {
       value={{
         artifacts: {},
         subagents: fixture.subagents,
+        tools,
+        workspaceId: 'ws_review',
         onOpenFile: setOpened,
         onOpenFlow: (handle) => setOpened(handle),
         onOpenSubagent: (child) => setOpened(child.child_session_id || child.id),
@@ -39,11 +44,11 @@ export function Review() {
             {all ? 'Collapse all' : 'Expand all'}
           </Button>
           <span className="self-center text-sm text-muted-foreground">
-            {fixture.tools.length} tools
+            {topLevel.length} tools
           </span>
         </div>
         <div className="border-l pl-3">
-          {fixture.tools.map((tool) => (
+          {topLevel.map((tool) => (
             <ClioToolInvocation key={`${tool.id}-${all}`} tool={tool} compact defaultOpen={all} />
           ))}
         </div>

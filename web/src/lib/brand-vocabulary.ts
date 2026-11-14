@@ -1,4 +1,5 @@
 import { brand } from '@brand';
+import { t } from '@lingui/core/macro';
 
 /**
  * Product/agent/workspace nouns, extracted from the active brand instead of
@@ -25,14 +26,9 @@ export const vocab = {
  * screen shows one name; the product brand otherwise.
  */
 export function welcomePlaceholder(agentName?: string): string {
-  return `Ask ${agentName?.trim() || brand.name} anything, or describe a task…`;
+  const name = agentName?.trim() || brand.name;
+  return t`Ask ${name} anything, or describe a task…`;
 }
-
-/** The noun with its indefinite article: `A CLIO`, `An Agent`. */
-export function withArticle(noun: string): string {
-  return `${/^[aeiou]/iu.test(noun) ? 'An' : 'A'} ${noun}`;
-}
-
 /** Upper-case the first letter — for a vocabulary noun used as a title/header. */
 export function capitalize(value: string): string {
   return value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value;
@@ -46,6 +42,8 @@ export function capitalize(value: string): string {
  * spelling the acronym inline, so the wording never drifts.
  */
 export const PROTOCOL = {
+  // i18n-ignore: protocol name, identical in every language
   a2ui: 'A2UI protocol',
+  // i18n-ignore: protocol name, identical in every language
   gact: 'GACT protocol',
 } as const;

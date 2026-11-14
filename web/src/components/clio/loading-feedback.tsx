@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { t } from '@lingui/core/macro';
 
 /** Request-owned feedback: layout placeholders, a quiet refresh, or a blocking local cover. */
 export function LoadingFeedback({
@@ -81,7 +82,7 @@ export function LoadingFailure({
         <p>{detail}</p>
         {onRetry ? (
           <Button type="button" size="sm" variant="outline" onClick={onRetry}>
-            Retry
+            {t`Retry`}
           </Button>
         ) : null}
       </AlertDescription>

@@ -13,23 +13,42 @@ import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
 import { ItemRow } from './primitives/item-row';
 import { StatusIndicator } from './primitives/status-indicator';
+import { t } from '@lingui/core/macro';
 
-/** Meta parts separated by space alone; the whole line is the hover text when it is cut. */
+/**
+ * Meta parts separated by space alone; the whole line is the hover text when it is cut.
+ * A phone-width list drops the addresses and commands after the first part.
+ * `wrap` puts a part that doesn't fit on the next line, whole, instead of cutting it.
+ */
 export function MetaLine({
   parts,
   className,
+  wrap = false,
 }: {
   parts: readonly (ExtensionMetaPart | string)[];
   className?: string;
+  wrap?: boolean;
 }) {
   const rows = parts
     .map((part) => (typeof part === 'string' ? { text: part } : part))
     .filter((part) => part.text);
   return (
-    <span className={className} title={rows.map((part) => part.text).join(', ')}>
+    <span
+      className={cn(wrap && 'flex min-w-0 flex-wrap gap-x-2.5 whitespace-normal', className)}
+      title={rows.map((part) => part.text).join(', ')}
+    >
       {rows.map((part, index) => (
         <span
-          className={cn(index ? 'ml-2.5' : undefined, part.mono && 'font-mono text-[0.71875rem]')}
+          className={cn(
+            wrap
+              ? 'max-w-full min-w-0 break-words [word-break:auto-phrase] [line-break:strict]'
+              : index
+                ? 'ml-2.5'
+                : undefined,
+            wrap && part.mono && 'truncate',
+            part.mono && 'font-mono text-label',
+            part.mono && index && '@max-sm:hidden',
+          )}
           key={`${index}:${part.text}`}
         >
           {part.text}
@@ -102,7 +121,7 @@ export function TrustBanner({
       <div className="flex min-w-0 items-center gap-2.5">
         <TriangleAlertIcon aria-hidden="true" className="size-4 shrink-0 text-warning" />
         <p
-          className="line-clamp-2 min-w-0 flex-1 text-[0.8125rem] leading-5"
+          className="line-clamp-2 min-w-0 flex-1 text-ui leading-5"
           title={detail ? `${message} ${detail}` : message}
         >
           {message}
@@ -130,7 +149,7 @@ export function ExtensionRow({
   meta,
   status,
   onExplore,
-  exploreLabel = `Explore ${name}`,
+  exploreLabel = t`Explore ${name}`,
   actions,
   menu,
   slot,
@@ -189,7 +208,7 @@ export function ExtensionRow({
       className={cn(onExplore && 'cursor-default', ROW_MENU_OPEN_VISIBLE, className)}
       confirm={confirm}
       icon={icon}
-      meta={meta?.length ? <MetaLine parts={meta} /> : undefined}
+      meta={meta?.length ? <MetaLine parts={meta} wrap /> : undefined}
       onClick={onExplore ? open : undefined}
       onKeyDown={onKeyDown}
       selected={selected}
@@ -197,7 +216,12 @@ export function ExtensionRow({
       slot={slot ?? (aligned ? null : undefined)}
       status={status ? <EntryStatus status={status} /> : aligned ? null : undefined}
       tabIndex={onExplore ? 0 : undefined}
-      title={<span title={title}>{title}</span>}
+      // A long name wraps whole rather than ending in an ellipsis.
+      title={
+        <span className="block break-words whitespace-normal" title={title}>
+          {title}
+        </span>
+      }
       actions={
         hasActions ? (
           <>
@@ -213,7 +237,7 @@ export function ExtensionRow({
             {menu ? (
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
-                  <IconButton icon={<MoreIcon />} label={`More actions for ${name}`} />
+                  <IconButton icon={<MoreIcon />} label={t`More actions for ${name}`} />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-52">
                   {menu}

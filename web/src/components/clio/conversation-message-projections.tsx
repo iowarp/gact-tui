@@ -25,6 +25,7 @@ export function McpAppResponseMessageRow({
       data-index={index}
       id={`message-${messageId}`}
       ref={measureElement}
+      // i18n-ignore: CSS transform
       style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
       tabIndex={-1}
     >

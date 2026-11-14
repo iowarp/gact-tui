@@ -11,6 +11,8 @@ import {
   pluginNameResolver,
 } from '@/lib/plugin-presentation';
 import { useHasConnection } from '@/providers/connection-provider';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -47,6 +49,7 @@ function PluginChangeChip({
   const detailsId = useId();
   const label = pluginChangeLabel(block.text, nameOf);
   const tools = pluginChangeTools(block.text);
+  const toolList = tools.join(', ');
   return (
     <section
       className="min-w-0 max-w-full py-0.5"
@@ -73,12 +76,13 @@ function PluginChangeChip({
           id={detailsId}
         >
           <p className="font-medium">
-            Sent to the agent as an instruction. Its system prompt updates at the next compaction.
+            {t`Sent to the agent as an instruction. Its system prompt updates at the next compaction.`}
           </p>
           {tools.length ? (
             <p className="text-xs">
-              The agent can call these tools now:{' '}
-              <span className="font-mono">{tools.join(', ')}</span>
+              <Trans>
+                The agent can call these tools now: <span className="font-mono">{toolList}</span>
+              </Trans>
             </p>
           ) : null}
           <pre className="min-w-0 rounded-md bg-muted p-2 font-mono text-xs leading-5 whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">

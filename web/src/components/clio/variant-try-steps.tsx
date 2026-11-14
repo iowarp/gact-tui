@@ -6,6 +6,7 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-e
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { humanizeProtocolValue } from './presentation-labels';
 import { ClioToolInvocation } from './tool-invocation';
+import { ph, plural, t } from '@lingui/core/macro';
 
 type ToolResultPart = Extract<VariantStepPart, { type: 'tool_result' }>;
 
@@ -75,7 +76,9 @@ function StepPart({
       return (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <FileIcon aria-hidden="true" className="size-3.5" />
-          {part.type === 'image' ? 'Image' : 'Document'} ({part.media_type})
+          {part.type === 'image'
+            ? t`Image (${ph({ type: part.media_type })})`
+            : t`Document (${ph({ type: part.media_type })})`}
         </p>
       );
     case 'tool_result':
@@ -88,7 +91,7 @@ function StepPart({
     case 'unknown':
       return (
         <p className="text-xs text-muted-foreground">
-          A {humanizeProtocolValue(part.original_type)} step part this version cannot display.
+          {t`A ${ph({ type: humanizeProtocolValue(part.original_type) })} step part this version cannot display.`}
         </p>
       );
   }
@@ -137,14 +140,14 @@ export function VariantTrySteps({
     <Collapsible>
       <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
         <ListTreeIcon aria-hidden="true" className="size-3.5" />
-        {shown.length === 1 ? '1 recorded step' : `${shown.length} recorded steps`}
+        {plural(shown.length, { one: '# recorded step', other: '# recorded steps' })}
       </CollapsibleTrigger>
       <CollapsibleContent>
         <ol className="mt-2 space-y-2 border-l pl-3" data-slot="variant-try-steps">
           {shown.map((step, index) => (
             <li className="flex min-w-0 flex-col gap-1.5" key={`${step.role}:${index}`}>
               {step.role === 'user' ? (
-                <p className="text-xs font-medium text-muted-foreground">Given to this try</p>
+                <p className="text-xs font-medium text-muted-foreground">{t`Given to this try`}</p>
               ) : null}
               {step.parts.map((part, partIndex) => (
                 <Fragment key={partIndex}>

@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { promptSectionLabel } from '@/lib/plugin-presentation';
+import { plural, t } from '@lingui/core/macro';
 
 /** One kind of thing a package brings to an agent. */
 export type PackageCategory =
@@ -27,20 +28,21 @@ export interface PackageCategoryInfo {
   value: PackageCategory;
   /** The filter's label. */
   label: string;
-  singular: string;
-  plural: string;
+  /** The kind of one item, as a field value: "Tool". */
+  kind: string;
 }
 
 /** The filter's order; a category shows only when some package brings it. */
 export const PACKAGE_CATEGORIES: readonly PackageCategoryInfo[] = [
-  { value: 'tools', label: 'Tools', singular: 'tool', plural: 'tools' },
-  { value: 'subagents', label: 'Subagents', singular: 'subagent', plural: 'subagents' },
-  { value: 'skills', label: 'Skills', singular: 'skill', plural: 'skills' },
-  { value: 'prompts', label: 'Prompts', singular: 'prompt part', plural: 'prompt parts' },
-  { value: 'mcp', label: 'MCP', singular: 'MCP server', plural: 'MCP servers' },
-  { value: 'commands', label: 'Commands', singular: 'command', plural: 'commands' },
-  { value: 'flows', label: 'Flows', singular: 'flow', plural: 'flows' },
-  { value: 'hooks', label: 'Hooks', singular: 'hook', plural: 'hooks' },
+  { value: 'tools', label: t`Tools`, kind: t`Tool` },
+  { value: 'subagents', label: t`Subagents`, kind: t`Subagent` },
+  { value: 'skills', label: t`Skills`, kind: t`Skill` },
+  { value: 'prompts', label: t`Prompts`, kind: t`Prompt part` },
+  // i18n-ignore: protocol name, identical in every language
+  { value: 'mcp', label: 'MCP', kind: t`MCP server` },
+  { value: 'commands', label: t`Commands`, kind: t`Command` },
+  { value: 'flows', label: t`Flows`, kind: t`Flow` },
+  { value: 'hooks', label: t`Hooks`, kind: t`Hook` },
 ];
 
 export const PACKAGE_CATEGORY: Record<PackageCategory, PackageCategoryInfo> = Object.fromEntries(
@@ -72,7 +74,7 @@ export interface PackageItem {
 
 export type PackageItems = Record<PackageCategory, PackageItem[]>;
 
-const DEFERRED_NOTE = 'Loaded when needed';
+const DEFERRED_NOTE = t`Loaded when needed`;
 
 /** Everything the resolution attributes to `pluginId`, by category. */
 export function packageItems(resolution: AgentResolution, pluginId: string): PackageItems {
@@ -105,7 +107,7 @@ export function packageItems(resolution: AgentResolution, pluginId: string): Pac
           id: name,
           category: 'mcp' as const,
           plugin: pluginId,
-          description: type ? `Starts a ${type} server` : '',
+          description: type ? t`Starts a ${type} server` : '',
           note: row.defer === true ? DEFERRED_NOTE : undefined,
         };
       }),
@@ -118,7 +120,9 @@ export function packageItems(resolution: AgentResolution, pluginId: string): Pac
         plugin: pluginId,
         description: [
           promptSectionLabel(fragment.section || section.section),
-          fragment.tokens !== undefined ? `about ${fragment.tokens} tokens` : '',
+          fragment.tokens !== undefined
+            ? plural(fragment.tokens, { one: 'about # token', other: 'about # tokens' })
+            : '',
         ]
           .filter(Boolean)
           .join(', '),
@@ -133,16 +137,114 @@ export function packageItems(resolution: AgentResolution, pluginId: string): Pac
 
 /** "1 subagent", "2 subagents". */
 export function countOf(category: PackageCategory, count: number): string {
-  const info = PACKAGE_CATEGORY[category];
-  return `${count} ${count === 1 ? info.singular : info.plural}`;
+  switch (category) {
+    case 'tools':
+      return plural(count, { one: '# tool', other: '# tools' });
+    case 'subagents':
+      return plural(count, { one: '# subagent', other: '# subagents' });
+    case 'skills':
+      return plural(count, { one: '# skill', other: '# skills' });
+    case 'prompts':
+      return plural(count, { one: '# prompt part', other: '# prompt parts' });
+    case 'mcp':
+      return plural(count, { one: '# MCP server', other: '# MCP servers' });
+    case 'commands':
+      return plural(count, { one: '# command', other: '# commands' });
+    case 'flows':
+      return plural(count, { one: '# flow', other: '# flows' });
+    case 'hooks':
+      return plural(count, { one: '# hook', other: '# hooks' });
+  }
 }
 
 /** "hpc-io brings these subagents", "ndp brings this tool". */
 export function bringsLabel(plugin: string, category: PackageCategory, count: number): string {
-  const info = PACKAGE_CATEGORY[category];
-  return count === 1
-    ? `${plugin} brings this ${info.singular}`
-    : `${plugin} brings these ${info.plural}`;
+  switch (category) {
+    case 'tools':
+      return plural(count, {
+        one: `${plugin} brings this tool`,
+        other: `${plugin} brings these tools`,
+      });
+    case 'subagents':
+      return plural(count, {
+        one: `${plugin} brings this subagent`,
+        other: `${plugin} brings these subagents`,
+      });
+    case 'skills':
+      return plural(count, {
+        one: `${plugin} brings this skill`,
+        other: `${plugin} brings these skills`,
+      });
+    case 'prompts':
+      return plural(count, {
+        one: `${plugin} brings this prompt part`,
+        other: `${plugin} brings these prompt parts`,
+      });
+    case 'mcp':
+      return plural(count, {
+        one: `${plugin} brings this MCP server`,
+        other: `${plugin} brings these MCP servers`,
+      });
+    case 'commands':
+      return plural(count, {
+        one: `${plugin} brings this command`,
+        other: `${plugin} brings these commands`,
+      });
+    case 'flows':
+      return plural(count, {
+        one: `${plugin} brings this flow`,
+        other: `${plugin} brings these flows`,
+      });
+    case 'hooks':
+      return plural(count, {
+        one: `${plugin} brings this hook`,
+        other: `${plugin} brings these hooks`,
+      });
+  }
+}
+
+/** "No package brings subagents." */
+export function noneBringsLabel(category: PackageCategory): string {
+  switch (category) {
+    case 'tools':
+      return t`No package brings tools.`;
+    case 'subagents':
+      return t`No package brings subagents.`;
+    case 'skills':
+      return t`No package brings skills.`;
+    case 'prompts':
+      return t`No package brings prompt parts.`;
+    case 'mcp':
+      return t`No package brings MCP servers.`;
+    case 'commands':
+      return t`No package brings commands.`;
+    case 'flows':
+      return t`No package brings flows.`;
+    case 'hooks':
+      return t`No package brings hooks.`;
+  }
+}
+
+/** "hpc-io subagents": one category of what one package brings. */
+export function packageCategoryLabel(plugin: string, category: PackageCategory): string {
+  switch (category) {
+    case 'tools':
+      return t`${plugin} tools`;
+    case 'subagents':
+      return t`${plugin} subagents`;
+    case 'skills':
+      return t`${plugin} skills`;
+    case 'prompts':
+      return t`${plugin} prompt parts`;
+    case 'mcp':
+      return t`${plugin} MCP servers`;
+    case 'commands':
+      return t`${plugin} commands`;
+    case 'flows':
+      return t`${plugin} flows`;
+    case 'hooks':
+      return t`${plugin} hooks`;
+  }
 }
 
 /** The categories any of the agent's packages bring, in filter order. */

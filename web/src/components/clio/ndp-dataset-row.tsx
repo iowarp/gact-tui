@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { sourceBytes } from './connected-source-labels';
+import { ph, plural, t } from '@lingui/core/macro';
 
 const RESOURCE_PAGE_SIZE = 10;
 
@@ -34,11 +35,11 @@ export function NDPDatasetRow({
         <span className="min-w-0 break-words font-medium">{title}</span>
         <span className="flex shrink-0 items-center gap-2">
           {selected.length > 0 ? (
-            <span className="text-xs text-primary">{selected.length} selected</span>
+            <span className="text-xs text-primary">{t`${ph({ count: selected.length })} selected`}</span>
           ) : null}
           {dataset.access ? (
             <Badge variant="outline">
-              {dataset.access === 'viewer' ? 'Viewer' : 'Request access'}
+              {dataset.access === 'viewer' ? t`Viewer` : t`Request access`}
             </Badge>
           ) : null}
           <ChevronDownIcon className="size-4 transition-transform group-data-[state=open]:rotate-180" />
@@ -48,10 +49,10 @@ export function NDPDatasetRow({
         {dataset.description ? <DatasetDescription text={dataset.description} /> : null}
         <Collapsible open={resourcesOpen} onOpenChange={setResourcesOpen}>
           <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 py-1 text-left text-sm font-medium">
-            <span>Resources ({dataset.resources.length})</span>
+            <span>{t`Resources (${ph({ count: dataset.resources.length })})`}</span>
             <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
           </CollapsibleTrigger>
-          <CollapsibleContent role="group" aria-label={`Resources in ${title}`}>
+          <CollapsibleContent role="group" aria-label={t`Resources in ${title}`}>
             {dataset.resources.slice(0, resourceLimit).map((resource) => (
               <label
                 key={resource.id}
@@ -74,7 +75,7 @@ export function NDPDatasetRow({
               </label>
             ))}
             {!dataset.resources.length ? (
-              <p className="text-sm text-muted-foreground">No resources in this dataset.</p>
+              <p className="text-sm text-muted-foreground">{t`No resources in this dataset.`}</p>
             ) : null}
             {remaining > 0 ? (
               <Button
@@ -83,7 +84,10 @@ export function NDPDatasetRow({
                 size="sm"
                 onClick={() => setResourceLimit((value) => value + RESOURCE_PAGE_SIZE)}
               >
-                Show {Math.min(RESOURCE_PAGE_SIZE, remaining)} more resources
+                {plural(Math.min(RESOURCE_PAGE_SIZE, remaining), {
+                  one: 'Show # more resource',
+                  other: 'Show # more resources',
+                })}
               </Button>
             ) : null}
           </CollapsibleContent>
@@ -125,7 +129,7 @@ function DatasetDescription({ text }: { text: string }) {
           aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}
         >
-          {expanded ? 'Show less' : 'Show more'}
+          {expanded ? t`Show less` : t`Show more`}
         </Button>
       ) : null}
     </div>

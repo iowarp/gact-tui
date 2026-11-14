@@ -1,6 +1,7 @@
 import type { FacetChip, FacetTab } from './model-facets';
 import { addModelFilterToken, type ModelFilterToken } from './model-filter-tokens';
 import { parseRangeToken, type RangeKind } from './model-range-tokens';
+import { t } from '@lingui/core/macro';
 
 export type QuickFilterId =
   | 'tools'
@@ -23,17 +24,17 @@ interface QuickFilterDefinition {
 
 /** The picker's row-2 quick filters, in the spec's order. */
 const QUICK_FILTERS: readonly QuickFilterDefinition[] = [
-  { id: 'tools', label: 'Tools', token: 'cap:tools' },
-  { id: 'vision', label: 'Vision', token: 'input:image' },
-  { id: 'reasoning', label: 'Reasoning', token: 'cap:reasoning' },
-  { id: 'web', label: 'Web search', token: 'cap:web-search' },
-  { id: 'free', label: 'Free', token: 'free' },
-  { id: 'context', label: 'Context over 32K', token: 'context:>32K', range: 'context' },
-  { id: 'cost', label: 'Input under $1 per 1M tokens', token: 'cost:<1', range: 'cost' },
-  { id: 'size', label: 'Under 32B parameters', token: 'size:<32B', range: 'size' },
+  { id: 'tools', label: t`Tools`, token: 'cap:tools' },
+  { id: 'vision', label: t`Vision`, token: 'input:image' },
+  { id: 'reasoning', label: t`Reasoning`, token: 'cap:reasoning' },
+  { id: 'web', label: t`Web search`, token: 'cap:web-search' },
+  { id: 'free', label: t`Free`, token: 'free' },
+  { id: 'context', label: t`Context over 32K`, token: 'context:>32K', range: 'context' },
+  { id: 'cost', label: t`Input under $1 per 1M tokens`, token: 'cost:<1', range: 'cost' },
+  { id: 'size', label: t`Under 32B parameters`, token: 'size:<32B', range: 'size' },
   {
     id: 'recent',
-    label: 'Released in the last 6 months',
+    label: t`Released in the last 6 months`,
     token: 'released:<6mo',
     range: 'released',
   },

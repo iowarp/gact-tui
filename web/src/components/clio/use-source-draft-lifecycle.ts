@@ -2,6 +2,7 @@ import type { WorkspaceReference } from '@clio/core/v3';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
+import { t } from '@lingui/core/macro';
 
 /** Roll back unsent workspace additions using the server's ownership receipt. */
 export function useSourceDraftLifecycle(workspaceId: string) {
@@ -40,7 +41,7 @@ export function useSourceDraftLifecycle(workspaceId: string) {
           );
         } catch (error) {
           // The message has already been accepted. Never turn this into a second send.
-          toast.error('Could not confirm attachment storage', {
+          toast.error(t`Could not confirm attachment storage`, {
             description: error instanceof Error ? error.message : String(error),
           });
         }

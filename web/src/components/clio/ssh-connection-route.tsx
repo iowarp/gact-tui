@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { SshJumpHostList } from './ssh-jump-host-list';
 import { RouteMarker } from './ssh-route-marker';
+import { t } from '@lingui/core/macro';
 
 /** Which hop the shared host dialog should configure, or create a new computer into. */
 export type SshRouteStep = { index: number; isDestination: boolean };
@@ -23,7 +24,7 @@ export function SshConnectionRoute({
   onSlotsChange,
   options,
   slots,
-  originLabel = 'This computer',
+  originLabel = t`This computer`,
 }: {
   disabled?: boolean;
   onConfigure: (step: SshRouteStep) => void;
@@ -36,7 +37,7 @@ export function SshConnectionRoute({
 }) {
   const step = (index: number) => ({ index, isDestination: index === slots.length - 1 });
   return (
-    <div aria-label="SSH connection route" className="relative grid gap-2 pl-1">
+    <div aria-label={t`SSH connection route`} className="relative grid gap-2 pl-1">
       <div className="grid grid-cols-[1.75rem_2.25rem_minmax(0,1fr)_auto] items-center gap-2">
         {/* The starting point is fixed: no grip, never reordered. */}
         <span aria-hidden="true" />
@@ -64,7 +65,7 @@ export function SshConnectionRoute({
         type="button"
         variant="ghost"
       >
-        <AddIcon aria-hidden="true" /> Add hop
+        <AddIcon aria-hidden="true" /> {t`Add hop`}
       </Button>
     </div>
   );

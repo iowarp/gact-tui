@@ -7,6 +7,8 @@ import {
   providerStatusDetail,
   type ProviderSetupNeed,
 } from '@/lib/provider-availability';
+import { formatDateTime } from '@/lib/locale-format';
+import { plural, t } from '@lingui/core/macro';
 
 export const PROVIDER_NODE_PREFIX = 'provider:';
 export const MODEL_NODE_PREFIX = 'model:';
@@ -117,10 +119,10 @@ export function providerHealthPresentation(
   label: string;
 } {
   return {
-    healthy: { color: 'text-success', label: 'Ready' },
-    checking: { color: 'text-warning motion-safe:animate-pulse', label: 'Checking…' },
-    degraded: { color: 'text-destructive', label: 'Needs attention' },
-    unavailable: { color: 'text-destructive', label: 'Unavailable' },
+    healthy: { color: 'text-success', label: t`Ready` },
+    checking: { color: 'text-warning motion-safe:animate-pulse', label: t`Checking…` },
+    degraded: { color: 'text-destructive', label: t`Needs attention` },
+    unavailable: { color: 'text-destructive', label: t`Unavailable` },
     setup: { color: 'text-muted-foreground/55', label: providerSetupNeedLabel(setupNeed) },
   }[health];
 }
@@ -252,13 +254,12 @@ export function providerSearchDescription(group: ProviderGroup): string {
   if (group.health === 'unavailable' || group.health === 'setup') {
     return providerGroupStatus(group).label;
   }
-  const count = group.availableChoices.length;
-  return `${count} ${count === 1 ? 'model' : 'models'}`;
+  return plural(group.availableChoices.length, { one: '# model', other: '# models' });
 }
 
 export function formatFreshness(freshness: string): string {
   const parsed = new Date(freshness);
-  return Number.isNaN(parsed.getTime()) ? freshness : parsed.toLocaleString();
+  return Number.isNaN(parsed.getTime()) ? freshness : formatDateTime(parsed);
 }
 
 /**

@@ -26,16 +26,18 @@ import { StepQuestions } from './flow-run-edit-list';
 import { StepFolder } from './node-folder';
 import type { FlowPick } from './flow-railroad';
 import { ClioStatus } from './status';
+import { t, ph, plural } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /** Each state's word in the legend, in the order the legend lists them. */
 const TONE_WORDS: readonly (readonly [FlowTone, string])[] = [
-  ['running', 'running'],
-  ['done', 'ran'],
-  ['failed', 'stopped or rejected'],
-  ['waiting', 'waiting'],
-  ['proposed', 'awaiting approval'],
-  ['cancelled', 'did not run or cancelled'],
-  ['unknown', 'not reported'],
+  ['running', t({ message: 'running', context: 'flow step state' })],
+  ['done', t`ran`],
+  ['failed', t`stopped or rejected`],
+  ['waiting', t({ message: 'waiting', context: 'flow step state' })],
+  ['proposed', t({ message: 'awaiting approval', context: 'flow step state' })],
+  ['cancelled', t`did not run or cancelled`],
+  ['unknown', t({ message: 'not reported', context: 'flow step state' })],
 ];
 
 /** The swatch of a state, drawn as index.css draws a node in that state (same tokens). */
@@ -57,7 +59,7 @@ export function FlowLegend({ tones, hint }: { tones: readonly FlowTone[]; hint?:
   const shown = TONE_WORDS.filter(([tone]) => tones.includes(tone));
   if (!shown.length && !hint) return null;
   return (
-    <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+    <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted-foreground">
       {shown.map(([tone, word]) => (
         <span className="inline-flex items-center gap-1" key={tone}>
           <span
@@ -81,7 +83,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Instructions({ input, title = 'Instructions' }: { input: unknown; title?: string }) {
+function Instructions({ input, title = t`Instructions` }: { input: unknown; title?: string }) {
   const text = inputText(input);
   return (
     <div className="grid min-w-0 gap-1">
@@ -91,7 +93,7 @@ function Instructions({ input, title = 'Instructions' }: { input: unknown; title
           {text}
         </pre>
       ) : (
-        <p>None written; the step receives the workflow&apos;s task and the answers it waits on.</p>
+        <p>{t`None written; the step receives the workflow's task and the answers it waits on.`}</p>
       )}
     </div>
   );
@@ -130,8 +132,10 @@ export function FlowPickDetails({
         ) : (
           <p>
             {pick.state.tone === 'cancelled'
-              ? 'It did not run.'
-              : `It runs once every ${pick.flow === 'arena' ? 'entry' : 'member'} has answered.`}
+              ? t`It did not run.`
+              : pick.flow === 'arena'
+                ? t`It runs once every entry has answered.`
+                : t`It runs once every member has answered.`}
           </p>
         )}
       </PickFrame>
@@ -154,15 +158,15 @@ export function FlowPickDetails({
     <PickFrame
       badge={
         step.forkOf
-          ? 'Fork'
+          ? t`Fork`
           : step.kind === 'flow'
-            ? 'Flow'
+            ? t`Flow`
             : step.kind === 'editor'
-              ? 'Editor'
+              ? t`Editor`
               : step.addedBy
                 ? step.kind === 'proposal'
-                  ? 'Proposed'
-                  : 'Added'
+                  ? t`Proposed`
+                  : t`Added`
                 : undefined
       }
       handle={step.handle}
@@ -172,8 +176,9 @@ export function FlowPickDetails({
       status={step.status}
       time={rowDuration(elapsed.get(step.id))}
     >
+      {step.asked ? <Fact label={t`Investigates`}>{step.asked}</Fact> : null}
       {step.targetLabel ? (
-        <Fact label="Runs">
+        <Fact label={t`Runs`}>
           {step.kind === 'flow' ? (
             <FlowName info={flows?.get(step.target)} name={step.targetLabel} />
           ) : (
@@ -182,29 +187,29 @@ export function FlowPickDetails({
         </Fact>
       ) : null}
       {!step.label ? (
-        <Fact label="Waits on">
+        <Fact label={t`Waits on`}>
           {step.after.length
             ? step.after.map((id) => (id.startsWith('run:') ? id.slice(4) : id)).join(', ')
             : 'nothing; starts first'}
         </Fact>
       ) : null}
       {callModel(usage, step.handle) ? (
-        <Fact label="Model">{callModel(usage, step.handle)}</Fact>
+        <Fact label={t`Model`}>{callModel(usage, step.handle)}</Fact>
       ) : null}
-      {step.attempts > 1 ? <Fact label="Attempts">{step.attempts}</Fact> : null}
-      {step.forkOf ? <Fact label="Fork of">{step.forkOf}</Fact> : null}
+      {step.attempts > 1 ? <Fact label={t`Attempts`}>{step.attempts}</Fact> : null}
+      {step.forkOf ? <Fact label={t`Fork of`}>{step.forkOf}</Fact> : null}
       {step.alsoWaitsOn?.length ? (
-        <Fact label="Also waits on its forks">{step.alsoWaitsOn.join(', ')}</Fact>
+        <Fact label={t`Also waits on its forks`}>{step.alsoWaitsOn.join(', ')}</Fact>
       ) : null}
       {step.forkOf && step.note ? (
-        <Fact label="Fork note">{step.note}</Fact>
+        <Fact label={t`Fork note`}>{step.note}</Fact>
       ) : step.addedBy ? (
-        <Fact label={step.kind === 'proposal' ? 'Proposed by' : 'Added by'}>
+        <Fact label={step.kind === 'proposal' ? t`Proposed by` : t`Added by`}>
           {step.addedBy}
           {step.note ? `: ${step.note}` : ''}
         </Fact>
       ) : step.note ? (
-        <Fact label="Description">{step.note}</Fact>
+        <Fact label={t`Description`}>{step.note}</Fact>
       ) : null}
       <StepFolder handle={step.handle} name={step.label ?? step.id} />
       <StepQuestions
@@ -244,13 +249,13 @@ function PickFrame({
     >
       <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
         <ClioStatus
-          className="shrink-0 px-1.5 py-0 text-[11px]"
+          className="shrink-0 px-1.5 py-0 text-caption"
           label={status.label}
           value={status.value}
         />
         <span className="min-w-0 truncate font-medium">{name}</span>
         {badge ? (
-          <Badge className="shrink-0 px-1.5 py-0 text-[10px]" variant="outline">
+          <Badge className="shrink-0 px-1.5 py-0 text-[0.625rem]" variant="outline">
             {badge}
           </Badge>
         ) : null}
@@ -258,17 +263,17 @@ function PickFrame({
           {time ? <span className="text-xs tabular-nums text-muted-foreground">{time}</span> : null}
           {handle && onOpenHandle ? (
             <Button
-              aria-label={`Open ${name}`}
+              aria-label={t`Open ${name}`}
               className="h-6 px-2 text-xs"
               onClick={() => onOpenHandle(handle)}
               size="xs"
               variant="ghost"
             >
-              Open
+              {t`Open`}
             </Button>
           ) : null}
           <Button
-            aria-label={`Close ${name}`}
+            aria-label={t`Close ${name}`}
             className="size-6"
             onClick={onClose}
             size="icon"
@@ -300,7 +305,7 @@ function MemberDetails({
 }) {
   return (
     <PickFrame
-      badge={member.chosen ? 'Chosen' : undefined}
+      badge={member.chosen ? t`Chosen` : undefined}
       handle={member.handle}
       name={member.label}
       onClose={onClose}
@@ -308,11 +313,11 @@ function MemberDetails({
       status={member.status}
       time={rowDuration(elapsed)}
     >
-      <Fact label="Runs">
+      <Fact label={t`Runs`}>
         <FlowName info={flows?.get(member.target)} name={member.targetLabel} />
       </Fact>
-      {model ? <Fact label="Model">{model}</Fact> : null}
-      {member.perspective ? <Fact label="Asked to answer as">{member.perspective}</Fact> : null}
+      {model ? <Fact label={t`Model`}>{model}</Fact> : null}
+      {member.perspective ? <Fact label={t`Asked to answer as`}>{member.perspective}</Fact> : null}
       <TaskAnswer handle={member.handle} status={member.status} />
     </PickFrame>
   );
@@ -324,21 +329,21 @@ function TaskAnswer({ handle, status }: { handle?: string; status: FlowState }) 
   const answer = useFlowTaskAnswer(handle, true, settled);
   return (
     <div className="grid min-w-0 gap-1">
-      <p className="text-muted-foreground">Answer</p>
+      <p className="text-muted-foreground">{t`Answer`}</p>
       {!handle ? (
-        <p>Not started yet.</p>
+        <p>{t`Not started yet.`}</p>
       ) : answer.isPending ? (
-        <p role="status">Loading the answer…</p>
+        <p role="status">{t`Loading the answer…`}</p>
       ) : answer.error ? (
         <p className="text-destructive" role="alert">
-          The answer could not be loaded: {answer.error.message}
+          {t`The answer could not be loaded: ${ph({ message: answer.error.message })}`}
         </p>
       ) : answer.data ? (
         <ContentMarkdown className="max-h-72 overflow-auto rounded-md bg-muted/40 p-2 text-xs leading-5 [&_:is(h1,h2,h3,h4)]:mt-2 [&_:is(h1,h2,h3,h4)]:text-sm [&_:is(h1,h2,h3,h4)]:font-semibold">
           {answer.data}
         </ContentMarkdown>
       ) : (
-        <p>{settled ? 'No answer was recorded.' : 'Still working.'}</p>
+        <p>{settled ? t`No answer was recorded.` : t`Still working.`}</p>
       )}
     </div>
   );
@@ -361,15 +366,15 @@ export function FlowVerdictView({
   if (!text) return null;
   return (
     <section
-      aria-label={arena ? "The judge's choice" : 'The synthesis'}
+      aria-label={arena ? t`The judge's choice` : t`The synthesis`}
       className="grid min-w-0 gap-1 text-sm"
     >
       <h4 className="text-xs font-medium text-muted-foreground">
         {arena
           ? verdict.winner !== undefined
-            ? `The judge chose entry ${verdict.winner}`
-            : "The judge's rationale"
-          : 'Synthesis'}
+            ? t`The judge chose entry ${ph({ winner: verdict.winner })}`
+            : t`The judge's rationale`
+          : t`Synthesis`}
       </h4>
       <div className={cn('relative min-w-0', !all && 'max-h-24 overflow-hidden')}>
         <ContentMarkdown className="text-sm leading-6">{text}</ContentMarkdown>
@@ -382,7 +387,7 @@ export function FlowVerdictView({
       </div>
       {clamp ? (
         <Button className="h-auto w-fit p-0 text-xs" onClick={() => setAll(!all)} variant="link">
-          {all ? 'Show less' : 'Show all'}
+          {all ? t`Show less` : t`Show all`}
         </Button>
       ) : null}
     </section>
@@ -415,7 +420,7 @@ export function FlowScript({
           aria-hidden="true"
           className="size-3.5 text-muted-foreground transition-transform group-open/script:rotate-90 motion-reduce:transition-none"
         />
-        {workflow ? 'Show the workflow' : 'Show what the agent asked'}
+        {workflow ? t`Show the workflow` : t`Show what the agent asked`}
       </summary>
       <div className="grid min-w-0 gap-2 border-t p-2">
         <div className="flex flex-wrap items-center gap-1">
@@ -426,7 +431,7 @@ export function FlowScript({
             size="xs"
             variant={asJson ? 'ghost' : 'secondary'}
           >
-            Readable
+            {t`Readable`}
           </Button>
           <Button
             aria-pressed={asJson}
@@ -435,7 +440,7 @@ export function FlowScript({
             size="xs"
             variant={asJson ? 'secondary' : 'ghost'}
           >
-            JSON
+            {t`JSON`}
           </Button>
           <Button
             className="ml-auto h-6 px-2 text-xs"
@@ -449,12 +454,12 @@ export function FlowScript({
             variant="outline"
           >
             <CopyIcon aria-hidden="true" className="size-3" />
-            {copied === 'copied' ? 'Copied' : 'Copy JSON'}
+            {copied === 'copied' ? t`Copied` : t`Copy JSON`}
           </Button>
         </div>
         {copied === 'failed' ? (
           <p className="text-xs text-destructive" role="alert">
-            The clipboard is unavailable here; select the JSON to copy it.
+            {t`The clipboard is unavailable here; select the JSON to copy it.`}
           </p>
         ) : null}
         {asJson ? (
@@ -463,7 +468,7 @@ export function FlowScript({
           </pre>
         ) : workflow ? (
           <div className="grid min-w-0 gap-2 text-xs leading-5">
-            {task ? <Fact label="Task">{task}</Fact> : null}
+            {task ? <Fact label={t`Task`}>{task}</Fact> : null}
             <WorkflowBounds view={run.view!} />
             <ol className="grid min-w-0 gap-2">
               {steps
@@ -473,13 +478,11 @@ export function FlowScript({
                     <p className="font-medium">
                       {index + 1}. {step.id}{' '}
                       <span className="font-normal text-muted-foreground">
-                        runs {step.targetLabel}
-                        {step.after.length ? `, after ${step.after.join(', ')}` : ', first'}
-                        {step.addedBy ? `, added by ${step.addedBy}` : ''}
+                        {scriptStepLine(step)}
                       </span>
                     </p>
                     <pre className="whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2 font-sans">
-                      {inputText(step.input) || 'No instructions written.'}
+                      {inputText(step.input) || t`No instructions written.`}
                     </pre>
                   </li>
                 ))}
@@ -487,15 +490,15 @@ export function FlowScript({
           </div>
         ) : (
           <div className="grid min-w-0 gap-2 text-xs leading-5">
-            <Instructions input={args?.input} title="Request" />
-            <Fact label="Options">
+            <Instructions input={args?.input} title={t`Request`} />
+            <Fact label={t`Options`}>
               {args?.options && typeof args.options === 'object'
                 ? JSON.stringify(args.options)
                 : "none; the flow's defaults"}
             </Fact>
             {!args ? (
               <p className="text-muted-foreground">
-                The request is shown in the conversation that started this flow.
+                {t`The request is shown in the conversation that started this flow.`}
               </p>
             ) : null}
           </div>
@@ -512,15 +515,18 @@ export function FlowScript({
  */
 export function WorkflowBounds({ view }: { view: WorkflowView }) {
   if (!view.editors.length) return null;
-  const detail = `${editorBounds(view)}${view.approve_edits ? '. Added steps need your approval.' : '.'}`;
+  const bounds = editorBounds(view);
+  const detail = view.approve_edits
+    ? t`${bounds}. Added steps need your approval.`
+    : t({ message: `${bounds}.`, comment: 'A sentence ending' });
   return (
     <span
-      aria-label={`Can change while running: ${detail}`}
+      aria-label={t`Can change while running: ${detail}`}
       className="w-fit cursor-help text-xs text-muted-foreground underline decoration-dotted underline-offset-4"
       tabIndex={0}
       title={detail}
     >
-      Can change while running
+      {t`Can change while running`}
     </span>
   );
 }
@@ -532,20 +538,44 @@ export function WorkflowBounds({ view }: { view: WorkflowView }) {
 function editorBounds(view: WorkflowView): string {
   const steps = view.max_added_steps;
   const rounds = view.max_edit_rounds;
-  const may =
-    steps === null || steps === undefined
-      ? 'may add steps'
-      : `may add up to ${steps} ${steps === 1 ? 'step' : 'steps'}`;
-  const over =
-    rounds === null || rounds === undefined
-      ? ''
-      : ` over at most ${rounds} editing ${rounds === 1 ? 'round' : 'rounds'}`;
-  const unbounded =
-    (steps === null || steps === undefined) && (rounds === null || rounds === undefined)
-      ? 'no limit set; '
-      : '';
-  const so = `${view.added} added, ${view.rounds} ${view.rounds === 1 ? 'round' : 'rounds'} so far`;
-  return `Editors ${view.editors.join(', ')} ${may}${over} (${unbounded}${so})`;
+  const stepsSet = steps !== null && steps !== undefined;
+  const roundsSet = rounds !== null && rounds !== undefined;
+  const editors = view.editors.join(', ');
+  const soFar = t`${ph({ added: view.added })} added, ${plural(view.rounds, { one: '# round', other: '# rounds' })} so far`;
+  if (!stepsSet && !roundsSet) return t`Editors ${editors} may add steps (no limit set; ${soFar})`;
+  if (!roundsSet)
+    return t`Editors ${editors} may add up to ${plural(steps ?? 0, { one: '# step', other: '# steps' })} (${soFar})`;
+  if (!stepsSet)
+    return t`Editors ${editors} may add steps over at most ${plural(rounds ?? 0, { one: '# editing round', other: '# editing rounds' })} (${soFar})`;
+  return t`Editors ${editors} may add up to ${plural(steps ?? 0, { one: '# step', other: '# steps' })} over at most ${plural(rounds ?? 0, { one: '# editing round', other: '# editing rounds' })} (${soFar})`;
+}
+
+/** A workflow step in the script, after its number and id: what it runs, after what, and who added it. */
+function scriptStepLine(step: Pick<FlowStep, 'targetLabel' | 'after' | 'addedBy'>): string {
+  const target = step.targetLabel;
+  const after = step.after.join(', ');
+  const by = step.addedBy;
+  if (after)
+    return by
+      ? t`runs ${target}, after ${after}, added by ${by}`
+      : t`runs ${target}, after ${after}`;
+  return by ? t`runs ${target}, first, added by ${by}` : t`runs ${target}, first`;
+}
+
+/** A proposal awaiting approval, after its id: what it runs, after what, who proposed it and why. */
+function proposalLine(proposal: WorkflowView['awaiting_approval'][number]): string {
+  const target = proposal.target;
+  const after = proposal.after.join(', ');
+  const by = proposal.by;
+  const line = after
+    ? by
+      ? t`runs ${target} after ${after}, proposed by ${by}`
+      : t`runs ${target} after ${after}`
+    : by
+      ? t`runs ${target}, proposed by ${by}`
+      : t`runs ${target}`;
+  const reason = proposal.reason;
+  return reason ? t`${line}: ${reason}` : line;
 }
 
 /** Why a run ended without a result, on one line: a stall with its step, or a cancellation. */
@@ -563,10 +593,12 @@ export function FlowStall({
 }) {
   // A cancelled run ended because someone asked it to: no fault to repair.
   const title = cancelled
-    ? 'The flow was cancelled'
-    : outcome.reason === 'flow_stall'
-      ? 'The flow stalled'
-      : 'The flow stopped';
+    ? t`The flow was cancelled`
+    : outcome.stall === 'research_blocked'
+      ? t`Research was blocked`
+      : outcome.reason === 'flow_stall'
+        ? t`The flow stalled`
+        : t`The flow stopped`;
   const open = outcome.handle ? (
     <Button
       className="h-6 w-fit px-2 text-xs"
@@ -574,28 +606,28 @@ export function FlowStall({
       size="xs"
       variant="outline"
     >
-      {cancelled ? 'Open the cancelled step' : 'Open the stalled step'}
+      {cancelled ? t`Open the cancelled step` : t`Open the stalled step`}
     </Button>
   ) : null;
   const facts = (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-      <dt className="text-muted-foreground">Reason</dt>
+      <dt className="text-muted-foreground">{t`Reason`}</dt>
       <dd className="font-mono">{outcome.reason}</dd>
       {outcome.stall ? (
         <>
-          <dt className="text-muted-foreground">Stall</dt>
+          <dt className="text-muted-foreground">{t`Stall`}</dt>
           <dd className="font-mono">{outcome.stall}</dd>
         </>
       ) : null}
       {outcome.step ? (
         <>
-          <dt className="text-muted-foreground">Step</dt>
+          <dt className="text-muted-foreground">{t`Step`}</dt>
           <dd className="font-mono">{outcome.step}</dd>
         </>
       ) : null}
       {outcome.predicate ? (
         <>
-          <dt className="text-muted-foreground">Waiting for</dt>
+          <dt className="text-muted-foreground">{t`Waiting for`}</dt>
           <dd className="font-mono">{outcome.predicate}</dd>
         </>
       ) : null}
@@ -615,13 +647,13 @@ export function FlowStall({
           {outcome.step ? ` at ${outcome.step}` : ''}:
         </span>
         <span className="min-w-[min(100%,14rem)] flex-1 [overflow-wrap:anywhere]">
-          {outcome.message || 'No message was recorded.'}
+          {outcome.message || t`No message was recorded.`}
         </span>
         {open}
       </div>
       {details ? (
         <details>
-          <summary className="w-fit cursor-pointer text-muted-foreground">Details</summary>
+          <summary className="w-fit cursor-pointer text-muted-foreground">{t`Details`}</summary>
           <div className="mt-1 grid gap-1">
             {facts}
             {outcome.observed !== undefined ? (
@@ -650,24 +682,24 @@ export function FlowApprovals({
   return (
     <Alert>
       <AlertTitle>
-        {view.awaiting_approval.length === 1
-          ? 'A proposed step is waiting for your approval'
-          : `${view.awaiting_approval.length} proposed steps are waiting for your approval`}
+        {plural(view.awaiting_approval.length, {
+          one: 'A proposed step is waiting for your approval',
+          other: '# proposed steps are waiting for your approval',
+        })}
       </AlertTitle>
       <AlertDescription className="grid gap-2">
         <ul className="grid gap-1.5">
           {view.awaiting_approval.map((proposal) => (
             <li key={proposal.id}>
-              <span className="font-medium">{proposal.id}</span> runs {proposal.target}
-              {proposal.after.length ? ` after ${proposal.after.join(', ')}` : ''}
-              {proposal.by ? `, proposed by ${proposal.by}` : ''}
-              {proposal.reason ? `: ${proposal.reason}` : ''}
+              <Trans>
+                <span className="font-medium">{proposal.id}</span> {proposalLine(proposal)}
+              </Trans>
             </li>
           ))}
         </ul>
         {questions ? (
           <Button className="w-fit" onClick={onOpenQuestions} size="sm">
-            Answer the approval question
+            {t`Answer the approval question`}
           </Button>
         ) : null}
       </AlertDescription>

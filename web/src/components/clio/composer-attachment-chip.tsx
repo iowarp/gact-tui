@@ -6,6 +6,7 @@ import { RetryIcon, RemoveIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import type { ResourcePipelineStages } from './resource-availability';
 import { referenceKindIcon } from './composer-reference-presentation';
+import { t, ph } from '@lingui/core/macro';
 
 const CHIP_ACTION =
   'relative z-10 grid size-[18px] shrink-0 place-items-center rounded-[4px] text-muted-foreground outline-none hover:bg-background/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring';
@@ -20,6 +21,7 @@ export function ComposerAttachmentChip({
   mediaType,
   size,
   progress,
+  removing = false,
   stages,
   onOpen,
   onRemove,
@@ -31,6 +33,8 @@ export function ComposerAttachmentChip({
   mediaType: string;
   size?: number;
   progress?: ResourceUploadProgress;
+  /** The service is discarding this upload; the chip stays until it confirms. */
+  removing?: boolean;
   stages: ResourcePipelineStages;
   onOpen: () => void;
   onRemove: () => void;
@@ -45,37 +49,41 @@ export function ComposerAttachmentChip({
       ? Math.max(0, Math.min(100, Math.round((bytes.loaded / bytes.total) * 100)))
       : undefined;
   const inFlight = uploading || converting;
-  const status = uploading
-    ? bytes && bytes.loaded < bytes.total
-      ? `Uploading ${percentage ?? 0}%`
-      : bytes
-        ? 'Registering file'
-        : 'Starting upload'
-    : converting
-      ? 'Converting'
-      : failed
-        ? 'Upload failed'
-        : undefined;
+  const status = removing
+    ? t`Removing`
+    : uploading
+      ? bytes && bytes.loaded < bytes.total
+        ? t`Uploading ${ph({ percentage: percentage ?? 0 })}%`
+        : bytes
+          ? t`Registering file`
+          : t`Starting upload`
+      : converting
+        ? t`Converting`
+        : failed
+          ? t`Upload failed`
+          : undefined;
   return (
     <div
       {...props}
       data-slot="composer-attachment-chip"
-      aria-busy={inFlight}
+      aria-busy={inFlight || removing}
+      data-removing={removing || undefined}
       className={cn(
-        'relative inline-flex h-6 max-w-64 min-w-0 items-center gap-1.5 overflow-hidden rounded-[6px] bg-muted pr-0.5 pl-2 text-[12.5px] text-foreground',
+        'relative inline-flex h-6 max-w-64 min-w-0 items-center gap-1.5 overflow-hidden rounded-[6px] bg-muted pr-0.5 pl-2 text-menu text-foreground',
         failed && 'ring-1 ring-destructive/40 ring-inset',
+        removing && 'text-muted-foreground',
         className,
       )}
     >
       {/* The spec chip draws no status mark; the full pipeline state stays announced. */}
       <span
         role="img"
-        aria-label={`Attachment status: ${stages.overallLabel}`}
+        aria-label={t`Attachment status: ${ph({ overallLabel: stages.overallLabel })}`}
         className="sr-only"
       />
       <button
         type="button"
-        aria-label={`Open ${name}`}
+        aria-label={t`Open ${name}`}
         title={failed && stages.upload.detail ? `${name}: ${stages.upload.detail}` : name}
         onClick={onOpen}
         className="flex min-w-0 items-center gap-1.5 outline-none after:absolute after:inset-0 after:rounded-[6px] after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-ring"
@@ -88,23 +96,23 @@ export function ComposerAttachmentChip({
         {status ? (
           <span
             className={cn(
-              'shrink-0 text-[11px] tabular-nums',
-              failed ? 'text-destructive' : 'text-muted-foreground',
+              'shrink-0 text-caption tabular-nums',
+              failed && !removing ? 'text-destructive' : 'text-muted-foreground',
             )}
           >
             {status}
           </span>
         ) : size !== undefined ? (
-          <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+          <span className="shrink-0 font-mono text-caption text-muted-foreground tabular-nums">
             {formatBytes(size)}
           </span>
         ) : null}
       </button>
-      {onRetry ? (
+      {onRetry && !removing ? (
         <button
           type="button"
-          aria-label={`Retry upload for ${name}`}
-          title="Retry upload"
+          aria-label={t`Retry upload for ${name}`}
+          title={t`Retry upload`}
           onClick={onRetry}
           className={CHIP_ACTION}
         >
@@ -113,16 +121,25 @@ export function ComposerAttachmentChip({
       ) : null}
       <button
         type="button"
-        aria-label={`Remove ${name}`}
-        title={inFlight ? 'Cancel upload and remove attachment' : 'Remove attachment'}
+        aria-label={t`Remove ${name}`}
+        aria-disabled={removing || undefined}
+        title={
+          removing
+            ? t`Removing attachment`
+            : inFlight
+              ? t`Cancel upload and remove attachment`
+              : t`Remove attachment`
+        }
         onClick={onRemove}
-        className={CHIP_ACTION}
+        className={cn(CHIP_ACTION, removing && 'pointer-events-none opacity-50')}
       >
         <RemoveIcon className="size-3" />
       </button>
       {inFlight ? (
         <Progress
-          aria-label={`${uploading ? 'Upload' : 'Conversion'} progress for ${name}`}
+          aria-label={
+            uploading ? t`Upload progress for ${name}` : t`Conversion progress for ${name}`
+          }
           value={uploading && percentage !== undefined && percentage < 100 ? percentage : undefined}
           className="absolute inset-x-0 bottom-0 h-0.5 rounded-none bg-transparent"
         />

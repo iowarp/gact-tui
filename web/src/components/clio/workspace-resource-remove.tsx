@@ -14,6 +14,7 @@ import {
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { t, ph } from '@lingui/core/macro';
 
 /** Resource states a person is allowed to remove from the workspace. */
 const REMOVABLE_STATES: readonly WorkspaceResource['state'][] = ['failed', 'quarantined', 'ready'];
@@ -44,7 +45,7 @@ export function WorkspaceResourceRemoveDialog({
       await queryClient.invalidateQueries({
         queryKey: queryKeys.workspaceResources(settings.endpoint, workspaceId),
       });
-      toast.success(`Removed ${resource.name}`);
+      toast.success(t`Removed ${ph({ name: resource.name })}`);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -57,16 +58,15 @@ export function WorkspaceResourceRemoveDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove {resource.name} from this workspace?</AlertDialogTitle>
+          <AlertDialogTitle>{t`Remove ${ph({ name: resource.name })} from this workspace?`}</AlertDialogTitle>
           <AlertDialogDescription>
-            The original bytes and every derivative made from them are deleted from the connected
-            agent. Messages that already used this resource keep their record of it.
+            {t`The original bytes and every derivative made from them are deleted from the connected agent. Messages that already used this resource keep their record of it.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Keep resource</AlertDialogCancel>
+          <AlertDialogCancel>{t`Keep resource`}</AlertDialogCancel>
           <AlertDialogAction disabled={remove.isPending} onClick={() => remove.mutate()}>
-            Remove resource
+            {t`Remove resource`}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { lingui } from '@lingui/vite-plugin';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 import { resolveBrandConfig } from '../branding/brand-config.mjs';
@@ -32,6 +33,9 @@ export default defineConfig({
   plugins: [
     brandPlugin(brandConfig.brandingRoot, brandConfig.profile),
     themeBootPlugin(),
+    // English stays in the bundle ('message'), so the source language renders
+    // with no catalog download and a missing translation falls back to it.
+    lingui({ macroTransform: { macro: { descriptorFields: 'message' } } }),
     react(),
     tailwindcss(),
     maplibreWorkerPlugin(),
@@ -43,6 +47,11 @@ export default defineConfig({
       '@clio/core/v3': fileURLToPath(new URL('../packages/core/src/v3/index.ts', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
+  },
+  optimizeDeps: {
+    // The Lingui macros compile to @lingui/react imports after the startup scan. Discovered
+    // later, it re-optimizes and reloads the page, which can land mid-check on the dev server.
+    include: ['@lingui/react'],
   },
   build: {
     rollupOptions: {

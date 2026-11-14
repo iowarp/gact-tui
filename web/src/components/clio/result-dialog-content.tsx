@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
 
 /**
  * Keep the title and close control fixed while the complete result remains
@@ -69,7 +70,7 @@ export function ResultDialogContent({
           <div className="mt-1 ml-[26px] flex min-w-0 items-center gap-1">
             <DialogDescription
               className={cn(
-                'text-[12.5px] leading-normal',
+                'text-menu leading-normal',
                 descriptionTitle ? 'truncate' : 'max-w-[92%]',
               )}
               title={descriptionTitle}
@@ -86,7 +87,7 @@ export function ResultDialogContent({
         type="auto"
         viewportProps={{
           role: 'region',
-          'aria-label': 'Scrollable result content',
+          'aria-label': t`Scrollable result content`,
           tabIndex: 0,
           className: 'overscroll-contain [&>div]:!block',
         }}

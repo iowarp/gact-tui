@@ -2,11 +2,12 @@ import type { ComponentProps, ReactNode } from 'react';
 import { MinusIcon, OctagonMinusIcon, type LucideIcon } from 'lucide-react';
 import { ActivityDisclosure, ActivityRow } from './activity-row';
 import { StatusIndicator } from './primitives/status-indicator';
+import { t } from '@lingui/core/macro';
 
 const ANSWERED_STATUS = {
-  ok: { tone: 'success', label: 'Done' },
-  denied: { tone: 'stopped', label: 'Denied' },
-  neutral: { tone: 'inactive', label: 'Closed' },
+  ok: { tone: 'success', label: t`Done` },
+  denied: { tone: 'stopped', label: t`Denied` },
+  neutral: { tone: 'inactive', label: t`Closed` },
 } as const;
 
 /**
@@ -50,7 +51,7 @@ export function AskAnsweredRow({
       disclosure={
         onOpenChange ? (
           <ActivityDisclosure
-            label={`${open ? 'Collapse' : 'Expand'} ${verb}`}
+            label={open ? t`Collapse ${verb}` : t`Expand ${verb}`}
             onClick={() => onOpenChange(!open)}
             open={Boolean(open)}
           />

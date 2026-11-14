@@ -18,10 +18,13 @@ import { taskProgressLabel } from '@/components/clio/task-progress-label';
 import {
   RUN_ACTIONS_WIDTH,
   compactWhen,
+  runCancelPending,
   runLook,
   runStateLabel,
 } from '@/components/clio/run-presentation';
 import { sourceLabels, type RunRow, type RunSource } from '@/routes/runs-rows';
+import { formatLocale } from '@/lib/locale-format';
+import { ph, t } from '@lingui/core/macro';
 
 /*
  * Under 560px with a mouse, the hover actions take no column of their own: they
@@ -105,10 +108,11 @@ export function RunStatusMark({
 
 function fullWhen(iso: string): string {
   const at = Date.parse(iso);
-  if (Number.isNaN(at)) return 'Time unavailable';
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-    new Date(at),
-  );
+  if (Number.isNaN(at)) return t`Time unavailable`;
+  return new Intl.DateTimeFormat(formatLocale(), {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(at));
 }
 
 /** "3 of 5" when a running task reports counted progress; it fits the state column. */
@@ -183,7 +187,9 @@ export const RunListRow = memo(function RunListRow({
   const rail = density === 'rail';
   const look = runLook(row);
   const stateLabel = runStateLabel(row, cancelRequested);
-  const word = stateLabel === 'Cancellation requested' ? 'stopping' : look.word;
+  const word = runCancelPending(row, cancelRequested)
+    ? runLook({ state: 'stopping' }).word
+    : look.word;
   const shownProgress = useCountedTaskProgress(row.progress, row.taskId);
   const progress = taskProgressLabel(shownProgress, row.taskKind, row.statusDetail);
   const counted = look.tone === 'running' ? countedProgress(row.progress) : undefined;
@@ -194,7 +200,7 @@ export const RunListRow = memo(function RunListRow({
       : undefined;
   const reason =
     row.statusReason && row.state !== 'task_state_uncertain' ? row.statusReason : undefined;
-  const where = row.source === 'flow' ? row.placement : row.host || 'Host unavailable';
+  const where = row.source === 'flow' ? row.placement : row.host || t`Host unavailable`;
   const source =
     row.source === 'flow' ? sourceLabels.flow : `${sourceLabels[row.source]} on ${where}`;
   const select = (event: MouseEvent<HTMLDivElement>) => {
@@ -206,7 +212,7 @@ export const RunListRow = memo(function RunListRow({
   return (
     <ListRow
       className={cn(
-        reason ? 'min-h-[44px] cursor-default' : 'h-8 cursor-default text-[12.5px]',
+        reason ? 'min-h-[44px] cursor-default' : 'h-8 cursor-default text-menu',
         // The name's span truncates and would clip a ring drawn on the name itself.
         'has-[[data-run-title]:focus-visible]:ring-1 has-[[data-run-title]:focus-visible]:ring-ring has-[[data-run-title]:focus-visible]:ring-inset',
         // A narrow list doesn't reserve the hover actions' column: they cover the time instead.
@@ -236,7 +242,7 @@ export const RunListRow = memo(function RunListRow({
       }
       description={
         reason ? (
-          <span className="text-[11.5px] text-destructive" title={reason}>
+          <span className="text-label text-destructive" title={reason}>
             {reason}
           </span>
         ) : undefined
@@ -249,7 +255,7 @@ export const RunListRow = memo(function RunListRow({
           >
             {percent === undefined ? null : (
               <span
-                aria-label={`${percent}% done`}
+                aria-label={t`${percent}% done`}
                 aria-valuemax={100}
                 aria-valuemin={0}
                 aria-valuenow={percent}
@@ -265,7 +271,7 @@ export const RunListRow = memo(function RunListRow({
           </span>
           <span
             className={cn(
-              'w-[64px] shrink-0 truncate text-[11px] text-muted-foreground tabular-nums',
+              'w-[64px] shrink-0 truncate text-caption text-muted-foreground tabular-nums',
               rail && 'w-[56px]',
             )}
             data-slot="run-state-word"
@@ -283,7 +289,7 @@ export const RunListRow = memo(function RunListRow({
           )}
           {showWorkspace ? (
             <span
-              className="hidden w-[92px] shrink-0 truncate text-[11px] text-muted-foreground @[680px]/runs:block"
+              className="hidden w-[92px] shrink-0 truncate text-caption text-muted-foreground @[680px]/runs:block"
               title={row.workspaceLabel}
             >
               {row.workspaceLabelFields.name}
@@ -292,8 +298,8 @@ export const RunListRow = memo(function RunListRow({
           {rail && !row.updatedAt ? (
             elapsed === undefined ? null : (
               <span
-                className="w-[30px] shrink-0 text-right text-[11px] text-muted-foreground tabular-nums"
-                title={`Ran for ${formatDuration(elapsed)}`}
+                className="w-[30px] shrink-0 text-right text-caption text-muted-foreground tabular-nums"
+                title={t`Ran for ${ph({ duration: formatDuration(elapsed) })}`}
               >
                 {formatDuration(elapsed, 'compact')}
               </span>
@@ -301,7 +307,7 @@ export const RunListRow = memo(function RunListRow({
           ) : (
             <time
               className={cn(
-                'w-[30px] shrink-0 text-right text-[11px] text-muted-foreground',
+                'w-[30px] shrink-0 text-right text-caption text-muted-foreground',
                 !rail && NARROW_TIME_UNDER_ACTIONS,
               )}
               dateTime={row.updatedAt}

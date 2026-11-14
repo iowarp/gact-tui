@@ -83,7 +83,7 @@ export function plainMessages(count: number, withText = true) {
     role: 'user' as const,
     created_at: '2026-08-22T00:00:00Z',
     blocks: withText
-      ? [{ id: `text_${index}`, type: 'text' as const, text: `Message ${index}` }]
+      ? [{ id: `text_${index}`, type: 'text' as const, text: `Message ${index}` }] // i18n-ignore: test fixture
       : [],
   }));
 }

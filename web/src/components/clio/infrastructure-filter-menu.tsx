@@ -35,7 +35,7 @@ export function InfraFilterMenu<Value extends string>({
       <DropdownMenuTrigger asChild>
         <Button
           aria-label={`${label}: ${current?.label ?? ''}`}
-          className="h-7 max-w-[132px] min-w-0 gap-1.5 px-2 text-[12px] font-normal"
+          className="h-7 max-w-[8.25rem] min-w-0 gap-1.5 px-2 text-meta font-normal"
           size="sm"
           variant="outline"
         >
@@ -90,7 +90,7 @@ export function InfraSearchField({
       <Input
         aria-label={label}
         autoFocus={autoFocus}
-        className="h-7 pl-7 text-[12px] md:text-[12px]"
+        className="h-7 pl-7 text-meta md:text-meta"
         data-initial-focus={initialFocus ? '' : undefined}
         onChange={(event) => onValueChange(event.target.value)}
         onKeyDown={(event) => {

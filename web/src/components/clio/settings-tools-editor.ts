@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { t } from '@lingui/core/macro';
 
 export type RowStatus = { kind: 'saved' } | { kind: 'error'; message: string };
 
@@ -68,12 +69,12 @@ export function useToolSettingsEditor(): ToolEditor {
   );
   const save = useCallback(
     (update: ToolSettingsUpdate) =>
-      void run(update.tools, 'Not saved', () => repository.updateToolSettings(update)),
+      void run(update.tools, t`Not saved`, () => repository.updateToolSettings(update)),
     [repository, run],
   );
   const removeRule = useCallback(
     (tool: string, rule: ToolRule) =>
-      void run([tool], 'Rule not removed', () => repository.removeToolRule(tool, rule)),
+      void run([tool], t`Rule not removed`, () => repository.removeToolRule(tool, rule)),
     [repository, run],
   );
   return { status, busy, save, removeRule };

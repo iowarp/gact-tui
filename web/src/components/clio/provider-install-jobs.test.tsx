@@ -65,9 +65,9 @@ describe('provider install jobs', () => {
   });
 
   it('names each running state, and nothing once it settled', () => {
-    expect(providerInstallStage(job('queued'), undefined)).toBe('Waiting to install…');
-    expect(providerInstallStage(job('installing'), undefined)).toBe('Installing…');
-    expect(providerInstallStage(job('done'), { stage: 'Checking…' })).toBe('Checking…');
+    expect(providerInstallStage(job('queued'), undefined)).toBe('install-waiting');
+    expect(providerInstallStage(job('installing'), undefined)).toBe('installing');
+    expect(providerInstallStage(job('done'), { stage: 'checking' })).toBe('checking');
     expect(providerInstallStage(job('done'), {})).toBeUndefined();
   });
 
@@ -84,7 +84,7 @@ describe('provider install jobs', () => {
       </>,
       { wrapper },
     );
-    expect(await screen.findByText('Installing…')).toBeInTheDocument();
+    expect(await screen.findByText('installing')).toBeInTheDocument();
     await waitFor(
       () =>
         expect(repository.providerHandshake).toHaveBeenCalledWith('claude_code', {

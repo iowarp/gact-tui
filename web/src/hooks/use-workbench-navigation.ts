@@ -27,6 +27,7 @@ import {
   type WorkbenchRequest,
   type WorkbenchRequestSource,
 } from '@/lib/workbench-request-store';
+import { t } from '@lingui/core/macro';
 
 interface UseWorkbenchNavigationInput {
   allSessions: readonly Session[];
@@ -51,12 +52,20 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     allSessionsRef.current = allSessions;
   }, [allSessions]);
 
+  const routeRef = useRef(location.pathname);
+  useLayoutEffect(() => {
+    routeRef.current = location.pathname;
+    // An open request is used once, in the conversation it was made in.
+    requestStore.clearUnless(location.pathname);
+  }, [location.pathname, requestStore]);
+
   const revealWorkbench = useCallback(
     (request: ClioWorkbenchOpenRequest) => {
       requestStore.set({
         endpoint: settings.endpoint,
         key: `${request.kind}:${Date.now()}`,
         request,
+        route: routeRef.current,
       });
     },
     [requestStore, settings.endpoint],
@@ -87,6 +96,9 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     if (request?.kind === 'artifact' && request.artifact?.workspace_id === workspaceId)
       return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
     if (request?.kind === 'search' && typeof request.query === 'string')
+      return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
+    // A workspace's "Open folder › In a tab" from the left bar, for a workspace not yet open.
+    if (request?.kind === 'resources' && request.section === 'files')
       return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
   }, [location.key, location.state, scope, workspaceId, settings.endpoint]);
 
@@ -121,7 +133,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
         );
         return true;
       }
-      toast.error('The linked conversation is not available yet. Try again.');
+      toast.error(t`The linked conversation is not available yet. Try again.`);
       return false;
     },
     [navigate, openSubagent, workspaceId],
@@ -240,10 +252,13 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
       subscribe: requestStore.subscribe,
       get: () => {
         const explicit = requestStore.get();
-        return explicit?.endpoint === settings.endpoint ? explicit : searchRequest;
+        // A request belongs to the conversation it was made in; the next one starts clean.
+        return explicit?.endpoint === settings.endpoint && explicit.route === location.pathname
+          ? explicit
+          : searchRequest;
       },
     }),
-    [requestStore, searchRequest, settings.endpoint],
+    [location.pathname, requestStore, searchRequest, settings.endpoint],
   );
 
   const repository = useRepository();
@@ -263,7 +278,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
           toast.error(
             error instanceof Error
               ? error.message
-              : 'Could not open the page in the shared browser.',
+              : t`Could not open the page in the shared browser.`,
           );
         });
     },

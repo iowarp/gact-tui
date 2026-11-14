@@ -436,7 +436,7 @@ describe('ModelsSettings', () => {
     renderModels(queryClient);
 
     await user.click(await screen.findByRole('button', { name: 'Default model' }));
-    await user.click(await screen.findByRole('option', { name: /gpt-5\.6-sol/ }));
+    await user.click(await screen.findByRole('option', { name: /sol 5\.6/ }));
 
     await waitFor(() =>
       expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith({

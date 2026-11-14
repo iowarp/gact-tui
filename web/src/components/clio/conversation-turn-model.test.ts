@@ -711,4 +711,44 @@ describe('conversationTurnPresentation', () => {
       'The submit call failed because workflow_state is a required field I omitted.',
     ]);
   });
+
+  it('keeps progress text split by a script call as one passage', () => {
+    const scriptTools: Record<string, ToolInvocation> = {
+      call_script: {
+        id: 'call_script',
+        session_id: 'session_1',
+        name: 'run_code',
+        title: 'Run script',
+        state: 'succeeded',
+      },
+      call_view: {
+        id: 'call_view',
+        session_id: 'session_1',
+        name: 'view_image',
+        title: 'View image',
+        state: 'succeeded',
+        parent_call_id: 'call_script',
+      },
+    };
+    const message: Message = {
+      id: 'assistant_script',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        { id: 'script', type: 'tool', tool_id: 'call_script' },
+        { id: 't2', type: 'text', text: 'I expect `view_image', channel: 'next_thought' },
+        { id: 'view_call', type: 'tool', tool_id: 'call_view' },
+        { id: 't4', type: 'text', text: '` to return', channel: 'next_thought' },
+        { id: 'view_result', type: 'tool', tool_id: 'call_view' },
+        { id: 't6', type: 'text', text: ' a metadata dict.', channel: 'next_thought' },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, scriptTools);
+
+    expect(view.iterations.flatMap((entry) => entry.nextThoughts)).toEqual([
+      'I expect `view_image` to return a metadata dict.',
+    ]);
+  });
 });

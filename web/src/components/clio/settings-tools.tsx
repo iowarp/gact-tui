@@ -42,9 +42,11 @@ import { StateView } from './primitives/state-view';
 import { StatusIndicator } from './primitives/status-indicator';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { McpServiceIcon, McpServiceList } from './settings-mcp-services';
+import { McpServerToolSettings } from './settings-mcp-tool-settings';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { SchemaSection } from './tool-schema-section';
 import { humanizeToolName } from './tool-presentation';
+import { ph, t } from '@lingui/core/macro';
 
 function workspaceTitle(workspace: Workspace) {
   return workspaceName(workspace);
@@ -141,7 +143,7 @@ export function ToolsSettings({
     mutationFn: (server: McpServerDefinition) => repository.reconnectMcpServer(server.id),
     onSuccess: async () => {
       await invalidate();
-      toast.success('MCP server reconnected');
+      toast.success(t`MCP server reconnected`);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -150,7 +152,7 @@ export function ToolsSettings({
       repository.reconnectSessionMcpServer(sessionId!, reconnectableNamespace(server)),
     onSuccess: async () => {
       await invalidate();
-      toast.success('Preparing conversation MCP again');
+      toast.success(t`Preparing conversation MCP again`);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -158,7 +160,7 @@ export function ToolsSettings({
     mutationFn: (server: McpServerDefinition) => repository.deleteMcpServer(server.id),
     onSuccess: async () => {
       await invalidate();
-      toast.success('MCP server disconnected');
+      toast.success(t`MCP server disconnected`);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -170,44 +172,49 @@ export function ToolsSettings({
       : undefined;
   const startAdding = () => setAdding({ kind: 'remote' });
 
+  const computer = computerLabel || settings.location;
   const groupLabel = sessionId
     ? embedded
-      ? 'MCP services in this conversation'
-      : 'Servers in this conversation'
+      ? t`MCP services in this conversation`
+      : t`Servers in this conversation`
     : embedded
-      ? `MCP services on ${computerLabel || settings.location || 'the connected computer'}`
-      : 'Servers';
+      ? computer
+        ? t`MCP services on ${ph({ computer })}`
+        : t`MCP services on the connected computer`
+      : t`Servers`;
 
   let list;
   if (servers.isPending || tools.isPending)
-    list = <StateView kind="loading" size="row" title="Loading MCP servers…" />;
+    list = <StateView kind="loading" size="row" title={t`Loading MCP servers…`} />;
   else if (servers.error)
     list = (
       <div title={servers.error.message}>
         <StateView
-          action={{ label: 'Retry', onClick: () => void servers.refetch() }}
+          action={{ label: t`Retry`, onClick: () => void servers.refetch() }}
           kind="error"
           size="row"
-          title="MCP servers couldn’t be loaded."
+          title={t`MCP servers couldn’t be loaded.`}
         />
       </div>
     );
   else if (!entries.length)
     list = (
       <StateView
-        action={showAdd && addSupported ? { label: 'Add server', onClick: startAdding } : undefined}
+        action={
+          showAdd && addSupported ? { label: t`Add server`, onClick: startAdding } : undefined
+        }
         kind="empty"
         size="row"
-        title="No MCP servers yet."
+        title={t`No MCP servers yet.`}
       />
     );
   else if (!shown.length)
-    list = <StateView kind="empty" size="row" title={`No MCP servers match “${filter}”.`} />;
+    list = <StateView kind="empty" size="row" title={t`No MCP servers match “${filter}”.`} />;
   else
     list = (
       <McpServiceList
         entries={shown}
-        label={embedded ? groupLabel : 'MCP servers'}
+        label={embedded ? groupLabel : t`MCP servers`}
         onDetails={(entry) => setDetailKey((key) => (key === entry.key ? '' : entry.key))}
         onDisconnect={(server) => remove.mutateAsync(server)}
         onReconnect={(server) => reconnect.mutate(server)}
@@ -219,20 +226,20 @@ export function ToolsSettings({
     );
 
   return (
-    <div className="@container grid min-w-0 gap-1">
+    <div className="@container grid min-w-0 grid-cols-1 gap-1">
       {!embedded && heading ? (
         <SettingsSectionHeading
-          description="MCP services give agents tools, data, and reusable prompts. Built-in services ship with the agent; external services are connections you can manage."
-          title="MCP tools"
+          description={t`MCP services give agents tools, data, and reusable prompts. Built-in services ship with the agent; external services are connections you can manage.`}
+          title={t`MCP tools`}
         />
       ) : null}
       {!embedded && workspaces.data?.length ? (
         // The workspace row spans the section so its edge lines up with the heading and the list.
         <div className="min-w-0 [&>[data-slot=settings-row-frame]]:w-full">
           <SettingsRow
-            description="What a new conversation in this workspace gets: the built-in services, the services its agent’s plugins bring, and yours."
+            description={t`What a new conversation in this workspace gets: the built-in services, the services its agent’s plugins bring, and yours.`}
             htmlFor="tools-workspace"
-            title="Workspace"
+            title={t`Workspace`}
           >
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
@@ -240,7 +247,7 @@ export function ToolsSettings({
                   className="w-full"
                   icon={<FolderIcon aria-hidden="true" />}
                   id="tools-workspace"
-                  placeholder="Choose a workspace"
+                  placeholder={t`Choose a workspace`}
                   title={workspace?.path || undefined}
                   value={workspace ? workspaceTitle(workspace) : undefined}
                 />
@@ -267,15 +274,15 @@ export function ToolsSettings({
       ) : null}
       <section
         aria-label={groupLabel}
-        className="grid min-w-0"
+        className="grid min-w-0 grid-cols-1"
         onKeyDown={newItemKey(showAdd && addSupported ? startAdding : undefined)}
       >
         <SettingsGroupLabel
           actions={
             showAdd ? (
-              <span className="text-foreground">
+              <span className="flex max-w-full min-w-0 justify-end text-foreground">
                 <ExtensionAddMenu
-                  label={embedded ? undefined : 'Add'}
+                  label={embedded ? undefined : t`Add`}
                   mcpOnly
                   onChoose={setAdding}
                 />
@@ -289,10 +296,10 @@ export function ToolsSettings({
         {tools.error ? (
           <div title={tools.error.message}>
             <StateView
-              action={{ label: 'Retry', onClick: () => void tools.refetch() }}
+              action={{ label: t`Retry`, onClick: () => void tools.refetch() }}
               kind="error"
               size="row"
-              title="Tool descriptions couldn’t be loaded; the servers are listed without them."
+              title={t`Tool descriptions couldn’t be loaded; the servers are listed without them.`}
             />
           </div>
         ) : null}
@@ -339,10 +346,10 @@ export function ToolsSettings({
 type DetailView = 'tools' | 'resources' | 'prompts' | 'connection';
 
 const DETAIL_VIEWS: { value: DetailView; label: string }[] = [
-  { value: 'tools', label: 'Tools' },
-  { value: 'resources', label: 'Resources' },
-  { value: 'prompts', label: 'Prompts' },
-  { value: 'connection', label: 'Connection' },
+  { value: 'tools', label: t`Tools` },
+  { value: 'resources', label: t`Resources` },
+  { value: 'prompts', label: t`Prompts` },
+  { value: 'connection', label: t`Connection` },
 ];
 
 /** One server beside the list: its state, then tools, resources, prompts or connection. */
@@ -383,7 +390,7 @@ function McpServerDetailPane({
   const server = detail.data ?? entry.server;
   const status =
     live && detail.isPending
-      ? { label: 'Checking', tone: 'running' as const }
+      ? { label: t`Checking`, tone: 'running' as const }
       : serviceStatus(server);
   const toolRows: Array<Record<string, unknown>> = toolInventory.data?.length
     ? toolInventory.data
@@ -404,7 +411,7 @@ function McpServerDetailPane({
       onClose={onClose}
       tabs={
         <SegmentedControl
-          label="Server details view"
+          label={t`Server details view`}
           onValueChange={setView}
           options={DETAIL_VIEWS}
           value={view}
@@ -412,7 +419,7 @@ function McpServerDetailPane({
       }
       title={title}
     >
-      <div className="flex min-w-0 items-center gap-3 pb-2 text-[0.75rem] text-muted-foreground">
+      <div className="flex min-w-0 items-center gap-3 pb-2 text-meta text-muted-foreground">
         <StatusIndicator label={status.label} tone={status.tone} />
         <span className="min-w-0 truncate">{serviceOrigin(entry)}</span>
       </div>
@@ -427,13 +434,13 @@ function McpServerDetailPane({
       ) : null}
       {connectionError && view !== 'connection' ? (
         <p className="mb-2 text-xs text-muted-foreground">
-          The service didn’t connect.{' '}
+          {t`The service didn’t connect.`}{' '}
           <button
             className="text-link underline-offset-2 outline-none hover:underline focus-visible:underline"
             onClick={() => setView('connection')}
             type="button"
           >
-            Show the error
+            {t`Show the error`}
           </button>
         </p>
       ) : null}
@@ -442,32 +449,40 @@ function McpServerDetailPane({
           className="mb-2"
           kind="error"
           size="row"
-          title="Some contents are unavailable."
+          title={t`Some contents are unavailable.`}
         />
       ) : null}
       {view === 'tools' ? (
-        <InventoryRows
-          empty={
-            live ? 'This server reported no tools.' : 'Tools appear when a conversation connects.'
+        <McpServerToolSettings
+          entry={entry}
+          fallback={
+            <InventoryRows
+              empty={
+                live
+                  ? t`This server reported no tools.`
+                  : t`Tools appear when a conversation connects.`
+              }
+              icon={<WrenchIcon aria-hidden="true" />}
+              label={t`Tools of ${title}`}
+              rows={toolRows}
+            />
           }
-          icon={<WrenchIcon aria-hidden="true" />}
-          label={`Tools of ${title}`}
-          rows={toolRows}
+          key={entry.key}
+          title={title}
         />
       ) : view === 'resources' ? (
         <InventoryRows
           empty={
             live
-              ? 'This server reported no resources.'
-              : 'Resources appear when a conversation connects.'
+              ? t`This server reported no resources.`
+              : t`Resources appear when a conversation connects.`
           }
-          label={`Resources of ${title}`}
+          label={t`Resources of ${title}`}
           rows={resourceInventory.data ?? []}
         />
       ) : view === 'prompts' ? (
-        <p className="py-2 text-[0.8125rem] text-muted-foreground">
-          This service’s prompts are commands. In a conversation that uses it, type / and look under
-          its prompts, or see them on the Prompts settings page.
+        <p className="py-2 text-ui text-muted-foreground">
+          {t`This service’s prompts are commands. In a conversation that uses it, type / and look under its prompts, or see them on the Prompts settings page.`}
         </p>
       ) : (
         <div className="grid gap-2 py-1">
@@ -475,14 +490,14 @@ function McpServerDetailPane({
             <McpConnectionDetails server={(server ?? entry.saved)!} />
           ) : null}
           {entry.saved?.always_load ? (
-            <p className="text-xs text-muted-foreground">Available in every conversation</p>
+            <p className="text-xs text-muted-foreground">{t`Available in every conversation`}</p>
           ) : null}
           {technical.length ? (
             <div className="min-w-0 border-t border-border/70 pt-2" data-slot="technical-details">
-              <p className="text-xs font-medium text-muted-foreground">Technical details</p>
+              <p className="text-xs font-medium text-muted-foreground">{t`Technical details`}</p>
               {technical.map((text) => (
                 <p
-                  className="mt-1 font-mono text-[0.71875rem] break-words text-muted-foreground"
+                  className="mt-1 font-mono text-label break-words text-muted-foreground"
                   key={text}
                 >
                   {text}
@@ -508,7 +523,7 @@ function inventoryTitle(row: Record<string, unknown>) {
     (name ? humanizeToolName(name) : '') ||
     rowText(row, 'uri') ||
     rowText(row, 'id') ||
-    'Untitled item'
+    t`Untitled item`
   );
 }
 
@@ -567,7 +582,7 @@ function InventoryRows({
             />
             {schema && expanded ? (
               <div className="border-b border-border/70 px-2 py-2 pl-9">
-                <SchemaSection empty="No inputs declared." schema={schema} title="" />
+                <SchemaSection empty={t`No inputs declared.`} schema={schema} title="" />
               </div>
             ) : null}
           </div>

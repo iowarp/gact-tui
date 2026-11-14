@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { contextComposition, contextPercent, contextTokens } from './context-composition-model';
+import { formatClockTime } from '@/lib/locale-format';
+import { t, ph } from '@lingui/core/macro';
 
 const COLORS: Record<string, string> = {
   system: 'bg-category-1',
@@ -31,7 +33,7 @@ export function ContextCompositionBar({
   return (
     <div
       role="img"
-      aria-label={`Context token composition: ${contextPercent(used, limit)} of the window used`}
+      aria-label={t`Context token composition: ${ph({ percent: contextPercent(used, limit) })} of the window used`}
       className={cn('flex h-1 overflow-hidden rounded-full bg-muted', className)}
     >
       {sections.map((section) => (
@@ -48,6 +50,19 @@ export function ContextCompositionBar({
 }
 
 /** Shared measured usage and expandable contributors for the rail and full context view. */
+/** "Estimated usage for the last request at 14:02". */
+function usageNote(estimated: boolean, recordedAt: string | null | undefined): string {
+  if (recordedAt) {
+    const time = formatClockTime(recordedAt);
+    return estimated
+      ? t`Estimated usage for the last request at ${time}`
+      : t`Provider-reported usage for the last request at ${time}`;
+  }
+  return estimated
+    ? t`Estimated usage for the last request`
+    : t`Provider-reported usage for the last request`;
+}
+
 export function ContextUsage({
   context,
   messages = [],
@@ -64,32 +79,29 @@ export function ContextUsage({
   const cacheRead = context?.cache_read_tokens ?? 0;
   return (
     <section
-      aria-label="Context usage"
+      aria-label={t`Context usage`}
       className={cn('min-w-0', !compact && 'rounded-xl border p-3')}
     >
-      {!compact ? <h3 className="mb-3 text-sm font-semibold">Context</h3> : null}
+      {!compact ? <h3 className="mb-3 text-sm font-semibold">{t`Context`}</h3> : null}
       {bare ? null : (
         <>
           <div className="flex items-baseline justify-between gap-2 text-sm tabular-nums">
             <strong className="font-medium">
               {limit
-                ? `${Math.round((used / limit) * 100)}% used`
-                : contextTokens(used) + ' tokens'}
+                ? t`${ph({ percent: Math.round((used / limit) * 100) })}% used`
+                : t`${ph({ tokens: contextTokens(used) })} tokens`}
             </strong>
             <span className="text-xs text-muted-foreground">
-              {contextTokens(used)} / {limit ? contextTokens(limit) : 'Limit unknown'}
+              {contextTokens(used)} / {limit ? contextTokens(limit) : t`Limit unknown`}
             </span>
           </div>
           <ContextCompositionBar context={context} messages={messages} className="my-2 h-1.5" />
         </>
       )}
-      <p className="mb-2 text-[11px] leading-4 text-muted-foreground">
-        {estimated ? 'Estimated usage' : 'Provider-reported usage'} for the last request
-        {context?.usage_recorded_at
-          ? ` at ${new Date(context.usage_recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-          : ''}
+      <p className="mb-2 text-caption leading-4 text-muted-foreground">
+        {usageNote(estimated, context?.usage_recorded_at)}
       </p>
-      <div aria-label="Context sections" className="grid gap-0.5 text-xs tabular-nums">
+      <div aria-label={t`Context sections`} className="grid gap-0.5 text-xs tabular-nums">
         {sections.map((section) => (
           <details key={section.id} className="group" open={undefined}>
             <summary
@@ -131,7 +143,7 @@ export function ContextUsage({
             </summary>
             {section.items.length ? (
               <ul
-                aria-label={`${section.label} details`}
+                aria-label={t`${ph({ label: section.label })} details`}
                 className="mb-2 ml-4 border-l pl-3 text-muted-foreground"
               >
                 <Contributors items={section.items} />
@@ -142,12 +154,12 @@ export function ContextUsage({
         {limit ? (
           <>
             <div className={cn(GRID, 'mt-1 border-t pt-2 text-muted-foreground')}>
-              <span className="truncate">Compaction buffer</span>
+              <span className="truncate">{t`Compaction buffer`}</span>
               <span className="text-right">{contextTokens(reserve)}</span>
               <span className="text-right">{contextPercent(reserve, limit)}</span>
             </div>
             <div className={cn(GRID, 'py-1 text-muted-foreground')}>
-              <span className="truncate">Free space</span>
+              <span className="truncate">{t`Free space`}</span>
               <span className="text-right">{contextTokens(free)}</span>
               <span className="text-right">{contextPercent(free, limit)}</span>
             </div>
@@ -155,15 +167,13 @@ export function ContextUsage({
         ) : null}
       </div>
       {!context?.prompt_breakdown && !compact ? (
-        <p className="mt-2 text-[11px] text-muted-foreground">No section data yet.</p>
+        <p className="mt-2 text-caption text-muted-foreground">{t`No section data yet.`}</p>
       ) : null}
       {context?.cache_tokens_measured && used ? (
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Prompt cache: {contextTokens(cacheRead)} reused (
-          {contextPercent(Math.min(cacheRead, used), used)} of the prompt)
+        <p className="mt-2 text-caption text-muted-foreground">
           {context.cache_write_tokens
-            ? `, ${contextTokens(context.cache_write_tokens)} written`
-            : ''}
+            ? t`Prompt cache: ${ph({ reused: contextTokens(cacheRead) })} reused (${ph({ percent: contextPercent(Math.min(cacheRead, used), used) })} of the prompt), ${ph({ written: contextTokens(context.cache_write_tokens) })} written`
+            : t`Prompt cache: ${ph({ reused: contextTokens(cacheRead) })} reused (${ph({ percent: contextPercent(Math.min(cacheRead, used), used) })} of the prompt)`}
         </p>
       ) : null}
     </section>
@@ -188,7 +198,7 @@ function Contributors({ items }: { items: Array<{ label: string; tokens_estimate
             className="h-7 px-0 text-xs"
             onClick={() => setShown(shown + 8)}
           >
-            Show more ({items.length - shown})
+            {t`Show more (${ph({ hidden: items.length - shown })})`}
           </Button>
         </li>
       ) : null}

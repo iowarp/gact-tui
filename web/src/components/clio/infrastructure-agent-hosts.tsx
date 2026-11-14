@@ -12,6 +12,7 @@ import { InfrastructureInventory } from './infrastructure-inventory';
 import { InfraTabActions } from './infrastructure-tab-actions';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * The CLIO hosts tab: the connected agent's components grouped by what needs
@@ -50,7 +51,7 @@ export function InfrastructureAgentHosts({ health }: { health: UseQueryResult<Se
               <RefreshIcon />
             )
           }
-          label="Check again"
+          label={t`Check again`}
           onClick={checkAgain}
         />
       </InfraTabActions>
@@ -63,12 +64,16 @@ export function InfrastructureAgentHosts({ health }: { health: UseQueryResult<Se
             )}
           />
         ) : health.isPending ? (
-          <StateView kind="loading" size="row" title={`Checking ${vocab.agent} components`} />
+          <StateView
+            kind="loading"
+            size="row"
+            title={t`Checking ${ph({ agent: vocab.agent })} components`}
+          />
         ) : health.data ? (
           <StateView
             kind="empty"
             size="row"
-            title="No supporting-component details were reported."
+            title={t`No supporting-component details were reported.`}
           />
         ) : null}
       </InfrastructureInventory>

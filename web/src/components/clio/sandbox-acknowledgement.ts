@@ -1,11 +1,14 @@
 import type { ServiceIntegrationHealth } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
 import { humanizeProtocolValue } from './presentation-labels';
+import { t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 /** The typed reason tokens (clio_agent.runtime.sandbox / sandbox_codex) worded specifically. */
 const SANDBOX_REASON_LABELS: Record<string, string> = {
-  codex_enforcement_unverified: 'Not verified yet on this computer',
-  sandbox_fence_pending_restart: `Set up, restart ${vocab.agent} to activate`,
+  codex_enforcement_unverified: t`Not verified yet on this computer`,
+  sandbox_fence_pending_restart: t`Set up, restart ${agent} to activate`,
 };
 
 export function sandboxReasonLabel(reason: string): string {

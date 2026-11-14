@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import type { NDPEndpointCapture } from '@clio/core/v3';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
+import { plural, t } from '@lingui/core/macro';
 
 function readerState(capture: NDPEndpointCapture): string | null {
   if (
@@ -17,9 +18,9 @@ function readerState(capture: NDPEndpointCapture): string | null {
     const response: unknown = JSON.parse(capture.preview);
     if (response && typeof response === 'object' && 'state' in response) {
       return response.state === 'ready' || response.state === 'active'
-        ? 'Stream reader ready. Checkpoint saved.'
+        ? t`Stream reader ready. Checkpoint saved.`
         : response.state === 'stopped'
-          ? 'Stream reader stopped. Checkpoint preserved.'
+          ? t`Stream reader stopped. Checkpoint preserved.`
           : null;
     }
   } catch {
@@ -37,17 +38,20 @@ export function NDPCaptureResult({
 }) {
   const { settings } = useConnectionSettings();
   return (
-    <div aria-label="Saved endpoint data" className="space-y-2 text-sm">
+    <div aria-label={t`Saved endpoint data`} className="space-y-2 text-sm">
       <p role="status">
         {capture.continuation
-          ? `${capture.continuation.count.toLocaleString()} stream records captured. Continuation checkpoint saved.`
-          : (readerState(capture) ?? 'Endpoint response saved.')}
+          ? plural(capture.continuation.count, {
+              one: '# stream record captured. Continuation checkpoint saved.',
+              other: '# stream records captured. Continuation checkpoint saved.',
+            })
+          : (readerState(capture) ?? t`Endpoint response saved.`)}
         <span className="block text-muted-foreground">
-          {capture.bytes_received.toLocaleString()} bytes retained
+          {plural(capture.bytes_received, { one: '# byte retained', other: '# bytes retained' })}
         </span>
       </p>
       <details>
-        <summary className="cursor-pointer text-muted-foreground">Response preview</summary>
+        <summary className="cursor-pointer text-muted-foreground">{t`Response preview`}</summary>
         <pre className="max-h-44 overflow-auto rounded-md bg-muted/50 p-3 text-xs">
           {capture.preview}
         </pre>
@@ -63,7 +67,7 @@ export function NDPCaptureResult({
             },
           }}
         >
-          Open saved data
+          {t`Open saved data`}
         </Link>
       ) : null}
       {capture.materialization?.state === 'failed' ? (

@@ -38,6 +38,7 @@ import { useConnector } from '@/hooks/use-connectors';
 import { ConnectorLogo } from './connector-need-rows';
 import { SlotButton } from './extension-parts';
 import { RefreshIndicator } from './refresh-button';
+import { plural, t } from '@lingui/core/macro';
 
 const KIND_ICONS: Record<McpServiceKind, LucideIcon> = {
   files: FolderIcon,
@@ -68,7 +69,7 @@ function serviceToolTotal(entry: McpServiceEntry): number | undefined {
 }
 
 function countWords(count: number): string {
-  return `${count} ${count === 1 ? 'tool' : 'tools'}`;
+  return plural(count, { one: '# tool', other: '# tools' });
 }
 
 /**
@@ -84,11 +85,12 @@ export function McpServiceMeta({ entry }: { entry: McpServiceEntry }) {
     .filter(Boolean)
     .join(', ');
   return (
-    <span title={words}>
-      <span>{origin}</span>
-      {total === undefined ? null : <span className="ml-2.5">{countWords(total)}</span>}
+    // Parts wrap onto their own lines on a narrow row, so the name keeps the width.
+    <span className="flex min-w-0 flex-wrap gap-x-2.5" title={words}>
+      <span className="min-w-0 break-words whitespace-normal">{origin}</span>
+      {total === undefined ? null : <span className="shrink-0">{countWords(total)}</span>}
       {target ? (
-        <span className="ml-2.5 font-mono text-[0.71875rem] whitespace-nowrap">{target.short}</span>
+        <span className="max-w-full min-w-0 truncate font-mono text-label">{target.short}</span>
       ) : null}
     </span>
   );
@@ -106,7 +108,7 @@ function runtimeServer(server: McpServerDefinition | undefined): server is McpSe
  */
 export function McpServiceList({
   entries,
-  label = 'MCP servers',
+  label = t`MCP servers`,
   reconnecting,
   selectedKey,
   onDetails,
@@ -234,8 +236,8 @@ function McpServiceRow({
   const hasMenu = Boolean(onDetails || onReconnect || onDisconnect || onRemoveSaved);
   const slot =
     showSlot && failed && onReconnect ? (
-      <SlotButton disabled={reconnecting} label={`Reconnect ${title}`} onClick={onReconnect}>
-        Reconnect
+      <SlotButton disabled={reconnecting} label={t`Reconnect ${title}`} onClick={onReconnect}>
+        {t`Reconnect`}
       </SlotButton>
     ) : null;
   return (
@@ -247,7 +249,7 @@ function McpServiceRow({
               <IconButton
                 aria-pressed={selected}
                 icon={<InfoIcon />}
-                label={`Details for ${title}`}
+                label={t`Details for ${title}`}
                 onClick={onDetails}
               />
             ) : null}
@@ -256,29 +258,29 @@ function McpServiceRow({
                 aria-busy={reconnecting}
                 disabled={reconnecting}
                 icon={<RefreshIndicator refreshing={reconnecting} />}
-                label={`Reconnect ${title}`}
+                label={t`Reconnect ${title}`}
                 onClick={onReconnect}
               />
             ) : null}
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <IconButton icon={<MoreIcon />} label={`Actions for ${title}`} />
+                <IconButton icon={<MoreIcon />} label={t`Actions for ${title}`} />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-52">
                 {onDetails ? (
                   <DropdownMenuItem onSelect={onDetails}>
-                    <MenuRow icon={<InfoIcon />} label="Details" />
+                    <MenuRow icon={<InfoIcon />} label={t`Details`} />
                     <ShortcutKeys className="pl-2" keys={['Enter']} variant="menu" />
                   </DropdownMenuItem>
                 ) : null}
                 {onReconnect ? (
                   <DropdownMenuItem disabled={reconnecting} onSelect={onReconnect}>
-                    <MenuRow icon={<RefreshIcon />} label="Reconnect" />
+                    <MenuRow icon={<RefreshIcon />} label={t`Reconnect`} />
                   </DropdownMenuItem>
                 ) : null}
                 {askDisconnect ? (
                   <DropdownMenuItem onSelect={askDisconnect}>
-                    <MenuRow icon={<UnplugIcon />} label="Disconnect" />
+                    <MenuRow icon={<UnplugIcon />} label={t`Disconnect`} />
                   </DropdownMenuItem>
                 ) : null}
                 {onRemoveSaved && (onDetails || onReconnect || onDisconnect) ? (
@@ -286,7 +288,7 @@ function McpServiceRow({
                 ) : null}
                 {askRemove ? (
                   <DropdownMenuItem onSelect={askRemove}>
-                    <MenuRow icon={<DeleteIcon />} label="Remove saved" />
+                    <MenuRow icon={<DeleteIcon />} label={t`Remove saved`} />
                     <ShortcutKeys
                       className="shrink-0 pl-2"
                       keys={['Delete']}
@@ -310,7 +312,8 @@ function McpServiceRow({
       onClick={open}
       onKeyDown={onKeyDown}
       selected={selected}
-      slot={slot}
+      // The slot column exists only while some row needs it, so names get the width.
+      slot={showSlot ? slot : undefined}
       status={<StatusIndicator label={status.label} tone={status.tone} />}
       tabIndex={0}
       title={<span title={title}>{title}</span>}

@@ -1,5 +1,5 @@
 import { WrenchIcon } from 'lucide-react';
-import { memo, type ReactNode } from 'react';
+import { memo, useContext, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import type { PendingInteraction, SubagentRun } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
@@ -15,11 +15,14 @@ import { WaitingForYou } from './agent-answer-activity';
 import { transcriptRunSummary } from './transcript-activity-summary';
 import { ActivityDisclosure, ActivityNest, ActivityRow } from './activity-row';
 import { StatusIndicator } from './primitives/status-indicator';
-import { useTranscriptDisclosure } from './transcript-disclosure-context';
+import { ActivityRunsFold, useTranscriptDisclosure } from './transcript-disclosure-context';
+import { t, ph, plural } from '@lingui/core/macro';
+import { formatList, listSeparator } from '@/lib/locale-format';
 
 /** Rows a live step shows before the earlier ones fold behind "Show N earlier". */
 const LANE_LIMIT = 6;
 const LANE_TAIL = 4;
+
 interface ActivityLaneProps {
   id: string;
   group: readonly ConversationIteration[];
@@ -139,18 +142,25 @@ function ActivityLaneView({
 }: ActivityLaneProps) {
   const [all, setAll] = useTranscriptDisclosure(`activity:${id}`, false);
   const [runOpen, setRunOpen] = useTranscriptDisclosure(`run:${id}`, false);
+  const runsFold = useContext(ActivityRunsFold);
   const total = group.reduce((sum, item) => sum + laneRows(item), 0);
   // While the turn works, steps after the last call that only think are the
   // agent moving on; they stay below the run. Once it has settled, the whole
   // block between two updates is the run.
+  const lastCallEnd = (end: number) => {
+    while (end > 0 && !group[end - 1].activity.length && !group[end - 1].interrupted) end -= 1;
+    return end;
+  };
   let headEnd = group.length;
-  while (
-    turnLive &&
-    headEnd > 0 &&
-    !group[headEnd - 1].activity.length &&
-    !group[headEnd - 1].interrupted
-  )
-    headEnd -= 1;
+  if (turnLive) {
+    // The settled steps the agent has gone past stay one folded run while it
+    // works on the latest, so a new call never reopens it and remounts its rows.
+    const callEnd = lastCallEnd(group.length);
+    let settled = 0;
+    while (settled < group.length && runSettled([group[settled]], interactions)) settled += 1;
+    const movedOn = settled >= callEnd && callEnd < group.length;
+    headEnd = movedOn ? callEnd : lastCallEnd(Math.min(settled, callEnd - 1)) || callEnd;
+  }
   const head = group.slice(0, headEnd);
   const afterIds = new Set(group.slice(headEnd).map((item) => item.id));
   // A settled run folds once the agent has moved past it, a single call too, so
@@ -160,7 +170,7 @@ function ActivityLaneView({
     0,
   );
   const collapses =
-    (!turnLive || afterIds.size > 0) && headCalls > 0 && runSettled(head, interactions);
+    runsFold && (!turnLive || afterIds.size > 0) && headCalls > 0 && runSettled(head, interactions);
   // A folded run already counts its rows, so opening it shows every one of them.
   const folded = !all && !collapses && total > LANE_LIMIT;
   const shown = folded ? laneTail(group, LANE_TAIL) : group;
@@ -175,10 +185,10 @@ function ActivityLaneView({
     <Button
       variant="ghost"
       onClick={() => setAll(true)}
-      className="mt-1 ml-[22px] h-6 rounded-[4px] px-2 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
+      className="mt-1 ml-[22px] h-6 rounded-[4px] px-2 text-label font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
       data-slot="activity-show-all"
     >
-      {`Show ${earlier} earlier`}
+      {t`Show ${earlier} earlier`}
     </Button>
   ) : null;
   const run =
@@ -195,7 +205,7 @@ function ActivityLaneView({
   return (
     <div
       role="group"
-      aria-label={`Activity: ${collapses && run ? run.label : label}`}
+      aria-label={t`Activity: ${ph({ label: collapses && run ? run.label : label })}`}
       aria-busy={live || undefined}
       // Top-level rows sit 4px apart (a 32px pitch); rows one step in stay at 28px.
       // The lane's -mt-1 takes back the first row's margin so text to row stays 8px.
@@ -221,10 +231,15 @@ function ActivityLaneView({
           icon={<WrenchIcon aria-hidden="true" />}
           name={run.label}
           outcome={<WaitingForYou />}
-          outcomeTitle="waiting for you"
+          outcomeTitle={t`waiting for you`}
           outcomeTone="muted"
           status={
-            <StatusIndicator display="column" label="Waiting for you" mark="glyph" tone="running" />
+            <StatusIndicator
+              display="column"
+              label={t`Waiting for you`}
+              mark="glyph"
+              tone="running"
+            />
           }
         />
       ) : run ? (
@@ -233,7 +248,11 @@ function ActivityLaneView({
           data-run-summary=""
           disclosure={
             <ActivityDisclosure
-              label={`${runOpen ? 'Collapse' : 'Expand'} ${run.label}`}
+              label={
+                runOpen
+                  ? t`Collapse ${ph({ label: run.label })}`
+                  : t`Expand ${ph({ label: run.label })}`
+              }
               open={runOpen}
               onClick={() => setRunOpen(!runOpen)}
             />
@@ -248,29 +267,31 @@ function ActivityLaneView({
                 {[
                   run.failed ? (
                     <span key="failed" className="text-destructive">
-                      {run.failed} failed
+                      {t`${ph({ failed: run.failed })} failed`}
                     </span>
                   ) : null,
                   run.denied ? (
                     <span key="denied" className="text-warning">
-                      {run.denied} denied
+                      {t`${ph({ denied: run.denied })} denied`}
                     </span>
                   ) : null,
-                  run.interrupted ? <span key="stopped">{run.interrupted} stopped</span> : null,
+                  run.interrupted ? (
+                    <span key="stopped">{t`${ph({ interrupted: run.interrupted })} stopped`}</span>
+                  ) : null,
                 ]
                   .filter(Boolean)
-                  .flatMap((part, index) => (index ? [', ', part] : [part]))}
+                  .flatMap((part, index) => (index ? [listSeparator(), part] : [part]))}
               </span>
             ) : undefined
           }
           outcomeTitle={
-            [
-              run.failed ? `${run.failed} failed` : '',
-              run.denied ? `${run.denied} denied` : '',
-              run.interrupted ? `${run.interrupted} stopped` : '',
-            ]
-              .filter(Boolean)
-              .join(', ') || undefined
+            formatList(
+              [
+                run.failed ? plural(run.failed, { other: '# failed' }) : '',
+                run.denied ? plural(run.denied, { other: '# denied' }) : '',
+                run.interrupted ? plural(run.interrupted, { other: '# stopped' }) : '',
+              ].filter(Boolean),
+            ) || undefined
           }
           outcomeTone="muted"
           status={
@@ -278,12 +299,12 @@ function ActivityLaneView({
               display="column"
               label={
                 run.failed
-                  ? 'Some calls failed'
+                  ? t`Some calls failed`
                   : run.denied
-                    ? 'Some calls were denied'
+                    ? t`Some calls were denied`
                     : run.interrupted
-                      ? 'Stopped'
-                      : 'Done'
+                      ? t`Stopped`
+                      : t`Done`
               }
               mark="glyph"
               tone={
@@ -301,7 +322,10 @@ function ActivityLaneView({
       ) : null}
       {/* One parent in both shapes keeps each row's own state when the run folds. */}
       {collapses && !runOpen ? null : (
-        <ActivityNest flat={!run} label={`Calls: ${(collapses && run?.label) || label}`}>
+        <ActivityNest
+          flat={!run}
+          label={t`Calls: ${ph({ label: (collapses && run?.label) || label })}`}
+        >
           {showAll}
           {shown.filter((item) => !afterIds.has(item.id)).map(children)}
         </ActivityNest>

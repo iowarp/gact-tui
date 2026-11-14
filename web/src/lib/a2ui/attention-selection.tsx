@@ -6,6 +6,7 @@ import { connectionScope } from '@/lib/connection-scope';
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import { structuredAttentionSelection } from './attention-selection-coordinates';
 import { useAttentionAvailable } from '@/lib/attention-availability';
+import { t } from '@lingui/core/macro';
 
 type Region = Extract<ContentSelection['selection'], { kind?: 'image_region' }>;
 interface SurfaceAttention {
@@ -99,7 +100,7 @@ function BoundSurface({ surface, children }: { surface: A2UISurface; children: R
         await add(componentId, selection.source_ref, selection, label);
       },
       image: (componentId, source, region) =>
-        add(componentId, source, region, 'Selected image region'),
+        add(componentId, source, region, t`Selected image region`),
     };
   }, [registry, repository, surface.id, surface.session_id, surface.part_id, surface.revision]);
   return (

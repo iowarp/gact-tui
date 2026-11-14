@@ -1,4 +1,5 @@
 import type { FacetTab } from './model-facets';
+import { t } from '@lingui/core/macro';
 
 /** Remote query choices are independent of which modalities appear in the current page. */
 export function hubSearchFacets(tabs: FacetTab[], tokens: readonly string[]): FacetTab[] {
@@ -12,7 +13,7 @@ export function hubSearchFacets(tabs: FacetTab[], tokens: readonly string[]): Fa
   for (const axis of ['input', 'output'] as const) {
     let tab = result.find((item) => item.id === axis);
     if (!tab) {
-      tab = { id: axis, label: axis === 'input' ? 'Input' : 'Output', groups: [], chipCount: 0 };
+      tab = { id: axis, label: axis === 'input' ? t`Input` : t`Output`, groups: [], chipCount: 0 };
       result.push(tab);
     }
     const existing = new Set(tab.groups.flatMap((group) => group.chips.map((chip) => chip.token)));

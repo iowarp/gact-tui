@@ -11,6 +11,7 @@ import {
   type AgentUseValue,
 } from './agent-tab-values';
 import { KeyValueGrid, KeyValueRowButton } from './primitives/key-value-grid';
+import { t } from '@lingui/core/macro';
 
 const USE_ORDER: readonly AgentUseKind[] = ['tools', 'subagents', 'skills', 'instructions'];
 
@@ -43,7 +44,7 @@ export function AgentTabHeader({
   return (
     <header
       className={cn(
-        'flex min-h-9 min-w-0 items-center gap-2 px-3.5 pt-2.5 pb-2 text-[12px] whitespace-nowrap text-muted-foreground',
+        'flex min-h-9 min-w-0 items-center gap-2 px-3.5 pt-2.5 pb-2 text-meta whitespace-nowrap text-muted-foreground',
         className,
       )}
     >
@@ -57,8 +58,8 @@ export function AgentTabHeader({
       ) : null}
       {/* Notes fold first: in a narrow tab the title and actions keep the line. */}
       {legend ? (
-        <span className="ml-auto min-w-0 truncate text-[11px] text-faint @max-[24rem]/agent-tab:hidden">
-          Changed settings are teal
+        <span className="ml-auto min-w-0 truncate text-caption text-faint @max-[24rem]/agent-tab:hidden">
+          {t`Changed settings are teal`}
         </span>
       ) : null}
       {reset ? (
@@ -89,9 +90,9 @@ export function AgentUseRows({
 }) {
   return (
     <section aria-labelledby="agent-what-it-can-use">
-      <AgentTabSectionLabel id="agent-what-it-can-use">What it can use</AgentTabSectionLabel>
+      <AgentTabSectionLabel id="agent-what-it-can-use">{t`What it can use`}</AgentTabSectionLabel>
       <KeyValueGrid
-        aria-label="What it can use"
+        aria-label={t`What it can use`}
         items={USE_ORDER.map((kind) => {
           const { text, changed } = values[kind];
           const label = AGENT_USE_LABELS[kind];
@@ -100,7 +101,11 @@ export function AgentUseRows({
             title: text,
             value: (
               <KeyValueRowButton
-                aria-label={`${label}: ${text}${changed ? `, ${CHANGED_FOR_CONVERSATION}` : ''}`}
+                aria-label={
+                  changed
+                    ? t`${label}: ${text}, changed for this conversation`
+                    : t`${label}: ${text}`
+                }
                 changed={changed}
                 changedLabel={CHANGED_FOR_CONVERSATION}
                 chevron="right"
@@ -136,7 +141,7 @@ export function SaveAsSetupLink({
         aria-description={disabled ? disabledReason : undefined}
         aria-disabled={disabled || undefined}
         className={cn(
-          'max-w-full truncate rounded-[4px] text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+          'max-w-full truncate rounded-[4px] text-meta outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
           disabled ? 'cursor-default text-muted-foreground' : 'text-changed hover:underline',
         )}
         onClick={disabled ? undefined : onSave}

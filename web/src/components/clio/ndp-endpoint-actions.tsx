@@ -17,6 +17,7 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
+import { t, ph } from '@lingui/core/macro';
 
 /** Visibility is reversible; removing a saved connection requires an explicit decision. */
 export function NDPEndpointActions({
@@ -38,14 +39,14 @@ export function NDPEndpointActions({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Endpoint actions" disabled={pending}>
+          <Button variant="ghost" size="icon" aria-label={t`Endpoint actions`} disabled={pending}>
             <MoreIcon />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={onEdit}>Edit endpoint</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onEdit}>{t`Edit endpoint`}</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => onHidden(!endpoint.hidden)}>
-            {endpoint.hidden ? 'Show endpoint' : 'Hide endpoint'}
+            {endpoint.hidden ? t`Show endpoint` : t`Hide endpoint`}
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-destructive"
@@ -54,17 +55,16 @@ export function NDPEndpointActions({
               setRemoving(true);
             }}
           >
-            Remove endpoint…
+            {t`Remove endpoint…`}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <AlertDialog open={removing} onOpenChange={setRemoving}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {endpoint.name}?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Remove ${ph({ name: endpoint.name })}?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove this workspace’s saved API connection. Captured files stay in Sources. The
-              remote service and its running streams are not stopped.
+              {t`Remove this workspace’s saved API connection. Captured files stay in Sources. The remote service and its running streams are not stopped.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {error ? (
@@ -73,7 +73,7 @@ export function NDPEndpointActions({
             </p>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending}>{t`Cancel`}</AlertDialogCancel>
             <Button
               variant="destructive"
               disabled={pending}
@@ -83,12 +83,12 @@ export function NDPEndpointActions({
                   setRemoving(false);
                 } catch (failure) {
                   setError(
-                    failure instanceof Error ? failure.message : 'Could not remove endpoint',
+                    failure instanceof Error ? failure.message : t`Could not remove endpoint`,
                   );
                 }
               }}
             >
-              Remove endpoint
+              {t`Remove endpoint`}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

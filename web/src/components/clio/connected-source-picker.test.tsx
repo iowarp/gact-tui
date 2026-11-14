@@ -427,7 +427,7 @@ describe('connected source picker', () => {
       ).toBeChecked();
       if (local)
         expect(
-          screen.getByRole('button', { name: "Browse source folder on Agent's computer" }),
+          screen.getByRole('button', { name: 'Browse source folder on this computer' }),
         ).toBeEnabled();
       else expect(screen.getByRole('button', { name: 'Upload folder' })).toBeDisabled();
     },

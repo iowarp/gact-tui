@@ -1,6 +1,7 @@
 import type { ClioModelOption } from '@/lib/model-options';
 import { ComposerModelButton } from './composer-model-label';
 import { ClioModelPicker } from './model-picker';
+import { t } from '@lingui/core/macro';
 
 /** The composer's model chip and the picker it opens (`Ctrl '`). */
 export function ComposerModelControl({
@@ -36,7 +37,7 @@ export function ComposerModelControl({
       trigger={
         <ComposerModelButton
           appearance="text"
-          aria-label="Change model"
+          aria-label={t`Change model`}
           className="max-w-56 @min-[48rem]/composer:max-w-72"
           data-tour="model-picker"
           option={selected}

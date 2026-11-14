@@ -15,12 +15,20 @@ import { connectionScope } from '@/lib/connection-scope';
 import { hasAttentionCaptures } from '@/lib/attention-availability';
 import { attentionSelectionBody } from '@/lib/attention-selection-body';
 import { type AttentionHeatView, DEFAULT_ATTENTION_HEAT_VIEW } from '@/lib/attention-segment-heat';
+import { t } from '@lingui/core/macro';
 
 export type AttentionModeState =
   | { status: 'idle' }
   | { status: 'loading'; selection: AgentAnswerTextSelection }
   | { status: 'shown'; selection: AgentAnswerTextSelection; data: AttentionAvailable }
-  | { status: 'unavailable'; selection: AgentAnswerTextSelection; message: string };
+  | {
+      status: 'unavailable';
+      selection: AgentAnswerTextSelection;
+      message: string;
+      /** The server's typed reason (e.g. `output_alignment_mismatch`) and its explanation. */
+      reason?: string;
+      detail?: string;
+    };
 
 /**
  * "Understand attention": select a passage of an agent answer, and see which
@@ -54,8 +62,33 @@ export function useAttentionMode(
   const { settings } = useConnectionSettings();
   const scope = `${connectionScope(settings)}\0${sessionId}`;
   const [lookupHeat, setLookupHeat] = useState<{ scope: string; data?: AttentionAvailable }>();
-  const [profile, setProfile] = useState<AttentionProfile>();
-  const [view, setView] = useState<AttentionHeatView>(DEFAULT_ATTENTION_HEAT_VIEW);
+  // The chosen profile and heat view belong to this conversation.
+  const [choice, setChoice] = useState<{
+    scope: string;
+    profile?: AttentionProfile;
+    view?: AttentionHeatView;
+  }>();
+  const owned = choice?.scope === scope ? choice : undefined;
+  const profile = owned?.profile;
+  const view = owned?.view ?? DEFAULT_ATTENTION_HEAT_VIEW;
+  const setProfile = useCallback(
+    (next: AttentionProfile) =>
+      setChoice((previous) => ({
+        ...(previous?.scope === scope ? previous : {}),
+        scope,
+        profile: next,
+      })),
+    [scope],
+  );
+  const setView = useCallback(
+    (next: AttentionHeatView) =>
+      setChoice((previous) => ({
+        ...(previous?.scope === scope ? previous : {}),
+        scope,
+        view: next,
+      })),
+    [scope],
+  );
   // Which answers can show attention. The action is offered only on those, so
   // a CLIO without attention capture, or an answer from another provider, never
   // shows it.
@@ -120,12 +153,20 @@ export function useAttentionMode(
         );
         if (requestTokenRef.current !== token) return; // superseded by a newer selection
         if (result.available) setState({ status: 'shown', selection: target, data: result });
-        else setState({ status: 'unavailable', selection: target, message: result.message });
+        else {
+          setState({
+            status: 'unavailable',
+            selection: target,
+            message: result.message,
+            ...(result.reason ? { reason: result.reason } : {}),
+            ...(result.detail ? { detail: result.detail } : {}),
+          });
+        }
       } catch (error) {
         if (controller.signal.aborted || requestTokenRef.current !== token) return;
         setState({ status: 'idle' });
-        toast.error('Attention view is unavailable', {
-          description: error instanceof Error ? error.message : 'The service rejected it.',
+        toast.error(t`Attention view is unavailable`, {
+          description: error instanceof Error ? error.message : t`The service rejected it.`,
         });
       }
     },
@@ -135,7 +176,7 @@ export function useAttentionMode(
   const action = useMemo<SelectionAction>(
     () => ({
       id: 'understand-attention',
-      label: 'Understand attention',
+      label: t`Understand attention`,
       icon: RadarIcon,
       order: 30,
       // Generated text of this session's captured answers: the answer itself, and

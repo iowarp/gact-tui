@@ -5,11 +5,15 @@ import type {
   SessionDiff,
   ToolInvocation,
 } from '@clio/core/v3';
-import { describe, expect, it } from 'vitest';
+import { generateMessageId } from '@lingui/message-utils/generateMessageId';
+import { afterEach, describe, expect, it } from 'vitest';
+import { i18n } from '@/i18n/instance';
 import {
   activityItems,
   compactDuration,
   filterActivity,
+  liveChipWord,
+  stateWord,
   type ActivityInput,
 } from './workbench-activity-model';
 
@@ -197,5 +201,29 @@ describe('compactDuration', () => {
     expect(compactDuration(2400)).toBe('2.4s');
     expect(compactDuration(42_000)).toBe('42s');
     expect(compactDuration(9 * 60_000)).toBe('9m');
+  });
+});
+
+describe('state words', () => {
+  afterEach(() => i18n.activate('en'));
+
+  it('resolves in the locale active when the row renders, not when the module loaded', () => {
+    expect(liveChipWord('running')).toBe('running');
+    i18n.load('el', {
+      [generateMessageId('running', 'activity chip')]: 'τρέχει',
+      [generateMessageId('queued', 'activity chip')]: 'σε ουρά',
+      [generateMessageId('answered', 'request state')]: 'απαντήθηκε',
+    });
+    i18n.activate('el');
+    expect(liveChipWord('running')).toBe('τρέχει');
+    expect(liveChipWord('queued')).toBe('σε ουρά');
+    expect(stateWord('answered')).toBe('απαντήθηκε');
+  });
+
+  it('names every wire state a row can carry, reading an unknown one as recorded', () => {
+    expect(stateWord('waiting_user')).toBe('needs input');
+    expect(stateWord('cancellation_requested')).toBe('stopping');
+    expect(stateWord('expired')).toBe('expired');
+    expect(stateWord('some_new_state')).toBe('some new state');
   });
 });

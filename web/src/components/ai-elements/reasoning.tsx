@@ -19,6 +19,7 @@ import {
 
 import { useMarkdownText } from './markdown-text-loader';
 import { Shimmer } from './shimmer';
+import { plural, t } from '@lingui/core/macro';
 
 interface ReasoningContextValue {
   isStreaming: boolean;
@@ -142,12 +143,12 @@ export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger> & 
 
 const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
   if (isStreaming || duration === 0) {
-    return <Shimmer duration={1}>Thinking...</Shimmer>;
+    return <Shimmer duration={1}>{t`Thinking...`}</Shimmer>;
   }
   if (duration === undefined) {
-    return <p>Thought for a few seconds</p>;
+    return <p>{t`Thought for a few seconds`}</p>;
   }
-  return <p>Thought for {duration} seconds</p>;
+  return <p>{plural(duration, { one: 'Thought for # second', other: 'Thought for # seconds' })}</p>;
 };
 
 export const ReasoningTrigger = memo(

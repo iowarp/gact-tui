@@ -18,8 +18,10 @@ import {
   providerHealthPresentation,
   type ProviderGroup,
 } from './model-picker-model';
+import { providerActionStageLabel } from './provider-actions';
 import { ProviderLogoMark } from './provider-logo-mark';
 import type { ProviderActions } from './provider-setup-state';
+import { t, ph } from '@lingui/core/macro';
 
 export interface ProviderLogOut {
   /** "Log out" for a sign-in, "Remove key" for a pasted key. */
@@ -60,14 +62,34 @@ interface ProviderPanelFooterProps {
 }
 
 /** "now", "4m", "3h", "2d": how long ago the provider was last checked. */
-function freshnessAge(iso: string, now: number = Date.now()): string | undefined {
+function freshnessAge(
+  iso: string,
+  now: number = Date.now(),
+): { short: string; checked: string } | undefined {
   const at = Date.parse(iso);
   if (Number.isNaN(at)) return undefined;
   const minutes = Math.max(0, Math.round((now - at) / 60_000));
-  if (minutes < 1) return 'now';
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 1) return { short: t`now`, checked: t`checked now` };
   const hours = Math.round(minutes / 60);
-  return hours < 48 ? `${hours}h` : `${Math.round(hours / 24)}d`;
+  const days = Math.round(hours / 24);
+  const short = minutes < 60 ? t`${minutes}m` : hours < 48 ? t`${hours}h` : t`${days}d`;
+  return { short, checked: t`checked ${short} ago` };
+}
+
+/**
+ * "Ready, checked 2m ago" ("準備完了、2分前に確認" in ja), cut where the age starts:
+ * the age is its own span so it gives way before the row's actions do.
+ */
+function statusWithAge(status: string, checked: string): [string, string] {
+  const statusMark = '\u0001';
+  const checkedMark = '\u0002';
+  const joined = t`${ph({ status: statusMark })}, ${ph({ checked: checkedMark })}`;
+  const at = joined.indexOf(statusMark);
+  // A locale that leads with anything but the status keeps the whole join together.
+  if (at !== 0 || joined.indexOf(checkedMark) < at)
+    return [joined.replace(statusMark, status).replace(checkedMark, checked), ''];
+  // The joiner travels with the age, so a row without room for the age shows no stray ", ".
+  return [status, joined.slice(1).replace(checkedMark, checked)];
 }
 
 /**
@@ -98,18 +120,22 @@ export function ProviderPanelFooter({
   const manage = variant === 'manage';
   const status = providerGroupStatus(group);
   const ready = group.health === 'healthy';
+  const [manageStatus, manageAge] =
+    manage && ready && age ? statusWithAge(status.label, age.checked) : [status.label, ''];
   // A provider fixing itself offers its fix, not the check and reload of a usable one.
   const providerActions = setup === undefined ? actions : undefined;
   const iconClass = manage ? 'size-[22px] [&_svg]:size-[13px]' : undefined;
   return (
     <TooltipProvider disableHoverableContent>
       <div
-        aria-label={`${group.name} provider`}
+        aria-label={t`${ph({ name: group.name })} provider`}
         role="group"
         className={cn(
           'flex min-w-0 shrink-0 flex-nowrap items-center overflow-hidden',
           // The dot lines up with the model names, past the check gutter.
-          manage ? 'h-7 w-full gap-[7px] text-[11px] text-faint' : 'h-full gap-1.5 ps-2 pe-1',
+          manage
+            ? 'h-7 w-full gap-[7px] text-caption text-faint'
+            : '@container/provider-bar h-full gap-1.5 ps-2 pe-1',
           className,
         )}
         // Only a usable provider has the action row; a provider in setup shows its Settings link.
@@ -124,10 +150,11 @@ export function ProviderPanelFooter({
               provider={providerLogoId(group.id)}
             />
             {/* The provider row above owns the name and the interactive heartbeat;
-                the bar repeats them visually and is named by its group label. */}
+                the bar repeats them visually and is named by its group label.
+                The name keeps its width first; the status word and age yield. */}
             <span
               aria-hidden="true"
-              className="min-w-0 max-w-[40%] shrink truncate text-[12px] text-foreground before:content-[attr(data-name)]"
+              className="max-w-[9rem] min-w-0 shrink-0 truncate text-meta text-foreground before:content-[attr(data-name)]"
               data-name={group.name}
             />
           </>
@@ -142,29 +169,52 @@ export function ProviderPanelFooter({
         />
         {manage && !actions?.stage && !error && !(!busy && info) ? (
           // Ready says so with its age ("● Ready, checked 2m ago"); anything else says what is wrong.
-          <span
-            className={cn('min-w-0 flex-1 truncate', !ready && status.color)}
-            data-slot="provider-manage-status"
-            title={
-              (!ready && group.detail) ||
-              (group.freshness ? `Checked ${formatFreshness(group.freshness)}` : group.detail)
-            }
-          >
-            {status.label}
-            {ready && age ? (
-              <span className="text-faint">
-                , checked {age}
-                {age === 'now' ? '' : ' ago'}
+          <>
+            <span
+              // Its own width, no floor: the update action never gives way to empty room.
+              className={cn('min-w-0 grow truncate', !ready && status.color)}
+              data-slot="provider-manage-status"
+              title={
+                (!ready && group.detail) ||
+                (group.freshness
+                  ? t`Checked ${ph({ time: formatFreshness(group.freshness) })}`
+                  : group.detail)
+              }
+            >
+              {manageStatus}
+            </span>
+            {manageAge ? (
+              // The age only takes room left over and shows whole or not at all: when it
+              // doesn't fit beside the zero-width lead, it wraps to the clipped second line.
+              <span
+                className="-ms-[7px] flex h-[1lh] min-w-0 shrink grow-[1000] basis-0 flex-wrap overflow-hidden text-faint"
+                data-slot="provider-manage-age"
+              >
+                <span className="h-full w-0" />
+                <span className="shrink-0 whitespace-nowrap">{manageAge}</span>
               </span>
             ) : null}
+          </>
+        ) : null}
+        {!manage && !actions?.stage ? (
+          // The dot never stands alone: the bar says the state in words too.
+          <span
+            className={cn(
+              'min-w-0 truncate text-label text-muted-foreground',
+              !ready && status.color,
+            )}
+            data-slot="provider-bar-word"
+            title={status.label}
+          >
+            {status.label}
           </span>
         ) : null}
         {age && !manage && !actions?.stage ? (
           <span
-            className="shrink-0 font-mono text-[11px] text-muted-foreground"
-            title={`Checked ${formatFreshness(group.freshness!)}`}
+            className="shrink-0 font-mono text-caption text-muted-foreground @max-[20rem]/provider-bar:hidden"
+            title={t`Checked ${ph({ time: formatFreshness(group.freshness!) })}`}
           >
-            {age}
+            {age.short}
           </span>
         ) : null}
         {actions?.stage ? (
@@ -174,7 +224,7 @@ export function ProviderPanelFooter({
             role="status"
           >
             <LoaderCircleIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin" />
-            <span className="truncate">{actions.stage}</span>
+            <span className="truncate">{providerActionStageLabel(actions.stage)}</span>
           </span>
         ) : error ? (
           <span className="min-w-0 flex-1 truncate text-destructive" role="alert" title={error}>
@@ -188,94 +238,95 @@ export function ProviderPanelFooter({
           >
             {info}
           </span>
-        ) : manage ? null : (
-          <span className="min-w-0 flex-1" />
-        )}
-        {update}
-        {manage && fold ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <IconButton
-                className={cn('shrink-0', iconClass)}
-                icon={<MoreIcon />}
-                label={`${group.name} actions`}
-                size="sm"
-                tooltipSide="top"
+        ) : null}
+        {/* The actions end the row without a spacer, whose gap the status word would pay for. */}
+        <span className={manage ? 'contents' : 'ms-auto flex min-w-0 items-center gap-1.5'}>
+          {update}
+          {manage && fold ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <IconButton
+                  className={cn('shrink-0', iconClass)}
+                  icon={<MoreIcon />}
+                  label={t`${ph({ name: group.name })} actions`}
+                  size="sm"
+                  tooltipSide="top"
+                />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-44" side="top">
+                {setupItems}
+                {providerActions ? (
+                  <>
+                    <DropdownMenuItem
+                      disabled={busy}
+                      onSelect={() => void providerActions.handshake.mutateAsync()}
+                    >
+                      <CheckConnectionIcon aria-hidden="true" />
+                      {t`Refresh`}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={busy}
+                      onSelect={() => void providerActions.refreshModels.mutateAsync()}
+                    >
+                      <RefreshIcon aria-hidden="true" />
+                      {t`Reload models`}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+                {logOut ? (
+                  <DropdownMenuItem disabled={busy} onSelect={logOut.run}>
+                    <LogOutIcon aria-hidden="true" />
+                    {logOut.label}
+                  </DropdownMenuItem>
+                ) : null}
+                {settingsItem}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+          {manage && !fold && setup && !actions?.stage ? setup : null}
+          {providerActions && !(manage && fold) ? (
+            <>
+              <RefreshButton
+                className={cn('shrink-0 text-muted-foreground hover:text-foreground', iconClass)}
+                iconOnly
+                label={t`Refresh`}
+                idleIcon={CheckConnectionIcon}
+                title={t`Refresh: check connection, sign-in and models`}
+                refreshing={providerActions.handshake.isPending}
+                disabled={busy}
+                onRefresh={() => providerActions.handshake.mutateAsync()}
+                size="icon-xs"
+                type="button"
+                variant="ghost"
               />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-44" side="top">
-              {setupItems}
-              {providerActions ? (
-                <>
-                  <DropdownMenuItem
-                    disabled={busy}
-                    onSelect={() => void providerActions.handshake.mutateAsync()}
-                  >
-                    <CheckConnectionIcon aria-hidden="true" />
-                    Refresh
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={busy}
-                    onSelect={() => void providerActions.refreshModels.mutateAsync()}
-                  >
-                    <RefreshIcon aria-hidden="true" />
-                    Reload models
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-              {logOut ? (
-                <DropdownMenuItem disabled={busy} onSelect={logOut.run}>
-                  <LogOutIcon aria-hidden="true" />
-                  {logOut.label}
-                </DropdownMenuItem>
-              ) : null}
-              {settingsItem}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
-        {manage && !fold && setup && !actions?.stage ? setup : null}
-        {providerActions && !(manage && fold) ? (
-          <>
-            <RefreshButton
-              className={cn('shrink-0 text-muted-foreground hover:text-foreground', iconClass)}
-              iconOnly
-              label="Refresh"
-              idleIcon={CheckConnectionIcon}
-              title="Refresh: check connection, sign-in and models"
-              refreshing={providerActions.handshake.isPending}
+              <RefreshButton
+                className={cn('shrink-0 text-muted-foreground hover:text-foreground', iconClass)}
+                iconOnly
+                label={t`Reload models`}
+                title={t`Reload models, updating the provider client first if needed`}
+                refreshing={providerActions.refreshModels.isPending}
+                disabled={busy}
+                onRefresh={() => providerActions.refreshModels.mutateAsync()}
+                size="icon-xs"
+                type="button"
+                variant="ghost"
+              />
+            </>
+          ) : null}
+          {logOut && !(manage && fold) ? (
+            <IconButton
+              className={cn('shrink-0', iconClass)}
               disabled={busy}
-              onRefresh={() => providerActions.handshake.mutateAsync()}
-              size="icon-xs"
+              icon={<LogOutIcon aria-hidden="true" />}
+              label={logOut.label}
+              onClick={logOut.run}
+              size="sm"
+              tooltipSide="top"
               type="button"
-              variant="ghost"
             />
-            <RefreshButton
-              className={cn('shrink-0 text-muted-foreground hover:text-foreground', iconClass)}
-              iconOnly
-              label="Reload models"
-              title="Reload models, updating the provider client first if needed"
-              refreshing={providerActions.refreshModels.isPending}
-              disabled={busy}
-              onRefresh={() => providerActions.refreshModels.mutateAsync()}
-              size="icon-xs"
-              type="button"
-              variant="ghost"
-            />
-          </>
-        ) : null}
-        {logOut && !(manage && fold) ? (
-          <IconButton
-            className={cn('shrink-0', iconClass)}
-            disabled={busy}
-            icon={<LogOutIcon aria-hidden="true" />}
-            label={logOut.label}
-            onClick={logOut.run}
-            size="sm"
-            tooltipSide="top"
-            type="button"
-          />
-        ) : null}
-        {manage && fold ? null : settings}
+          ) : null}
+          {manage && fold ? null : settings}
+        </span>
       </div>
     </TooltipProvider>
   );

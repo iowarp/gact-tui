@@ -26,13 +26,15 @@ import {
   SuggestionDetail,
 } from './composer-suggestion-popup';
 import { useHoveredRow } from './use-hovered-row';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 function StatusNote({ label, detail }: { label: string; detail: string }) {
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="shrink-0 rounded-[4px] bg-muted px-[5px] py-px text-[10.5px] font-medium text-muted-foreground">
+          <span className="shrink-0 rounded-[4px] bg-muted px-[5px] py-px text-[0.65625rem] font-medium text-muted-foreground">
             {label}
           </span>
         </TooltipTrigger>
@@ -48,32 +50,34 @@ export function CommandStatus({ command }: { command: CommandDefinition }): Reac
   if (command.disabled_reason === 'command_shadowed')
     return (
       <StatusNote
-        detail={detail || 'Another command file of the same name wins.'}
-        label="Shadowed"
+        detail={detail || t`Another command file of the same name wins.`}
+        label={t`Shadowed`}
       />
     );
   if (command.disabled_reason === 'command_name_reserved')
     return (
       <StatusNote
-        detail={detail || 'A built-in command already has this name.'}
-        label="Reserved name"
+        detail={detail || t`A built-in command already has this name.`}
+        label={t`Reserved name`}
       />
     );
   if (!command.enabled)
     // A specific reason reads inline in the row; only a bare one gets the tag.
-    return detail ? null : <StatusNote detail="This command cannot run." label="Unavailable" />;
+    return detail ? null : (
+      <StatusNote detail={t`This command cannot run.`} label={t`Unavailable`} />
+    );
   if (command.ambiguous)
     return (
       <StatusNote
-        detail={`Another source also has ${command.name}; this one runs as ${command.qualified_id}.`}
-        label="Same name elsewhere"
+        detail={t`Another source also has ${ph({ name: command.name })}; this one runs as ${ph({ qualified_id: command.qualified_id })}.`}
+        label={t`Same name elsewhere`}
       />
     );
   if (command.unsupported_fields.length)
     return (
       <StatusNote
-        detail={`This file’s ${command.unsupported_fields.join(', ')} settings are not used.`}
-        label="Some fields ignored"
+        detail={t`This file’s ${ph({ fields: command.unsupported_fields.join(', ') })} settings are not used.`}
+        label={t`Some fields ignored`}
       />
     );
   return null;
@@ -82,9 +86,9 @@ export function CommandStatus({ command }: { command: CommandDefinition }): Reac
 const keepFocus = (event: MouseEvent) => event.preventDefault();
 
 const KEY_HINTS = [
-  { id: 'menu-fill', label: 'Fill' },
-  { id: 'menu-pick', label: 'Run' },
-  { id: 'menu-close', label: 'Close' },
+  { id: 'menu-fill', label: t`Fill` },
+  { id: 'menu-pick', label: t`Run` },
+  { id: 'menu-close', label: t`Close` },
 ] as const;
 
 const commandKey = (command: CommandDefinition) =>
@@ -168,7 +172,7 @@ const CommandOption = memo(function CommandOption({
     >
       <span
         className={cn(
-          'shrink-0 font-mono text-[12px]',
+          'shrink-0 font-mono text-meta',
           command.enabled ? 'text-foreground' : 'text-muted-foreground',
         )}
       >
@@ -176,14 +180,14 @@ const CommandOption = memo(function CommandOption({
       </span>
       {detail ? (
         <span
-          className="min-w-0 flex-1 basis-0 truncate text-[11.5px] text-faint"
+          className="min-w-0 flex-1 basis-0 truncate text-label text-faint"
           data-slot={ROW_CUT_SLOT}
         >
           {detail}
         </span>
       ) : null}
       {status || source || active ? (
-        <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-[11px] text-faint">
+        <span className="ml-auto flex shrink-0 items-center gap-[11px] pl-2 text-caption text-faint">
           {status}
           {source ? <span>{source}</span> : null}
           {active ? <ShortcutKeys id="menu-pick" variant="row" /> : null}
@@ -208,20 +212,22 @@ function EmptyCommands({
   const typed = query.replace(/^\//u, '');
   const reason =
     state === 'loading' ? (
-      'Loading this agent’s commands…'
+      t`Loading this agent’s commands…`
     ) : state === 'failed' ? (
-      'This agent’s commands couldn’t be loaded. Delete the / to send a message.'
+      t`This agent’s commands couldn’t be loaded. Delete the / to send a message.`
     ) : available === 0 ? (
-      'This agent has no commands. Delete the / to send a message.'
+      t`This agent has no commands. Delete the / to send a message.`
     ) : typed ? (
       <>
-        No command matches <b className="font-medium text-foreground">{typed}</b>.
+        <Trans>
+          No command matches <b className="font-medium text-foreground">{typed}</b>.
+        </Trans>
       </>
     ) : (
-      'No command matches.'
+      t`No command matches.`
     );
   return (
-    <div className="flex min-w-0 items-center gap-[9px] px-2.5 pt-4 pb-2 text-[12.5px] text-muted-foreground">
+    <div className="flex min-w-0 items-center gap-[9px] px-2.5 pt-4 pb-2 text-menu text-muted-foreground">
       <SquareSlashIcon aria-hidden="true" className="size-4 shrink-0 text-faint" />
       <span className="min-w-0">{reason}</span>
     </div>
@@ -282,9 +288,9 @@ export function ClioComposerCommandMenu({
   useEffect(() => () => publishActiveOption(popoverId, undefined), [popoverId]);
   useEffect(() => onOpenChange?.(open), [onOpenChange, open]);
 
-  const latest = useRef({ active, choices, onPick, onRun, open, query });
+  const latest = useRef({ active, choices, groups, onPick, onRun, open, query });
   useLayoutEffect(() => {
-    latest.current = { active, choices, onPick, onRun, open, query };
+    latest.current = { active, choices, groups, onPick, onRun, open, query };
   });
 
   // The editor's own key handler sends the message on Enter, so the menu's keys
@@ -312,6 +318,17 @@ export function ClioComposerCommandMenu({
             : (at + step + current.choices.length) % current.choices.length;
         const command = current.choices[next];
         if (command) setHighlight({ key: commandKey(command), query: current.query });
+      } else if (event.key === 'PageDown' || event.key === 'PageUp') {
+        // The first runnable command of the next or previous group.
+        const runnable = current.groups
+          .map((group) => group.rows.filter((command) => command.enabled))
+          .filter((rows) => rows.length);
+        if (!runnable.length) return;
+        take();
+        const at = runnable.findIndex((rows) => current.active && rows.includes(current.active));
+        const step = event.key === 'PageDown' ? 1 : -1;
+        const next = runnable[(Math.max(at, 0) + step + runnable.length) % runnable.length]![0]!;
+        setHighlight({ key: commandKey(next), query: current.query });
       } else if (event.key === 'Tab' && !event.shiftKey && current.choices.length) {
         take();
         current.onPick(current.active ?? current.choices[0]!);
@@ -341,14 +358,14 @@ export function ClioComposerCommandMenu({
           aria-hidden="true"
           className="size-[15px] shrink-0 text-muted-foreground"
         />
-        <span aria-hidden="true" className="min-w-0 flex-1 truncate text-[13px]">
+        <span aria-hidden="true" className="min-w-0 flex-1 truncate text-ui">
           <span className="text-foreground">{query}</span>
-          {query === '/' ? <span className="text-faint"> type to search</span> : null}
+          {query === '/' ? <span className="text-faint"> {t`type to search`}</span> : null}
         </span>
         <MatchCount total={total} />
       </div>
       <div
-        aria-label="Suggestions"
+        aria-label={t`Suggestions`}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t px-1.5 pt-0.5 pb-1.5"
         onMouseLeave={hover.onLeave}
         role="listbox"
@@ -360,7 +377,7 @@ export function ClioComposerCommandMenu({
           <div aria-label={group.heading} key={group.heading} role="group">
             <div className={COMPOSER_GROUP_HEADING}>
               <span className="min-w-0 truncate">{group.heading}</span>
-              <span className="ml-auto shrink-0 font-mono text-[10.5px] font-normal text-faint tabular-nums">
+              <span className="ml-auto shrink-0 font-mono text-[0.65625rem] font-normal text-faint tabular-nums">
                 {group.rows.length}
               </span>
             </div>

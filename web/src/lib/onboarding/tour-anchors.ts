@@ -34,8 +34,9 @@ export function tourAnchor(id: TourAnchorId): { 'data-tour': TourAnchorId } {
  * The most prominent element carrying `id` in `scope` (the scope itself
  * included): the one showing the largest area inside the viewport. One name may
  * sit on a panel and on the control that opens it; an open panel wins, and a
- * closed one falls back to its control. With none in view, the first laid-out
- * one, for the caller to scroll to.
+ * closed one falls back to its control. A panel parked mostly off screen (a
+ * closed side panel's edge) loses to a control that is fully shown. With none
+ * in view, the first laid-out one, for the caller to scroll to.
  */
 export function findTourAnchor(
   id: TourAnchorId,
@@ -43,9 +44,12 @@ export function findTourAnchor(
 ): HTMLElement | undefined {
   const selector = `[${TOUR_ANCHOR_ATTRIBUTE}~="${id}"]`;
   const self = scope instanceof HTMLElement && scope.matches(selector) ? [scope] : [];
+  const viewportArea = window.innerWidth * window.innerHeight;
   let best: HTMLElement | undefined;
+  let shown: HTMLElement | undefined;
   let laidOut: HTMLElement | undefined;
   let bestArea = 0;
+  let shownArea = 0;
   for (const element of [...self, ...scope.querySelectorAll<HTMLElement>(selector)]) {
     const rect = element.getBoundingClientRect();
     if (!laidOut && rect.width > 0 && rect.height > 0) laidOut = element;
@@ -56,6 +60,11 @@ export function findTourAnchor(
       best = element;
       bestArea = area;
     }
+    const mostlyShown = area >= (rect.width * rect.height) / 2 || area >= viewportArea / 2;
+    if (area > 0 && mostlyShown && area > shownArea) {
+      shown = element;
+      shownArea = area;
+    }
   }
-  return best ?? laidOut;
+  return shown ?? best ?? laidOut;
 }

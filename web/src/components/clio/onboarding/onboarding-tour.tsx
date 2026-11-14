@@ -14,7 +14,6 @@ import { firstRunStep, readTourRecord, writeTourRecord } from '@/lib/onboarding/
 import { OnboardingTourContext } from '@/lib/onboarding/tour-context';
 import { ONBOARDING_TOUR_ENABLED } from '@/lib/onboarding/tour-flag';
 import { PRIMARY_SESSION_KINDS } from '@/lib/recent-sessions';
-import { isSettingsRoute } from '@/lib/settings-window-route';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 // The spotlight, card and practice conversation load when a tour starts, not at boot.
@@ -35,9 +34,19 @@ export function OnboardingTourProvider({ children }: { children: ReactNode }) {
   return <EnabledOnboardingTour>{children}</EnabledOnboardingTour>;
 }
 
+/**
+ * A replay asked for and not started yet. Closing a Settings window that has no
+ * workspace behind it remounts the app, so the request outlives this provider.
+ */
+let replayPending = false;
+
 function EnabledOnboardingTour({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const [requested, setRequested] = useState(false);
+  const [requested, setRequestedState] = useState(() => replayPending);
+  const setRequested = useCallback((next: boolean) => {
+    replayPending = next;
+    setRequestedState(next);
+  }, []);
   const [index, setIndex] = useState<number>();
   // A fresh install may still start the tour: hold other first-run prompts until it's decided.
   const [deciding, setDeciding] = useState(
@@ -49,13 +58,15 @@ function EnabledOnboardingTour({ children }: { children: ReactNode }) {
     void import('./tour-practice-stage');
     setIndex(undefined);
     setRequested(true);
-  }, []);
+  }, [setRequested]);
   const decided = useCallback(() => setDeciding(false), []);
   useFirstRunStart(start, decided, active || requested);
 
-  const overSettings = isSettingsRoute(location.pathname);
+  // The tour runs over a workspace: past Settings, and past the connect screen a
+  // detached Settings window may return to first.
+  const onWorkspace = location.pathname.startsWith('/workspaces/');
   useEffect(() => {
-    if (!requested || overSettings) return;
+    if (!requested || !onWorkspace) return;
     // Wait for Settings or any other dialog to finish closing.
     const timer = window.setInterval(() => {
       if (document.querySelector('[data-slot="dialog-content"], [role="alertdialog"]')) return;
@@ -64,7 +75,7 @@ function EnabledOnboardingTour({ children }: { children: ReactNode }) {
       setIndex(0);
     }, WAIT_MS);
     return () => window.clearInterval(timer);
-  }, [requested, overSettings]);
+  }, [requested, onWorkspace, setRequested]);
 
   const finish = useCallback((status: 'completed' | 'skipped') => {
     writeTourRecord({

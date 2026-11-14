@@ -18,6 +18,7 @@ import { useArtifactText } from './artifact-text-query';
 import { ClioMermaidDiagram } from './mermaid-diagram';
 import { buildZoneReference } from './data-zone-reference';
 import { readThemeColor, useThemeKey } from '@/theme/runtime';
+import { plural, t, ph } from '@lingui/core/macro';
 
 const workflowNode = z
   .object({
@@ -80,9 +81,11 @@ const STATE_TONES: Record<string, StateTone> = {
 function toneClassDef(tone: StateTone): string {
   if (tone === 'failed') {
     const color = readThemeColor('destructive');
+    // i18n-ignore: Mermaid source
     return `  classDef failed fill:${readThemeColor('card')},stroke:${color},color:${color}`;
   }
   const text = readThemeColor(`status-${tone}-foreground`);
+  // i18n-ignore: Mermaid source
   return `  classDef ${tone} fill:${readThemeColor(`status-${tone}`)},stroke:${text},color:${text}`;
 }
 
@@ -92,6 +95,7 @@ function workflowSource(
   selected?: string,
 ): string {
   const identifiers = new Map(nodes.map((node, index) => [node.id, `node${index}`]));
+  // i18n-ignore: Mermaid source
   const lines = ['flowchart LR'];
   for (const node of nodes) {
     const id = identifiers.get(node.id)!;
@@ -116,6 +120,7 @@ function workflowSource(
   }
   for (const [tone, ids] of tones) {
     lines.push(toneClassDef(tone));
+    // i18n-ignore: Mermaid source
     lines.push(`  class ${ids.join(',')} ${tone}`);
   }
   const selectedId = selected ? identifiers.get(selected) : undefined;
@@ -123,6 +128,7 @@ function workflowSource(
     lines.push(
       `  classDef selected fill:${readThemeColor('accent')},stroke:${readThemeColor('action')},stroke-width:3px`,
     );
+    // i18n-ignore: Mermaid source
     lines.push(`  class ${selectedId} selected`);
   }
   return lines.join('\n');
@@ -151,7 +157,10 @@ function ClioWorkflowDiagram({
   // The source carries resolved theme colors; re-render it when the theme changes.
   useThemeKey();
   const interactiveNodes = useMemo(() => nodes.map(({ id, label }) => ({ id, label })), [nodes]);
-  const selectNode = (id: string, modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
+  const selectNode = (
+    id: string,
+    modifiers: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean },
+  ) => {
     // A plain click runs the node's own action; a modified click only extends the selection.
     if (!modifiers.shiftKey && !modifiers.ctrlKey && !modifiers.metaKey)
       void nodes.find((node) => node.id === id)?.action?.();
@@ -163,18 +172,28 @@ function ClioWorkflowDiagram({
     });
   };
   const selectedNodes = nodes.filter((node) => selectedNodeIds.includes(node.id));
-  const reference = () => buildZoneReference({
-    componentLabel: 'Workflow',
-    datasetLabel: dataUri ?? 'inline workflow',
-    filters: [],
-    zoneDescription: selectedNodes.length ? `${selectedNodes.length} selected workflow ${selectedNodes.length === 1 ? 'step' : 'steps'}` : 'the whole workflow',
-    previewColumns: ['id', 'label', 'state', 'detail'],
-    previewRows: selectedNodes,
-    query: {
-      ...(dataUri ? { dataUri } : { nodes, edges }),
-      ...(selectedNodes.length ? { selection: { field: 'id', values: selectedNodes.map((node) => node.id) } } : {}),
-    },
-  });
+  const focusLabel = nodes.find((node) => node.id === selected)?.label;
+  const reference = () =>
+    buildZoneReference({
+      // i18n-ignore: zone reference quoted to the agent
+      componentLabel: 'Workflow',
+      datasetLabel: dataUri ?? 'inline workflow',
+      filters: [],
+      zoneDescription: selectedNodes.length
+        ? plural(selectedNodes.length, {
+            one: '# selected workflow step',
+            other: '# selected workflow steps',
+          })
+        : t`the whole workflow`,
+      previewColumns: ['id', 'label', 'state', 'detail'],
+      previewRows: selectedNodes,
+      query: {
+        ...(dataUri ? { dataUri } : { nodes, edges }),
+        ...(selectedNodes.length
+          ? { selection: { field: 'id', values: selectedNodes.map((node) => node.id) } }
+          : {}),
+      },
+    });
   return (
     <div {...a2uiAccessibilityProps(accessibility)} className="grid gap-2" role="group">
       <ClioMermaidDiagram
@@ -182,16 +201,38 @@ function ClioWorkflowDiagram({
         accessibilityLabel={a2uiAccessibilityLabel(accessibility)}
         dataUri={dataUri}
         source={workflowSource(nodes, edges, selected)}
-        title="Workflow"
+        title={t`Workflow`}
         interactiveNodes={interactiveNodes}
         selectedNodeIds={selectedNodeIds}
         onNodeClick={selectNode}
         referenceOverride={reference}
       />
-      <div className="sr-only focus-within:not-sr-only focus-within:flex focus-within:flex-wrap focus-within:gap-1" aria-label="Workflow steps" role="group">
-        {nodes.map((node) => <Button aria-pressed={selectedNodeIds.includes(node.id)} key={node.id} onClick={(event) => selectNode(node.id, event)} size="sm" type="button" variant="outline">Select {node.label}</Button>)}
+      <div
+        className="sr-only focus-within:not-sr-only focus-within:flex focus-within:flex-wrap focus-within:gap-1"
+        aria-label={t`Workflow steps`}
+        role="group"
+      >
+        {nodes.map((node) => (
+          <Button
+            aria-pressed={selectedNodeIds.includes(node.id)}
+            key={node.id}
+            onClick={(event) => selectNode(node.id, event)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >{t`Select ${ph({ label: node.label })}`}</Button>
+        ))}
       </div>
-      {selectedNodes.length ? <div className="flex items-center gap-2 text-xs" aria-live="polite"><span className="min-w-0 truncate">Selected: {selectedNodes.map((node) => node.label).join(', ')}</span><Button onClick={() => setSelectedNodeIds([])} size="xs" variant="ghost">Clear</Button></div> : null}
+      {selectedNodes.length ? (
+        <div className="flex items-center gap-2 text-xs" aria-live="polite">
+          <span className="min-w-0 truncate">
+            {t`Selected: ${ph({ steps: selectedNodes.map((node) => node.label).join(', ') })}`}
+          </span>
+          <Button onClick={() => setSelectedNodeIds([])} size="xs" variant="ghost">
+            {t({ message: 'Clear', context: 'verb' })}
+          </Button>
+        </div>
+      ) : null}
       {action && selected ? (
         <Button
           className="justify-self-start"
@@ -199,7 +240,7 @@ function ClioWorkflowDiagram({
           size="sm"
           variant="outline"
         >
-          Focus {nodes.find((node) => node.id === selected)?.label ?? 'selected step'}
+          {focusLabel ? t`Focus ${focusLabel}` : t`Focus selected step`}
         </Button>
       ) : null}
     </div>
@@ -237,7 +278,7 @@ function ClioWorkflowArtifactSource({
   if (error) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Workflow unavailable</AlertTitle>
+        <AlertTitle>{t`Workflow unavailable`}</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
@@ -248,9 +289,9 @@ function ClioWorkflowArtifactSource({
   if ('error' in parsed) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Workflow unavailable</AlertTitle>
+        <AlertTitle>{t`Workflow unavailable`}</AlertTitle>
         <AlertDescription>
-          the referenced file is not a valid {'{nodes, edges}'} workflow: {parsed.error}
+          {t`the referenced file is not a valid ${ph({ shape: '{nodes, edges}' })} workflow: ${ph({ error: parsed.error })}`}
         </AlertDescription>
       </Alert>
     );
@@ -270,7 +311,10 @@ function ClioWorkflowArtifactSource({
 const workflowDataProperties = {
   nodes: z.array(inlineWorkflowNode).min(1).max(A2UI_WORKFLOW_NODES_MAX).optional(),
   edges: z.array(workflowEdge).max(A2UI_WORKFLOW_EDGES_MAX).optional(),
-  dataUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
+  dataUri: z
+    .string()
+    .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)
+    .optional(),
   selected: CommonSchemas.DynamicString.optional(),
   action: CommonSchemas.Action.optional(),
   accessibility: CommonSchemas.AccessibilityAttributes.optional(),
@@ -283,6 +327,7 @@ type WorkflowShape = z.infer<z.ZodObject<typeof workflowDataProperties>>;
 function checkWorkflowComponent(value: WorkflowShape, context: z.RefinementCtx): void {
   const inline = Boolean(value.nodes) || Boolean(value.edges);
   if (inline === Boolean(value.dataUri)) {
+    // i18n-ignore: validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'Provide exactly one of nodes+edges or dataUri' });
   }
   if (inline && (!value.nodes || !value.edges)) {

@@ -3,19 +3,19 @@ import { providerActionStageFlow, providerActionStageWord } from './provider-act
 
 describe('provider action flows', () => {
   it('names a running stage by its step for the provider row', () => {
-    expect(providerActionStageWord('Verifying GitHub Copilot…')).toBe('Verifying…');
-    expect(providerActionStageWord('Loading models…')).toBe('Loading models…');
-    expect(providerActionStageWord('Waiting for you to log in…')).toBe('Logging in…');
-    expect(providerActionStageWord('Checking…')).toBe('Checking…');
-    expect(providerActionStageWord('Waiting to install…')).toBe('Waiting to install…');
-    expect(providerActionStageWord('Installing…')).toBe('Installing…');
-    expect(providerActionStageWord('Saving your key…')).toBe('Saving your key…');
-    expect(providerActionStageWord('Logging out…')).toBe('Logging out…');
+    expect(providerActionStageWord('verifying:GitHub Copilot')).toBe('Verifying…');
+    expect(providerActionStageWord('loading-models')).toBe('Loading models…');
+    expect(providerActionStageWord('sign-in-waiting')).toBe('Logging in…');
+    expect(providerActionStageWord('checking')).toBe('Checking…');
+    expect(providerActionStageWord('install-waiting')).toBe('Waiting to install…');
+    expect(providerActionStageWord('installing')).toBe('Installing…');
+    expect(providerActionStageWord('key-saving')).toBe('Saving your key…');
+    expect(providerActionStageWord('logging-out')).toBe('Logging out…');
   });
 
   it('keeps a sign-in on its own steps once the provider reports signed in', () => {
-    expect(providerActionStageFlow('check', 'Verifying GitHub Copilot…')).toBe('sign_in');
-    expect(providerActionStageFlow('check', 'Loading models…')).toBe('sign_in');
-    expect(providerActionStageFlow('check', 'Checking…')).toBe('check');
+    expect(providerActionStageFlow('check', 'verifying:GitHub Copilot')).toBe('sign_in');
+    expect(providerActionStageFlow('check', 'loading-models')).toBe('sign_in');
+    expect(providerActionStageFlow('check', 'checking')).toBe('check');
   });
 });

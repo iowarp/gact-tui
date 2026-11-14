@@ -6,6 +6,7 @@ import { useShortcut } from '@/lib/shortcuts/hooks';
 import { IconButton } from './primitives/icon-button';
 import { Tag } from './primitives/tag';
 import { TruncatedText } from './primitives/truncate';
+import { t } from '@lingui/core/macro';
 
 export interface SavedDraftRowProps {
   draft: SavedDraft;
@@ -35,20 +36,20 @@ export function SavedDraftRow({ draft, latest, onDelete, onRestore }: SavedDraft
   );
   return (
     <li
-      className="group/saved-row flex h-7 min-w-0 items-center gap-1.5 rounded-[6px] pr-0.5 pl-1 text-[13px] whitespace-nowrap hover:bg-hover focus-within:bg-hover"
+      className="group/saved-row flex h-7 min-w-0 items-center gap-1.5 rounded-[6px] pr-0.5 pl-1 text-ui whitespace-nowrap hover:bg-hover focus-within:bg-hover"
       data-queue-live-item=""
       data-slot="composer-saved-draft"
       ref={rowRef}
       tabIndex={-1}
     >
-      <Tag title="Saved for later, not sent" tone="chip" width="auto">
-        Saved
+      <Tag title={t`Saved for later, not sent`} tone="chip" width="auto">
+        {t`Saved`}
       </Tag>
       <span className="flex min-w-0 flex-1">
         {text ? (
           <TruncatedText className="text-foreground">{text}</TruncatedText>
         ) : (
-          <TruncatedText className="text-muted-foreground">References only</TruncatedText>
+          <TruncatedText className="text-muted-foreground">{t`References only`}</TruncatedText>
         )}
       </span>
       <span
@@ -57,7 +58,7 @@ export function SavedDraftRow({ draft, latest, onDelete, onRestore }: SavedDraft
       >
         <IconButton
           icon={<DeleteIcon />}
-          label="Delete saved draft"
+          label={t`Delete saved draft`}
           onClick={onDelete}
           shortcut="queue-delete"
           size="sm"
@@ -65,7 +66,7 @@ export function SavedDraftRow({ draft, latest, onDelete, onRestore }: SavedDraft
       </span>
       <IconButton
         icon={<CornerUpLeftIcon />}
-        label="Back to the composer"
+        label={t`Back to the composer`}
         onClick={onRestore}
         shortcut={latest ? 'restore-draft' : undefined}
         size="sm"

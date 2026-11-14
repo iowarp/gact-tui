@@ -5,13 +5,8 @@ import { IconButton } from '@/components/clio/primitives/icon-button';
 import { SettingsChoice, SettingsRow } from '@/components/clio/settings-row';
 import { SettingsSectionHeading } from '@/components/clio/settings-section-heading';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select as SelectPrimitive } from 'radix-ui';
+import { Select, SelectContent, SelectItem } from '@/components/ui/select';
 import { playAttentionSound } from '@/lib/attention-sound';
 import { vocab } from '@/lib/brand-vocabulary';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
@@ -27,11 +22,41 @@ import {
   type FinishedWorkMode,
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import { SettingsSelectField } from './model-select-field';
 
-const SELECT_TRIGGER =
-  'w-[150px] px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
+// The spec's 150 px is the floor; a longer translation widens the field up to its column,
+// and past that the value wraps inside a taller field rather than being cut.
+const SELECT_FIELD = 'h-auto min-h-[1.875rem] w-fit min-w-[9.375rem] max-w-full py-1';
+
+/**
+ * The chosen value over zero-height copies of every choice in this section, so both
+ * selects take the width of the longest one: aligned, and steady when the value changes.
+ * Only the shown value sets the height, and it wraps when the column is narrower.
+ */
+function NotificationValue({ value, choices }: { value: string; choices: readonly string[] }) {
+  return (
+    <span className="grid min-w-0 grid-cols-[minmax(0,1fr)]">
+      {choices.map((choice) => (
+        <span
+          aria-hidden="true"
+          className="invisible col-start-1 row-start-1 h-0 overflow-hidden whitespace-nowrap"
+          key={choice}
+        >
+          {choice}
+        </span>
+      ))}
+      <span className="col-start-1 row-start-1 whitespace-normal [overflow-wrap:anywhere]">
+        {value}
+      </span>
+    </span>
+  );
+}
 
 /** Sound, desktop alerts, finished work and where the bell's settings icon leads. */
+const { agent } = vocab;
+
 export function NotificationSettings() {
   const {
     attentionSound,
@@ -41,6 +66,16 @@ export function NotificationSettings() {
     setDesktopNotifications,
     setFinishedWork,
   } = useNotificationPreferences();
+  const alertLabels = { 'needs-you': t`Needs you`, off: t`Off` } as const;
+  const finishedLabels: Record<FinishedWorkMode, string> = {
+    bell: t`Bell only`,
+    desktop: t`Desktop alert`,
+    off: t`Off`,
+  };
+  const choices = [
+    ...new Set([...Object.values(alertLabels), ...Object.values(finishedLabels)]),
+  ];
+  const alertValue = desktopNotifications ? 'needs-you' : 'off';
   const [permission, setPermission] = useState<SystemNotificationPermission>('default');
   useEffect(() => {
     let current = true;
@@ -62,16 +97,16 @@ export function NotificationSettings() {
   // Both desktop choices need the system's permission before they are kept.
   const allowDesktopAlerts = async () => {
     if (!supported) {
-      toast.error('Desktop notifications are not available here');
+      toast.error(t`Desktop notifications are not available here`);
       return false;
     }
     const answer = await requestNotificationPermission();
     setPermission(answer);
     if (answer !== 'granted') {
-      toast.error('Desktop notifications were not enabled', {
+      toast.error(t`Desktop notifications were not enabled`, {
         description: inTauri()
-          ? 'Allow notifications for this app in System Settings › Notifications.'
-          : 'Allow notifications for this site in your browser settings.',
+          ? t`Allow notifications for this app in System Settings › Notifications.`
+          : t`Allow notifications for this site in your browser settings.`,
       });
       return false;
     }
@@ -84,115 +119,124 @@ export function NotificationSettings() {
     if (mode !== 'desktop' || (await allowDesktopAlerts())) setFinishedWork(mode);
   };
   const permissionNote = !supported
-    ? 'Not available here'
+    ? t`Not available here`
     : blocked
       ? inTauri()
-        ? 'Turned off in system settings'
-        : 'Blocked in browser settings'
+        ? t`Turned off in system settings`
+        : t`Blocked in browser settings`
       : permission === 'default' && (desktopNotifications || finishedWork === 'desktop')
-        ? 'Not allowed yet'
+        ? t`Not allowed yet`
         : undefined;
 
   return (
     <div>
       <SettingsSectionHeading
-        title="Notifications"
-        info={`How ${vocab.agent} alerts you when a session needs your approval or answer. The sidebar attention marker stays visible with sound and alerts off.`}
+        title={t`Notifications`}
+        info={t`How ${agent} alerts you when a session needs your approval or answer. The sidebar attention marker stays visible with sound and alerts off.`}
       />
-      <SettingsRow title="Sound">
+      <SettingsRow title={t`Sound`}>
         <SettingsChoice
           id="attention-sound"
-          label="Sound"
+          label={t`Sound`}
           value={attentionSound}
           onChange={(value) => setAttentionSound(value as AttentionSoundMode)}
           options={[
             {
               value: 'background',
-              label: 'In background',
-              description: 'Sound only while this app is not focused.',
+              label: t`In background`,
+              description: t`Sound only while this app is not focused.`,
             },
-            { value: 'always', label: 'Always', description: 'Sound even while you are here.' },
-            { value: 'off', label: 'Off', description: 'No sound.' },
+            { value: 'always', label: t`Always`, description: t`Sound even while you are here.` },
+            { value: 'off', label: t`Off`, description: t`No sound.` },
           ]}
         />
         <IconButton
           icon={<Volume2Icon />}
-          label="Play test sound"
+          label={t`Play test sound`}
           onClick={() => {
             void playAttentionSound().then((played) => {
-              if (!played) toast.error('This browser could not play the attention sound');
+              if (!played) toast.error(t`This browser could not play the attention sound`);
             });
           }}
         />
       </SettingsRow>
       <SettingsRow
-        title="Desktop alerts"
+        title={t`Desktop alerts`}
         htmlFor="desktop-attention-notifications"
-        info="When to show a system notice while the app is in the background. The system asks for permission the first time."
+        info={t`When to show a system notice while the app is in the background. The system asks for permission the first time.`}
         note={permissionNote}
       >
         {permission === 'default' && (desktopNotifications || finishedWork === 'desktop') ? (
           <Button onClick={() => void allowDesktopAlerts()} size="sm" variant="outline">
-            Allow
+            {t`Allow`}
           </Button>
         ) : null}
         {blocked && inTauri() ? (
-          <Button
-            onClick={() => void openNotificationSettings()}
-            size="sm"
-            variant="outline"
-          >
-            Open System Settings
+          <Button onClick={() => void openNotificationSettings()} size="sm" variant="outline">
+            {t`Open System Settings`}
           </Button>
         ) : null}
         <Select
           disabled={!supported}
-          value={desktopNotifications ? 'needs-you' : 'off'}
+          value={alertValue}
           onValueChange={(value) => void updateDesktopNotifications(value === 'needs-you')}
         >
-          <SelectTrigger className={SELECT_TRIGGER} id="desktop-attention-notifications">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectPrimitive.Trigger asChild>
+            <SettingsSelectField
+              className={SELECT_FIELD}
+              id="desktop-attention-notifications"
+              title={alertLabels[alertValue]}
+              value={<NotificationValue choices={choices} value={alertLabels[alertValue]} />}
+            />
+          </SelectPrimitive.Trigger>
           <SelectContent align="end">
-            <SelectItem value="needs-you">Needs you</SelectItem>
-            <SelectItem value="off">Off</SelectItem>
+            <SelectItem value="needs-you">{alertLabels['needs-you']}</SelectItem>
+            <SelectItem value="off">{alertLabels.off}</SelectItem>
           </SelectContent>
         </Select>
       </SettingsRow>
       <SettingsRow
-        title="Finished work"
+        title={t`Finished work`}
         htmlFor="finished-work-notifications"
-        info="Where a finished or stopped run tells you. Desktop alert also shows a system notice while the app is in the background."
+        info={t`Where a finished or stopped run tells you. Desktop alert also shows a system notice while the app is in the background.`}
       >
         <Select
           value={finishedWork}
           onValueChange={(value) => void updateFinishedWork(value as FinishedWorkMode)}
         >
-          <SelectTrigger className={SELECT_TRIGGER} id="finished-work-notifications">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectPrimitive.Trigger asChild>
+            <SettingsSelectField
+              className={SELECT_FIELD}
+              id="finished-work-notifications"
+              title={finishedLabels[finishedWork]}
+              value={<NotificationValue choices={choices} value={finishedLabels[finishedWork]} />}
+            />
+          </SelectPrimitive.Trigger>
           <SelectContent align="end">
-            <SelectItem value="bell">Bell only</SelectItem>
+            <SelectItem value="bell">{finishedLabels.bell}</SelectItem>
             <SelectItem disabled={!supported} value="desktop">
-              Desktop alert
+              {finishedLabels.desktop}
             </SelectItem>
-            <SelectItem value="off">Off</SelectItem>
+            <SelectItem value="off">{finishedLabels.off}</SelectItem>
           </SelectContent>
         </Select>
       </SettingsRow>
       <p
-        className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-faint"
+        className="flex min-h-[1.875rem] min-w-0 items-start gap-2 py-[0.4375rem] text-xs text-muted-foreground"
         data-slot="settings-footnote"
       >
-        <BellIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
-        <span className="flex min-w-0 items-center gap-1 truncate">
-          {'The bell\u2019s'}
-          <SettingsIcon
-            aria-label="Notification settings"
-            role="img"
-            className="size-[0.8125rem] shrink-0"
-          />
-          opens this page.
+        <BellIcon aria-hidden="true" className="mt-px size-[0.8125rem] shrink-0" />
+        {/* Inline text, so a longer translation wraps with the icon in its sentence. */}
+        <span className="min-w-0 text-pretty">
+          <Trans>
+            The bell’s
+            <SettingsIcon
+              aria-label={t`Notification settings`}
+              role="img"
+              className="mx-1 inline size-[0.8125rem] align-[-0.125rem]"
+            />
+            opens this page.
+          </Trans>
         </span>
       </p>
     </div>

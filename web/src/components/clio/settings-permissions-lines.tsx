@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { t } from '@lingui/core/macro';
 
 /** One faint line under a group label: the empty state of a list. */
 export function GroupEmptyLine({ children }: { children: ReactNode }) {
   return (
     <p
-      className="truncate border-b border-border/70 px-2 py-2.5 text-xs text-faint max-[599px]:whitespace-normal"
+      className="truncate border-b border-border/70 px-2 py-2.5 text-xs text-muted-foreground max-[599px]:whitespace-normal"
       data-announce-state=""
       title={typeof children === 'string' ? children : undefined}
     >
@@ -37,7 +38,7 @@ export function GroupErrorLine({
         size="xs"
         variant="link"
       >
-        {retrying ? 'Retrying' : 'Retry'}
+        {retrying ? t`Retrying` : t`Retry`}
       </Button>
     </p>
   );

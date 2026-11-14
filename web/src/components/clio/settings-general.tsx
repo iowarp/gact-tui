@@ -12,6 +12,7 @@ import { AppUpdateSettings, BetaUpdatesRow } from './settings-app-updates';
 import { SettingsNumberField } from './settings-general-number-field';
 import { SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { plural, t } from '@lingui/core/macro';
 
 interface TypedDraft {
   paste?: string;
@@ -38,10 +39,10 @@ export function GeneralSettings() {
   const preview = draft.preview ?? String(collapseThreshold);
   const pasteValue = wholeNumber(paste);
   const previewValue = wholeNumber(preview);
-  const pasteError = pasteValue === undefined ? 'Enter 0 or more.' : undefined;
+  const pasteError = pasteValue === undefined ? t`Enter 0 or more.` : undefined;
   const previewError =
     previewValue === undefined || previewValue < 1 || previewValue > 50
-      ? 'Enter 1 to 50.'
+      ? t`Enter 1 to 50.`
       : undefined;
   const pasteDirty = draft.paste !== undefined && pasteValue !== pasteSourceThreshold;
   const previewDirty = draft.preview !== undefined && previewValue !== collapseThreshold;
@@ -49,13 +50,16 @@ export function GeneralSettings() {
 
   return (
     <div>
-      <SettingsSectionHeading title="General" description="App preferences for this device." />
+      <SettingsSectionHeading
+        title={t`General`}
+        description={t`App preferences for this device.`}
+      />
       <SettingsRow
-        info="Text pastes at or above this many characters become clickable .txt attachments under Sources. Use 0 to keep all pastes inline."
+        info={t`Text pastes at or above this many characters become clickable .txt attachments under Sources. Use 0 to keep all pastes inline.`}
         dirty={pasteDirty}
         error={pasteDirty ? pasteError : undefined}
         htmlFor="paste-source-threshold"
-        title="Paste as source after"
+        title={t`Paste as source after`}
       >
         <SettingsNumberField
           className="w-[8.5rem]"
@@ -63,16 +67,16 @@ export function GeneralSettings() {
           invalid={pasteDirty && Boolean(pasteError)}
           min={0}
           onChange={(next) => setDraft((current) => ({ ...current, paste: next }))}
-          unit="chars"
+          unit={t`chars`}
           value={paste}
         />
       </SettingsRow>
       <SettingsRow
-        info="Show more opens the full result. Diff previews use twice this limit."
+        info={t`Show more opens the full result. Diff previews use twice this limit.`}
         dirty={previewDirty}
         error={previewDirty ? previewError : undefined}
         htmlFor="transcript-preview-lines"
-        title="Transcript preview lines"
+        title={t`Transcript preview lines`}
       >
         <SettingsNumberField
           className="w-[8.5rem]"
@@ -81,15 +85,15 @@ export function GeneralSettings() {
           max={50}
           min={1}
           onChange={(next) => setDraft((current) => ({ ...current, preview: next }))}
-          unit="lines"
+          unit={t`lines`}
           value={preview}
         />
       </SettingsRow>
       <SettingsRow
-        info="Hide dot-prefixed paths from the workspace Files view."
+        info={t`Hide dot-prefixed paths from the workspace Files view.`}
         htmlFor="hide-dot-files"
         inlineControl
-        title="Hide dot files and folders"
+        title={t`Hide dot files and folders`}
       >
         <Switch id="hide-dot-files" checked={hideDotFiles} onCheckedChange={setHideDotFiles} />
       </SettingsRow>
@@ -103,7 +107,7 @@ export function GeneralSettings() {
           if (pasteDirty && pasteValue !== undefined) setPasteSourceThreshold(pasteValue);
           if (previewDirty && previewValue !== undefined) setCollapseThreshold(previewValue);
           setDraft({});
-          announce(count === 1 ? 'Change saved' : `${count} changes saved`);
+          announce(plural(count, { 1: 'Change saved', other: '# changes saved' }));
         }}
       />
     </div>
@@ -116,9 +120,9 @@ function ReplayTutorialRow() {
   const close = useCloseSettingsWindow();
   return (
     <SettingsRow
-      info="A short walkthrough with a practice conversation. Nothing in it is sent or saved."
+      info={t`A short walkthrough with a practice conversation. Nothing in it is sent or saved.`}
       inlineControl
-      title="Replay tutorial"
+      title={t`Replay tutorial`}
     >
       <Button
         onClick={() => {
@@ -128,7 +132,7 @@ function ReplayTutorialRow() {
         size="sm"
         variant="outline"
       >
-        Replay
+        {t`Replay`}
       </Button>
     </SettingsRow>
   );

@@ -20,9 +20,24 @@ function subscribe(onChange: () => void): () => void {
   const observer = new MutationObserver(onChange);
   observer.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['class', 'data-theme', 'style'],
+    attributeFilter: ['class', 'data-theme', 'style', 'data-clio-interface-size'],
   });
   return () => observer.disconnect();
+}
+
+/**
+ * The root font size over 16px: 1 at the default size, 1.5 at Interface size
+ * 150%. Renderers that take a font size in px (canvas, SVG layout, terminals)
+ * multiply by it so they scale with the rem-based interface around them.
+ */
+export function interfaceScale(root: HTMLElement = document.documentElement): number {
+  const size = Number.parseFloat(getComputedStyle(root).fontSize);
+  return Number.isFinite(size) && size > 0 ? size / 16 : 1;
+}
+
+/** Re-renders when the interface size changes. */
+export function useInterfaceScale(): number {
+  return useSyncExternalStore(subscribe, () => interfaceScale(), () => 1);
 }
 
 /** Re-renders when the theme or its variant changes. */

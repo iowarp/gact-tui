@@ -160,6 +160,7 @@ export class BrowserClioTransport implements ClioTransport {
     try {
       if (signal?.aborted) {
         cancelReader();
+        // i18n-ignore: AbortError reason, developer output
         throw new DOMException('The operation was aborted', 'AbortError');
       }
       for (;;) {

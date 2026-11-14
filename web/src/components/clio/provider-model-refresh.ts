@@ -1,15 +1,19 @@
 import type { ClioRepository, ProviderModelRefreshResult } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
 import { providerManagedClientVendor } from '@/lib/provider-presentation';
+import { ph, plural, t } from '@lingui/core/macro';
+import type { ProviderActionStage } from './provider-actions';
+
+const { agent } = vocab;
 
 const UPDATE_STAGE = {
-  checking: 'Checking client updates…',
-  downloading: 'Downloading client…',
-  installing: 'Updating client…',
-  verifying: 'Checking updated client…',
-  done: 'Finding models…',
-  failed: 'Client update failed.',
-} as const;
+  checking: 'client-checking',
+  downloading: 'client-downloading',
+  installing: 'client-updating',
+  verifying: 'client-verifying',
+  done: 'finding-models',
+  failed: 'client-failed',
+} as const satisfies Record<string, ProviderActionStage>;
 export type ProviderModelRefreshStage = (typeof UPDATE_STAGE)[keyof typeof UPDATE_STAGE];
 
 /** Refresh the real client before discovering models; never invent account access. */
@@ -32,7 +36,7 @@ export async function refreshModelsWithClient({
 }): Promise<{ result?: ProviderModelRefreshResult; notice?: string }> {
   const vendor = providerManagedClientVendor(providerKind);
   const managedClient = vendor !== undefined;
-  const company = vendor ?? 'provider';
+  const company = vendor ?? t`provider`;
   let updated = false;
   let restartRequired = false;
   let clientUnavailable = false;
@@ -51,25 +55,35 @@ export async function refreshModelsWithClient({
         job = await repository.providerComponentUpdate(providerId);
       }
       if (job.stage === 'failed')
-        throw new Error(job.error?.message || 'Could not update the provider client.');
+        throw new Error(job.error?.message || t`Could not update the provider client.`);
       updated = job.changed;
       restartRequired = job.restart_required;
     }
   }
-  onStage('Finding models…');
+  onStage('finding-models');
   const results = await repository.refreshProviderModels([providerId]);
   const result = results[0];
-  if (!result) throw new Error('The service returned no catalog result for this provider.');
+  if (!result) throw new Error(t`The service returned no catalog result for this provider.`);
   if (result.failed_reason) return { result };
   const notice = restartRequired
-    ? `Model catalog refreshed. Client updated; restart ${vocab.agent} to use it.`
+    ? t`Model catalog refreshed. Client updated; restart ${agent} to use it.`
     : clientUnavailable
-      ? `Model catalog refreshed. No compatible client update is available yet; wait for an official ${company} client release.`
+      ? t`Model catalog refreshed. No compatible client update is available yet; wait for an official ${company} client release.`
       : !result.added.length
         ? managedClient
-          ? `${updated ? 'Client updated' : 'Latest available client'}; no new models found. New models may need an official ${company} client update.`
-          : 'Checked for new models; no new models found.'
-        : `Found ${result.added.length} new ${result.added.length === 1 ? 'model' : 'models'}${updated ? ' after updating the client' : ''}.`;
+          ? updated
+            ? t`Client updated; no new models found. New models may need an official ${company} client update.`
+            : t`Latest available client; no new models found. New models may need an official ${company} client update.`
+          : t`Checked for new models; no new models found.`
+        : updated
+          ? plural(result.added.length, {
+              one: 'Found # new model after updating the client.',
+              other: 'Found # new models after updating the client.',
+            })
+          : plural(result.added.length, {
+              one: 'Found # new model.',
+              other: 'Found # new models.',
+            });
   const waiting = result.rejected.filter(
     (row) => row.code === 'client_update_required' || row.code === 'client_version_unknown',
   );
@@ -79,14 +93,27 @@ export async function refreshModelsWithClient({
   const waitingSummary = restartRequired
     ? notice
     : clientUnavailable
-      ? 'Catalog refreshed; no compatible client update is available yet.'
+      ? t`Catalog refreshed; no compatible client update is available yet.`
       : updated
-        ? 'Client updated and catalog refreshed.'
-        : 'Client is up to date; catalog refreshed.';
+        ? t`Client updated and catalog refreshed.`
+        : t`Client is up to date; catalog refreshed.`;
   return {
     result,
     notice: waiting.length
-      ? `${waitingSummary} ${waiting.length} catalogued ${waiting.length === 1 ? 'model needs' : 'models need'} a newer ${company} client${requiredVersions.length ? ` (${requiredVersions.join(', ')} or later)` : ''}. Check again after an official client update.`
+      ? t`${waitingSummary} ${ph({ waiting: waitingSentence(waiting.length, company, requiredVersions.join(', ')) })}`
       : notice,
   };
+}
+
+/** How many catalogued models wait for a newer client, as one sentence. */
+function waitingSentence(count: number, company: string, versions: string): string {
+  return versions
+    ? plural(count, {
+        one: `# catalogued model needs a newer ${company} client (${versions} or later). Check again after an official client update.`,
+        other: `# catalogued models need a newer ${company} client (${versions} or later). Check again after an official client update.`,
+      })
+    : plural(count, {
+        one: `# catalogued model needs a newer ${company} client. Check again after an official client update.`,
+        other: `# catalogued models need a newer ${company} client. Check again after an official client update.`,
+      });
 }

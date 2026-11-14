@@ -17,6 +17,7 @@ import {
   type SessionRailLayout,
   type SessionRailSectionId,
 } from './session-rail-layout';
+import { ph, t } from '@lingui/core/macro';
 
 /** A section moves up or down with Alt (⌥) and the arrow. */
 const MOVE_KEYS = ['Alt+Up', 'Alt+Down'] as const;
@@ -35,9 +36,9 @@ export function SessionRailCustomize({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <IconButton size="sm" label="Customize rail" icon={<AdjustIcon aria-hidden="true" />} />
+        <IconButton size="sm" label={t`Customize rail`} icon={<AdjustIcon aria-hidden="true" />} />
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 gap-0 p-2" aria-label="Customize rail">
+      <PopoverContent align="end" className="w-72 gap-0 p-2" aria-label={t`Customize rail`}>
         <div className="clio-scrollbar max-h-[min(28rem,calc(var(--radix-popover-content-available-height)-6rem))] overflow-y-auto">
           {(['now', 'conversation'] as const).map((group) => (
             <div key={group}>
@@ -52,8 +53,8 @@ export function SessionRailCustomize({
           ))}
         </div>
         <div className="mt-1 flex h-9 items-center gap-2 border-t px-2 pt-1">
-          <label htmlFor={hideEmptyId} className="flex-1 text-[13px]">
-            Hide empty sections
+          <label htmlFor={hideEmptyId} className="flex-1 text-ui">
+            {t`Hide empty sections`}
           </label>
           <Switch
             id={hideEmptyId}
@@ -63,7 +64,7 @@ export function SessionRailCustomize({
           />
         </div>
         <Button variant="ghost" size="sm" className="mt-1 h-8 w-full text-xs" onClick={onReset}>
-          Reset layout
+          {t`Reset layout`}
         </Button>
       </PopoverContent>
     </Popover>
@@ -89,7 +90,7 @@ function SectionOrder({
       strategy="vertical"
       modifiers={[restrictToVerticalAxis]}
       onValueChange={(next) => onChange(reorderSessionRail(layout, next))}
-      aria-label={`${label} sections`}
+      aria-label={t`${label} sections`}
       role="list"
     >
       {order.map((id, index) => {
@@ -111,10 +112,10 @@ function SectionOrder({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 min-w-0 flex-1 cursor-grab touch-none justify-start gap-2 px-2 text-[13px] font-normal active:cursor-grabbing"
-                aria-label={`Drag ${name} in layout`}
+                className="h-8 min-w-0 flex-1 cursor-grab touch-none justify-start gap-2 px-2 text-ui font-normal active:cursor-grabbing"
+                aria-label={t`Drag ${name} in layout`}
                 aria-keyshortcuts={moveKeys?.aria}
-                title={`Drag to reorder, or ${moveKeys?.text ?? ''}`}
+                title={t`Drag to reorder, or ${ph({ keys: moveKeys?.text ?? '' })}`}
                 onKeyDown={(event) => {
                   if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
                     event.preventDefault();
@@ -136,7 +137,7 @@ function SectionOrder({
             </SortableItemHandle>
             <IconButton
               size="sm"
-              label={`${included ? 'Remove' : 'Add'} ${name}`}
+              label={included ? t`Remove ${name}` : t`Add ${name}`}
               icon={included ? <RemoveIcon aria-hidden="true" /> : <AddIcon aria-hidden="true" />}
               onClick={() =>
                 onChange({

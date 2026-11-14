@@ -27,6 +27,8 @@ import {
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
+import { t, ph } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
 
 export interface DiffCanvasViewProps {
   diff: SessionDiff;
@@ -70,7 +72,7 @@ export function DiffCanvasView({
   );
   const { added, removed } = diffLineCounts(unified);
   const undoReason = pending
-    ? 'Undoing…'
+    ? t`Undoing…`
     : diff.status === 'applied' && diff.undo_available
       ? undefined
       : undoNote(diff);
@@ -78,7 +80,7 @@ export function DiffCanvasView({
     <div ref={hostRef} data-slot="diff-view" className="flex h-full min-h-0 flex-col">
       <TooltipProvider delayDuration={200}>
         <FrameBar
-          label="Change"
+          label={t`Change`}
           where={
             <span className="flex min-w-0 items-center gap-1.5">
               <FrameCrumbs parts={crumbs.length ? crumbs : [{ label: diff.path }]} />
@@ -88,7 +90,7 @@ export function DiffCanvasView({
             <>
               <span>{diffStatusLabel(diff)}</span>
               {unified ? (
-                <span className="tabular-nums" aria-label={`${added} added, ${removed} removed`}>
+                <span className="tabular-nums" aria-label={t`${added} added, ${removed} removed`}>
                   +{added} −{removed}
                 </span>
               ) : null}
@@ -96,7 +98,7 @@ export function DiffCanvasView({
           }
           format={
             <IconButton
-              label="Undo this change"
+              label={t`Undo this change`}
               icon={<Undo2Icon aria-hidden="true" />}
               disabledReason={undoReason}
               className="[&_svg]:size-3.5"
@@ -106,7 +108,7 @@ export function DiffCanvasView({
           actions={
             <FrameTalkTake
               addToMessage={addToMessage}
-              comments={<FrameCommentsUnavailable reason="Not available for a change" />}
+              comments={<FrameCommentsUnavailable reason={t`Not available for a change`} />}
               copy={copy}
               open={open}
               pending={pending}
@@ -115,11 +117,11 @@ export function DiffCanvasView({
         />
       </TooltipProvider>
       <h2 className="sr-only">
-        {diff.created ? 'File created by the agent' : 'File changed by the agent'}
+        {diff.created ? t`File created by the agent` : t`File changed by the agent`}
       </h2>
       {error ? (
         <Alert className="m-3 w-auto" variant="destructive">
-          <AlertTitle>The change was not undone</AlertTitle>
+          <AlertTitle>{t`The change was not undone`}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
@@ -130,7 +132,7 @@ export function DiffCanvasView({
           className="flex-1 p-6"
           kind="unavailable"
           size="panel"
-          title="Diff content unavailable"
+          title={t`Diff content unavailable`}
         />
       )}
       {undoReason && !pending ? (
@@ -178,23 +180,23 @@ function UndoChange({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Undo this file change?</AlertDialogTitle>
+          <AlertDialogTitle>{t`Undo this file change?`}</AlertDialogTitle>
           <AlertDialogDescription>
             {diff.created
-              ? `The service will delete ${diff.path}, which the agent created.`
-              : `The service will put ${diff.path} back as it was before this change.`}{' '}
-            It refuses if the file changed after the agent wrote it.
+              ? t`The service will delete ${ph({ path: diff.path })}, which the agent created.`
+              : t`The service will put ${ph({ path: diff.path })} back as it was before this change.`}{sentenceGap()}
+            {t`It refuses if the file changed after the agent wrote it.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Keep the change</AlertDialogCancel>
+          <AlertDialogCancel>{t`Keep the change`}</AlertDialogCancel>
           <AlertDialogAction
             // A refusal is shown in the "The change was not undone" alert, from the
             // undo mutation's error state; the rejected promise needs no second report.
             onClick={() => void onConfirm().catch(() => undefined)}
             variant="destructive"
           >
-            Undo
+            {t`Undo`}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -202,26 +204,24 @@ function UndoChange({
   );
 }
 const UNDO_UNAVAILABLE_NOTES: Record<string, string> = {
-  previous_content_too_large:
-    'Undo is not available: the file was over 256 KiB before this change.',
-  previous_content_not_text:
-    'Undo is not available: the file was not UTF-8 text before this change.',
-  previous_content_unreadable:
-    'Undo is not available: the file could not be read before this change.',
-  file_changed_before_write:
-    'Undo is not available: the file changed while the write waited for approval.',
-  previous_content_not_captured: 'Undo is not available: the previous content was not captured.',
-  not_on_server_record:
-    'Undo is not available: this change is no longer on the service record (for example, after a restart).',
+  previous_content_too_large: t`Undo is not available: the file was over 256 KiB before this change.`,
+  previous_content_not_text: t`Undo is not available: the file was not UTF-8 text before this change.`,
+  previous_content_unreadable: t`Undo is not available: the file could not be read before this change.`,
+  file_changed_before_write: t`Undo is not available: the file changed while the write waited for approval.`,
+  previous_content_not_captured: t`Undo is not available: the previous content was not captured.`,
+  not_on_server_record: t`Undo is not available: this change is no longer on the service record (for example, after a restart).`,
 };
 
 function undoNote(diff: SessionDiff): string {
-  if (diff.status === 'reverted') return 'This change was undone.';
+  if (diff.status === 'reverted') return t`This change was undone.`;
   const reason = diff.undo_unavailable_reason ?? '';
-  return UNDO_UNAVAILABLE_NOTES[reason] ?? `Undo is not available${reason ? ` (${reason})` : ''}.`;
+  return (
+    UNDO_UNAVAILABLE_NOTES[reason] ??
+    (reason ? t`Undo is not available (${reason}).` : t`Undo is not available.`)
+  );
 }
 
 function diffStatusLabel(diff: SessionDiff): string {
-  if (diff.status === 'reverted') return 'Undone';
-  return diff.created ? 'Created' : 'Changed';
+  if (diff.status === 'reverted') return t`Undone`;
+  return diff.created ? t`Created` : t`Changed`;
 }

@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { BrowserInput } from './browser-live-socket';
 import { BUTTONS, keyInput, pagePoint, type Viewport } from './browser-live-input';
+import { t } from '@lingui/core/macro';
 
 /**
  * The page's live frames, and the person's pointer, wheel and keys sent back to it.
@@ -104,7 +105,7 @@ export function BrowserLiveView({
     <div
       ref={surface}
       role="application"
-      aria-label={interactive ? `${label}, live. Click to use the page.` : `${label}, view only`}
+      aria-label={interactive ? t`${label}, live. Click to use the page.` : t`${label}, view only`}
       tabIndex={interactive ? 0 : -1}
       data-slot="browser-live-view"
       className={cn(
@@ -135,7 +136,7 @@ export function BrowserLiveView({
           className="pointer-events-none h-full w-full object-contain"
         />
       ) : (
-        <p className="text-sm text-muted-foreground">Waiting for the page…</p>
+        <p className="text-sm text-muted-foreground">{t`Waiting for the page…`}</p>
       )}
       {children}
     </div>

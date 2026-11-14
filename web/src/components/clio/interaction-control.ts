@@ -12,6 +12,17 @@ export function pendingInteractionDomId(interactionId: string): string {
 
 export const ATTENTION_REVEAL_EVENT = 'clio:reveal-attention';
 
+/** True when focus sits in a composer with nothing typed, so a new card may take it. */
+export function isEmptyComposer(element: Element | null): boolean {
+  const editor = element?.closest('[data-slot="clio-composer"] [contenteditable="true"]');
+  return Boolean(editor && !editor.textContent?.trim());
+}
+
+/** True when nothing meaningful holds focus. */
+export function focusLost(element: Element | null = document.activeElement): boolean {
+  return !element || element === document.body || !element.isConnected;
+}
+
 /** Select and expand a pending request before scrolling to its controls. */
 export function revealPendingInteraction(interactionId: string): void {
   window.dispatchEvent(new CustomEvent(ATTENTION_REVEAL_EVENT, { detail: interactionId }));

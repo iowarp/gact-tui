@@ -14,12 +14,13 @@ import {
 } from '@/lib/plugin-presentation';
 import { AgentPluginMenu } from './agent-plugin-menu';
 import { ConnectorLogo } from './connector-need-rows';
+import { PackageItemRow } from './agent-package-item-row';
 import {
   bringsLabel,
-  CATEGORY_ICONS,
   countOf,
+  noneBringsLabel,
+  packageCategoryLabel,
   packageItems,
-  PACKAGE_CATEGORY,
   presentCategories,
   type PackageCategory,
   type PackageItem,
@@ -30,6 +31,7 @@ import { ItemList, ItemRow } from './primitives/item-row';
 import { AgentPackageFilter } from './agent-package-filter';
 import { StateView } from './primitives/state-view';
 import { SettingsGroupLabel } from './settings-row';
+import { t, ph } from '@lingui/core/macro';
 
 /** Which category the list shows and which package is open; kept by the host across item details. */
 export interface AgentPackagesView {
@@ -104,15 +106,15 @@ export function AgentPackages({
               resolution={resolution}
             >
               <Button className="shrink-0" size="xs" variant="outline">
-                <AddIcon aria-hidden="true" /> Add package
+                <AddIcon aria-hidden="true" /> {t`Add package`}
               </Button>
             </AgentPluginMenu>
           )
         }
         className="mt-1"
-        info="The packages this agent is built from. Each brings tools, subagents, skills or prompt parts; add, remove or open one here."
+        info={t`The packages this agent is built from. Each brings tools, subagents, skills or prompt parts; add, remove or open one here.`}
       >
-        <span id="agent-packages">Packages</span>
+        <span id="agent-packages">{t`Packages`}</span>
       </SettingsGroupLabel>
       {categories.length ? (
         <AgentPackageFilter
@@ -121,15 +123,13 @@ export function AgentPackages({
           value={category}
         />
       ) : null}
-      <ItemList label="Packages">
+      <ItemList label={t`Packages`}>
         {shown.length === 0 ? (
           <StateView
             kind="empty"
             size="row"
             title={
-              category === 'all'
-                ? 'This agent has no packages yet.'
-                : `No package brings ${PACKAGE_CATEGORY[category].plural}.`
+              category === 'all' ? t`This agent has no packages yet.` : noneBringsLabel(category)
             }
           />
         ) : null}
@@ -217,18 +217,24 @@ function PackageRow({
     <ItemRow
       actions={
         <>
-          <IconButton icon={<EyeIcon />} label={`Open ${plugin.id}`} onClick={onExplore} />
+          <IconButton
+            icon={<EyeIcon />}
+            label={t`Open ${ph({ id: plugin.id })}`}
+            onClick={onExplore}
+          />
           {onRemove ? (
             <IconButton
               disabled={pending}
               icon={<RemoveIcon />}
-              label={`Remove ${plugin.id}`}
+              label={t`Remove ${ph({ id: plugin.id })}`}
               onClick={onRemove}
             />
           ) : null}
         </>
       }
       className="cursor-default"
+      // Open and Remove float over the row's end on hover, so the meta keeps the row.
+      floatActions
       data-agent-package={plugin.id}
       icon={
         connector ? (
@@ -238,20 +244,19 @@ function PackageRow({
         )
       }
       meta={
-        <span className="block min-w-0 truncate" title={meta}>
-          {meta}
+        // One meta line, as the spec's server rows: where it comes from, then what it brings.
+        <span
+          className="flex min-w-0 gap-3"
+          title={[provenanceDetail(plugin.provenance) || provenance, meta]
+            .filter(Boolean)
+            .join(', ')}
+        >
+          {provenance ? <span className="shrink-0">{provenance}</span> : null}
+          <span className="min-w-0 truncate">{meta}</span>
         </span>
       }
       onClick={click}
       selected={open}
-      status={
-        <span
-          className="min-w-0 truncate text-xs text-muted-foreground"
-          title={provenanceDetail(plugin.provenance)}
-        >
-          {provenance}
-        </span>
-      }
       title={
         <button
           aria-controls={open ? contentsId(plugin.id) : undefined}
@@ -291,7 +296,9 @@ function PackageContents({
       ? (Object.keys(items) as PackageCategory[]).filter((key) => items[key].length > 0)
       : [category];
   const heading =
-    category === 'all' ? `${plugin} brings` : bringsLabel(plugin, category, items[category].length);
+    category === 'all'
+      ? t`${plugin} brings`
+      : bringsLabel(plugin, category, items[category].length);
   return (
     <div
       aria-label={heading}
@@ -299,41 +306,21 @@ function PackageContents({
       id={contentsId(plugin)}
       role="region"
     >
-      <p className="truncate pb-1 text-[0.71875rem] text-muted-foreground">{heading}</p>
+      <p className="truncate pb-1 text-label text-muted-foreground">{heading}</p>
       {groups.map((group) => {
-        const Icon = CATEGORY_ICONS[group];
-        const info = PACKAGE_CATEGORY[group];
         return (
           <ItemList
             className="pb-1"
             key={group}
-            label={category === 'all' ? `${plugin} ${info.plural}` : undefined}
+            label={category === 'all' ? packageCategoryLabel(plugin, group) : undefined}
           >
             {category === 'all' ? (
-              <p className="truncate pt-1 text-[0.6875rem] text-faint">
+              <p className="truncate pt-1 text-caption text-faint">
                 {countOf(group, items[group].length)}
               </p>
             ) : null}
             {items[group].map((item) => (
-              <ItemRow
-                aria-label={item.id}
-                className="cursor-pointer"
-                data-package-category={group}
-                data-package-item={item.id}
-                icon={<Icon />}
-                key={`${group}:${item.id}`}
-                meta={item.note ? `${item.note}. ${item.description}` : item.description}
-                onClick={() => onOpenItem(item)}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return;
-                  event.preventDefault();
-                  onOpenItem(item);
-                }}
-                role="button"
-                size="line"
-                tabIndex={0}
-                title={item.id}
-              />
+              <PackageItemRow item={item} key={`${group}:${item.id}`} onOpen={onOpenItem} />
             ))}
           </ItemList>
         );

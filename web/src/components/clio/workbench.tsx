@@ -85,6 +85,7 @@ import { useWorkbenchTabListSlot } from './use-workbench-tab-list-slot';
 import { WorkbenchTabListProvider } from './workbench-tab-list';
 import { useMcpAppTabSync } from './mcp-app-tab-sync';
 import { usePublishWorkbenchAppTabs } from './phone-app-dock';
+import { t } from '@lingui/core/macro';
 
 export interface ClioWorkbenchProps {
   workspaceId: string;
@@ -358,7 +359,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             detail: {
               target: html,
               sessionId,
-              label: 'path' in html ? fileName(html.path) : 'HTML file',
+              label: 'path' in html ? fileName(html.path) : t`HTML file`,
             },
           }),
         );
@@ -582,7 +583,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     const canvas = (
       <aside
-        aria-label="Workspace canvas"
+        aria-label={t`Workspace canvas`}
         data-keyboard-region=""
         data-workbench-pocket=""
         data-maximized={maximized || undefined}
@@ -649,7 +650,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 trailing={
                   <IconButton
                     icon={maximized ? <Minimize2Icon /> : <Maximize2Icon />}
-                    label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
+                    label={maximized ? t`Restore canvas beside conversation` : t`Maximize canvas`}
                     onClick={(event) => toggleMaximized(event.currentTarget)}
                     ref={maximizeButtonRef}
                     shortcut="maximize"

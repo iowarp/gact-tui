@@ -12,6 +12,7 @@ import { ConnectedDataSetupLink } from './connected-data-setup-link';
 import { ArtifactImagePreview } from './artifact-image-preview';
 import { showTaskInWork } from './work-task-focus';
 import { ExternalLinkIcon, PanelRightIcon } from 'lucide-react';
+import { t } from '@lingui/core/macro';
 
 /** Resolve declared result links through the conversation's existing workbench. */
 export function PresentationLink({
@@ -33,9 +34,14 @@ export function PresentationLink({
     return iconOnly ? null : <ConnectedDataSetupLink block={block} />;
   const label = block.label || block.text || uri;
   // A row names an absolute path by its folder and file; the tooltip keeps the whole path.
+  // Storage holders (fld_…, res_…, workspace hashes) are ids, not names, so they are skipped.
   const shown =
     compact && /^(?:[a-z]:[\\/]|\/)/iu.test(label)
-      ? label.split(/[\\/]/u).filter(Boolean).slice(-2).join('/')
+      ? label
+          .split(/[\\/]/u)
+          .filter((part) => part && !/^(?:(?:fld|res)_)?[0-9a-f]{16,}$/iu.test(part))
+          .slice(-2)
+          .join('/') || label
       : label;
   const filename = compact && block.target === 'file';
   const text = iconOnly ? (
@@ -44,11 +50,8 @@ export function PresentationLink({
     ) : (
       <PanelRightIcon aria-hidden="true" className="size-3.5" />
     )
-  ) : filename ? (
-    <span className="flex min-w-0">
-      <span className="truncate">{shown.slice(0, -12)}</span>
-      <span className="shrink-0">{shown.slice(-12)}</span>
-    </span>
+  ) : compact && (filename || /[\\/]/u.test(shown)) ? (
+    <CompactPathLabel text={shown} />
   ) : (
     <span className={compact ? 'truncate' : undefined}>{shown}</span>
   );
@@ -56,7 +59,8 @@ export function PresentationLink({
     ? 'size-5 shrink-0 justify-center text-muted-foreground hover:text-foreground'
     : cn(
         'text-sm',
-        compact ? 'min-w-0 max-w-[42ch] shrink truncate' : 'break-words',
+        // Capped by the row's argument slot too, so the label ends in … instead of being cut.
+        compact ? 'min-w-0 max-w-[min(42ch,100%)] shrink truncate' : 'break-words',
         extraClassName,
       );
   const withTooltip = (element: React.ReactElement) =>
@@ -66,7 +70,7 @@ export function PresentationLink({
           <TooltipTrigger asChild>{element}</TooltipTrigger>
           <TooltipContent className="max-w-sm text-sm">
             <span className="min-w-0 [overflow-wrap:anywhere]">
-              {iconOnly ? `Open ${label}` : block.target === 'surface' ? label : uri || label}
+              {iconOnly ? t`Open ${label}` : block.target === 'surface' ? label : uri || label}
             </span>
           </TooltipContent>
         </Tooltip>
@@ -145,8 +149,8 @@ export function PresentationLink({
           !compact && 'whitespace-normal',
         )}
         onClick={open}
-        aria-label={iconOnly ? `Open ${label}` : label}
-        title={iconOnly ? `Open ${label}` : block.target === 'surface' ? label : uri}
+        aria-label={iconOnly ? t`Open ${label}` : label}
+        title={iconOnly ? t`Open ${label}` : block.target === 'surface' ? label : uri}
       >
         {text}
       </Button>,
@@ -156,7 +160,7 @@ export function PresentationLink({
       <ExternalLink
         className={cn('underline', className)}
         href={uri}
-        aria-label={iconOnly ? `Open ${label}` : undefined}
+        aria-label={iconOnly ? t`Open ${label}` : undefined}
       >
         {text}
       </ExternalLink>,
@@ -168,7 +172,7 @@ export function PresentationLink({
       <Link
         className={cn('underline', className)}
         relative="path"
-        aria-label={iconOnly ? `Open ${label}` : undefined}
+        aria-label={iconOnly ? t`Open ${label}` : undefined}
         to={`../${encodeURIComponent(uri)}`}
       >
         {text}
@@ -178,7 +182,7 @@ export function PresentationLink({
     return withTooltip(
       <Link
         className={cn('underline', className)}
-        aria-label={iconOnly ? `Open ${label} in memory` : undefined}
+        aria-label={iconOnly ? t`Open ${label} in memory` : undefined}
         to={`/settings/memory?${memoryLinkParams(uri)}`}
       >
         {text}
@@ -189,6 +193,26 @@ export function PresentationLink({
     <span className={className} tabIndex={compact ? 0 : undefined}>
       {text}
     </span>,
+  );
+}
+
+/**
+ * A path in a narrow row: its folder gives way first, then the name's end, and the
+ * extension stays, so the name is never cut to a one-letter stub.
+ */
+function CompactPathLabel({ text }: { text: string }) {
+  const slash = Math.max(text.lastIndexOf('/'), text.lastIndexOf('\\'));
+  const folder = slash > 0 ? text.slice(0, slash + 1) : '';
+  const leaf = text.slice(slash + 1);
+  const dot = leaf.lastIndexOf('.');
+  const extension = dot > 0 && leaf.length - dot <= 8 ? leaf.slice(dot) : '';
+  const stem = extension ? leaf.slice(0, dot) : leaf;
+  return (
+    <span className="flex min-w-0" data-long-label={leaf.length > 11 ? '' : undefined}>
+      {folder ? <span className="min-w-0 shrink-[1000] truncate">{folder}</span> : null}
+      <span className="min-w-0 truncate">{stem}</span>
+      {extension ? <span className="shrink-0">{extension}</span> : null}
+    </span>
   );
 }
 

@@ -45,38 +45,46 @@ func exeDir() string {
 //     about its contents. A found-but-broken manifest is a HARD error,
 //     never a silent fall-through: it means the bundle itself is broken
 //     and masking that behind system resolution would hide the defect.
-//  2. Legacy single-binary resolution (the "lite" variant): env
-//     override, per-OS install prefixes, PATH (unless older than this
-//     desktop), opt-in dev repo — see
-//     candidatePaths.
+//  2. Lite-variant resolution: env override, per-OS install prefixes
+//     (clio-agent-gact, else `clio-agent serve`), PATH (unless older than
+//     this desktop), opt-in dev repo — see backendCandidates.
 func resolveRuntime() (*resolvedRuntime, error) {
 	for _, dir := range bundledRuntimeDirs(exeDir()) {
 		if hasManifest(dir) {
 			return loadManifest(dir)
 		}
 	}
-	bin, err := resolveBinary()
+	found, err := resolveCandidate()
 	if err != nil {
 		return nil, err
 	}
-	return &resolvedRuntime{Argv: []string{bin}}, nil
+	return &resolvedRuntime{Argv: append([]string{found.path}, found.args...)}, nil
 }
 
-// resolveBinary walks the lite-variant candidate paths and returns the
-// first existing regular file.
+// resolveBinary returns the executable resolveCandidate picks.
 func resolveBinary() (string, error) {
-	for _, p := range candidatePaths() {
-		if p == "" {
+	found, err := resolveCandidate()
+	if err != nil {
+		return "", err
+	}
+	return found.path, nil
+}
+
+// resolveCandidate walks the lite-variant candidates and returns the
+// first whose executable is an existing regular file.
+func resolveCandidate() (backendCandidate, error) {
+	for _, c := range backendCandidates() {
+		if c.path == "" {
 			continue
 		}
-		info, err := os.Stat(p)
+		info, err := os.Stat(c.path)
 		if err != nil {
 			continue
 		}
 		if info.IsDir() {
 			continue
 		}
-		return p, nil
+		return c, nil
 	}
-	return "", errors.New("clio-agent-gact not found")
+	return backendCandidate{}, errors.New("no clio-agent-gact or clio-agent (serve) found")
 }

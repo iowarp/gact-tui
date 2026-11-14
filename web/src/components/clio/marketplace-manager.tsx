@@ -10,13 +10,17 @@ import { SlotButton } from './extension-parts';
 import { CheckReport } from './plugin-check-report';
 import { PluginMarketplaceDialog, type PluginMarketplaceInput } from './plugin-marketplace-dialog';
 import { DialogFrame } from './primitives/dialog-frame';
+import { t, ph, plural } from '@lingui/core/macro';
 
 type Confirm = { kind: 'trust' | 'uninstall'; marketplace: PluginMarketplace };
 
 function summaryText(summary: MarketplaceSummary): string {
-  const count = (n: number, one: string) => `${n} ${n === 1 ? one : `${one}s`}`;
-  const parts = [count(summary.plugins.length, 'plugin'), count(summary.agents.length, 'agent')];
-  if (summary.pending_trust.length) parts.push(`${summary.pending_trust.length} waiting for trust`);
+  const parts = [
+    plural(summary.plugins.length, { one: '# plugin', other: '# plugins' }),
+    plural(summary.agents.length, { one: '# agent', other: '# agents' }),
+  ];
+  if (summary.pending_trust.length)
+    parts.push(t`${ph({ count: summary.pending_trust.length })} waiting for trust`);
   return parts.join(', ');
 }
 
@@ -58,10 +62,10 @@ export function useMarketplaceManager(): MarketplaceManager {
     onSuccess: async (summary) => {
       setInstalling(false);
       await invalidate();
-      toast.success(`Installed ${summary.marketplace}`, {
+      toast.success(t`Installed ${ph({ marketplace: summary.marketplace })}`, {
         description: summary.trusted
           ? summaryText(summary)
-          : `${summaryText(summary)}. Trust it to load its plugins.`,
+          : t`${ph({ summary: summaryText(summary) })}. Trust it to load its plugins.`,
       });
     },
   });
@@ -70,34 +74,34 @@ export function useMarketplaceManager(): MarketplaceManager {
     onSuccess: async () => {
       await invalidate();
     },
-    onError: (error: Error) => toast.error('Trust step failed', { description: error.message }),
+    onError: (error: Error) => toast.error(t`Trust step failed`, { description: error.message }),
     onSettled: () => setConfirm(undefined),
   });
   const update = useMutation({
     mutationFn: (name: string) => repository.updatePluginMarketplace(name),
     onSuccess: async (summary) => {
       await invalidate();
-      toast.success(`Updated ${summary.marketplace}`, {
+      toast.success(t`Updated ${ph({ name: summary.marketplace })}`, {
         description: summary.pending_trust.length
-          ? `${summaryText(summary)}. Changed executable parts wait for the trust step.`
+          ? t`${ph({ summary: summaryText(summary) })}. Changed executable parts wait for the trust step.`
           : summaryText(summary),
       });
     },
-    onError: (error: Error) => toast.error('Update failed', { description: error.message }),
+    onError: (error: Error) => toast.error(t`Update failed`, { description: error.message }),
   });
   const uninstall = useMutation({
     mutationFn: (name: string) => repository.uninstallPluginMarketplace(name),
     onSuccess: async (_value, name) => {
       await invalidate();
-      toast.success(`Uninstalled ${name}`);
+      toast.success(t`Uninstalled ${name}`);
     },
-    onError: (error: Error) => toast.error('Uninstall failed', { description: error.message }),
+    onError: (error: Error) => toast.error(t`Uninstall failed`, { description: error.message }),
     onSettled: () => setConfirm(undefined),
   });
   const check = useMutation({
     mutationFn: (name: string) => repository.checkPlugins({ installed: name }),
     onSuccess: setReport,
-    onError: (error: Error) => toast.error('Plugin check failed', { description: error.message }),
+    onError: (error: Error) => toast.error(t`Plugin check failed`, { description: error.message }),
   });
   const busy = trust.isPending || update.isPending || uninstall.isPending;
   const target = confirm?.marketplace;
@@ -130,17 +134,17 @@ export function useMarketplaceManager(): MarketplaceManager {
           title={
             confirm?.kind === 'trust'
               ? trustingUpdate
-                ? `Trust the update from ${target?.name}?`
-                : `Trust ${target?.name}?`
-              : `Uninstall ${target?.name}?`
+                ? t`Trust the update from ${ph({ name: target?.name ?? '' })}?`
+                : t`Trust ${ph({ name: target?.name ?? '' })}?`
+              : t`Uninstall ${ph({ name: target?.name ?? '' })}?`
           }
           confirm={{
             label:
               confirm?.kind === 'trust'
                 ? trustingUpdate
-                  ? 'Trust update'
-                  : 'Trust marketplace'
-                : 'Uninstall',
+                  ? t`Trust update`
+                  : t`Trust marketplace`
+                : t`Uninstall`,
             tone: confirm?.kind === 'uninstall' ? 'destructive' : 'default',
             disabled: busy,
             onConfirm: () => {
@@ -153,9 +157,9 @@ export function useMarketplaceManager(): MarketplaceManager {
           <p className="leading-5 text-muted-foreground">
             {confirm?.kind === 'trust'
               ? trustingUpdate
-                ? 'The update changes parts that run on this service: commands, servers or hooks. Until you trust it, the installed version keeps running.'
-                : 'Its plugins can run commands, start servers and run hooks on this service. Trust only sources you know. An update that changes executable parts asks again.'
-              : 'Its plugins and agents leave the + menu. Conversations already running keep their pinned plugins until they end.'}
+                ? t`The update changes parts that run on this service: commands, servers or hooks. Until you trust it, the installed version keeps running.`
+                : t`Its plugins can run commands, start servers and run hooks on this service. Trust only sources you know. An update that changes executable parts asks again.`
+              : t`Its plugins and agents leave the + menu. Conversations already running keep their pinned plugins until they end.`}
           </p>
           {target?.source ? (
             <p className="mt-2 truncate font-mono text-xs text-faint" title={target.source}>
@@ -178,29 +182,31 @@ export function marketplaceSlot(
     return (
       <SlotButton
         disabled={manager.busy}
-        label={`Trust ${marketplace.name}`}
+        label={t`Trust ${ph({ name: marketplace.name })}`}
         onClick={() => manager.requestTrust(marketplace)}
       >
-        Trust
+        {t`Trust`}
       </SlotButton>
     );
   if (pendingUpdates)
     return (
       <SlotButton
         disabled={manager.busy}
-        label={`Trust the update from ${marketplace.name}`}
+        label={t`Trust the update from ${ph({ name: marketplace.name })}`}
         onClick={() => manager.requestTrust(marketplace)}
       >
-        Trust
+        {t`Trust`}
       </SlotButton>
     );
   return (
     <SlotButton
       disabled={manager.busy}
-      label={`Update ${marketplace.name}`}
+      label={t`Update ${ph({ name: marketplace.name })}`}
       onClick={() => manager.update(marketplace.name)}
     >
-      {manager.updating(marketplace.name) ? 'Updating…' : 'Update'}
+      {manager.updating(marketplace.name)
+        ? t`Updating…`
+        : t({ message: 'Update', context: 'verb' })}
     </SlotButton>
   );
 }

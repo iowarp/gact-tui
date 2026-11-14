@@ -42,13 +42,14 @@ import { IconButton, NamedTooltip } from './primitives/icon-button';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { StatusIndicator } from './primitives/status-indicator';
 import { SourceStatusLine } from './source-form-parts';
+import { t, ph } from '@lingui/core/macro';
 
 function ModelCardDialog({ modelId, model }: { modelId: string; model?: ModelRegistryDetails }) {
   return (
     <DialogContent className="flex h-[min(54rem,calc(100dvh-2rem))] flex-col overflow-hidden sm:max-w-4xl">
       <DialogHeader>
         <DialogTitle>{modelId}</DialogTitle>
-        <DialogDescription>Model card</DialogDescription>
+        <DialogDescription>{t`Model card`}</DialogDescription>
       </DialogHeader>
       {model ? <RegistryModelCard model={model} /> : null}
     </DialogContent>
@@ -85,18 +86,18 @@ function CompactModelDetails({
     .join(', ');
   // Spec `.c3kv`: every fact leads with its icon, so the labels share one x.
   const items: KeyValueItem[] = [
-    ...(taskLabel ? [{ label: 'Task', icon: <LayersIcon />, value: taskLabel }] : []),
+    ...(taskLabel ? [{ label: t`Task`, icon: <LayersIcon />, value: taskLabel }] : []),
     ...(parameters
-      ? [{ label: 'Parameters', icon: <CpuIcon />, value: parameters, mono: true }]
+      ? [{ label: t`Parameters`, icon: <CpuIcon />, value: parameters, mono: true }]
       : []),
     ...(sizeBytes
-      ? [{ label: 'Size', icon: <HardDriveIcon />, value: formatBytes(sizeBytes), mono: true }]
+      ? [{ label: t`Size`, icon: <HardDriveIcon />, value: formatBytes(sizeBytes), mono: true }]
       : []),
-    ...(license ? [{ label: 'License', icon: <FileTextIcon />, value: license, mono: true }] : []),
+    ...(license ? [{ label: t`License`, icon: <FileTextIcon />, value: license, mono: true }] : []),
     ...(model?.context_window
       ? [
           {
-            label: 'Context',
+            label: t`Context`,
             icon: <MessageSquareTextIcon />,
             value: `${formatContextSize(model.context_window)} tokens`,
             mono: true,
@@ -104,12 +105,12 @@ function CompactModelDetails({
         ]
       : []),
     ...(capabilities
-      ? [{ label: 'Capabilities', icon: <SparklesIcon />, value: capabilities }]
+      ? [{ label: t`Capabilities`, icon: <SparklesIcon />, value: capabilities }]
       : []),
     ...(model?.revision
       ? [
           {
-            label: 'Pinned source',
+            label: t`Pinned source`,
             icon: <PinIcon />,
             value: model.revision.slice(0, 12),
             title: model.revision,
@@ -127,19 +128,21 @@ function CompactModelDetails({
             className="size-4 rounded-none bg-transparent text-muted-foreground [&>span]:size-4"
             provider="huggingface"
           />
-          <h3 className="min-w-0 flex-1 truncate text-[13px] font-semibold" title={modelId}>
+          <h3 className="min-w-0 flex-1 truncate text-ui font-semibold" title={modelId}>
             {modelId}
           </h3>
           <IconButton
             icon={<BookOpenIcon />}
-            label="Model card"
+            label={t`Model card`}
             // Find a model renders these facts inside its download form.
             type="button"
             disabled={!model}
             onClick={() => setCardOpen(true)}
           />
+          {/* i18n-ignore: product name */}
           <NamedTooltip label="Hugging Face">
             <Button asChild variant="ghost" size="icon-sm" className="size-7 text-muted-foreground">
+              {/* i18n-ignore: product name */}
               <ExternalLink aria-label="Hugging Face" href={`https://huggingface.co/${modelId}`}>
                 <ExternalLinkIcon aria-hidden="true" />
               </ExternalLink>
@@ -147,19 +150,19 @@ function CompactModelDetails({
           </NamedTooltip>
         </div>
         {pending ? (
-          <div role="status" className="flex min-h-[25px] items-center text-[12px]">
-            <StatusIndicator label="Reading model details…" tone="running" />
+          <div role="status" className="flex min-h-[25px] items-center text-meta">
+            <StatusIndicator label={t`Reading model details…`} tone="running" />
           </div>
         ) : null}
         {error ? (
           <SourceStatusLine icon={<CircleAlertIcon />} role="alert" tone="error">
-            Model details could not load: {error.message}
+            {t`Model details could not load: ${ph({ message: error.message })}`}
           </SourceStatusLine>
         ) : null}
         {items.length ? (
           <KeyValueGrid
-            aria-label={`About ${modelId}`}
-            className="grid-cols-[40%_minmax(0,1fr)] gap-x-2.5 gap-y-0 [&>div>dd]:leading-[25px] [&>div>dt]:min-h-[25px]"
+            aria-label={t`About ${modelId}`}
+            className="grid-cols-[40%_minmax(0,1fr)] gap-x-2.5 gap-y-0 [&>div>dd]:leading-[1.5625rem] [&>div>dt]:min-h-[1.5625rem]"
             items={items}
           />
         ) : null}
@@ -212,12 +215,12 @@ export function RegistryModelDetails({
       {model ? <ModelCapabilityTags tags={displayedTags(registryModelTags(model))} /> : null}
       {details.isPending ? (
         <p role="status" className="text-sm text-muted-foreground">
-          Reading model details…
+          {t`Reading model details…`}
         </p>
       ) : null}
       {details.error ? (
         <p role="alert" className="text-sm text-destructive">
-          Model details could not load: {details.error.message}
+          {t`Model details could not load: ${ph({ message: details.error.message })}`}
         </p>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
@@ -225,13 +228,14 @@ export function RegistryModelDetails({
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" disabled={!model}>
               <BookOpenIcon aria-hidden="true" />
-              Model card
+              {t`Model card`}
             </Button>
           </DialogTrigger>
           <ModelCardDialog model={model} modelId={modelId} />
         </Dialog>
         <Button asChild variant="ghost" size="sm">
           <ExternalLink href={`https://huggingface.co/${modelId}`}>
+            {/* i18n-ignore: product name */}
             Hugging Face
             <ExternalLinkIcon aria-hidden="true" />
           </ExternalLink>

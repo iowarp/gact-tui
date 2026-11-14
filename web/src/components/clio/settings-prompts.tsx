@@ -35,17 +35,17 @@ import { scopeLabel } from './settings-prompt-scope';
 import { RemindersList } from './settings-reminders';
 import { SettingsGroupLabel } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { plural, t, ph } from '@lingui/core/macro';
 
 type View = 'prompts' | 'reminders' | 'commands';
 
-const INFO =
-  'Inspect the instructions, reminders and commands the service supplies. Built-ins are read-only: customizing one saves a visible override for the entire service or one workspace, validated and previewed against the live agent context first.';
+const INFO = t`Inspect the instructions, reminders and commands the service supplies. Built-ins are read-only: customizing one saves a visible override for the entire service or one workspace, validated and previewed against the live agent context first.`;
 
 const COMMAND_KIND_LABELS: Record<string, string> = {
-  builtin: 'Built-in',
-  command: 'Command file',
-  mcp_prompt: 'MCP prompt',
-  skill: 'Skill',
+  builtin: t`Built-in`,
+  command: t`Command file`,
+  mcp_prompt: t`MCP prompt`,
+  skill: t`Skill`,
 };
 
 /** A service that does not serve these routes at all, as opposed to one that failed. */
@@ -62,30 +62,34 @@ function commandState(command: CommandDefinition): {
   if (command.disabled_reason === 'command_shadowed')
     return {
       tone: 'idle',
-      label: 'Shadowed',
-      detail: detail ?? 'Another command file of the same name wins.',
+      label: t`Shadowed`,
+      detail: detail ?? t`Another command file of the same name wins.`,
     };
   if (command.disabled_reason === 'command_name_reserved')
     return {
       tone: 'idle',
-      label: 'Reserved name',
-      detail: detail ?? 'A built-in command already has this name.',
+      label: t`Reserved name`,
+      detail: detail ?? t`A built-in command already has this name.`,
     };
   if (!command.enabled)
-    return { tone: 'stopped', label: 'Unavailable', detail: detail ?? 'This command cannot run.' };
+    return {
+      tone: 'stopped',
+      label: t`Unavailable`,
+      detail: detail ?? t`This command cannot run.`,
+    };
   if (command.ambiguous)
     return {
       tone: 'warning',
-      label: 'Same name elsewhere',
-      detail: `Another source also has ${command.name}; this one runs as ${command.qualified_id}.`,
+      label: t`Same name elsewhere`,
+      detail: t`Another source also has ${ph({ name: command.name })}; this one runs as ${ph({ qualified_id: command.qualified_id })}.`,
     };
   if (command.unsupported_fields.length)
     return {
       tone: 'warning',
-      label: 'Some fields ignored',
-      detail: `This file’s ${command.unsupported_fields.join(', ')} settings are not used.`,
+      label: t`Some fields ignored`,
+      detail: t`This file’s ${ph({ fields: command.unsupported_fields.join(', ') })} settings are not used.`,
     };
-  return { tone: 'success', label: 'Available' };
+  return { tone: 'success', label: t`Available` };
 }
 
 /** A whole row that opens its details; it has no controls of its own. */
@@ -116,10 +120,10 @@ function OpenRow({
 function CommandDetail({ command, onClose }: { command: CommandDefinition; onClose: () => void }) {
   const state = commandState(command);
   const items: KeyValueItem[] = [
-    { label: 'Kind', value: COMMAND_KIND_LABELS[command.kind] ?? command.kind },
-    ...(commandSource(command) ? [{ label: 'Source', value: commandSource(command) }] : []),
+    { label: t`Kind`, value: COMMAND_KIND_LABELS[command.kind] ?? command.kind },
+    ...(commandSource(command) ? [{ label: t`Source`, value: commandSource(command) }] : []),
     {
-      label: 'Status',
+      label: t`Status`,
       value: (
         <span className="inline-flex justify-end" title={state.detail}>
           <StatusIndicator label={state.label} tone={state.tone} />
@@ -127,18 +131,18 @@ function CommandDetail({ command, onClose }: { command: CommandDefinition; onClo
       ),
       title: state.detail ?? state.label,
     },
-    { label: 'Name', value: command.id, mono: true },
+    { label: t`Name`, value: command.id, mono: true },
     ...(command.argument_hint
-      ? [{ label: 'Usage', value: `${command.id} ${command.argument_hint}`, mono: true }]
+      ? [{ label: t`Usage`, value: `${command.id} ${command.argument_hint}`, mono: true }]
       : []),
     ...(command.aliases.length
-      ? [{ label: 'Also available as', value: command.aliases.join(', '), mono: true }]
+      ? [{ label: t`Also available as`, value: command.aliases.join(', '), mono: true }]
       : []),
   ];
   return (
     <DetailPane icon={<SquareSlashIcon />} onClose={onClose} title={command.title}>
-      <p className="mb-3 text-[0.8125rem] text-muted-foreground">
-        {command.description || 'The service did not provide a description.'}
+      <p className="mb-3 text-ui text-muted-foreground">
+        {command.description || t`The service did not provide a description.`}
       </p>
       {!command.enabled && (command.disabled_detail || command.disabled_reason) ? (
         <p className="mb-3 text-xs text-destructive" role="alert">
@@ -150,6 +154,32 @@ function CommandDetail({ command, onClose }: { command: CommandDefinition; onClo
   );
 }
 
+type ListNoun = 'prompt families' | 'reminders' | 'commands';
+
+/** A list's loading, not-offered and failure lines, each written whole. */
+function listStateCopy(noun: ListNoun): { loading: string; unoffered: string; failed: string } {
+  switch (noun) {
+    case 'prompt families':
+      return {
+        loading: t`Loading prompt families…`,
+        unoffered: t`This service doesn’t offer prompt families.`,
+        failed: t`Prompt families couldn’t be loaded.`,
+      };
+    case 'reminders':
+      return {
+        loading: t`Loading reminders…`,
+        unoffered: t`This service doesn’t offer reminders.`,
+        failed: t`Reminders couldn’t be loaded.`,
+      };
+    case 'commands':
+      return {
+        loading: t`Loading commands…`,
+        unoffered: t`This service doesn’t offer commands.`,
+        failed: t`Commands couldn’t be loaded.`,
+      };
+  }
+}
+
 /** One list's stand-in while it loads, fails, is not offered or is empty. */
 function ListState({
   query,
@@ -157,19 +187,20 @@ function ListState({
   empty,
 }: {
   query: { isPending: boolean; error: Error | null; refetch: () => unknown };
-  noun: string;
+  noun: ListNoun;
   empty: string;
 }): ReactNode {
-  if (query.isPending) return <StateView kind="loading" size="row" title={`Loading ${noun}…`} />;
+  const copy = listStateCopy(noun);
+  if (query.isPending) return <StateView kind="loading" size="row" title={copy.loading} />;
   if (query.error)
     return unsupported(query.error) ? (
-      <StateView kind="unavailable" size="row" title={`This service doesn’t offer ${noun}.`} />
+      <StateView kind="unavailable" size="row" title={copy.unoffered} />
     ) : (
       <StateView
-        action={{ label: 'Retry', onClick: () => void query.refetch() }}
+        action={{ label: t`Retry`, onClick: () => void query.refetch() }}
         kind="error"
         size="row"
-        title={`${noun[0]?.toUpperCase()}${noun.slice(1)} couldn’t be loaded.`}
+        title={copy.failed}
       />
     );
   return <StateView kind="empty" size="row" title={empty} />;
@@ -208,11 +239,14 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
       await queryClient.invalidateQueries({
         queryKey: queryKeys.key('prompts', settings.endpoint),
       });
-      toast.success('Prompt sources reloaded', {
-        description: `${result.prompt_count} prompt ${result.prompt_count === 1 ? 'family' : 'families'} available.`,
+      toast.success(t`Prompt sources reloaded`, {
+        description: plural(result.prompt_count, {
+          one: '# prompt family available.',
+          other: '# prompt families available.',
+        }),
       });
     },
-    onError: () => toast.error('Prompt sources weren’t reloaded. Try again.'),
+    onError: () => toast.error(t`Prompt sources weren’t reloaded. Try again.`),
   });
   const openEditor = (prompt?: PromptDefinition) =>
     setEditor((current) => ({ prompt, key: (current?.key ?? 0) + 1 }));
@@ -233,16 +267,18 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
           <MetaLine
             parts={[
               scopeLabel(prompt.scope),
-              `${profiles} ${profiles === 1 ? 'profile' : 'profiles'}`,
+              plural(profiles, { one: '# profile', other: '# profiles' }),
               // The template text that fails stays in the editor; the list names the count.
-              problems ? `${problems} ${problems === 1 ? 'problem' : 'problems'} to fix` : '',
+              problems
+                ? plural(problems, { one: '# problem to fix', other: '# problems to fix' })
+                : '',
             ]}
           />
         }
         onOpen={() => openEditor(prompt)}
         status={
           <StatusIndicator
-            label={prompt.enabled && !problems ? 'Ready' : 'Needs attention'}
+            label={prompt.enabled && !problems ? t`Ready` : t`Needs attention`}
             tone={prompt.enabled && !problems ? 'success' : 'warning'}
           />
         }
@@ -285,13 +321,13 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
   const list =
     view === 'prompts' ? (
       <div className="min-w-0">
-        <SettingsGroupLabel className="mt-0">Prompt families</SettingsGroupLabel>
-        <ItemList label="Prompt families">
+        <SettingsGroupLabel className="mt-0">{t`Prompt families`}</SettingsGroupLabel>
+        <ItemList label={t`Prompt families`}>
           {families.length ? (
             families.map(promptRow)
           ) : (
             <ListState
-              empty="No prompt families in this view."
+              empty={t`No prompt families in this view.`}
               noun="prompt families"
               query={prompts}
             />
@@ -300,7 +336,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
       </div>
     ) : view === 'reminders' ? (
       <div className="min-w-0">
-        <SettingsGroupLabel className="mt-0">Reminders</SettingsGroupLabel>
+        <SettingsGroupLabel className="mt-0">{t`Reminders`}</SettingsGroupLabel>
         {prompts.data ? (
           <RemindersList
             onChanged={() => void prompts.refetch()}
@@ -308,7 +344,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
             prompts={prompts.data}
           />
         ) : (
-          <ItemList label="Reminders">
+          <ItemList label={t`Reminders`}>
             <ListState empty="" noun="reminders" query={prompts} />
           </ItemList>
         )}
@@ -326,40 +362,37 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
       </div>
     ) : (
       <div className="min-w-0">
-        <SettingsGroupLabel className="mt-0">Commands</SettingsGroupLabel>
-        <ItemList label="Commands">
-          <ListState empty="No commands in this view." noun="commands" query={commands} />
+        <SettingsGroupLabel className="mt-0">{t`Commands`}</SettingsGroupLabel>
+        <ItemList label={t`Commands`}>
+          <ListState empty={t`No commands in this view.`} noun="commands" query={commands} />
         </ItemList>
       </div>
     );
 
   return (
     <div
-      className="grid min-w-0"
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)]"
       onKeyDown={newItemKey(promptsOffered && view !== 'commands' ? () => openEditor() : undefined)}
     >
-      <SettingsSectionHeading info={INFO} title="Prompts & commands" />
+      <SettingsSectionHeading info={INFO} title={t`Prompts & commands`} />
       <div
-        className={cn(
-          'mb-1.5 flex min-w-0 items-center gap-2.5 whitespace-nowrap',
-          tight ? 'flex-wrap gap-y-1.5' : 'h-[2.125rem]',
-        )}
+        className="mb-1.5 flex min-h-[2.125rem] min-w-0 flex-wrap items-center gap-2.5 gap-y-1.5 whitespace-nowrap"
         data-slot="settings-toolbar"
         ref={toolbar}
       >
         <SegmentedControl
           iconOnly={narrow ? 'others' : false}
-          label="View"
+          label={t`View`}
           onValueChange={(next) => {
             setView(next);
             setSelectedCommand(undefined);
           }}
           options={[
-            { value: 'prompts', label: 'Prompts', icon: <FileTextIcon aria-hidden="true" /> },
-            { value: 'reminders', label: 'Reminders', icon: <BellIcon aria-hidden="true" /> },
+            { value: 'prompts', label: t`Prompts`, icon: <FileTextIcon aria-hidden="true" /> },
+            { value: 'reminders', label: t`Reminders`, icon: <BellIcon aria-hidden="true" /> },
             {
               value: 'commands',
-              label: 'Commands',
+              label: t`Commands`,
               icon: <SquareSlashIcon aria-hidden="true" />,
             },
           ]}
@@ -370,19 +403,23 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
           value={workspaceId || 'all'}
         >
           <SelectTrigger
-            aria-label="Prompt workspace"
+            aria-label={t`Prompt workspace`}
             className={cn(
-              'h-[30px]! min-w-0 shrink justify-start gap-2 px-2.5 text-[12.5px] *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:text-left',
-              tight ? 'order-last w-full' : 'w-44',
+              'h-[30px]! min-w-0 justify-start gap-2 px-2.5 text-menu *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:text-left',
+              // At least 11rem and its value ("No workspace" in every language): when
+              // the line has no room, the field moves to the next line instead of cutting it.
+              tight
+                ? 'order-last w-full'
+                : 'w-auto max-w-[min(100%,18rem)] min-w-[min(11rem,100%)] shrink-0',
             )}
             size="sm"
-            title={selectedWorkspaceName ?? 'No workspace'}
+            title={selectedWorkspaceName ?? t`No workspace`}
           >
             <FolderIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">No workspace</SelectItem>
+            <SelectItem value="all">{t`No workspace`}</SelectItem>
             {workspaces.data?.map((workspace) => (
               <SelectItem key={workspace.id} value={workspace.id}>
                 {workspaceName(workspace)}
@@ -392,21 +429,22 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
         </Select>
         <span className="flex-1" />
         {promptsOffered ? (
-          <>
+          // One group, so the actions wrap together rather than leaving "+" alone.
+          <span className="flex shrink-0 items-center gap-2.5">
             <IconButton
               disabled={reload.isPending}
               icon={reload.isPending ? <Spinner /> : <RefreshIcon />}
-              label="Reload sources"
+              label={t`Reload sources`}
               onClick={() => reload.mutate()}
             />
             {narrow ? (
-              <IconButton icon={<AddIcon />} label="New prompt" onClick={() => openEditor()} />
+              <IconButton icon={<AddIcon />} label={t`New prompt`} onClick={() => openEditor()} />
             ) : (
               <Button className="shrink-0" onClick={() => openEditor()} variant="outline">
-                <AddIcon aria-hidden="true" /> New prompt
+                <AddIcon aria-hidden="true" /> {t`New prompt`}
               </Button>
             )}
-          </>
+          </span>
         ) : null}
       </div>
       <ListDetailLayout

@@ -39,6 +39,7 @@ import { CHANGED_FOR_CONVERSATION } from './agent-tab-values';
 import { ClioModelPicker } from './model-picker';
 import { KeyValueGrid, KeyValueRowButton, type KeyValueItem } from './primitives/key-value-grid';
 import { SESSION_APPROVAL_OPTIONS } from './session-behavior-options';
+import { t, ph } from '@lingui/core/macro';
 
 type RunSettingsPatch = {
   provider_id?: string;
@@ -50,7 +51,7 @@ type RunSettingsPatch = {
 export function AgentTabSectionLabel({ id, children }: { id: string; children: string }) {
   return (
     <h3
-      className="truncate px-3.5 pt-3 pb-0.5 text-[11px] font-semibold text-muted-foreground"
+      className="truncate px-3.5 pt-3 pb-0.5 text-caption font-semibold text-muted-foreground"
       id={id}
     >
       {children}
@@ -75,9 +76,9 @@ export function AgentRunsWith({
 }) {
   return (
     <section aria-labelledby="agent-runs-with">
-      <AgentTabSectionLabel id="agent-runs-with">Runs with</AgentTabSectionLabel>
+      <AgentTabSectionLabel id="agent-runs-with">{t`Runs with`}</AgentTabSectionLabel>
       {mode === 'library' ? (
-        <KeyValueGrid aria-label="Runs with" items={[setup]} variant="rows" />
+        <KeyValueGrid aria-label={t`Runs with`} items={[setup]} variant="rows" />
       ) : (
         <RunSettingRows draft={mode === 'draft'} sessionId={sessionId} setup={setup} />
       )}
@@ -115,13 +116,13 @@ function RunSettingRows({
         sessions: { ...useLiveStore.getState().entities.sessions, [updated.id]: updated },
       });
       setConfirmBypass(false);
-      toast.success(patch.approval_mode ? 'Confirmations updated' : 'Model updated');
+      toast.success(patch.approval_mode ? t`Confirmations updated` : t`Model updated`);
       await queryClient.invalidateQueries({
         queryKey: queryKeys.key('sessions', settings.endpoint, updated.workspace_id),
       });
     },
     onError: (error) =>
-      toast.error('The conversation was not changed', { description: error.message }),
+      toast.error(t`The conversation was not changed`, { description: error.message }),
   });
   const editable = !draft && Boolean(session);
   const base = defaults.data;
@@ -133,7 +134,7 @@ function RunSettingRows({
     findHeldModelOption(options, provider, model);
   const modelText = option
     ? `${option.providerName} / ${option.label}`
-    : model || 'The service default';
+    : model || t`The service default`;
   const modelChanged = Boolean(
     editable &&
       base?.model_id &&
@@ -160,11 +161,11 @@ function RunSettingRows({
       provider={providerLogoId(option.providerId)}
     />
   ) : undefined;
-  const fixedTitle = 'Choose it in the message box before you send';
+  const fixedTitle = t`Choose it in the message box before you send`;
   const items: KeyValueItem[] = [
     setup,
     {
-      label: 'Model',
+      label: t`Model`,
       title: modelText,
       value: editable ? (
         <ClioModelPicker
@@ -176,10 +177,14 @@ function RunSettingRows({
           onRetryCatalog={() => void catalog.refetch()}
           options={options}
           provider={provider}
-          title="Choose the conversation's model"
+          title={t`Choose the conversation's model`}
           trigger={
             <KeyValueRowButton
-              aria-label={`Model: ${modelText}${modelChanged ? `, ${CHANGED_FOR_CONVERSATION}` : ''}`}
+              aria-label={
+                modelChanged
+                  ? t`Model: ${modelText}, changed for this conversation`
+                  : t`Model: ${modelText}`
+              }
               changed={modelChanged}
               changedLabel={CHANGED_FOR_CONVERSATION}
               chevron="down"
@@ -195,24 +200,28 @@ function RunSettingRows({
       ),
     },
     {
-      label: 'Reasoning',
-      title: `${reasoningText}. Choose the level for each message in the message box.`,
+      label: t`Reasoning`,
+      title: t`${reasoningText}. Choose the level for each message in the message box.`,
       value: (
         <FixedValue
           changed={reasoningChanged}
           text={reasoningText}
-          title={`${reasoningText}. Choose the level for each message in the message box.`}
+          title={t`${reasoningText}. Choose the level for each message in the message box.`}
         />
       ),
     },
     {
-      label: 'Permissions',
+      label: t`Permissions`,
       title: `${approvalOption.label}: ${approvalOption.description}`,
       value: editable ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <KeyValueRowButton
-              aria-label={`Permissions: ${approvalOption.label}${approvalChanged ? `, ${CHANGED_FOR_CONVERSATION}` : ''}`}
+              aria-label={
+                approvalChanged
+                  ? t`Permissions: ${ph({ permissions: approvalOption.label })}, changed for this conversation`
+                  : t`Permissions: ${ph({ permissions: approvalOption.label })}`
+              }
               changed={approvalChanged}
               changedLabel={CHANGED_FOR_CONVERSATION}
               chevron="down"
@@ -222,7 +231,7 @@ function RunSettingRows({
             </KeyValueRowButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-72">
-            <DropdownMenuLabel>Confirmations</DropdownMenuLabel>
+            <DropdownMenuLabel>{t`Confirmations`}</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               onValueChange={(value) => {
                 if (value === 'bypass') setConfirmBypass(true);
@@ -249,18 +258,17 @@ function RunSettingRows({
   ];
   return (
     <>
-      <KeyValueGrid aria-label="Runs with" items={items} variant="rows" />
+      <KeyValueGrid aria-label={t`Runs with`} items={items} variant="rows" />
       <AlertDialog onOpenChange={setConfirmBypass} open={confirmBypass}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Bypass protected-action checks?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Bypass protected-action checks?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              The agent may perform supported actions without asking first. Workspace boundaries and
-              unavailable capabilities still apply, but individual changes will not wait for review.
+              {t`The agent may perform supported actions without asking first. Workspace boundaries and unavailable capabilities still apply, but individual changes will not wait for review.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={update.isPending}>Keep asking</AlertDialogCancel>
+            <AlertDialogCancel disabled={update.isPending}>{t`Keep asking`}</AlertDialogCancel>
             <AlertDialogAction
               disabled={update.isPending}
               onClick={(event) => {
@@ -269,7 +277,7 @@ function RunSettingRows({
               }}
               variant="destructive"
             >
-              Bypass checks
+              {t`Bypass checks`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

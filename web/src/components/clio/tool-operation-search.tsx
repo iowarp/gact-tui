@@ -6,6 +6,7 @@ import { PresentationNavigation } from './presentation-navigation';
 import { PresentationLink } from './presentation-link';
 import { operationSubject } from './tool-operation-data';
 import { ToolOperationValue } from './tool-operation-value';
+import { t, ph } from '@lingui/core/macro';
 
 /** Search families share named matches, excerpts and paging, not transport-object tables. */
 export function ToolOperationSearch({ value }: { value: unknown }) {
@@ -80,7 +81,7 @@ export function ToolOperationSearch({ value }: { value: unknown }) {
             <li key={index} className="min-w-0 space-y-1 py-3">
               {subject.label ? <PresentationLink block={subject} /> : null}
               {typeof row.line === 'number' ? (
-                <p className="text-xs text-muted-foreground">Line {row.line}</p>
+                <p className="text-xs text-muted-foreground">{t`Line ${ph({ line: row.line })}`}</p>
               ) : null}
               {excerpt ? (
                 <BoundedResult lines={4} inlineExpansion>
@@ -98,10 +99,10 @@ export function ToolOperationSearch({ value }: { value: unknown }) {
       {value.length > size ? (
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <span className="mr-auto">
-            {page * size + 1}–{Math.min((page + 1) * size, value.length)} of {value.length}
+            {t`${ph({ first: page * size + 1 })}–${ph({ last: Math.min((page + 1) * size, value.length) })} of ${ph({ total: value.length })}`}
           </span>
           <Button size="sm" variant="ghost" disabled={page === 0} onClick={() => setPage(page - 1)}>
-            Previous
+            {t`Previous`}
           </Button>
           <Button
             size="sm"
@@ -109,7 +110,7 @@ export function ToolOperationSearch({ value }: { value: unknown }) {
             disabled={(page + 1) * size >= value.length}
             onClick={() => setPage(page + 1)}
           >
-            Next
+            {t`Next`}
           </Button>
         </div>
       ) : null}

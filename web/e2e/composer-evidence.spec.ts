@@ -77,8 +77,24 @@ for (const width of [1920, 1280, 390]) {
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
     expect(bounds.y).toBeGreaterThanOrEqual(launcher.y + launcher.height);
-    // The rail floats over the transcript; the composer keeps its place and draft.
-    expect(await composer.boundingBox()).toEqual(before);
+    const during = (await composer.boundingBox())!;
+    if (width >= 900) {
+      // With the pocket closed the rail docks beside the conversation (#1203): the
+      // composer keeps its place, height and draft, and narrows to sit beside the rail.
+      await expect(rail).toHaveAttribute('data-docked', '');
+      expect(Math.abs(bounds.width - Math.max(280, Math.round(width * 0.22)))).toBeLessThan(2);
+      expect({ x: during.x, y: during.y, height: during.height }).toEqual({
+        x: before!.x,
+        y: before!.y,
+        height: before!.height,
+      });
+      expect(during.width).toBeLessThan(before!.width);
+      expect(during.x + during.width).toBeLessThanOrEqual(bounds.x);
+    } else {
+      // Under the 900px rail rule it floats over the transcript; the composer keeps its place.
+      await expect(rail).not.toHaveAttribute('data-docked');
+      expect(during).toEqual(before);
+    }
     // Pinned: working in the composer leaves it open.
     await input.click();
     await expect(rail).toBeVisible();

@@ -135,6 +135,7 @@ function chartRowsUnderBox(target: HTMLElement, region: Region): Record<string, 
   if (!chart.xField || !chart.yField) {
     return {
       available: false,
+      // i18n-ignore: evidence line sent to the agent
       reason: 'This chart does not expose two data fields for box lookup.',
     };
   }
@@ -144,13 +145,17 @@ function chartRowsUnderBox(target: HTMLElement, region: Region): Record<string, 
     xScale = chart.view.scale('x');
     yScale = chart.view.scale('y');
   } catch {
+    // i18n-ignore: evidence line sent to the agent
     return { available: false, reason: 'This chart has no shared x/y scales for box lookup.' };
   }
   if (!xScale || !yScale) {
+    // i18n-ignore: evidence line sent to the agent
     return { available: false, reason: 'This chart has no shared x/y scales for box lookup.' };
   }
   const canvas = host.querySelector('canvas.marks');
-  if (!canvas) return { available: false, reason: 'The chart canvas is not ready for box lookup.' };
+  if (!canvas)
+    // i18n-ignore: evidence line sent to the agent
+    return { available: false, reason: 'The chart canvas is not ready for box lookup.' };
   const bounds = target.getBoundingClientRect();
   const canvasBounds = canvas.getBoundingClientRect();
   const [originX, originY] = chart.view.origin();
@@ -265,12 +270,15 @@ export function regionUnderLines(target: CaptureTarget, region: Region): string[
   const shown = displayedRegion(target.element, region);
   const lines: string[] = [];
   const text = visibleTextUnderBox(target.element, shown);
+  // i18n-ignore: evidence line sent to the agent
   if (text.length) lines.push(`Visible text: ${text.join('; ')}`);
   const chart = chartRowsUnderBox(target.element, shown);
+  // i18n-ignore: evidence line sent to the agent
   if (chart && chart.available === false) lines.push(`Chart rows: ${valueText(chart.reason)}`);
   else if (chart) {
     const rows = (chart.rows as Record<string, unknown>[] | undefined) ?? [];
     lines.push(
+      // i18n-ignore: evidence line sent to the agent
       `Chart rows: ${valueText(chart.count)} under the box${chart.rowsTruncated ? ` (first ${rows.length} listed)` : ''}`,
     );
     for (const row of rows) lines.push(`  ${valueText(row)}`);
@@ -279,10 +287,12 @@ export function regionUnderLines(target: CaptureTarget, region: Region): string[
   if (map) {
     const ids = (map.ids as string[] | undefined) ?? [];
     lines.push(
+      // i18n-ignore: evidence line sent to the agent
       `Map features: ${valueText(map.count)}${ids.length ? `: ${ids.join(', ')}` : ''}${map.idsTruncated ? ' (first 100)' : ''}`,
     );
   }
   const mesh = meshNodesUnderBox(target.element, shown);
+  // i18n-ignore: evidence line sent to the agent
   if (mesh) lines.push(`Mesh: ${valueText(mesh)}`);
   return lines;
 }

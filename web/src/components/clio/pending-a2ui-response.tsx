@@ -45,6 +45,7 @@ import { canDismissQuestion } from './question-card-model';
 import { IconButton } from './primitives/icon-button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { SurfaceReferenceContext } from './surface-reference-context';
+import { t, ph } from '@lingui/core/macro';
 
 type InteractionResponseHandler = (
   interaction: PendingInteraction,
@@ -110,7 +111,8 @@ export function PendingA2UIResponse({
     return persisted === undefined ? undefined : clampViewportHeight(persisted, window.innerHeight);
   });
   const viewport = useRef<HTMLDivElement>(null);
-  const currentHeight = () => viewportHeight ?? viewport.current?.clientHeight ?? MIN_VIEWPORT_HEIGHT;
+  const currentHeight = () =>
+    viewportHeight ?? viewport.current?.clientHeight ?? MIN_VIEWPORT_HEIGHT;
   const resizeStart = useRef<{ y: number; height: number; moved: boolean } | null>(null);
   const suppressResizeClick = useRef(false);
   // The one persistent instance of the interactive surface. `host` is a
@@ -170,7 +172,7 @@ export function PendingA2UIResponse({
       <IconButton
         className="cursor-ns-resize touch-none"
         icon={<GripHorizontalIcon aria-hidden="true" />}
-        label="Resize interactive surface"
+        label={t`Resize interactive surface`}
         onClick={() => {
           if (suppressResizeClick.current) {
             suppressResizeClick.current = false;
@@ -190,7 +192,7 @@ export function PendingA2UIResponse({
       />
       <IconButton
         icon={<Maximize2Icon aria-hidden="true" />}
-        label="Open interactive surface full screen"
+        label={t`Open interactive surface full screen`}
         onClick={() => setFullscreen(true)}
         size="sm"
         type="button"
@@ -199,7 +201,7 @@ export function PendingA2UIResponse({
         <IconButton
           disabled={disabled}
           icon={<CloseIcon aria-hidden="true" />}
-          label="Close question"
+          label={t`Close question`}
           onClick={dismiss}
           size="sm"
           type="button"
@@ -232,24 +234,24 @@ export function PendingA2UIResponse({
               viewportHeight === undefined
                 ? undefined
                 : ({
-                height: viewportHeight,
-                // A catalog component that wants to fill this card (the map)
-                // cannot reach its own height with a CSS percentage — every
-                // wrapper between here and it (the surface renderer, the
-                // catalog grid) is a plain flow container with no height of
-                // its own, so a percentage chain breaks immediately. A
-                // custom property inherits past all of that regardless, the
-                // same way the fullscreen dialog already sizes the map off
-                // 100dvh instead of a percentage.
-                '--a2ui-inline-surface-height': `${viewportHeight}px`,
-              } as CSSProperties)
+                    height: viewportHeight,
+                    // A catalog component that wants to fill this card (the map)
+                    // cannot reach its own height with a CSS percentage — every
+                    // wrapper between here and it (the surface renderer, the
+                    // catalog grid) is a plain flow container with no height of
+                    // its own, so a percentage chain breaks immediately. A
+                    // custom property inherits past all of that regardless, the
+                    // same way the fullscreen dialog already sizes the map off
+                    // 100dvh instead of a percentage.
+                    '--a2ui-inline-surface-height': `${viewportHeight}px`,
+                  } as CSSProperties)
             }
           >
             {/* Portal host for the inline placement — see `surfaceBody` below. */}
             <div className="contents" ref={setInlineHost} />
           </div>
           <button
-            aria-label="Corner resize handle"
+            aria-label={t`Corner resize handle`}
             className="absolute bottom-1 right-1 z-10 flex size-6 touch-none cursor-nwse-resize items-center justify-center rounded-md bg-muted text-muted-foreground opacity-0 group-hover/viewport:opacity-70 hover:opacity-100! hover:text-foreground focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary motion-safe:transition-opacity"
             data-slot="a2ui-response-corner-resize"
             onPointerCancel={endResize}
@@ -261,7 +263,7 @@ export function PendingA2UIResponse({
             // resize behavior (click/Enter/Space to toggle min/max). Leaving
             // this in the tab order would visit the same affordance twice.
             tabIndex={-1}
-            title="Drag to resize interactive surface"
+            title={t`Drag to resize interactive surface`}
             type="button"
           >
             <MoveDiagonal2Icon aria-hidden="true" className="size-3.5" />
@@ -296,12 +298,14 @@ export function PendingA2UIResponse({
           }}
         >
           <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
-            <DialogTitle className="min-w-0 truncate text-[13.5px] font-medium">
-              {interaction.prompt ?? interaction.title ?? `${PROTOCOL.a2ui} surface`}
+            <DialogTitle className="min-w-0 truncate text-[0.84375rem] font-medium">
+              {interaction.prompt ??
+                interaction.title ??
+                t`${ph({ protocol: PROTOCOL.a2ui })} surface`}
             </DialogTitle>
             <Button onClick={() => setFullscreen(false)} size="sm" type="button" variant="ghost">
               <Minimize2Icon aria-hidden="true" />
-              Exit full screen
+              {t`Exit full screen`}
             </Button>
           </div>
           <div className="min-h-0 overflow-auto overscroll-contain p-3">
@@ -350,29 +354,29 @@ function A2UISurfaceBody({
 }) {
   if (!interaction.source.surface_id) {
     return (
-      <p className="flex items-start gap-1.5 text-[12.5px] text-muted-foreground">
+      <p className="flex items-start gap-1.5 text-menu text-muted-foreground">
         <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
-        This response has no {PROTOCOL.a2ui} surface to open.
+        {t`This response has no ${ph({ a2ui: PROTOCOL.a2ui })} surface to open.`}
       </p>
     );
   }
   if (rawSurface && rawSurface.session_id !== interaction.owner_session_id) {
     return (
-      <p className="flex items-start gap-1.5 text-[12.5px] text-muted-foreground">
+      <p className="flex items-start gap-1.5 text-menu text-muted-foreground">
         <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
-        This {PROTOCOL.a2ui} surface was rejected: it was addressed to a different session.
+        {t`This ${ph({ a2ui: PROTOCOL.a2ui })} surface was rejected: it was addressed to a different session.`}
       </p>
     );
   }
   if (!rawSurface) {
     return (
-      <div className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
+      <div className="flex items-center gap-2 text-menu text-muted-foreground">
         <LoaderCircleIcon aria-hidden="true" className="size-4 shrink-0 motion-safe:animate-spin" />
-        <span className="flex-1">{PROTOCOL.a2ui} surface is loading.</span>
+        <span className="flex-1">{t`${ph({ a2ui: PROTOCOL.a2ui })} surface is loading.`}</span>
         {onRefetchSurface ? (
           <Button onClick={onRefetchSurface} size="sm" type="button" variant="ghost">
             <RetryIcon aria-hidden="true" />
-            Retry
+            {t`Retry`}
           </Button>
         ) : null}
       </div>

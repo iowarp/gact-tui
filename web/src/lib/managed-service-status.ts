@@ -1,5 +1,6 @@
 import type { ServiceObservation } from '@clio/core/v3';
 import type { ClioStatusValue } from '@/components/clio/status';
+import { t } from '@lingui/core/macro';
 
 /** What a managed service is, from the one record every Infrastructure surface reads. */
 export type ManagedServiceStatusKind =
@@ -40,33 +41,33 @@ export interface ManagedServiceStatusSource {
 export function managedServiceStatus(service: ManagedServiceStatusSource): ManagedServiceStatus {
   const observed = service.observation;
   if (observed) {
-    if (observed.serving) return { kind: 'running', label: 'Running', value: 'healthy' };
+    if (observed.serving) return { kind: 'running', label: t`Running`, value: 'healthy' };
     if (observed.phase === 'installing')
-      return { kind: 'installing', label: 'Installing', value: 'running' };
-    if (observed.running) return { kind: 'starting', label: 'Starting', value: 'running' };
+      return { kind: 'installing', label: t`Installing`, value: 'running' };
+    if (observed.running) return { kind: 'starting', label: t`Starting`, value: 'running' };
     if (observed.installed)
-      return { kind: 'stopped', label: 'Stopped', value: 'degraded', action: 'start' };
+      return { kind: 'stopped', label: t`Stopped`, value: 'degraded', action: 'start' };
     return notInstalled(observed.error);
   }
-  if (service.state === 'running') return { kind: 'running', label: 'Running', value: 'healthy' };
+  if (service.state === 'running') return { kind: 'running', label: t`Running`, value: 'healthy' };
   if (service.state === 'stopped')
-    return { kind: 'stopped', label: 'Stopped', value: 'degraded', action: 'start' };
+    return { kind: 'stopped', label: t`Stopped`, value: 'degraded', action: 'start' };
   if (service.state === 'not_installed') return notInstalled();
   // A catalog entry with no deployment: whether this computer can take one.
   if (service.variants && !service.owned_resources?.length) {
     return service.variants.some((row) => row.compatible)
-      ? { kind: 'not_installed', label: 'Not installed', value: 'unavailable', action: 'install' }
-      : { kind: 'unavailable', label: 'Unavailable here', value: 'unavailable' };
+      ? { kind: 'not_installed', label: t`Not installed`, value: 'unavailable', action: 'install' }
+      : { kind: 'unavailable', label: t`Unavailable here`, value: 'unavailable' };
   }
-  return { kind: 'not_checked', label: 'Not checked', value: 'unavailable' };
+  return { kind: 'not_checked', label: t`Not checked`, value: 'unavailable' };
 }
 
 function notInstalled(error?: string | null): ManagedServiceStatus {
   return {
     kind: 'not_installed',
-    label: 'Not installed',
+    label: t`Not installed`,
     value: 'degraded',
     action: 'install',
-    reason: error ? 'The last installation did not finish. Install it to use it.' : undefined,
+    reason: error ? t`The last installation did not finish. Install it to use it.` : undefined,
   };
 }

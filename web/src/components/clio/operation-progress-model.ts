@@ -8,6 +8,7 @@ import type {
 } from '@clio/core/v3';
 import { formatBytes } from '@/lib/format';
 import { formatElapsed } from './deploy-progress-model';
+import { t } from '@lingui/core/macro';
 
 /** One live log line, keyed by its stream event id. */
 export interface OperationLogEntry {
@@ -155,8 +156,11 @@ export function reuseNote(reuse: OperationReuse): string {
     typeof reuse.size_bytes === 'number' ? formatBytes(reuse.size_bytes) : '',
     typeof reuse.saved_seconds === 'number' ? `~${formatElapsed(reuse.saved_seconds * 1000)}` : '',
   ].filter(Boolean);
-  const tail = skipped.length ? `; skipped ${skipped.join('/')}` : '';
-  return `Reusing ${reuse.thing} (${identity})${tail}`;
+  const thing = reuse.thing;
+  const skippedText = skipped.join('/');
+  return skipped.length
+    ? t`Reusing ${thing} (${identity}); skipped ${skippedText}`
+    : t`Reusing ${thing} (${identity})`;
 }
 
 /** Seconds since `startedAt` (ISO) at `now`, or the recorded elapsed time once finished. */
@@ -184,7 +188,7 @@ export function skippedStepReason(
 ): string | undefined {
   if (step.state !== 'skipped') return undefined;
   if (step.message) return step.message;
-  if (operationState === 'failed') return 'Not run because the operation failed first';
-  if (operationState === 'cancelled') return 'Not run because the operation was cancelled';
+  if (operationState === 'failed') return t`Not run because the operation failed first`;
+  if (operationState === 'cancelled') return t`Not run because the operation was cancelled`;
   return undefined;
 }

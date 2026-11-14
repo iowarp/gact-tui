@@ -74,7 +74,8 @@ export function useWorkspaceQuestions({
     () => createAttentionDraftStore(JSON.stringify([endpoint, sessionId])),
     [endpoint, sessionId],
   );
-  const [openedId, setOpenedId] = useState<string>();
+  const [opened, setOpened] = useState<{ sessionId: string; id: string }>();
+  const openedId = opened?.sessionId === sessionId ? opened.id : undefined;
   const responseDrafts = useQuestionDrafts(endpoint, sessionId, interactions);
   const [surfaceTarget, setSurfaceTarget] = useState<SurfaceQuestionTarget>();
   const openSurfaceQuestion = useCallback(
@@ -141,7 +142,7 @@ export function useWorkspaceQuestions({
       {questionAnswering.context.answeringId ? questionAnswering.notice : null}
       <AgentQuestionDialog
         interaction={interactions.find((row) => row.id === openedId && row.status === 'pending')}
-        onClose={() => setOpenedId(undefined)}
+        onClose={() => setOpened(undefined)}
         onResponse={handleInteractionResponse}
       />
       <ClioPendingInteractionsDock {...dockProps} />
@@ -160,7 +161,7 @@ export function useWorkspaceQuestions({
             openSurfaceQuestion(interaction);
           else if (trayInteractions.some((row) => row.id === interaction.id))
             revealPendingInteraction(interaction.id);
-          else setOpenedId(interaction.id);
+          else setOpened({ sessionId, id: interaction.id });
         },
         openSurfaceQuestion,
         surfaceTarget,

@@ -28,6 +28,7 @@ import {
   useNotificationPreferences,
 } from '@/providers/notification-preferences-provider';
 import { useOnboardingTour } from '@/lib/onboarding/tour-context';
+import { t } from '@lingui/core/macro';
 
 interface NotifierProps {
   activeSessionId: string;
@@ -97,8 +98,8 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
         // resets the report the moment the preference itself changes.
         if (played || reportedSoundFailureFor.current === attentionSound) return;
         reportedSoundFailureFor.current = attentionSound;
-        toast.warning('Attention sound is muted', {
-          description: 'The browser blocked the chime. Interact with the page once to allow it.',
+        toast.warning(t`Attention sound is muted`, {
+          description: t`The browser blocked the chime. Interact with the page once to allow it.`,
         });
       });
     },
@@ -241,12 +242,12 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
 
 /** What a needs-you banner leads with: the kind of answer the conversation waits for. */
 function attentionTitle(attention: SessionAttention | undefined): string {
-  if (!attention) return 'Response needed';
+  if (!attention) return t`Response needed`;
   const approvals = attention.permissionIds.length;
   const questions = attention.questionIds.length + attention.mcpTaskInputIds.length;
-  if (approvals > 0 && questions === 0) return 'Approval needed';
-  if (questions > 0 && approvals === 0) return 'Question for you';
-  return 'Response needed';
+  if (approvals > 0 && questions === 0) return t`Approval needed`;
+  if (questions > 0 && approvals === 0) return t`Question for you`;
+  return t`Response needed`;
 }
 
 /**

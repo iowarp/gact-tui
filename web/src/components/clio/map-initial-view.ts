@@ -3,6 +3,7 @@ import type { FeatureCollection, Polygon } from 'geojson';
 import offlineLand from '@/assets/offline-basemap/land-110m.json';
 import { readThemeColor } from '@/theme/runtime';
 import type { ScientificMapPoint } from './scientific-map-view';
+import { t } from '@lingui/core/macro';
 
 export const MAP_BASE_LAYER_ID = 'clio-map-background';
 
@@ -49,7 +50,7 @@ export const offlineStyle = () => {
       'offline-land': {
         type: 'geojson' as const,
         data: offlineLandData,
-        attribution: 'Natural Earth coarse land outline',
+        attribution: t`Natural Earth coarse land outline`,
       },
     },
     layers: [

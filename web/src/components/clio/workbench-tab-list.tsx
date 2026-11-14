@@ -3,6 +3,7 @@ import { Fragment, useContext, useLayoutEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { IconButton } from './primitives/icon-button';
 import { WorkbenchTabListSlot, type TabListSlot } from './workbench-tab-list-context';
+import { t, ph } from '@lingui/core/macro';
 
 export function WorkbenchTabListProvider({
   slot,
@@ -47,7 +48,7 @@ export function WorkbenchTabListToggle() {
   if (!slot?.title || slot.shown) return null;
   return (
     <IconButton
-      label={`Show ${slot.title}`}
+      label={t`Show ${ph({ title: slot.title })}`}
       icon={<PanelRightOpenIcon aria-hidden="true" />}
       className="[&_svg]:size-3.5"
       onClick={() => slot.setShown(true)}

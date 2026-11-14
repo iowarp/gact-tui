@@ -1,13 +1,27 @@
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { CommonSchemas } from '@a2ui/web_core/v0_9';
 import { CloudIcon, CloudRainIcon, SunIcon, WindIcon } from 'lucide-react';
-import { createElement, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import {
+  createElement,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
 import { z } from 'zod';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 const hourSchema = z
   .object({
-    time: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/u, 'Forecast time needs an explicit UTC offset or Z'),
+    time: z.string().regex(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/u,
+      // i18n-ignore: validation message returned to the agent
+      'Forecast time needs an explicit UTC offset or Z',
+    ),
     condition: z.string(),
     temperature: z.number(),
     precipitationChance: z.number().min(0).max(100).optional(),
@@ -27,7 +41,11 @@ export const weatherSchema = z
   .object({
     location: z.string().min(1),
     timeZone: z.string().min(1),
-    observedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/u, 'Observation time needs an explicit UTC offset or Z'),
+    observedAt: z.string().regex(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/u,
+      // i18n-ignore: validation message returned to the agent
+      'Observation time needs an explicit UTC offset or Z',
+    ),
     condition: z.string(),
     temperature: z.number(),
     temperatureUnit: z.enum(['C', 'F']),
@@ -48,7 +66,7 @@ function localTime(value: string, timeZone: string, options: Intl.DateTimeFormat
     throw new Error(`Forecast time needs a UTC offset: ${value}`);
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) throw new Error(`Invalid forecast time: ${value}`);
-  return new Intl.DateTimeFormat(undefined, { ...options, timeZone }).format(date);
+  return new Intl.DateTimeFormat(formatLocale(), { ...options, timeZone }).format(date);
 }
 
 function localDate(value: string): string {
@@ -56,7 +74,7 @@ function localDate(value: string): string {
   const date = new Date(`${value}T12:00:00Z`);
   if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value)
     throw new Error(`Invalid local date: ${value}`);
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(formatLocale(), {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -76,7 +94,17 @@ function conditionColor(condition: string): string {
   return 'text-foreground/80';
 }
 
-function WeatherStrip({ children, count, label }: { children: ReactNode; count: number; label: string }) {
+function WeatherStrip({
+  children,
+  count,
+  label,
+  scrollLabel,
+}: {
+  children: ReactNode;
+  count: number;
+  label: string;
+  scrollLabel: string;
+}) {
   const viewport = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; left: number } | undefined>(undefined);
   const [hasOverflow, setHasOverflow] = useState(false);
@@ -91,7 +119,8 @@ function WeatherStrip({ children, count, label }: { children: ReactNode; count: 
     for (const child of node.children) resize.observe(child);
     const wheel = (event: WheelEvent) => {
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-      const canMove = delta < 0 ? node.scrollLeft > 1 : node.scrollLeft + node.clientWidth < node.scrollWidth - 1;
+      const canMove =
+        delta < 0 ? node.scrollLeft > 1 : node.scrollLeft + node.clientWidth < node.scrollWidth - 1;
       if (!canMove) return;
       event.preventDefault();
       node.scrollLeft += Math.sign(delta) * Math.min(Math.abs(delta), node.clientWidth * 0.7);
@@ -109,26 +138,32 @@ function WeatherStrip({ children, count, label }: { children: ReactNode; count: 
     setDragging(true);
   };
   const moveDrag = (event: PointerEvent<HTMLDivElement>) => {
-    if (drag.current && viewport.current) viewport.current.scrollLeft = drag.current.left - (event.clientX - drag.current.x);
+    if (drag.current && viewport.current)
+      viewport.current.scrollLeft = drag.current.left - (event.clientX - drag.current.x);
   };
   const endDrag = () => {
     drag.current = undefined;
     setDragging(false);
   };
   return (
-    <ScrollArea className="min-w-0" scrollHideDelay={600} type="hover" viewportProps={{
-      'aria-label': label,
-      className: `overscroll-x-contain ${hasOverflow ? dragging ? 'cursor-grabbing select-none' : 'cursor-grab select-none' : ''}`,
-      onPointerCancel: endDrag,
-      onPointerDown: startDrag,
-      onPointerMove: moveDrag,
-      onPointerUp: endDrag,
-      ref: viewport,
-      role: 'group',
-    }}>
+    <ScrollArea
+      className="min-w-0"
+      scrollHideDelay={600}
+      type="hover"
+      viewportProps={{
+        'aria-label': label,
+        className: `overscroll-x-contain ${hasOverflow ? (dragging ? 'cursor-grabbing select-none' : 'cursor-grab select-none') : ''}`,
+        onPointerCancel: endDrag,
+        onPointerDown: startDrag,
+        onPointerMove: moveDrag,
+        onPointerUp: endDrag,
+        ref: viewport,
+        role: 'group',
+      }}
+    >
       <div className="flex w-max min-w-full gap-2 pb-1">{children}</div>
       <ScrollBar
-        aria-label={`Scroll ${label.toLowerCase()}`}
+        aria-label={scrollLabel}
         className="border-0 bg-transparent p-0 [&_[data-slot=scroll-area-thumb]]:bg-foreground/35 hover:[&_[data-slot=scroll-area-thumb]]:bg-foreground/55"
         orientation="horizontal"
         style={{ height: 5 }}
@@ -164,16 +199,31 @@ export function ClioWeather(props: WeatherProps) {
         className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive"
         role="alert"
       >
-        Weather unavailable: {error instanceof Error ? error.message : String(error)}
+        {t`Weather unavailable: ${ph({ error: error instanceof Error ? error.message : String(error) })}`}
       </p>
     );
   }
   const Icon = conditionIcon(props.condition);
   const unit = `°${props.temperatureUnit}`;
   const sourceLink = /^(.*?)\s*\((https:\/\/[^)\s]+)\)(.*)$/u.exec(props.source);
+  const sourceNode = sourceLink ? (
+    <>
+      <a
+        className="underline decoration-foreground/25 underline-offset-2 hover:text-foreground hover:decoration-current"
+        href={sourceLink[2]}
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        {sourceLink[1]?.trim() || sourceLink[2]}
+      </a>
+      {sourceLink[3]}
+    </>
+  ) : (
+    props.source
+  );
   return (
     <section
-      aria-label={`Weather for ${props.location}`}
+      aria-label={t`Weather for ${ph({ location: props.location })}`}
       className="overflow-hidden rounded-xl border border-border/70 bg-linear-to-br from-info/10 via-card to-card"
       data-slot="a2ui-weather"
     >
@@ -187,28 +237,34 @@ export function ClioWeather(props: WeatherProps) {
               {Math.round(props.temperature)}
               {unit}
             </span>
-            {createElement(Icon, { 'aria-hidden': true, className: `size-8 shrink-0 ${conditionColor(props.condition)}` })}
+            {createElement(Icon, {
+              'aria-hidden': true,
+              className: `size-8 shrink-0 ${conditionColor(props.condition)}`,
+            })}
           </div>
           <p className="mt-1 text-sm">{props.condition}</p>
         </div>
         <div className="min-w-0 basis-full text-left text-xs text-muted-foreground sm:basis-auto sm:text-right">
-          <p>As of {observed}</p>
+          <p>{t`As of ${observed}`}</p>
           {props.windSpeed !== undefined ? (
             <p className="mt-1 flex items-center justify-start gap-1 sm:justify-end">
               <WindIcon aria-hidden="true" className="size-3.5" />
-              Wind {props.windSpeed} {props.windUnit ?? ''}
+              {t`Wind ${ph({ speed: props.windSpeed })} ${ph({ unit: props.windUnit ?? '' })}`}
             </p>
           ) : null}
-          <p className="mt-1">Source: {sourceLink ? <>
-            <a className="underline decoration-foreground/25 underline-offset-2 hover:text-foreground hover:decoration-current" href={sourceLink[2]} rel="noopener noreferrer" target="_blank">{sourceLink[1]?.trim() || sourceLink[2]}</a>
-            {sourceLink[3]}
-          </> : props.source}</p>
+          <p className="mt-1">
+            <Trans>Source: {sourceNode}</Trans>
+          </p>
         </div>
       </div>
       {props.hourly?.length ? (
         <div className="border-t border-border/60 px-4 py-3">
-          <h3 className="mb-2 text-xs font-medium text-muted-foreground">Hourly</h3>
-          <WeatherStrip count={props.hourly.length} label="Hourly forecast">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t`Hourly`}</h3>
+          <WeatherStrip
+            count={props.hourly.length}
+            label={t`Hourly forecast`}
+            scrollLabel={t`Scroll hourly forecast`}
+          >
             {props.hourly.map((hour, index) => {
               const { day, time } = hours[index]!;
               const HourIcon = conditionIcon(hour.condition);
@@ -218,16 +274,19 @@ export function ClioWeather(props: WeatherProps) {
                   key={`${hour.time}-${index}`}
                   title={hour.condition}
                 >
-                  <p className="whitespace-nowrap text-[11px] text-muted-foreground">{day}</p>
+                  <p className="whitespace-nowrap text-caption text-muted-foreground">{day}</p>
                   <p className="mt-0.5 font-medium tabular-nums">{time}</p>
-                  <HourIcon aria-hidden="true" className={`mx-auto my-2 size-5 shrink-0 ${conditionColor(hour.condition)}`} />
+                  <HourIcon
+                    aria-hidden="true"
+                    className={`mx-auto my-2 size-5 shrink-0 ${conditionColor(hour.condition)}`}
+                  />
                   <p className="font-medium tabular-nums">
                     {Math.round(hour.temperature)}
                     {unit}
                   </p>
                   {hour.precipitationChance !== undefined ? (
                     <p className="mt-1 text-info">
-                      {Math.round(hour.precipitationChance)}% rain
+                      {t`${ph({ chance: Math.round(hour.precipitationChance) })}% rain`}
                     </p>
                   ) : null}
                 </div>
@@ -238,8 +297,12 @@ export function ClioWeather(props: WeatherProps) {
       ) : null}
       {props.daily?.length ? (
         <div className="border-t border-border/60 px-4 py-3">
-          <h3 className="mb-2 text-xs font-medium text-muted-foreground">Daily</h3>
-          <WeatherStrip count={props.daily.length} label="Daily forecast">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t`Daily`}</h3>
+          <WeatherStrip
+            count={props.daily.length}
+            label={t`Daily forecast`}
+            scrollLabel={t`Scroll daily forecast`}
+          >
             {props.daily.map((day, index) => {
               const date = days[index]!;
               const DayIcon = conditionIcon(day.condition);
@@ -261,12 +324,11 @@ export function ClioWeather(props: WeatherProps) {
                   </div>
                   <div className="mt-2 flex items-baseline justify-between gap-1 tabular-nums">
                     <span className="font-medium">
-                      {Math.round(day.high)}° <span className="text-muted-foreground">{Math.round(day.low)}°</span>
+                      {Math.round(day.high)}°{' '}
+                      <span className="text-muted-foreground">{Math.round(day.low)}°</span>
                     </span>
                     {day.precipitationChance !== undefined ? (
-                      <span className="text-info">
-                        {Math.round(day.precipitationChance)}%
-                      </span>
+                      <span className="text-info">{Math.round(day.precipitationChance)}%</span>
                     ) : null}
                   </div>
                 </div>

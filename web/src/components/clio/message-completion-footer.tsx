@@ -4,6 +4,7 @@ import { formatClockTime, formatDateTime } from '@/lib/locale-format';
 import { cn } from '@/lib/utils';
 import { MessageReplyCard } from './message-reply-card';
 import { replyDuration, replyModelIcon, replyTokens } from './message-reply-facts';
+import { t } from '@lingui/core/macro';
 
 /**
  * The 24px line under a finished answer: the model, its tokens and time on the
@@ -44,7 +45,8 @@ export function MessageCompletionFooter({
   return (
     <div
       className={cn(
-        'mb-1.5 flex h-6 min-w-0 items-center gap-3 whitespace-nowrap text-[11.5px] text-muted-foreground',
+        // A narrow column wraps the facts part by part; each part moves to the next line whole.
+        'mb-1.5 flex min-h-6 min-w-0 flex-wrap items-center gap-x-3 whitespace-nowrap text-label text-muted-foreground',
         actionsOnly && 'sm:pointer-events-none sm:-mt-[31px]',
       )}
       data-slot="message-completion-footer"
@@ -56,7 +58,7 @@ export function MessageCompletionFooter({
           message={message}
         >
           <button
-            className="flex h-full min-w-0 items-center gap-3 overflow-hidden rounded-[5px] text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="flex min-h-6 min-w-0 max-w-full flex-wrap items-center gap-x-3 rounded-[5px] py-0.5 text-left leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             data-slot="message-reply-meta"
             type="button"
           >
@@ -67,21 +69,24 @@ export function MessageCompletionFooter({
                   failed ? 'text-destructive' : 'text-muted-foreground',
                 )}
               >
-                {failed ? 'Failed' : 'Stopped'}
+                {failed ? t`Failed` : t`Stopped`}
               </span>
             ) : null}
             {message.model ? (
               <span
-                className="inline-flex min-w-0 items-center gap-[5px] text-accent-foreground"
+                className="inline-flex min-w-0 max-w-full items-center gap-[5px] text-accent-foreground"
                 data-slot="message-reply-model"
               >
                 {replyModelIcon(message.model.provider_id)}
-                <span className="truncate">{message.model.model_id}</span>
+                <span className="min-w-0 [overflow-wrap:anywhere] whitespace-normal">
+                  {message.model.model_id}
+                </span>
               </span>
             ) : null}
-            {tokens ? <span className="truncate">{tokens}</span> : null}
+            {/* Whole on its line when it fits; alone on a line too narrow, it wraps at its spaces. */}
+            {tokens ? <span className="min-w-0 max-w-full whitespace-normal">{tokens}</span> : null}
             {duration ? <span className="shrink-0">{duration}</span> : null}
-            {!word && !facts ? <span className="truncate">Reply details</span> : null}
+            {!word && !facts ? <span className="truncate">{t`Reply details`}</span> : null}
           </button>
         </MessageReplyCard>
       ) : null}

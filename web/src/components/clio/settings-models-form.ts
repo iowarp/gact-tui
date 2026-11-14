@@ -26,6 +26,7 @@ import type {
   LanguageModelConfiguration,
   LanguageModelPreset,
 } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 export type { ReasoningEffort } from '@clio/core/v3';
 
@@ -37,20 +38,35 @@ export type { ReasoningEffort } from '@clio/core/v3';
  * describe).
  */
 export const RESPONSE_SETTING_LABELS = {
-  temperature: 'Temperature',
-  top_p: 'Top P',
-  top_k: 'Top K',
-  min_p: 'Min P',
-  presence_penalty: 'Presence penalty',
-  frequency_penalty: 'Frequency penalty',
-  repetition_penalty: 'Repetition penalty',
-  max_tokens: 'Longest reply',
-  context_length: 'Context size',
-  seed: 'Seed',
-  parallel: 'Replies at once',
+  temperature: t`Temperature`,
+  top_p: t`Top P`,
+  top_k: t`Top K`,
+  min_p: t`Min P`,
+  presence_penalty: t`Presence penalty`,
+  frequency_penalty: t`Frequency penalty`,
+  repetition_penalty: t`Repetition penalty`,
+  max_tokens: t`Longest reply`,
+  context_length: t`Context size`,
+  seed: t`Seed`,
+  parallel: t`Replies at once`,
 } as const;
 
 export type ResponseSettingName = keyof typeof RESPONSE_SETTING_LABELS;
+
+/** What each setting does, in the interface language; the service describes it in English. */
+export const RESPONSE_SETTING_DESCRIPTIONS: Record<ResponseSettingName, string> = {
+  temperature: t`Higher values make replies more varied; lower values more focused.`,
+  top_p: t`Sample only from the most likely tokens whose probabilities add up to this.`,
+  top_k: t`Sample only from this many of the most likely tokens (0 turns it off).`,
+  min_p: t`Drop tokens less likely than this fraction of the most likely one.`,
+  presence_penalty: t`Positive values push the model toward new topics.`,
+  frequency_penalty: t`Positive values make the model repeat the same words less.`,
+  repetition_penalty: t`Values above 1 discourage repeating recent tokens; 1 turns it off.`,
+  max_tokens: t`The most tokens one reply may use.`,
+  context_length: t`How many tokens the model can read at once on this server.`,
+  seed: t`The same seed and settings repeat the same reply where the server supports it.`,
+  parallel: t`How many replies the server works on at the same time.`,
+};
 
 export const RESPONSE_SETTING_NAMES = Object.keys(RESPONSE_SETTING_LABELS) as ResponseSettingName[];
 

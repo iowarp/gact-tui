@@ -23,9 +23,9 @@ for (const theme of ['light', 'dark']) {
     await page.screenshot({ path: `${evidence}/amd-native-${theme}-mobile.png`, fullPage: true });
   });
 }
-test('Linux without a container engine offers all five native installers', async ({ page }) => {
+test('Linux without a container engine offers all four native installers', async ({ page }) => {
   await page.goto('/tests/review/service-methods.html?host=2');
-  for (const name of ['llama.cpp', 'Ollama', 'CLIO Web Search', 'Flowcept', 'HPE CMF']) {
+  for (const name of ['llama.cpp', 'Ollama', 'Flowcept', 'HPE CMF']) {
     await page
       .getByRole('button', { name: new RegExp(name) })
       .first()

@@ -18,6 +18,7 @@ import { InfoIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
+import { t } from '@lingui/core/macro';
 
 export type ActivityOutcomeTone = 'error' | 'warning' | 'muted';
 
@@ -35,11 +36,16 @@ export interface ActivityRowProps extends Omit<HTMLAttributes<HTMLDivElement>, '
   link?: ReactNode;
   /**
    * A count or extent recap ("1 file matches", "Lines 1-40"): muted, after
-   * the argument. It keeps its room before the argument does, then ends in …;
-   * outcome words never shrink.
+   * the argument. It takes what the argument leaves and drops out of a narrow
+   * row; outcome words never shrink.
    */
   recap?: ReactNode;
   recapTitle?: string;
+  /**
+   * The recap is the row's result (what a script called, whether the model saw an
+   * image): it keeps its words and the argument gives up its room first.
+   */
+  recapLeads?: boolean;
   /** A short result word: "exit 1", "12 hits", "waiting for you". */
   outcome?: ReactNode;
   outcomeTone?: ActivityOutcomeTone;
@@ -90,6 +96,7 @@ export const ActivityRow = memo(
       link,
       recap,
       recapTitle,
+      recapLeads = false,
       outcome,
       outcomeTone = 'error',
       outcomeTitle,
@@ -226,7 +233,8 @@ export const ActivityRow = memo(
                   title={argumentTitle}
                   // Every row splits function and input the same way: the name in the
                   // foreground, the input in the spec's argument style, with no separator.
-                  className="w-0 min-w-0 max-w-fit grow truncate font-mono text-[11.5px] text-muted-foreground"
+                  // The target takes the room before a count recap beside it does.
+                  className="w-0 min-w-0 max-w-fit grow-[100] truncate font-mono text-label text-muted-foreground has-[[data-long-label]]:min-w-[min(11ch,50%)]"
                 >
                   {argument}
                 </span>
@@ -235,9 +243,13 @@ export const ActivityRow = memo(
                 <span
                   data-slot="activity-metadata"
                   title={recapTitle}
-                  // A count or extent recap keeps its room ahead of the argument, then
-                  // ends in …; it never squeezes the name or the outcome words.
-                  className="w-0 min-w-0 max-w-fit grow-[100] truncate text-[11.5px] text-muted-foreground"
+                  // Secondary detail folds first (conversation-states, "When space is
+                  // narrow"): it takes what the target leaves, and a narrow row drops it.
+                  // A leading recap keeps its natural width (up to most of the row).
+                  className={cn(
+                    'min-w-0 truncate text-label text-muted-foreground @max-[480px]/activity:hidden',
+                    recapLeads ? 'max-w-[75%] shrink-0' : 'w-0 max-w-fit grow',
+                  )}
                 >
                   {recap}
                 </span>
@@ -247,7 +259,7 @@ export const ActivityRow = memo(
                   data-slot="activity-outcome"
                   title={outcomeTitle}
                   className={cn(
-                    'flex shrink-0 items-center gap-2 text-[11.5px]',
+                    'flex shrink-0 items-center gap-2 text-label',
                     OUTCOME_TONE[outcomeTone],
                   )}
                 >
@@ -262,7 +274,7 @@ export const ActivityRow = memo(
           badge={badge ?? null}
           actions={armed ? (actions ?? null) : null}
           meta={elapsed ?? null}
-          metaYields={hasOutcome || hasRecap}
+          metaYields={hasOutcome}
           status={status}
           info={info}
           onKeyDown={handleKeyDown}
@@ -322,7 +334,7 @@ export const ActivityInfoButton = forwardRef<
   HTMLButtonElement,
   { label: string; onClick?: () => void; hint?: string }
 >(function ActivityInfoButton(
-  { label, onClick, hint = 'View command, input, result, and timing', ...rest },
+  { label, onClick, hint = t`View command, input, result, and timing`, ...rest },
   ref,
 ) {
   return (
@@ -346,6 +358,7 @@ export const ActivityInfoButton = forwardRef<
 export function ActivityNest({
   children,
   label,
+  heading,
   hidden = 0,
   onShowAll,
   showAllLabel,
@@ -353,6 +366,8 @@ export function ActivityNest({
 }: {
   children: ReactNode;
   label: string;
+  /** A quiet line above the rows that says where they came from ("4 calls from this script"). */
+  heading?: ReactNode;
   /** Rows not shown; adds a "Show all N" line. */
   hidden?: number;
   onShowAll?: () => void;
@@ -370,14 +385,23 @@ export function ActivityNest({
       data-slot={flat ? undefined : 'activity-nest'}
       className={flat ? 'contents' : 'ml-[15px] min-w-0 border-l border-border pl-1.5'}
     >
+      {heading && !flat ? (
+        <p
+          aria-hidden="true"
+          data-slot="activity-nest-heading"
+          className="flex h-6 min-w-0 items-center gap-1.5 pl-[30px] text-label whitespace-nowrap text-muted-foreground"
+        >
+          {heading}
+        </p>
+      ) : null}
       {children}
       {hidden > 0 && onShowAll ? (
         <Button
           variant="ghost"
           onClick={onShowAll}
-          className="h-auto rounded-[4px] px-2 py-1 text-[11.5px] font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
+          className="h-auto rounded-[4px] px-2 py-1 text-label font-normal text-muted-foreground hover:bg-hover hover:text-foreground"
         >
-          {showAllLabel ?? `Show all ${hidden}`}
+          {showAllLabel ?? t`Show all ${hidden}`}
         </Button>
       ) : null}
     </div>
@@ -403,7 +427,7 @@ export function ActivityBody({
       aria-label={label}
       data-slot="activity-body"
       className={cn(
-        'mt-0.5 mb-2 ml-[30px] min-w-0 text-[13px] [overflow-wrap:anywhere]',
+        'mt-0.5 mb-2 ml-[30px] min-w-0 text-ui [overflow-wrap:anywhere]',
         framed && 'overflow-hidden rounded-lg border border-border bg-background',
         className,
       )}

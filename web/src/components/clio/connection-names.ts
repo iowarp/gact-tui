@@ -1,6 +1,7 @@
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import type { ConnectionAvailability } from '@/hooks/use-connection-availability';
 import { vocab } from '@/lib/brand-vocabulary';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * An agent's state word (connect-infrastructure "Switch to"): "Live" for the one the
@@ -11,8 +12,8 @@ export function agentAvailabilityLabel(
   availability: Pick<ConnectionAvailability, 'state' | 'label'>,
   current: boolean,
 ): string {
-  if (availability.state === 'healthy') return current ? 'Live' : 'Online';
-  if (availability.state === 'unavailable') return 'Offline';
+  if (availability.state === 'healthy') return current ? t`Live` : t`Online`;
+  if (availability.state === 'unavailable') return t`Offline`;
   return availability.label;
 }
 
@@ -59,11 +60,15 @@ export function agentIdentity(endpoint: string, label?: string, location?: strin
   const place = cleanConnectionLocation(location);
   const name =
     named ??
-    (place && place !== 'Local' ? place : local ? `${vocab.agent} local` : hostname || address);
+    (place && place !== 'Local'
+      ? place
+      : local
+        ? t`${ph({ agent: vocab.agent })} local`
+        : hostname || address);
   return {
     name,
     address,
-    place: local ? 'this computer' : address,
+    place: local ? t`this computer` : address,
     kind: local ? 'local' : /^[\d.]+$|:/u.test(hostname) ? 'ip' : 'host',
   };
 }

@@ -1,4 +1,5 @@
 import type { McpServerDefinition } from '@clio/core/v3';
+import { ph, t } from '@lingui/core/macro';
 
 /** Inspect the connection separately from the service inventory, without exposing process secrets. */
 export function McpConnectionDetails({
@@ -8,9 +9,9 @@ export function McpConnectionDetails({
 }) {
   const spec = server.spec;
   const fields = [
-    ['Transport', server.transport, false],
-    ['Address', spec.url, true],
-    ['Executable', spec.command, true],
+    [t`Transport`, server.transport, false],
+    [t`Address`, spec.url, true],
+    [t`Executable`, spec.command, true],
   ].filter(
     (row): row is [string, string, boolean] => typeof row[1] === 'string' && Boolean(row[1]),
   );
@@ -27,7 +28,7 @@ export function McpConnectionDetails({
         <div className="min-w-0" key={label}>
           <dt className="font-medium">{label}</dt>
           <dd
-            className={mono ? 'mt-1 truncate font-mono text-[0.75rem]' : 'mt-1'}
+            className={mono ? 'mt-1 truncate font-mono text-meta' : 'mt-1'}
             title={mono ? value : undefined}
           >
             {value}
@@ -36,11 +37,11 @@ export function McpConnectionDetails({
       ))}
       {args.length ? (
         <div className="min-w-0">
-          <dt className="font-medium">Arguments</dt>
+          <dt className="font-medium">{t`Arguments`}</dt>
           <dd className="mt-1 min-w-0">
             <ol className="list-inside list-decimal space-y-1">
               {args.map((argument, index) => (
-                <li key={index} className="truncate font-mono text-[0.75rem]" title={argument}>
+                <li key={index} className="truncate font-mono text-meta" title={argument}>
                   {argument}
                 </li>
               ))}
@@ -50,9 +51,9 @@ export function McpConnectionDetails({
       ) : null}
       {environment.length ? (
         <div>
-          <dt className="font-medium">Process settings</dt>
+          <dt className="font-medium">{t`Process settings`}</dt>
           <dd className="mt-1 [overflow-wrap:anywhere]">
-            {environment.join(', ')}. Values are hidden.
+            {t`${ph({ names: environment.join(', ') })}. Values are hidden.`}
           </dd>
         </div>
       ) : null}

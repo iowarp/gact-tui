@@ -27,6 +27,7 @@ import { dispatchMcpAppClosedFrame } from '@/components/clio/mcp-app-live-set';
 import { dispatchMcpAppLookFrame } from '@/components/clio/mcp-app-look';
 import { dispatchMcpAppToolCallFrame } from '@/components/clio/mcp-app-view-tools';
 import { useRepository } from './use-repository';
+import { ph, t } from '@lingui/core/macro';
 
 interface SessionLiveStreamInput {
   enabled: boolean;
@@ -306,7 +307,9 @@ export function useSessionLiveStream({
       } catch (error) {
         if (controller.signal.aborted) return;
         setStreamError(
-          `Gap recovery failed: ${error instanceof Error ? error.message : 'authoritative snapshot unavailable'}`,
+          error instanceof Error
+            ? t`Gap recovery failed: ${ph({ reason: error.message })}`
+            : t`Gap recovery failed: authoritative snapshot unavailable`,
         );
       }
     };
@@ -595,6 +598,7 @@ class QueryInvalidationBatcher {
   private readonly leading = new Map<string, QueryKey>();
   private readonly throttled = new Map<string, { key: QueryKey; due: boolean; timer?: number }>();
   private readonly lastRefresh = new Map<string, number>();
+  private readonly rereads = new Set<string>();
   private scheduled = false;
   private stopped = false;
 
@@ -648,7 +652,8 @@ class QueryInvalidationBatcher {
     const leading = [...this.leading.values()];
     this.pending.clear();
     this.leading.clear();
-    this.invalidate(keys, true);
+    // A read already in flight may predate these events: let it finish, then read once more.
+    for (const key of keys) this.refreshAfterInFlight(key);
     this.invalidate(leading, false);
   }
 
@@ -676,16 +681,22 @@ class QueryInvalidationBatcher {
   }
 
   private refreshAfterInFlight(queryKey: QueryKey): void {
+    const id = JSON.stringify(queryKey);
     const inFlight = this.queryClient.isFetching({ queryKey, predicate: refreshedByStream }) > 0;
     const refresh = () =>
       this.queryClient.invalidateQueries(
         { queryKey, predicate: refreshedByStream },
         { cancelRefetch: false },
       );
+    // One trailing read per key covers every event that arrived during the read in flight.
+    const trailing = inFlight && !this.rereads.has(id);
+    if (trailing) this.rereads.add(id);
     void refresh()
       .catch(() => undefined)
       .then(() => {
-        if (inFlight && !this.stopped) return refresh();
+        if (!trailing) return;
+        this.rereads.delete(id);
+        if (!this.stopped) return refresh();
       })
       .catch(() => undefined);
   }

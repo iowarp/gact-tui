@@ -28,6 +28,7 @@ import { A2uiRegionCaptureContext } from './a2ui-region-capture';
 import { DashboardCaptureTargetContext } from './dashboard-presentation';
 import { SurfaceAttentionContext } from '@/lib/a2ui/attention-selection';
 import { ArtifactReferenceContext } from './artifact-reference-context';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * The ONE shared affordance framework (G0): a per-component capability
@@ -210,7 +211,7 @@ function DownloadSubmenu({
     // unhandled rejection.
     void Promise.resolve(format.run())
       .catch((error: unknown) => {
-        toast.error(`Couldn't download ${format.label}`, {
+        toast.error(t`Couldn't download ${ph({ label: format.label })}`, {
           description: exportFailureReason(error),
         });
       })
@@ -220,7 +221,7 @@ function DownloadSubmenu({
     <DropdownMenuSub>
       <DropdownMenuSubTrigger disabled={busy}>
         <DownloadIcon aria-hidden="true" className="size-3.5" />
-        Download
+        {t`Download`}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent>
         {formats.map((format) => (
@@ -238,7 +239,7 @@ function DownloadSubmenu({
 }
 
 function CopyMenuItem({
-  label = 'Copy',
+  label = t({ message: 'Copy', context: 'verb' }),
   onCopy,
 }: {
   label?: string;
@@ -257,8 +258,8 @@ function CopyMenuItem({
             // never shown as "Copied" (#516 review item 11) -- the person
             // needs to know the text is NOT on their clipboard.
             if (!succeeded) {
-              toast.error(`Couldn't copy ${label.toLowerCase()}`, {
-                description: 'The clipboard is unavailable or the browser denied access.',
+              toast.error(t`Couldn't copy`, {
+                description: t`The clipboard is unavailable or the browser denied access.`,
               });
               return;
             }
@@ -266,7 +267,7 @@ function CopyMenuItem({
             setTimeout(() => setCopied(false), 1500);
           })
           .catch((error: unknown) => {
-            toast.error(`Couldn't copy ${label.toLowerCase()}`, {
+            toast.error(t`Couldn't copy`, {
               description: exportFailureReason(error),
             });
           });
@@ -277,7 +278,7 @@ function CopyMenuItem({
       ) : (
         <CopyIcon aria-hidden="true" className="size-3.5" />
       )}
-      {copied ? 'Copied' : label}
+      {copied ? t`Copied` : label}
     </DropdownMenuItem>
   );
 }
@@ -307,7 +308,7 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
   const dashboard = useContext(DashboardCaptureTargetContext);
   // A chart's own capture inside a dashboard marks that chart only, and says so (FP-D6).
   const partOfDashboard = Boolean(dashboard) && !capabilities.captureWholeSurface;
-  const captureLabel = partOfDashboard ? 'Mark regions in this chart' : 'Capture labelled regions';
+  const captureLabel = partOfDashboard ? t`Mark regions in this chart` : t`Capture labelled regions`;
   const attention = useContext(SurfaceAttentionContext);
   const artifactReference = useContext(ArtifactReferenceContext);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -357,6 +358,7 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
       if (!artifactReference) return reference;
       return {
         ...reference,
+        // i18n-ignore: reference text sent to the agent
         markdown: `${reference.markdown}\n\nDashboard artifact: ${artifactReference.uri}\nSource document: ${artifactReference.definition_path}\n\n\`\`\`json\n${JSON.stringify({ dashboard: artifactReference }, null, 2)}\n\`\`\``,
         query: { view: reference.query, dashboard: artifactReference },
       };
@@ -437,7 +439,7 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
                     const title =
                       container.querySelector('h1,h2,h3,h4')?.textContent?.trim() ||
                       container.getAttribute('data-slot')?.replaceAll('-', ' ') ||
-                      'Interactive surface';
+                      t`Interactive surface`;
                     const componentId =
                       capabilities?.captureComponentId ??
                       container.dataset.a2uiComponentId ??
@@ -461,7 +463,7 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
             <TooltipContent side="bottom">
               {capture.allowed
                 ? captureLabel
-                : 'Choose a model that accepts images to capture a region'}
+                : t`Choose a model that accepts images to capture a region`}
             </TooltipContent>
           </Tooltip>
         ) : null}
@@ -481,7 +483,7 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
                 <Maximize2Icon aria-hidden="true" className="size-3.5" />
               )
             }
-            label={fullScreen.isOpen ? 'Exit full screen' : 'Full screen'}
+            label={fullScreen.isOpen ? t`Exit full screen` : t`Full screen`}
             onClick={fullScreen.onToggle}
           />
         ) : null}
@@ -491,7 +493,7 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    aria-label={downloadBusy ? 'Downloading' : 'More'}
+                    aria-label={downloadBusy ? t`Downloading` : t`More`}
                     size="icon-sm"
                     variant="ghost"
                   >
@@ -503,7 +505,7 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent side="bottom">More</TooltipContent>
+              <TooltipContent side="bottom">{t`More`}</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end">
               {exportFormats?.length ? (
@@ -524,15 +526,15 @@ export function SurfaceToolbar({ capabilities, floating = true }: SurfaceToolbar
                     const reference = buildReference();
                     void attention
                       .structured(componentId, reference.query, reference.summary)
-                      .then(() => toast.success('Selection added to attention set'))
+                      .then(() => toast.success(t`Selection added to attention set`))
                       .catch((error: unknown) =>
-                        toast.error('Could not add this selection', {
+                        toast.error(t`Could not add this selection`, {
                           description: exportFailureReason(error),
                         }),
                       );
                   }}
                 >
-                  Add selection to attention set
+                  {t`Add selection to attention set`}
                 </DropdownMenuItem>
               ) : null}
               {selectionHint ? (

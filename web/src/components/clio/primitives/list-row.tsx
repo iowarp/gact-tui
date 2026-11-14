@@ -1,4 +1,11 @@
-import { forwardRef, memo, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
+import {
+  forwardRef,
+  memo,
+  type CSSProperties,
+  type HTMLAttributes,
+  type MouseEventHandler,
+  type ReactNode,
+} from 'react';
 import { cn } from '@/lib/utils';
 
 export interface ListRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title'> {
@@ -157,7 +164,7 @@ export const ListRow = memo(
           data-variant="notice"
           style={style}
           className={cn(
-            'grid min-w-0 grid-cols-[14px_minmax(0,1fr)_52px] gap-x-2 text-[12.5px] whitespace-nowrap',
+            'grid min-w-0 grid-cols-[14px_minmax(0,1fr)_52px] gap-x-2 text-menu whitespace-nowrap',
             className,
           )}
           {...rest}
@@ -170,20 +177,20 @@ export const ListRow = memo(
           </span>
           <span
             className={cn(
-              'min-w-0 leading-[18px] text-muted-foreground',
+              'min-w-0 leading-4.5 text-muted-foreground',
               expanded ? 'break-words whitespace-normal' : 'truncate',
             )}
             data-full-text={hoverText?.title}
           >
             {title}
           </span>
-          <span className="justify-self-end pt-px text-right text-[11px] leading-4 text-faint tabular-nums">
+          <span className="justify-self-end pt-px text-right text-caption leading-4 text-faint tabular-nums">
             {meta}
           </span>
           {description ? (
             <span
               className={cn(
-                'col-start-2 mt-0.5 min-w-0 text-[11.5px] leading-[18px] text-faint',
+                'col-start-2 mt-0.5 min-w-0 text-label leading-4.5 text-faint',
                 expanded ? 'break-words whitespace-normal' : 'truncate',
                 primaryAction === undefined && 'col-span-2',
               )}
@@ -193,7 +200,7 @@ export const ListRow = memo(
             </span>
           ) : null}
           {primaryAction !== undefined ? (
-            <span className="col-start-3 self-end text-right text-[11.5px] leading-[18px] font-semibold text-accent-foreground">
+            <span className="col-start-3 self-end text-right text-label leading-4.5 font-semibold text-accent-foreground">
               {primaryAction}
             </span>
           ) : null}
@@ -214,7 +221,7 @@ export const ListRow = memo(
             // 600px its empty and hover-only columns; below 360px (a quarter of the window, a
             // phone) its elapsed time; below 280px (`.xc.n2`, a fifth) its name becomes the
             // icon's hover name.
-            'group/list-row @container/activity relative flex h-7 min-w-0 items-center gap-2 rounded-[6px] pl-2 text-[12.5px] whitespace-nowrap text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-[1.5px] focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-hover',
+            'group/list-row @container/activity relative flex h-7 min-w-0 items-center gap-2 rounded-[6px] pl-2 text-menu whitespace-nowrap text-foreground/85 outline-none hover:bg-hover focus-visible:bg-hover focus-visible:ring-[1.5px] focus-visible:ring-ring focus-visible:ring-inset data-selected:bg-hover',
             className,
           )}
           {...rest}
@@ -270,7 +277,7 @@ export const ListRow = memo(
           {meta !== undefined ? (
             <span
               className={cn(
-                'block w-11 shrink-0 truncate text-right font-mono text-[11px] text-muted-foreground tabular-nums @max-[360px]/activity:hidden',
+                'block w-11 shrink-0 truncate text-right font-mono text-caption text-muted-foreground tabular-nums @max-[360px]/activity:hidden',
                 metaYields && '@max-[480px]/activity:hidden',
                 meta === null && '@max-[600px]/activity:hidden',
               )}
@@ -300,11 +307,11 @@ export const ListRow = memo(
         aria-selected={rest.role === 'option' || rest.role === 'row' ? selected : undefined}
         style={style}
         className={cn(
-          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-[13px] whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-selected:[&_.text-muted-foreground]:text-accent-foreground',
+          'group/list-row relative flex min-w-0 items-center gap-2 rounded-[6px] px-1.5 text-ui whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-selected:[&_.text-muted-foreground]:text-accent-foreground',
           selectedTone === 'accent'
             ? 'data-selected:bg-accent data-selected:hover:bg-accent'
             : 'data-selected:bg-menu-highlight',
-          layout === 'stacked' ? 'min-h-[34px] gap-2.5 py-[3px] px-2 text-[12.5px]' : 'h-7',
+          layout === 'stacked' ? 'min-h-[34px] gap-2.5 py-[3px] px-2 text-menu' : 'h-7',
           className,
         )}
         {...rest}
@@ -332,7 +339,7 @@ export const ListRow = memo(
             {description ? (
               <span
                 className={cn(
-                  'min-w-0 truncate text-[11px] text-muted-foreground',
+                  'min-w-0 truncate text-caption text-muted-foreground',
                   selectedTone === 'accent' &&
                     'group-data-selected/list-row:text-accent-foreground',
                 )}
@@ -352,7 +359,7 @@ export const ListRow = memo(
             <span className="min-w-0 shrink truncate">{title}</span>
             {description ? (
               // Keeps a readable start (never a one-letter stub); the title truncates first.
-              <span className="min-w-[min(5rem,35%)] flex-1 truncate text-[12px] text-muted-foreground">
+              <span className="min-w-[min(5rem,35%)] flex-1 truncate text-meta text-muted-foreground">
                 {description}
               </span>
             ) : null}
@@ -406,28 +413,43 @@ export const ListRow = memo(
 /**
  * The small heading over a group of rows ("Errors", "Inference", "Storage on
  * ares"). One line; an optional trailing control (a total, Edit locations)
- * sits at the right edge.
+ * sits at the right edge. With `wrap`, a heading too long for a narrow pane
+ * wraps whole (the control moves under it) instead of being cut.
  */
 export const ListGroupLabel = memo(function ListGroupLabel({
   children,
   action,
   className,
   id,
+  onContextMenu,
+  wrap = false,
 }: {
   children: ReactNode;
   action?: ReactNode;
   className?: string;
   id?: string;
+  onContextMenu?: MouseEventHandler<HTMLDivElement>;
+  wrap?: boolean;
 }) {
   return (
     <div
       data-slot="list-group-label"
+      onContextMenu={onContextMenu}
       className={cn(
-        'flex h-7 min-w-0 items-end gap-1.5 px-2 pb-1 text-[11px] font-semibold whitespace-nowrap text-muted-foreground',
+        'flex min-w-0 items-end gap-1.5 px-2 pb-1 text-caption font-semibold text-muted-foreground',
+        wrap ? 'min-h-7 flex-wrap' : 'h-7 whitespace-nowrap',
         className,
       )}
     >
-      <h3 className="min-w-0 truncate" id={id}>
+      <h3
+        className={cn(
+          'min-w-0',
+          wrap
+            ? 'break-words whitespace-normal [word-break:auto-phrase] [line-break:strict]'
+            : 'truncate',
+        )}
+        id={id}
+      >
         {children}
       </h3>
       {action ? (

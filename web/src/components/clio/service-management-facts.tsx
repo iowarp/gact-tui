@@ -13,11 +13,12 @@ import {
 } from 'lucide-react';
 import { InfoTip } from './info-tip';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
+import { t, ph } from '@lingui/core/macro';
 
 const ACCESS_WORDS: Record<NonNullable<ManagedServiceDefinition['access']>['mode'], string> = {
-  api_key: 'Protected by a key',
-  shared: 'Shared, no key',
-  unprotected: 'Not protected',
+  api_key: t`Protected by a key`,
+  shared: t`Shared, no key`,
+  unprotected: t`Not protected`,
 };
 
 /** A verification fact: plain words, its colour only reinforcing them, and the ⓘ behind it. */
@@ -34,7 +35,7 @@ function Verified({
 }) {
   return (
     <span className="inline-flex items-center gap-1">
-      <span className={ok ? 'text-success' : undefined}>{ok ? okLabel : 'Not verified yet'}</span>
+      <span className={ok ? 'text-success' : undefined}>{ok ? okLabel : t`Not verified yet`}</span>
       <InfoTip className="size-5" label={tip}>
         {children}
       </InfoTip>
@@ -64,7 +65,7 @@ export function ServiceFacts({
     [
       variantRow
         ? {
-            label: 'Compatibility profile',
+            label: t`Compatibility profile`,
             icon: <ShieldIcon aria-hidden="true" />,
             value: variantRow.label,
             title: `${variantRow.label} (${variantRow.id})`,
@@ -72,7 +73,7 @@ export function ServiceFacts({
         : undefined,
       revision
         ? {
-            label: 'Configuration revision',
+            label: t`Configuration revision`,
             icon: <LayersIcon aria-hidden="true" />,
             value: revision.length > 12 ? revision.slice(0, 12) : revision,
             title: revision,
@@ -81,7 +82,7 @@ export function ServiceFacts({
         : undefined,
       model
         ? {
-            label: 'Model',
+            label: t`Model`,
             icon: <CpuIcon aria-hidden="true" />,
             value: model,
             mono: true,
@@ -90,7 +91,7 @@ export function ServiceFacts({
         : undefined,
       service.connection_url && running
         ? {
-            label: 'Address',
+            label: t`Address`,
             icon: <LinkIcon aria-hidden="true" />,
             value: service.connection_url,
             mono: true,
@@ -99,7 +100,7 @@ export function ServiceFacts({
         : undefined,
       service.access
         ? {
-            label: 'Access',
+            label: t`Access`,
             icon: <ShieldCheckIcon aria-hidden="true" />,
             value: (
               <span
@@ -115,7 +116,7 @@ export function ServiceFacts({
         : undefined,
       service.observation?.evidence_directory
         ? {
-            label: 'Evidence on this host',
+            label: t`Evidence on this host`,
             icon: <ScrollTextIcon aria-hidden="true" />,
             value: service.observation.evidence_directory,
             mono: true,
@@ -124,33 +125,30 @@ export function ServiceFacts({
         : undefined,
       monitoring
         ? {
-            label: 'Provenance',
+            label: t`Provenance`,
             icon: <ActivityIcon aria-hidden="true" />,
             value: (
               <Verified
                 ok={service.observation?.provenance_ingesting}
-                okLabel="Write/readback verified"
-                tip="About provenance verification"
+                okLabel={t`Write/readback verified`}
+                tip={t`About provenance verification`}
               >
-                Verify setup writes a fresh test record and reads it back. CMF also checks input and
-                output artifact lineage. Restarting or changing configuration requires a fresh
-                check.
+                {t`Verify setup writes a fresh test record and reads it back. CMF also checks input and output artifact lineage. Restarting or changing configuration requires a fresh check.`}
               </Verified>
             ),
           }
         : undefined,
       monitoring || (service.category === 'model_runtime' && service.observation)
         ? {
-            label: 'Attention',
+            label: t`Attention`,
             icon: <TriangleAlertIcon aria-hidden="true" />,
             value: (
               <Verified
                 ok={service.observation?.attention_verified}
-                okLabel="Verified"
-                tip="About attention verification"
+                okLabel={t`Verified`}
+                tip={t`About attention verification`}
               >
-                Installing the connector or serving a model does not verify attention. A fresh
-                inference must produce a validated capture and token mapping.
+                {t`Installing the connector or serving a model does not verify attention. A fresh inference must produce a validated capture and token mapping.`}
               </Verified>
             ),
           }
@@ -159,7 +157,7 @@ export function ServiceFacts({
   ).filter((item): item is KeyValueItem => Boolean(item));
   return facts.length ? (
     <KeyValueGrid
-      aria-label={`${service.label} details`}
+      aria-label={t`${ph({ label: service.label })} details`}
       className="-mx-2"
       items={facts}
       variant="card"
@@ -181,7 +179,7 @@ export function ServiceStorageFacts({
         [
           service.configuration['storage.service_directory']
             ? {
-                label: `Service data on ${hostLabel}`,
+                label: t`Service data on ${hostLabel}`,
                 icon: <HardDriveIcon aria-hidden="true" />,
                 value: String(service.configuration['storage.service_directory']),
                 mono: true,
@@ -190,7 +188,7 @@ export function ServiceStorageFacts({
             : undefined,
           service.observation?.evidence_directory
             ? {
-                label: 'Retained evidence',
+                label: t`Retained evidence`,
                 icon: <ScrollTextIcon aria-hidden="true" />,
                 value: service.observation.evidence_directory,
                 mono: true,
@@ -199,7 +197,7 @@ export function ServiceStorageFacts({
             : undefined,
           service.configuration['storage.container_images']
             ? {
-                label: `Container images on ${hostLabel}`,
+                label: t`Container images on ${hostLabel}`,
                 icon: <LayersIcon aria-hidden="true" />,
                 value: String(service.configuration['storage.container_images']),
                 mono: true,
@@ -208,7 +206,7 @@ export function ServiceStorageFacts({
             : undefined,
           service.configuration['storage.container_downloads']
             ? {
-                label: 'Download scratch space',
+                label: t`Download scratch space`,
                 icon: <HardDriveIcon aria-hidden="true" />,
                 value: String(service.configuration['storage.container_downloads']),
                 mono: true,

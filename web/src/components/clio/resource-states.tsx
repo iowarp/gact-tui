@@ -20,6 +20,9 @@ import { useOpenTake } from './file-viewer-take-hooks';
 import { FileTypeIcon } from './file-type-icon';
 import { LoadingFeedback } from './loading-feedback';
 import { StateView, type StateAction } from './primitives/state-view';
+import { t, ph } from '@lingui/core/macro';
+
+const { agentName } = brand;
 
 /**
  * The loading state for a region that waits on data (gact-tui#366): the shared
@@ -75,7 +78,7 @@ export function ResourceUnavailable({
   if (framed)
     return (
       <StateView
-        action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
+        action={onRetry ? { label: t`Retry`, onClick: onRetry } : undefined}
         detail={detail}
         icon={Icon === BoxIcon ? undefined : Icon}
         kind={kind}
@@ -112,11 +115,11 @@ export function ViewerReadError({
 }) {
   return (
     <StateView
-      action={onRetry ? { label: 'Retry', onClick: onRetry } : undefined}
+      action={onRetry ? { label: t`Retry`, onClick: onRetry } : undefined}
       detail={error ? readErrorDetail(error, where) : undefined}
       kind="error"
       size="viewer"
-      title="Couldn't read it"
+      title={t`Couldn't read it`}
     />
   );
 }
@@ -128,22 +131,31 @@ function readErrorDetail(error: string, where?: string): string {
   const trimmed = error.trim();
   // A sentence the app already wrote stands as it is.
   if (/^\p{Lu}.{30,}[.!]$/u.test(trimmed) && !RAW_HTTP.test(trimmed))
-    return `${trimmed} Nothing in the file changed.`;
+    return t`${trimmed} Nothing in the file changed.`;
   const message = trimmed.replace(/[.\s]+$/u, '');
   const status = RAW_HTTP.exec(message)?.[1];
-  const on = where ? ` on ${where}` : '';
   // An OS error's own words ("[Errno 13] Permission denied: '/abs/path'") without the path.
   const said = /\[Errno \d+\]\s*([^:]+)/u.exec(message)?.[1]?.trim().toLowerCase() ?? message;
   const reason = !status
-    ? `The file server said "${said}"${on}.`
+    ? where
+      ? t`The file server said "${said}" on ${where}.`
+      : t`The file server said "${said}".`
     : status === '404'
-      ? `The file server found nothing${on}. It may have been moved or deleted.`
+      ? where
+        ? t`The file server found nothing on ${where}. It may have been moved or deleted.`
+        : t`The file server found nothing. It may have been moved or deleted.`
       : status === '401' || status === '403'
-        ? `The file server said "permission denied"${on}.`
+        ? where
+          ? t`The file server said "permission denied" on ${where}.`
+          : t`The file server said "permission denied".`
         : status.startsWith('5')
-          ? `The file server failed while reading it${on} and gave no reason.`
-          : `The file server refused the read${on} (${status}).`;
-  return `${reason} Nothing in the file changed.`;
+          ? where
+            ? t`The file server failed while reading it on ${where} and gave no reason.`
+            : t`The file server failed while reading it and gave no reason.`
+          : where
+            ? t`The file server refused the read on ${where} (${status}).`
+            : t`The file server refused the read (${status}).`;
+  return t`${reason} Nothing in the file changed.`;
 }
 
 /** What a browser tab shows rather than downloads. */
@@ -169,7 +181,7 @@ function useViewerFileActions(
       ? { label: take.face.label, icon: take.face.icon, disabled, onClick: take.face.run }
       : undefined;
   const download: StateAction = {
-    label: 'Download',
+    label: t`Download`,
     icon: <DownloadIcon />,
     disabled: disabled || Boolean(row?.reason),
     onClick: () => row?.onSelect?.(),
@@ -204,16 +216,21 @@ export function ViewerTooLarge({
   const identity = fileViewerIdentity(source);
   const bytes = size ?? identity.size;
   useFileViewerFacts(bytes === undefined ? undefined : [formatBytes(bytes)]);
-  const tail = `the last ${formatBytes(TEXT_WINDOW_CHUNK_BYTES)}`;
+  const chunk = formatBytes(TEXT_WINDOW_CHUNK_BYTES);
   const actions = useViewerFileActions(
     source,
     onShowEnd
-      ? { label: `Show ${tail}`, icon: <EyeIcon />, onClick: onShowEnd, shortcut: 'show-end' }
+      ? {
+          label: t`Show the last ${chunk}`,
+          icon: <EyeIcon />,
+          onClick: onShowEnd,
+          shortcut: 'show-end',
+        }
       : onPreview
-        ? { label: 'Show it anyway', icon: <EyeIcon />, onClick: onPreview }
+        ? { label: t`Show it anyway`, icon: <EyeIcon />, onClick: onPreview }
         : undefined,
     onShowEnd && onPreview
-      ? { label: 'Show the beginning', icon: <ArrowUpToLineIcon />, onClick: onPreview }
+      ? { label: t`Show the beginning`, icon: <ArrowUpToLineIcon />, onClick: onPreview }
       : undefined,
   );
   // L shows the last part while focus is anywhere in the pocket showing this viewer, as the
@@ -234,14 +251,18 @@ export function ViewerTooLarge({
     enabled: Boolean(showEnd && !showEnd.disabled),
     region,
   });
-  const ways = onShowEnd ? `Show ${tail}, or open` : onPreview ? 'Show it anyway, or open' : 'Open';
+  const ways = onShowEnd
+    ? t`Show the last ${chunk}, or open it in another app.`
+    : onPreview
+      ? t`Show it anyway, or open it in another app.`
+      : t`Open it in another app.`;
   return (
     <StateView
       actions={actions}
       detail={
         bytes === undefined
-          ? `Its size isn't verified, so it wasn't loaded. ${ways} it in another app. ${brand.agentName} can still read all of it.`
-          : `Previews stop at ${formatBytes(INLINE_PREVIEW_MAX_BYTES)} to keep the panel quick. ${ways} it in another app. ${brand.agentName} can still read all of it.`
+          ? t`Its size isn't verified, so it wasn't loaded. ${ways} ${agentName} can still read all of it.`
+          : t`Previews stop at ${ph({ limit: formatBytes(INLINE_PREVIEW_MAX_BYTES) })} to keep the panel quick. ${ways} ${agentName} can still read all of it.`
       }
       glyph={
         <FileTypeIcon
@@ -254,8 +275,8 @@ export function ViewerTooLarge({
       size="viewer"
       title={
         bytes === undefined
-          ? "It's too large to show here"
-          : `${formatBytes(bytes)} is too large to show here`
+          ? t`It's too large to show here`
+          : t`${ph({ size: formatBytes(bytes) })} is too large to show here`
       }
     >
       <span ref={setAnchor} hidden />
@@ -295,25 +316,31 @@ export function ViewerNoPreview({
   useFileViewerFacts(facts.length ? facts : undefined);
   const actions = useViewerFileActions(
     source,
-    onShowText ? { label: 'Show as text', icon: <CodeIcon />, onClick: onShowText } : undefined,
+    onShowText ? { label: t`Show as text`, icon: <CodeIcon />, onClick: onShowText } : undefined,
   );
   return (
     <StateView
       actions={actions}
-      detail={
+      detail={[
+        reason,
         title
-          ? `${reason ? `${reason} ` : ''}You can still @, comment on, copy or open it.`
-          : `${reason ? `${reason} ` : ''}You can still @ it, comment on it, copy it, or open it in another app. ${brand.agentName} reads it with its own tools.${onShowText ? " If it's text, show it as text." : ''}`
-      }
+          ? t`You can still @, comment on, copy or open it.`
+          : t`You can still @ it, comment on it, copy it, or open it in another app. ${agentName} reads it with its own tools.`,
+        !title && onShowText ? t`If it's text, show it as text.` : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       kind="no-preview"
       size="viewer"
       title={
         title ??
         (format
-          ? `No viewer for ${format} yet`
+          ? t`No viewer for ${format} yet`
           : extension
-            ? `No viewer for ${extension} yet`
-            : `No viewer for ${identity.mediaType || 'this format'} yet`)
+            ? t`No viewer for ${extension} yet`
+            : identity.mediaType
+              ? t`No viewer for ${ph({ format: identity.mediaType })} yet`
+              : t`No viewer for this format yet`)
       }
     />
   );

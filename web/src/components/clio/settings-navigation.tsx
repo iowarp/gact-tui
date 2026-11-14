@@ -21,7 +21,13 @@ import { cn } from '@/lib/utils';
 import { CloseIcon, SettingsWindowIcon } from '@/lib/icon-vocabulary';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { Tag } from '@/components/clio/primitives/tag';
+import {
+  cappedLabelRoom,
+  inputTextRoom,
+  useFittingText,
+} from '@/components/clio/primitives/use-fitting-text';
 import { identifierInputProps } from '@/lib/identifier-input';
+import { ph, plural, t } from '@lingui/core/macro';
 
 export type SettingsDestination = ApplicationDestination;
 
@@ -77,9 +83,10 @@ export function SettingsNavigation({
             <Link
               aria-current={id === current ? 'page' : undefined}
               className={cn(
-                'flex h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md pr-2 pl-[1.9375rem] text-[0.78125rem] whitespace-nowrap text-foreground/80 outline-none',
+                // A long section name (Greek, Japanese) wraps to a second line rather than clipping.
+                'flex min-h-[1.625rem] w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-[1.9375rem] text-menu leading-tight text-foreground/80 outline-none',
                 'hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
-                id === current && 'bg-menu-highlight text-foreground hover:bg-menu-highlight',
+                id === current && 'bg-nav-current text-foreground hover:bg-nav-current',
                 unavailable[id] && id !== current && 'text-faint/75 hover:text-muted-foreground',
                 counts && !counts[id] && 'text-faint hover:text-muted-foreground',
               )}
@@ -89,7 +96,7 @@ export function SettingsNavigation({
               title={unavailable[id] ? `${label}: ${unavailable[id]}` : label}
               to={`/settings/${id}`}
             >
-              <span className="min-w-0 truncate">{label}</span>
+              <span className="line-clamp-2 min-w-0 text-pretty break-words">{label}</span>
               {counts ? <ResultCount count={counts[id]} /> : <NavBadge badge={badges[id]} />}
             </Link>
           ))}
@@ -111,18 +118,22 @@ export function SettingsSearchButton({ autoFocus = false }: { autoFocus?: boolea
   }, [autoFocus]);
   return (
     <button
-      aria-label="Search everywhere"
+      aria-label={t`Search everywhere`}
       ref={button}
       className={cn(
-        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap text-muted-foreground/80 outline-none',
+        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-menu whitespace-nowrap text-muted-foreground outline-none',
         'hover:border-ring/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30',
       )}
       onClick={openGlobalSearch}
-      title="Search settings and everything else"
+      title={t`Search settings and everything else`}
       type="button"
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate text-left @max-[4.75rem]:hidden">Search</span>
+      {/* Whole or not at all: a word cut to "Αναζήτ…" reads worse than the icon alone. */}
+      <span className="flex h-[1lh] min-w-0 flex-1 flex-wrap overflow-hidden">
+        <span aria-hidden="true" className="h-full w-0" />
+        <span className="shrink-0">{t`Search`}</span>
+      </span>
       <ShortcutKeys id="search" variant="caps" capSize="sm" className="max-[599px]:hidden" />
     </button>
   );
@@ -159,18 +170,20 @@ export function SettingsQueryField({
     const frame = requestAnimationFrame(() => input.current?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
   }, []);
+  const placeholder = useFittingText(input, [t`Search settings`, t`Search`], inputTextRoom);
   return (
     <div
       className={cn(
-        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-[0.78125rem] whitespace-nowrap',
+        'flex h-[1.875rem] w-full min-w-0 items-center gap-[0.4375rem] rounded-lg border border-border bg-popover pr-1.5 pl-2.5 text-menu whitespace-nowrap',
         'focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30',
       )}
       data-escape-scope
+      data-window-search-field
     >
       <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
       <input
         {...identifierInputProps}
-        aria-label="Search settings"
+        aria-label={t`Search settings`}
         className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-faint"
         onChange={(event) => {
           sent.current = event.target.value;
@@ -182,32 +195,32 @@ export function SettingsQueryField({
           event.preventDefault();
           onClear();
         }}
-        placeholder="Search settings"
+        placeholder={placeholder}
         ref={input}
         spellCheck={false}
         type="text"
         value={value}
       />
       <Tag
-        className="h-5 gap-1 rounded-[5px] border-transparent bg-accent text-[0.6875rem] font-normal text-accent-foreground max-[599px]:hidden"
-        title="Searching settings"
+        className="h-5 gap-1 rounded-[5px] border-transparent bg-accent text-caption font-normal text-accent-foreground max-[599px]:hidden"
+        title={t`Searching settings`}
         width="auto"
       >
         <SettingsWindowIcon aria-hidden="true" className="mr-1 inline size-3 align-[-0.125rem]" />
-        Settings
+        {t`Settings`}
       </Tag>
       {/* A phone's title row keeps its width for the query; the count stays announced. */}
       <span
-        className="shrink-0 font-mono text-[0.6875rem] text-faint tabular-nums max-[599px]:sr-only"
+        className="shrink-0 font-mono text-caption text-faint tabular-nums max-[599px]:sr-only"
         role="status"
       >
-        {count === 1 ? '1 row' : `${count} rows`}
+        {plural(count, { one: '# row', other: '# rows' })}
       </span>
       <ShortcutKeys id="menu-close" variant="caps" capSize="sm" className="max-[599px]:hidden" />
       <IconButton
         className="min-[600px]:hidden"
         icon={<CloseIcon />}
-        label="Clear search"
+        label={t`Clear search`}
         onClick={onClear}
         size="sm"
       />
@@ -228,36 +241,48 @@ export function SettingsSectionPicker({
   unavailable = {},
   counts,
   onClearFilter,
-}: SettingsNavigationProps) {
+  compact = false,
+}: SettingsNavigationProps & {
+  /** Icon and chevron only, so a query field beside it keeps the row's width. */
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const openingSearch = useRef(false);
   const current = counts ? undefined : hostSection(sections, section);
   const active = sections.find((item) => item.id === current);
   const ActiveIcon = counts ? SearchIcon : active?.icon;
-  const activeLabel = counts ? 'Results' : (active?.label ?? 'Sections');
+  const activeLabel = counts ? t`Results` : (active?.label ?? t`Sections`);
+  const trigger = useRef<HTMLButtonElement>(null);
+  // A name too long for the capped picker gives way whole; the page's heading names it.
+  const shownLabel = useFittingText(trigger, [activeLabel, ''], cappedLabelRoom);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          aria-label="Choose settings section"
+          aria-label={t`Choose settings section`}
+          ref={trigger}
           className={cn(
-            'flex h-7 max-w-[calc(100vw-9rem)] min-w-0 shrink items-center gap-1.5 rounded-md border border-input px-2 text-[13px] font-medium whitespace-nowrap text-foreground outline-none',
+            'flex h-7 max-w-[calc(100vw-9rem)] min-w-0 shrink items-center gap-1.5 rounded-md border border-input px-2 text-ui font-medium whitespace-nowrap text-foreground outline-none',
             'hover:bg-hover focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-expanded:bg-hover',
           )}
           title={
             counts
-              ? 'Search results: choose a section'
+              ? t`Search results: choose a section`
               : active
-                ? `${active.label}: choose another section`
-                : 'Choose a section'
+                ? t`${ph({ section: active.label })}: choose another section`
+                : t`Choose a section`
           }
           type="button"
         >
           {ActiveIcon ? (
             <ActiveIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
           ) : null}
-          <span className="min-w-0 truncate">{activeLabel}</span>
+          {compact || !shownLabel ? null : (
+            <span className="min-w-0 truncate" data-fitting-text>
+              {shownLabel}
+            </span>
+          )}
           <ChevronDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
         </button>
       </PopoverTrigger>
@@ -276,15 +301,15 @@ export function SettingsSectionPicker({
           filter={(_value, query, keywords) =>
             (keywords ?? []).join(' ').toLowerCase().includes(query.trim().toLowerCase()) ? 1 : 0
           }
-          label="Settings sections"
+          label={t`Settings sections`}
         >
-          <CommandInput placeholder="Search sections…" />
+          <CommandInput placeholder={t`Search sections…`} />
           <CommandList className="max-h-[min(70dvh,28rem)]">
-            <CommandEmpty>No section matches</CommandEmpty>
+            <CommandEmpty>{t`No section matches`}</CommandEmpty>
             <CommandGroup>
               <CommandItem
-                aria-label="Search everywhere from settings menu"
-                keywords={['Search everywhere']}
+                aria-label={t`Search everywhere from settings menu`}
+                keywords={[t`Search everywhere`]}
                 onSelect={() => {
                   openingSearch.current = true;
                   setOpen(false);
@@ -292,14 +317,14 @@ export function SettingsSectionPicker({
                 value="search-everywhere"
               >
                 <SearchIcon aria-hidden="true" className="text-muted-foreground" />
-                Search everywhere
+                {t`Search everywhere`}
                 <CommandShortcut>
                   <ShortcutKeys id="search" variant="inline" />
                 </CommandShortcut>
               </CommandItem>
               {counts && onClearFilter ? (
                 <CommandItem
-                  keywords={['Clear search', 'Show every section']}
+                  keywords={[t`Clear search`, t`Show every section`]}
                   onSelect={() => {
                     onClearFilter();
                     setOpen(false);
@@ -307,7 +332,7 @@ export function SettingsSectionPicker({
                   value="clear-search"
                 >
                   <CloseIcon aria-hidden="true" className="text-muted-foreground" />
-                  <span className="truncate">Clear search</span>
+                  <span className="truncate">{t`Clear search`}</span>
                 </CommandItem>
               ) : null}
             </CommandGroup>
@@ -347,9 +372,17 @@ export function SettingsSectionPicker({
         </Command>
         <PickerFooter
           hints={[
-            { label: 'Move', shortcut: 'menu-move', optional: true },
-            { label: 'Open', shortcut: 'menu-pick' },
-            { label: 'Close', shortcut: 'menu-close', onSelect: () => setOpen(false) },
+            {
+              label: t({ message: 'Move', context: 'keyboard hint verb' }),
+              shortcut: 'menu-move',
+              optional: true,
+            },
+            { label: t({ message: 'Open', context: 'keyboard hint verb' }), shortcut: 'menu-pick' },
+            {
+              label: t({ message: 'Close', context: 'keyboard hint verb' }),
+              shortcut: 'menu-close',
+              onSelect: () => setOpen(false),
+            },
           ]}
         />
       </PopoverContent>
@@ -366,7 +399,7 @@ export function ResultCount({ count }: { count?: number }) {
       {' '}
       <Tag
         className="ml-auto h-4 px-1.5 tabular-nums"
-        title={count === 1 ? '1 matching row' : `${count} matching rows`}
+        title={plural(count, { one: '# matching row', other: '# matching rows' })}
         tone="chip"
         width="auto"
       >

@@ -128,6 +128,15 @@ export class PluginRepository extends SessionObservabilityRepository {
       decode: (value) => toolSettingsSchema.parse(value),
     });
   }
+  /** The same page for one MCP server by name, for a server no plugin brings. */
+  public serverToolSettings(server: string, signal?: AbortSignal): Promise<ToolSettings> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/settings/tools?${new URLSearchParams({ server })}`,
+      signal,
+      decode: (value) => toolSettingsSchema.parse(value),
+    });
+  }
   /** Save the person's permission rule and/or I/O choice for some tools. */
   public updateToolSettings(body: ToolSettingsUpdate): Promise<{ tools: string[] }> {
     return this.transport.request({

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { copyText } from '@/lib/clipboard';
 import { formatDuration } from '@/lib/format';
+import { listSeparator } from '@/lib/locale-format';
 import { toolKindIcon } from '@/lib/tool-kind-icons';
 import { cn } from '@/lib/utils';
 import {
@@ -16,14 +17,15 @@ import {
 import { PresentationLink } from './presentation-link';
 import type { ToolOperation } from './tool-operation';
 import { clioStatusLabel } from './status';
+import { humanFailureText } from './composer-failure';
 import { ActivityDisclosure, ActivityRow } from './activity-row';
 import { NamedTooltip } from './primitives/icon-button';
 import { StatusIndicator, type StatusTone } from './primitives/status-indicator';
-import { tourAnchor } from '@/lib/onboarding/tour-anchors';
+import { ph, t } from '@lingui/core/macro';
 
-const ARGUMENT_CLASS = 'font-mono text-[11.5px] text-muted-foreground no-underline hover:underline';
+const ARGUMENT_CLASS = 'font-mono text-label text-muted-foreground no-underline hover:underline';
 const AGENT_LINK_CLASS =
-  'max-w-[16rem] truncate text-[12.5px] font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-2';
+  'max-w-[16rem] truncate text-menu font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-2';
 
 /** One tool call as an activity row: name, argument, outcome, then fixed right columns. */
 export function ToolCompactRow({
@@ -38,9 +40,15 @@ export function ToolCompactRow({
   onExpandedChange,
   info,
   waiting,
+  recapTitle,
+  recapLeads,
 }: {
   tool: ToolInvocation;
   operation: ToolOperation;
+  /** The recap's hover when it says more than its words (why an image did not reach the model). */
+  recapTitle?: string;
+  /** The recap is the row's result and keeps its room before the argument. */
+  recapLeads?: boolean;
   attention?: ReactNode;
   /** The call is paused on the user: the "waiting for you" outcome that jumps to the card. */
   waiting?: ReactNode;
@@ -63,19 +71,25 @@ export function ToolCompactRow({
   const denied = !waiting && status === 'denied';
   const failure =
     (interrupted ? getToolInterruptionDetail(tool) : undefined) || getToolFailureDetail(tool);
+  // The status mark's name and the outcome's hover read as a sentence; a trace or a
+  // validation dump stays in the expanded call and its technical details.
+  const failureText = failure
+    ? (humanFailureText(failure) ??
+      (/validation errors? for /i.test(failure) ? t`Its arguments were not valid.` : undefined))
+    : undefined;
   const action = operation.action || getToolActionLabel(tool);
   // A question still waiting on the person is work in progress, even when its
   // call has already returned, so the row never shows a done mark beside it.
   const statusLabel = waiting
-    ? 'Waiting for you'
+    ? t`Waiting for you`
     : denied
-      ? 'Denied'
+      ? t`Denied`
       : interrupted
         ? failure || clioStatusLabel(status)
         : cancelled
-          ? 'Stopped'
-          : failure
-            ? `${clioStatusLabel(status)}: ${failure.length > 300 ? `${failure.slice(0, 300)}…` : failure}`
+          ? t`Stopped`
+          : failureText
+            ? t`${ph({ status: clioStatusLabel(status) })}: ${failureText}`
             : clioStatusLabel(status);
   const tone: StatusTone = waiting
     ? 'running'
@@ -92,11 +106,13 @@ export function ToolCompactRow({
     <>
       {operation.subjects.map((subject, index) => (
         <Fragment key={`${subject.id}-${index}`}>
-          {index && index === operation.subjects.length - 1 ? ' and ' : null}
+          {index
+            ? listSeparator({ last: index === operation.subjects.length - 1 })
+            : null}
           {onOpenFlow && index === 0 ? (
             <Button
               variant="link"
-              className="h-auto p-0 text-[12.5px] font-medium text-accent-foreground underline decoration-primary/45 underline-offset-[3px]"
+              className="h-auto p-0 text-menu font-medium text-accent-foreground underline decoration-primary/45 underline-offset-[3px]"
               onClick={onOpenFlow}
             >
               {subject.label || subject.text}
@@ -108,7 +124,6 @@ export function ToolCompactRow({
           ) : (
             subject.label || subject.text
           )}
-          {index < operation.subjects.length - 2 ? ', ' : null}
         </Fragment>
       ))}
       {operation.qualifier ? ` ${operation.qualifier}` : null}
@@ -142,8 +157,8 @@ export function ToolCompactRow({
     !interrupted &&
     !(status === 'degraded' && operation.metadata)
       ? cancelled
-        ? 'stopped'
-        : (exitCodeOf(tool) ?? (status === 'unknown' ? 'Unknown' : status))
+        ? t({ message: 'stopped', context: 'tool outcome' })
+        : (exitCodeOf(tool) ?? outcomeWord(status))
       : undefined;
   const outcome =
     waiting || failureWord || denied ? (
@@ -152,7 +167,7 @@ export function ToolCompactRow({
         {denied ? (
           <span data-slot="tool-outcome" className="text-warning">
             {tool.presentation?.blocks.find((block) => block.id === 'permission-decision')?.text ||
-              'you denied it'}
+              t`you denied it`}
           </span>
         ) : null}
         {failureWord ? (
@@ -177,7 +192,6 @@ export function ToolCompactRow({
   );
   return (
     <ActivityRow
-      {...(surface === 'evidence' ? {} : tourAnchor('tool-activity'))}
       className={cn('flex-1', surface === 'evidence' && 'h-8')}
       open={expanded}
       onOpenChange={operation.expandable ? onExpandedChange : undefined}
@@ -185,7 +199,15 @@ export function ToolCompactRow({
         operation.expandable ? (
           <ActivityDisclosure
             open={expanded}
-            label={`${expanded ? 'Collapse' : 'Expand'} ${action}`}
+            label={
+              expanded
+                ? denied
+                  ? t`Collapse denied ${ph({ action })}`
+                  : t`Collapse ${ph({ action })}`
+                : denied
+                  ? t`Expand denied ${ph({ action })}`
+                  : t`Expand ${ph({ action })}`
+            }
             asChildTrigger={(button) => <CollapsibleTrigger asChild>{button}</CollapsibleTrigger>}
           />
         ) : null
@@ -198,13 +220,17 @@ export function ToolCompactRow({
           <button
             type="button"
             disabled={!operation.expandable}
-            aria-label={`Show result for ${denied ? `denied ${action}` : action}`}
+            aria-label={
+              denied
+                ? t`Show result for denied ${ph({ action })}`
+                : t`Show result for ${ph({ action })}`
+            }
             data-slot="tool-action-text"
             // The chevron is the row's tab stop; the name repeats it for the pointer.
             tabIndex={-1}
             className="cursor-pointer rounded-[3px] text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default"
           >
-            {denied ? 'Denied' : action}
+            {denied ? t`Denied` : action}
           </button>
         </CollapsibleTrigger>
       }
@@ -213,10 +239,13 @@ export function ToolCompactRow({
       argument={delegate ? delegate.assignment : (argument ?? (denied ? action : undefined))}
       argumentTitle={(delegate ? delegate.assignment : argumentTitle) || undefined}
       recap={operation.metadata}
-      recapTitle={typeof operation.metadata === 'string' ? operation.metadata : undefined}
+      recapTitle={
+        recapTitle ?? (typeof operation.metadata === 'string' ? operation.metadata : undefined)
+      }
+      recapLeads={recapLeads}
       outcome={outcome}
       outcomeTone="muted"
-      outcomeTitle={failure}
+      outcomeTitle={failureText}
       marks={attention}
       badge={badge}
       actions={
@@ -239,7 +268,7 @@ export function ToolCompactRow({
         duration !== undefined ? (
           <span
             data-slot="tool-duration"
-            title={active ? 'Elapsed time; updates while running' : 'Execution time'}
+            title={active ? t`Elapsed time; updates while running` : t`Execution time`}
           >
             {formatDuration(duration, 'elapsed')}
           </span>
@@ -267,7 +296,7 @@ export function ToolCompactRow({
 export function CopyAction({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <NamedTooltip label={copied ? 'Copied' : label}>
+    <NamedTooltip label={copied ? t`Copied` : label}>
       <Button
         variant="ghost"
         aria-label={label}
@@ -292,12 +321,12 @@ export function CopyAction({ value, label }: { value: string; label: string }) {
 
 function copyTarget(operation: ToolOperation): { value: string; label: string } | undefined {
   const command = operation.subjects.find((subject) => subject.id === 'operation-command');
-  if (command?.text) return { value: command.text, label: 'Copy command' };
+  if (command?.text) return { value: command.text, label: t`Copy command` };
   const file = operation.subjects.find((subject) => subject.target === 'file');
-  if (file?.uri || file?.text) return { value: file.uri || file.text || '', label: 'Copy path' };
+  if (file?.uri || file?.text) return { value: file.uri || file.text || '', label: t`Copy path` };
   const first = operation.subjects[0];
   const text = first?.text || first?.uri || first?.label;
-  return text ? { value: text, label: 'Copy' } : undefined;
+  return text ? { value: text, label: t`Copy` } : undefined;
 }
 
 function exitCodeOf(tool: ToolInvocation): string | undefined {
@@ -311,5 +340,14 @@ function exitCodeOf(tool: ToolInvocation): string | undefined {
         output)
       : undefined;
   const code = nested?.exit_code;
-  return typeof code === 'number' && code !== 0 ? `exit ${code}` : undefined;
+  return typeof code === 'number' && code !== 0 ? t`exit ${code}` : undefined;
+}
+
+/** A failed call's status as the lower-case outcome word; an unrecognized one reads as reported. */
+function outcomeWord(status: string): string {
+  if (status === 'unknown') return t`Unknown`;
+  if (status === 'failed') return t({ message: 'failed', context: 'tool outcome' });
+  if (status === 'degraded') return t({ message: 'degraded', context: 'tool outcome' });
+  if (status === 'denied') return t({ message: 'denied', context: 'tool outcome' });
+  return status;
 }

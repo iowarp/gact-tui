@@ -31,15 +31,16 @@ function sentences(lines: string[]): string {
 const REPEAT_MS = 10_000;
 
 /**
- * Mirrors the section's state lines (Loading access rules…, No sessions to
- * schedule work in yet) into the shared polite region as they appear. Render
- * it once anywhere in a section; it watches that section's body.
+ * Mirrors the window's state lines (Loading access rules…, No sessions to
+ * schedule work in yet) into the shared polite region as they appear. The
+ * Settings window renders it once in its content area, so every section and
+ * search result is covered without a copy per section.
  */
 export function AnnounceStates() {
   const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     const anchor = ref.current;
-    const root = anchor?.closest('main') ?? anchor?.parentElement;
+    const root = anchor?.closest('[data-settings-main]') ?? anchor?.parentElement;
     if (!root || typeof MutationObserver === 'undefined') return;
     let pending: string[] = [];
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -79,7 +80,7 @@ export function AnnounceStates() {
 /** Adds row arrow keys to the item list(s) inside, without a layout box. */
 export function RowKeys({ children }: { children: ReactNode }) {
   return (
-    <div className="contents" onKeyDown={rowArrowKeyDown}>
+    <div className="contents" data-row-keys="" onKeyDown={rowArrowKeyDown}>
       {children}
     </div>
   );

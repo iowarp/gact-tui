@@ -9,29 +9,32 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { SettingsSelectField } from './model-select-field';
-import { formatDateTime, parseCron, weekdayLabels } from './settings-schedule-time';
+import { everyWeekday, formatDateTime, parseCron } from './settings-schedule-time';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /** How a row says when it runs: "Weekdays 09:00", "One time 14 Nov 16:00". */
 export function ScheduleWords({ schedule }: { schedule: ScheduledTurn }) {
   if (!schedule.recurring) {
     return (
       <>
-        One time
+        {t`One time`}
         <MetaGap />
         {formatDateTime(schedule.run_at || schedule.next_fire_at, schedule.timezone, true)}
       </>
     );
   }
   const parsed = parseCron(schedule.cron);
-  if (parsed.preset === 'weekdays') return `Weekdays ${parsed.time}`;
-  if (parsed.preset === 'daily') return `Every day ${parsed.time}`;
+  if (parsed.preset === 'weekdays') return t`Weekdays ${ph({ time: parsed.time })}`;
+  if (parsed.preset === 'daily') return t`Every day ${ph({ time: parsed.time })}`;
   if (parsed.preset === 'weekly') {
-    const day = weekdayLabels.find(([value]) => value === parsed.weekday)?.[1] ?? 'week';
-    return `Every ${day} ${parsed.time}`;
+    return t`${ph({ repeat: everyWeekday(parsed.weekday) })} ${ph({ time: parsed.time })}`;
   }
   return (
     <>
-      Custom repeat <span className="font-mono text-[0.71875rem]">{schedule.cron}</span>
+      <Trans>
+        Custom repeat <span className="font-mono text-label">{schedule.cron}</span>
+      </Trans>
     </>
   );
 }
@@ -39,10 +42,9 @@ export function ScheduleWords({ schedule }: { schedule: ScheduledTurn }) {
 /** The 14 px gap between meta facts; read as a comma. */
 export function MetaGap() {
   return (
-    <>
-      <span aria-hidden="true" className="inline-block w-3.5" />
+    <span className="inline-block w-3.5" data-truncation-text=", ">
       <span className="sr-only">, </span>
-    </>
+    </span>
   );
 }
 
@@ -64,6 +66,7 @@ export function ScheduleSelect({
   icon,
   className,
   disabled,
+  wrap,
 }: {
   id?: string;
   /** Accessible name when no visible label points at the field. */
@@ -75,6 +78,8 @@ export function ScheduleSelect({
   icon?: ReactNode;
   className?: string;
   disabled?: boolean;
+  /** A long value wraps whole onto more lines (a dialog row) instead of ending in an ellipsis. */
+  wrap?: boolean;
 }) {
   const current = options.find((option) => option.value === value);
   const shown = current ? (current.hint ? `${current.label}, ${current.hint}` : current.label) : '';
@@ -89,6 +94,7 @@ export function ScheduleSelect({
           placeholder={placeholder}
           title={shown || undefined}
           value={current?.label}
+          wrap={wrap}
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -108,7 +114,7 @@ export function ScheduleSelect({
               </span>
               {option.hint ? (
                 // The title keeps priority; the workspace hint truncates first.
-                <span className="max-w-32 min-w-10 shrink-[999] truncate text-xs text-faint">
+                <span className="max-w-32 min-w-10 shrink-[999] truncate text-xs text-muted-foreground">
                   {option.hint}
                 </span>
               ) : null}

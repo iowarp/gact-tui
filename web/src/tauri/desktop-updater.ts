@@ -30,6 +30,7 @@ import {
   useUpdateFlowStore,
   writePendingUpdateMarker,
 } from '@/store/update-flow-store';
+import { t } from '@lingui/core/macro';
 
 /**
  * Stable id for the background "an update is available" toast, shared with
@@ -79,10 +80,23 @@ export class AppReleaseNotPublished extends Error {
   constructor(tag: string, runtime: string | undefined) {
     super(
       runtime
-        ? `This app's release ${tag} is not published, so the runtime (${runtime}) cannot be restored to match it.`
-        : `This app's release ${tag} is not published, so the runtime cannot be restored to match it.`,
+        ? t`This app's release ${tag} is not published, so the runtime (${runtime}) cannot be restored to match it.`
+        : t`This app's release ${tag} is not published, so the runtime cannot be restored to match it.`,
     );
     this.name = 'AppReleaseNotPublished';
+  }
+}
+
+/**
+ * The runtime is newer than the app release it would update to: a matching
+ * signed app release is required, and the runtime is never downgraded.
+ */
+export class ComponentVersionMismatch extends Error {
+  constructor(runtime: string, target: string) {
+    super(
+      t`Components differ: runtime ${runtime}, app target ${target}. A matching signed app release is required; the runtime will not be downgraded automatically.`,
+    );
+    this.name = 'ComponentVersionMismatch';
   }
 }
 
@@ -163,26 +177,24 @@ export function classifyUpdateError(error: unknown): {
   const message = error instanceof Error ? error.message : String(error);
   if (error instanceof ReleaseFeedRateLimited) return { reason: 'rate_limited', message };
   if (error instanceof AppReleaseNotPublished) return { reason: 'release_not_published', message };
+  if (error instanceof ComponentVersionMismatch) return { reason: 'version_mismatch', message };
   const normalized = message.toLowerCase();
-  if (normalized.startsWith('components differ:')) {
-    return { reason: 'version_mismatch', message };
-  }
   if (normalized.includes('could not fetch a valid release json')) {
-    return { reason: 'manifest_not_published', message: 'No update manifest published yet' };
+    return { reason: 'manifest_not_published', message: t`No update manifest published yet` };
   }
   // Covers both `TargetNotFound` ("was not found in the response") and
   // `TargetsNotFound` ("were found in the response", negated by its "None
   // of the fallback platforms" prefix) via their shared stable suffix.
   if (normalized.includes('found in the response') && normalized.includes('platform')) {
-    return { reason: 'platform_not_published', message: 'No update published for this platform' };
+    return { reason: 'platform_not_published', message: t`No update published for this platform` };
   }
   if (
     normalized.includes('signature verification failed') ||
     normalized.includes('created with a different key')
   ) {
-    return { reason: 'signature_mismatch', message: 'Update rejected: signature mismatch' };
+    return { reason: 'signature_mismatch', message: t`Update rejected: signature mismatch` };
   }
-  return { reason: 'unreachable', message: message || 'The update service did not respond.' };
+  return { reason: 'unreachable', message: message || t`The update service did not respond.` };
 }
 
 /**
@@ -219,13 +231,13 @@ function writeLastCheckedAt(value: number): void {
  * call, so both paths count against `BACKGROUND_UPDATE_CHECK_MIN_INTERVAL_MS`.
  */
 export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null> {
-  if (!inTauri()) throw new Error('App updates are available only in the installed desktop app.');
+  if (!inTauri()) throw new Error(t`App updates are available only in the installed desktop app.`);
   if (installingProduct || isUpdateInFlight(useUpdateFlowStore.getState().step))
-    throw new Error('An update is already in progress.');
+    throw new Error(t`An update is already in progress.`);
   const { getVersion } = await import('@tauri-apps/api/app');
   const currentVersion = await getVersion();
   initializeUpdateChannel(currentVersion);
-  if (installingProduct) throw new Error('An update is already in progress.');
+  if (installingProduct) throw new Error(t`An update is already in progress.`);
   const channel = getUpdateChannel();
   const generation = ++checkGeneration;
   writeLastCheckedAt(Date.now());
@@ -238,7 +250,7 @@ export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null>
     if (previous) await previous.close();
     const { check, Update } = await import('@tauri-apps/plugin-updater');
     if (channel === 'beta') {
-      if (!brand.desktopReleaseUrl) throw new Error('No beta release feed is configured.');
+      if (!brand.desktopReleaseUrl) throw new Error(t`No beta release feed is configured.`);
       const release = await latestPublishedRelease(brand.desktopReleaseUrl, channel);
       const { invoke } = await import('@tauri-apps/api/core');
       const metadata = await invoke<ConstructorParameters<typeof Update>[0] | null>(
@@ -266,10 +278,8 @@ export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null>
       }
       const target = candidate?.version ?? currentVersion;
       const difference = runtime ? compareReleaseVersions(runtime, target) : -1;
-      if (difference > 0) {
-        throw new Error(
-          `Components differ: runtime ${runtime}, app target ${displayReleaseVersion(target)}. A matching signed app release is required; the runtime will not be downgraded automatically.`,
-        );
+      if (runtime && difference > 0) {
+        throw new ComponentVersionMismatch(runtime, displayReleaseVersion(target) ?? target);
       }
       if (!candidate && difference < 0) {
         repair = {
@@ -277,8 +287,8 @@ export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null>
           version: currentVersion,
           repair: true,
           body: runtime
-            ? `The runtime is ${runtime}. Restore the app and runtime to the same release.`
-            : 'The local runtime is unavailable. Restore the app and runtime to the same release.',
+            ? t`The runtime is ${runtime}. Restore the app and runtime to the same release.`
+            : t`The local runtime is unavailable. Restore the app and runtime to the same release.`,
         };
         if ((await managedRuntimeUpdateMode()) === 'bundled') {
           const { invoke } = await import('@tauri-apps/api/core');
@@ -335,15 +345,15 @@ export async function installDesktopUpdate(
   onProgress: (progress: DesktopUpdateProgress) => void,
 ): Promise<void> {
   if (installingProduct || isUpdateInFlight(useUpdateFlowStore.getState().step)) {
-    throw new Error('An update is already in progress.');
+    throw new Error(t`An update is already in progress.`);
   }
   if (!availableUpdate && !runtimeRepair)
-    throw new Error('Check for an available update before installing.');
+    throw new Error(t`Check for an available update before installing.`);
   if (availableChannel !== getUpdateChannel())
-    throw new Error('The update channel changed. Check for updates again.');
+    throw new Error(t`The update channel changed. Check for updates again.`);
   const update = availableUpdate;
   const version = displayReleaseVersion(update?.version ?? runtimeRepair?.version);
-  if (!version) throw new Error('The release target is missing. Check for updates again.');
+  if (!version) throw new Error(t`The release target is missing. Check for updates again.`);
   installingProduct = true;
   installingUpdate = update;
   checkGeneration += 1;
@@ -365,13 +375,13 @@ export async function installDesktopUpdate(
     }
     if (currentRuntime && compareReleaseVersions(currentRuntime, version) > 0) {
       throw new Error(
-        'The local runtime is newer than the selected app release. Check for a matching app update.',
+        t`The local runtime is newer than the selected app release. Check for a matching app update.`,
       );
     }
     const action = ownsRuntime ? 'both' : 'desktop';
     useUpdateFlowStore.getState().start(action, version);
     if (runtimeIssue)
-      useUpdateFlowStore.getState().appendLine(`Local runtime unavailable: ${runtimeIssue}`);
+      useUpdateFlowStore.getState().appendLine(t`Local runtime unavailable: ${runtimeIssue}`);
     writePendingUpdateMarker({ action, version, startedAt: Date.now() });
     useUpdateFlowStore.getState().setStep(update ? 'downloading' : 'installing');
     let downloadedBytes = 0;
@@ -446,15 +456,16 @@ export async function installDesktopUpdate(
 
 /** Renders one download-progress update as the text of the "Restart to update" toast. */
 function describeUpdateProgress(progress: DesktopUpdateProgress): string {
-  if (progress.finished) return 'Installing update…';
+  if (progress.finished) return t`Installing update…`;
   if (progress.totalBytes && progress.totalBytes > 0) {
     const percent = Math.min(
       100,
       Math.round((progress.downloadedBytes / progress.totalBytes) * 100),
     );
-    return `Downloading update, ${percent}%`;
+    return t`Downloading update, ${percent}%`;
   }
-  return `Downloading update, ${formatBytes(progress.downloadedBytes)} received`;
+  const received = formatBytes(progress.downloadedBytes);
+  return t`Downloading update, ${received} received`;
 }
 
 /**
@@ -465,7 +476,7 @@ function describeUpdateProgress(progress: DesktopUpdateProgress): string {
  * or on failure — never left showing a stale "Downloading…" forever.
  */
 async function restartToUpdate(): Promise<void> {
-  toast.loading('Downloading update…', { id: DESKTOP_UPDATE_TOAST_ID });
+  toast.loading(t`Downloading update…`, { id: DESKTOP_UPDATE_TOAST_ID });
   try {
     await installDesktopUpdate((progress) => {
       toast.loading(describeUpdateProgress(progress), { id: DESKTOP_UPDATE_TOAST_ID });
@@ -512,16 +523,16 @@ export async function runBackgroundUpdateCheck(now: number = Date.now()): Promis
     return;
   }
   if (!update) return;
+  const version = displayReleaseVersion(update.version) ?? update.version;
+  const { agent } = vocab;
   toast(
-    update.repair
-      ? 'The local installation needs repair'
-      : `Version ${displayReleaseVersion(update.version)} is available`,
+    update.repair ? t`The local installation needs repair` : t`Version ${version} is available`,
     {
       id: DESKTOP_UPDATE_TOAST_ID,
-      description: 'Restart to install the signed update.',
+      description: t`Restart to install the signed update.`,
       duration: Number.POSITIVE_INFINITY,
       action: {
-        label: `Update ${vocab.agent}`,
+        label: t`Update ${agent}`,
         onClick: () => void restartToUpdate(),
       },
     },

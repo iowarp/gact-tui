@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useRepository } from '@/hooks/use-repository';
 import { IconButton } from './primitives/icon-button';
+import { JumpLabel, menuAcceleratorKeyDown } from './primitives/menu-row';
+import { t, ph } from '@lingui/core/macro';
 
 /** Source management removes the connection, never the user's files or evidence. */
 export function ConnectedSourceActions({
@@ -48,7 +50,7 @@ export function ConnectedSourceActions({
       onRemoved();
     },
     onError: (error) => {
-      if (!confirm) toast.error('Could not remove source', { description: error.message });
+      if (!confirm) toast.error(t`Could not remove source`, { description: error.message });
     },
   });
   const requestRemove = () => {
@@ -63,8 +65,8 @@ export function ConnectedSourceActions({
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Edit source"
-              title="Edit source"
+              aria-label={t`Edit source`}
+              title={t`Edit source`}
               onClick={onEdit}
             >
               <EditIcon aria-hidden="true" />
@@ -73,8 +75,8 @@ export function ConnectedSourceActions({
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Discard source and close"
-            title="Discard source and close"
+            aria-label={t`Discard source and close`}
+            title={t`Discard source and close`}
             disabled={remove.isPending}
             onClick={requestRemove}
           >
@@ -87,24 +89,28 @@ export function ConnectedSourceActions({
             {compact ? (
               <IconButton
                 icon={<MoreIcon />}
-                label={`More actions for ${source.label}`}
+                label={t`More actions for ${ph({ label: source.label })}`}
                 size="sm"
                 tooltipSide="bottom"
               />
             ) : (
-              <Button variant="ghost" size="icon" aria-label={`Manage ${source.label}`}>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={t`Manage ${ph({ label: source.label })}`}
+              >
                 <MoreIcon aria-hidden="true" />
               </Button>
             )}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={onEdit}>
+          <DropdownMenuContent align="end" onKeyDown={menuAcceleratorKeyDown}>
+            <DropdownMenuItem data-accelerator="E" onSelect={onEdit}>
               <EditIcon aria-hidden="true" />
-              Edit source
+              <JumpLabel label={t`Edit source`} letter="E" />
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={requestRemove}>
+            <DropdownMenuItem data-accelerator="R" onSelect={requestRemove}>
               <DeleteIcon aria-hidden="true" />
-              Remove source
+              <JumpLabel label={t`Remove source`} letter="R" />
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -112,12 +118,12 @@ export function ConnectedSourceActions({
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {source.label}?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Remove ${ph({ label: source.label })}?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              Disconnect this source and remove it from your list. Original files, downloaded
-              copies, and retained evidence stay in place.
-              {['google_drive', 'globus'].includes(source.provider) &&
-                ' Your account stays signed in for other sources.'}
+              {t`Disconnect this source and remove it from your list. Original files, downloaded copies, and retained evidence stay in place.`}
+              {['google_drive', 'globus'].includes(source.provider) ? (
+                <> {t`Your account stays signed in for other sources.`}</>
+              ) : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {remove.error && (
@@ -126,13 +132,13 @@ export function ConnectedSourceActions({
             </p>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={remove.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={remove.isPending}>{t`Cancel`}</AlertDialogCancel>
             <Button
               variant="destructive"
               disabled={remove.isPending}
               onClick={() => remove.mutate()}
             >
-              {remove.isPending ? 'Removing…' : 'Remove source'}
+              {remove.isPending ? t`Removing…` : t`Remove source`}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

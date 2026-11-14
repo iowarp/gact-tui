@@ -1,10 +1,10 @@
 import { CheckIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { RegionCoordinateInputs } from '../region-coordinate-inputs';
 import { placeCommentEditor } from './comment-editor-placement';
+import { t } from '@lingui/core/macro';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -23,9 +23,9 @@ type Box = { x: number; y: number; width: number; height: number };
 /**
  * The editor beside one mark, first built for A2UI region capture: the mark's label and the
  * surface it is on, the comment (focused), what it points at (a quote, an element), a region's
- * box as numbers behind a collapsed "Adjust region", "Send to agent" where comments become
- * threads, and Delete, Cancel and Done.
- * Enter finishes, Escape cancels. It opens just below the mark, kept on screen.
+ * box as numbers behind a collapsed "Adjust region", and Delete, Cancel and Done. Every
+ * comment goes to the agent when the marks are sent. Enter finishes, Escape cancels. It opens
+ * just below the mark, kept on screen.
  */
 /** Whether the heading's title only repeats the quote shown under it. */
 function repeats(title: string, detail?: string): boolean {
@@ -46,7 +46,6 @@ export function CommentEditor({
   detail,
   coordinates,
   comment,
-  sendToAgent,
   onDone,
   onCancel,
   onDelete,
@@ -58,7 +57,6 @@ export function CommentEditor({
   detail?: string;
   coordinates?: { box: Box; onChange: (box: Box) => void };
   comment: string;
-  sendToAgent?: { checked: boolean; onChange: (checked: boolean) => void };
   onDone: (comment: string) => void;
   onCancel: () => void;
   onDelete: () => void;
@@ -98,9 +96,11 @@ export function CommentEditor({
   return (
     <div
       ref={box}
-      aria-label={`Comment on ${label}`}
+      aria-label={t`Comment on ${label}`}
       className="fixed z-[90] max-h-[calc(100dvh-1rem)] w-[min(26rem,calc(100vw-1rem))] overflow-auto rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl"
       data-capture-ui="true"
+      // Escape cancels the comment; inside the pocket sheet it must not close the sheet too.
+      data-escape-owner=""
       data-slot="comment-editor"
       role="dialog"
       style={placed}
@@ -121,7 +121,7 @@ export function CommentEditor({
         </p>
       ) : null}
       <textarea
-        aria-label={`Comment for ${label}`}
+        aria-label={t`Comment for ${label}`}
         autoFocus
         className="min-h-28 w-full resize-y rounded-md border bg-background p-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary"
         onChange={(event) => setText(event.target.value)}
@@ -129,17 +129,17 @@ export function CommentEditor({
           if (event.key === 'Escape') onCancel();
           else if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
-            onDone(text.trim());
+            if (text.trim()) onDone(text.trim());
           }
         }}
-        placeholder="What should the agent notice here?"
+        placeholder={t`What should the agent notice here?`}
         value={text}
       />
       {coordinates ? (
         // The person drew the region; its numbers are for fine adjustment (and keyboards).
         <details className="mt-1 text-xs" data-slot="comment-region-adjust">
           <summary className="cursor-pointer text-muted-foreground select-none">
-            Adjust region
+            {t`Adjust region`}
           </summary>
           {detail ? (
             <p className="mt-1 line-clamp-3 text-muted-foreground" title={detail}>
@@ -149,18 +149,9 @@ export function CommentEditor({
           <RegionCoordinateInputs box={coordinates.box} onChange={coordinates.onChange} />
         </details>
       ) : null}
-      {sendToAgent ? (
-        <label className="mt-1 flex items-center gap-2 text-xs">
-          <Checkbox
-            checked={sendToAgent.checked}
-            onCheckedChange={(checked) => sendToAgent.onChange(checked === true)}
-          />
-          Send to agent
-        </label>
-      ) : null}
       <div className="mt-2 flex justify-end gap-2">
         <Button
-          aria-label={`Delete ${label}`}
+          aria-label={t`Delete ${label}`}
           className="mr-auto"
           onClick={onDelete}
           size="icon-sm"
@@ -169,11 +160,11 @@ export function CommentEditor({
           <DeleteIcon aria-hidden="true" className="size-4" />
         </Button>
         <Button onClick={onCancel} size="sm" variant="ghost">
-          Cancel
+          {t`Cancel`}
         </Button>
-        <Button onClick={() => onDone(text.trim())} size="sm">
+        <Button disabled={!text.trim()} onClick={() => onDone(text.trim())} size="sm">
           <CheckIcon aria-hidden="true" className="size-4" />
-          Done
+          {t`Done`}
         </Button>
       </div>
     </div>

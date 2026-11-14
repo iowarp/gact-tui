@@ -110,7 +110,7 @@ beforeEach(() => {
   }));
   installerInfra.installerRequestedLlamaCpp.mockResolvedValue(false);
   deployment.runManagedServiceAction.mockResolvedValue({
-    service_id: 'web_search',
+    service_id: 'notebook_server',
     action: 'status',
     target: 'this computer',
     status: 'ok',
@@ -157,7 +157,7 @@ beforeEach(() => {
   });
   repository.infrastructureOperation.mockResolvedValue({
     id: 'op-1',
-    service_id: 'web_search',
+    service_id: 'notebook_server',
     target_id: 'local',
     action: 'status',
     state: 'succeeded',

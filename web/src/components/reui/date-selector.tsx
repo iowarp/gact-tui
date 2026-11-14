@@ -29,6 +29,8 @@ import {
   CornerUpRightIcon,
   XIcon,
 } from 'lucide-react';
+import { t } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 export interface DateSelectorI18nConfig {
   // Labels
@@ -67,46 +69,52 @@ export interface DateSelectorI18nConfig {
   rangePlaceholder: string;
 }
 
+function calendarNames(
+  count: number,
+  date: (index: number) => Date,
+  options: Intl.DateTimeFormatOptions,
+): string[] {
+  const format = new Intl.DateTimeFormat(formatLocale(), options);
+  return Array.from({ length: count }, (_, index) => format.format(date(index)));
+}
+
 export const DEFAULT_DATE_SELECTOR_I18N: DateSelectorI18nConfig = {
-  selectDate: 'Select date',
-  apply: 'Apply',
-  cancel: 'Cancel',
-  clear: 'Clear',
-  today: 'Today',
+  selectDate: t`Select date`,
+  apply: t`Apply`,
+  cancel: t`Cancel`,
+  clear: t`Clear`,
+  today: t`Today`,
   filterTypes: {
-    is: 'is',
-    before: 'before',
-    after: 'after',
-    between: 'between',
+    is: t({ message: 'is', context: 'date filter' }),
+    before: t({ message: 'before', context: 'date filter' }),
+    after: t({ message: 'after', context: 'date filter' }),
+    between: t({ message: 'between', context: 'date filter' }),
   },
   periodTypes: {
-    day: 'Day',
-    month: 'Month',
-    quarter: 'Quarter',
-    halfYear: 'Half-year',
-    year: 'Year',
+    day: t`Day`,
+    month: t`Month`,
+    quarter: t`Quarter`,
+    halfYear: t`Half-year`,
+    year: t`Year`,
   },
-  months: [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
+  // Month and weekday names come from the interface language's calendar.
+  months: calendarNames(12, (index) => new Date(2026, index, 1), { month: 'long' }),
+  monthsShort: calendarNames(12, (index) => new Date(2026, index, 1), { month: 'short' }),
+  quarters: [t`Q1`, t`Q2`, t`Q3`, t`Q4`],
+  halfYears: [t`H1`, t`H2`],
+  // 2026-02-01 is a Sunday.
+  weekdays: calendarNames(7, (index) => new Date(2026, 1, 1 + index), { weekday: 'long' }),
+  weekdaysShort: [
+    t({ message: 'Su', context: 'Sunday, two letters' }),
+    t({ message: 'Mo', context: 'Monday, two letters' }),
+    t({ message: 'Tu', context: 'Tuesday, two letters' }),
+    t({ message: 'We', context: 'Wednesday, two letters' }),
+    t({ message: 'Th', context: 'Thursday, two letters' }),
+    t({ message: 'Fr', context: 'Friday, two letters' }),
+    t({ message: 'Sa', context: 'Saturday, two letters' }),
   ],
-  monthsShort: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-  quarters: ['Q1', 'Q2', 'Q3', 'Q4'],
-  halfYears: ['H1', 'H2'],
-  weekdays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-  weekdaysShort: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
-  placeholder: 'Select date...',
-  rangePlaceholder: 'Select date range...',
+  placeholder: t`Select date...`,
+  rangePlaceholder: t`Select date range...`,
 };
 
 export type DateSelectorPeriodType = 'day' | 'month' | 'quarter' | 'half-year' | 'year';
@@ -639,7 +647,7 @@ function DateSelectorPeriodTabs({
             variant="ghost"
             className="size-8.5"
             onClick={() => onMonthChange(subMonths(calendarMonth, 1))}
-            aria-label="Previous month"
+            aria-label={t`Previous month`}
           >
             <ChevronLeftIcon aria-hidden="true" className="size-4" />
           </Button>
@@ -647,7 +655,7 @@ function DateSelectorPeriodTabs({
             variant="ghost"
             className="size-8.5"
             onClick={() => onMonthChange(addMonths(calendarMonth, 1))}
-            aria-label="Next month"
+            aria-label={t`Next month`}
           >
             <ChevronRightIcon aria-hidden="true" className="size-4" />
           </Button>
@@ -834,6 +842,7 @@ function DateSelectorPeriodGrid({
           <div
             className="grid gap-2"
             style={{
+              // i18n-ignore: CSS value
               gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
             }}
           >
@@ -1138,7 +1147,7 @@ export function DateSelector({
           <div className="relative">
             <Input
               type="text"
-              aria-label={label ? `${label} date` : 'Date'}
+              aria-label={label ? t`${label} date` : t`Date`}
               value={inputHint ? inputValue : displayValue}
               readOnly={!inputHint}
               placeholder={isInputFocused && inputHint ? inputHint : mergedI18n.placeholder}
@@ -1150,7 +1159,7 @@ export function DateSelector({
               <button
                 type="button"
                 onClick={clearSelection}
-                aria-label="Clear date"
+                aria-label={t`Clear date`}
                 className={cn(
                   // Base Styles
                   'rounded-xs absolute end-2.5 top-1/2 size-4 -translate-y-1/2 cursor-pointer',

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Input } from '@/components/ui/input';
 import { InfoTip } from './info-tip';
+import { t } from '@lingui/core/macro';
 
 interface ProviderAuthPanelProps {
   providerLabel: string;
@@ -41,7 +42,7 @@ export function ProviderAuthPanel({
   const { browser, device } = authFlow;
   return (
     <div
-      aria-label={`Complete ${providerLabel} sign-in`}
+      aria-label={t`Complete ${providerLabel} sign-in`}
       className="flex w-full max-w-md flex-col gap-2"
       data-slot="provider-auth-panel"
       role="group"
@@ -52,7 +53,7 @@ export function ProviderAuthPanel({
             {device.user_code}
           </code>
           <Button
-            aria-label="Copy code"
+            aria-label={t`Copy code`}
             onClick={() => void navigator.clipboard.writeText(device.user_code)}
             size="icon-sm"
             variant="ghost"
@@ -62,7 +63,7 @@ export function ProviderAuthPanel({
           <Button asChild size="sm" variant="outline">
             <ExternalLink href={device.verification_url}>
               <ExternalLinkIcon data-icon="inline-start" />
-              Enter the code
+              {t`Enter the code`}
             </ExternalLink>
           </Button>
         </div>
@@ -74,17 +75,18 @@ export function ProviderAuthPanel({
               href={browser.authorization_url}
               onClick={() => onLaunchError('')}
               onOpenError={(error) =>
-                onLaunchError(error instanceof Error ? error.message : 'Could not open the sign-in page.')
+                onLaunchError(
+                  error instanceof Error ? error.message : t`Could not open the sign-in page.`,
+                )
               }
             >
               <ExternalLinkIcon data-icon="inline-start" />
-              Open sign-in page
+              {t`Open sign-in page`}
             </ExternalLink>
           </Button>
           {browser.loopback_unavailable_reason ? (
-            <InfoTip label="Automatic sign-in unavailable">
-              Automatic sign-in isn&apos;t available right now (the local port is busy). Paste the
-              redirect URL below once you finish in the browser.
+            <InfoTip label={t`Automatic sign-in unavailable`}>
+              {t`Automatic sign-in isn't available right now (the local port is busy). Paste the redirect URL below once you finish in the browser.`}
             </InfoTip>
           ) : null}
         </div>
@@ -98,16 +100,16 @@ export function ProviderAuthPanel({
         }}
       >
         <Input
-          aria-label="Redirect URL or code"
+          aria-label={t`Redirect URL or code`}
           autoComplete="one-time-code"
           className="h-7 text-xs"
           id="provider-auth-paste"
           onChange={(event) => onPasteChange(event.target.value)}
-          placeholder="Didn't finish? Paste the address or code here"
+          placeholder={t`Didn't finish? Paste the address or code here`}
           value={authPaste}
         />
         <Button disabled={!authPaste.trim() || completePending} size="sm" type="submit">
-          {completePending ? 'Finishing…' : 'Finish'}
+          {completePending ? t`Finishing…` : t`Finish`}
         </Button>
       </form>
       {completeError ? <p className="text-xs text-destructive">{completeError}</p> : null}

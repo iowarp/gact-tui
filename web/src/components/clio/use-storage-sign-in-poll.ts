@@ -1,5 +1,6 @@
 import type { ClioRepository } from '@clio/core/v3';
 import { useEffect, useRef, useState } from 'react';
+import { t } from '@lingui/core/macro';
 
 type Repository = Pick<ClioRepository, 'completeSourceSignIn'>;
 type Flow = { flow_id: string; interval?: number };
@@ -45,7 +46,9 @@ export function useStorageSignInPoll({
       } catch (cause) {
         if (!cancelled) {
           callbacks.current.onSettled();
-          setError(cause instanceof Error ? cause.message : 'Sign-in could not finish. Try again.');
+          setError(
+            cause instanceof Error ? cause.message : t`Sign-in could not finish. Try again.`,
+          );
         }
       }
     };

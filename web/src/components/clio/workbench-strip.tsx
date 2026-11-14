@@ -9,6 +9,7 @@ import {
 import { IconButton } from './primitives/icon-button';
 import { MenuRow } from './primitives/menu-row';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
+import { t } from '@lingui/core/macro';
 
 export type WorkbenchListView =
   | 'files'
@@ -35,8 +36,8 @@ export interface WorkbenchStripItem {
 
 /** The list a tool's right-click (or the context-menu key) shows. */
 const TOOL_LISTS: Record<'terminal' | 'browser', string> = {
-  terminal: 'Show open terminals',
-  browser: 'Show browser pages',
+  terminal: t`Show open terminals`,
+  browser: t`Show browser pages`,
 };
 
 /**
@@ -101,7 +102,7 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
   return (
     <div
       role="toolbar"
-      aria-label="Workbench lists"
+      aria-label={t`Workbench lists`}
       aria-orientation="vertical"
       data-slot="workbench-strip"
       {...tourAnchor('workbench-lists')}

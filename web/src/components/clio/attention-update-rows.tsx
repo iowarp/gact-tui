@@ -3,6 +3,7 @@ import { NoticeFrame } from './attention-notice-frame';
 import { ListRow } from './primitives/list-row';
 import { ProductUpdateIcon } from './product-update-summary';
 import { attentionUpdate } from './version-check-issue';
+import { t } from '@lingui/core/macro';
 
 export function AttentionUpdateRows({ versions }: { versions: SystemVersionStatus }) {
   const { updateReady, checkIssue } = attentionUpdate(versions);
@@ -28,11 +29,11 @@ export function AttentionUpdateRows({ versions }: { versions: SystemVersionStatu
                     onClick={() => versions.updateAll()}
                     type="button"
                   >
-                    Update
+                    {t`Update`}
                   </button>
                 ) : undefined
               }
-              title={<span className="font-semibold text-foreground">Update ready</span>}
+              title={<span className="font-semibold text-foreground">{t`Update ready`}</span>}
               variant="notice"
             />
           )}
@@ -51,7 +52,7 @@ export function AttentionUpdateRows({ versions }: { versions: SystemVersionStatu
               hoverText={{ description: checkIssue }}
               icon={<ProductUpdateIcon state="unavailable" />}
               title={
-                <span className="font-semibold text-foreground">Couldn't check for updates</span>
+                <span className="font-semibold text-foreground">{t`Couldn't check for updates`}</span>
               }
               variant="notice"
             />

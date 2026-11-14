@@ -10,6 +10,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { SettingsSelectField } from './model-select-field';
 import { SettingsRow } from './settings-row';
 import { useSourceWorkOwner } from './source-work-owner';
+import { t } from '@lingui/core/macro';
 
 const NEW_CONVERSATION = 'new';
 
@@ -81,14 +82,14 @@ export function useSourceTrackingSession({
   };
 
   const isNew = choice === NEW_CONVERSATION;
-  const newLabel = draftOwner ? 'This new conversation' : 'New conversation';
+  const newLabel = draftOwner ? t`This new conversation` : t`New conversation`;
   const current = isNew ? newLabel : listed?.find((session) => session.id === choice)?.title;
   const control = sessionId ? null : (
     <SettingsRow
-      title="Track work in"
+      title={t`Track work in`}
       htmlFor={fieldId}
       fullWidth
-      note={isNew && !draftOwner ? <span id={hintId}>Named “{sourceLabel}”</span> : null}
+      note={isNew && !draftOwner ? <span id={hintId}>{t`Named “${sourceLabel}”`}</span> : null}
       error={sessions.error?.message}
     >
       <Select
@@ -103,7 +104,7 @@ export function useSourceTrackingSession({
             id={fieldId}
             icon={isNew ? <NewConversationIcon /> : undefined}
             value={current}
-            placeholder="Choose a conversation"
+            placeholder={t`Choose a conversation`}
             aria-describedby={isNew && !draftOwner ? hintId : undefined}
           />
         </SelectPrimitive.Trigger>

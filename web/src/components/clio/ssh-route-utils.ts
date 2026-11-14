@@ -1,4 +1,5 @@
 import { sshHostDestination, type SshHost } from '@/lib/ssh-hosts';
+import { ph, t } from '@lingui/core/macro';
 
 /** One step of an SSH jump chain: a stable drag identity plus its OpenSSH destination. */
 export type JumpStep = { key: string; host: string };
@@ -41,7 +42,7 @@ export function jumpHostError(destination: string): string | undefined {
   if (!destination) return undefined;
   // oxlint-disable-next-line no-control-regex -- control characters are exactly what is refused.
   return /[\s,"#\u0000-\u001f]/u.test(destination)
-    ? 'Use one OpenSSH destination, without spaces, commas, quotes or #.'
+    ? t`Use one OpenSSH destination, without spaces, commas, quotes or #.`
     : undefined;
 }
 
@@ -112,7 +113,7 @@ export type SshRouteCompleteness = { emptyRows: number[] };
 /** A message for the first empty row, or undefined when the route is complete. */
 export function routeIncompleteMessage(route: SshRouteCompleteness): string | undefined {
   if (!route.emptyRows.length) return undefined;
-  return `Choose a computer for hop ${route.emptyRows[0] + 1}, or remove it.`;
+  return t`Choose a computer for hop ${ph({ hop: route.emptyRows[0] + 1 })}, or remove it.`;
 }
 
 /** Indexes of rows not filled in yet. */
