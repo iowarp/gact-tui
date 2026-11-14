@@ -1,10 +1,11 @@
-import type { Connector, ConnectorNeed } from '@clio/core/v3';
+import type { Connector, ConnectorNeed, PluginEntry } from '@clio/core/v3';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useConnectorActions, useConnectorChanges } from '@/hooks/use-connectors';
 import { connectorStatus, type ConnectorChange } from '@/lib/connector-presentation';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
+import { ConnectorPluginContents } from './connector-plugin-contents';
 import { draftValues, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
 import { DetailPane } from './primitives/detail-pane';
 import { IconButton } from './primitives/icon-button';
@@ -15,18 +16,25 @@ import { SettingsGroupLabel } from './settings-row';
 import { ph, plural, t } from '@lingui/core/macro';
 
 /**
- * The setup card in the Extensions detail pane (CN4): the logo, the name, the state in
- * words, one row for each need, and enabling it (CN10).
+ * A connector, or the plugin that bundles it, in the Extensions detail pane (CN4,
+ * PL-D1): the logo, the name, the state in words; for a plugin, what it brings (its
+ * skills and the connector as its MCP server); then the connector's part: one row for
+ * each need, its sign-in, and enabling it (CN10).
  */
 export function ConnectorPane({
   connector,
+  plugin,
   onClose,
   onSignIn,
+  onViewSkill,
   className,
 }: {
   connector: Connector;
+  /** The plugin it is part of (PL-D1); absent for a plain connector. */
+  plugin?: PluginEntry;
   onClose: () => void;
   onSignIn: (connector: Connector, need: ConnectorNeed) => void;
+  onViewSkill?: (plugin: PluginEntry, skill: string) => void;
   className?: string;
 }) {
   const actions = useConnectorActions();
@@ -86,26 +94,27 @@ export function ConnectorPane({
           <p className="mt-1 text-xs leading-4 text-muted-foreground">{status.detail}</p>
         ) : null}
         {connector.description ? <p className="mt-3 leading-5">{connector.description}</p> : null}
-        <KeyValueGrid
-          className="mt-3"
-          items={[
-            {
-              label: t`Source`,
-              value: connector.source === 'custom' ? t`Added by you` : t`Catalog`,
-            },
-            ...(connector.tool_count === null
-              ? []
-              : [{ label: t`Tools`, value: `${connector.tool_count}` }]),
-            ...(connector.plugin
-              ? [
-                  {
-                    label: t`Agent guidance`,
-                    value: t`How to work with ${ph({ name: connector.name })}`,
-                  },
-                ]
-              : []),
-          ]}
-        />
+        {plugin ? (
+          <ConnectorPluginContents
+            connector={connector}
+            onViewSkill={onViewSkill}
+            plugin={plugin}
+          />
+        ) : (
+          <KeyValueGrid
+            className="mt-3"
+            items={[
+              {
+                label: t`Source`,
+                value: connector.source === 'custom' ? t`Added by you` : t`Catalog`,
+              },
+              { label: t`Kind`, value: t`Connector (an MCP server)` },
+              ...(connector.tool_count === null
+                ? []
+                : [{ label: t`Tools`, value: `${connector.tool_count}` }]),
+            ]}
+          />
+        )}
         <SettingsGroupLabel>{t`Setup`}</SettingsGroupLabel>
         {connector.needs.length ? (
           <>

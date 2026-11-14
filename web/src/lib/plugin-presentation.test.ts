@@ -127,16 +127,32 @@ describe('plugin presentation', () => {
     expect(pluginContributions(resolution, 'shell').tools).toEqual(['shell_bash']);
   });
 
-  it('names a connector plugin by its connector and says why it left (CN10)', () => {
+  it('names a connector plugin by its connector and says why it left (CN10, PL-D1)', () => {
     const connector = { id: 'viewer', name: 'Viewer', logo_url: null };
     expect(resolvedPluginName({ id: 'connector-viewer', connector })).toBe('Viewer');
     expect(resolvedPluginName({ id: 'shell', connector: null })).toBe('shell');
     expect(
-      resolvedPluginOrigin({ provenance: { source: 'user', via: '', label: '' }, connector }),
+      resolvedPluginOrigin({
+        id: 'connector-viewer',
+        provenance: { source: 'user', via: '', label: '' },
+        connector,
+      }),
     ).toBe('Connector you added');
     expect(
-      resolvedPluginOrigin({ provenance: { source: 'agent', via: 'mine', label: '' }, connector }),
+      resolvedPluginOrigin({
+        id: 'connector-viewer',
+        provenance: { source: 'agent', via: 'mine', label: '' },
+        connector,
+      }),
     ).toBe('Connector (from mine)');
+    // A plugin that bundles a connector is a plugin: its origin reads as any plugin's.
+    expect(
+      resolvedPluginOrigin({
+        id: 'viewer-scenes',
+        provenance: { source: 'user', via: '', label: '' },
+        connector,
+      }),
+    ).toBe('Added by you');
     expect(
       removedPluginReason({ id: 'connector-viewer', reason: 'connector_off', because: 'viewer' }),
     ).toContain('turned off');

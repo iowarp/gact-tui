@@ -104,6 +104,16 @@ msgstr "{0, plural, one {(# byte)} other {(# bytes)}}"
 msgid "{0, plural, one {{account}, # turn} other {{account}, # turns}}"
 msgstr "{0, plural, one {{account}, # turno} other {{account}, # turnos}}"
 
+#. placeholder {0}: items.length
+#: src/lib/agent-needs.ts
+msgid "{0, plural, one {{agent} uses {names}, which is not enabled. Enable it?} other {{agent} uses {names}, which are not enabled. Enable them?}}"
+msgstr "{0, plural, one {{agent} usa {names}, que no está activado. ¿Activarlo?} other {{agent} usa {names}, que no están activados. ¿Activarlos?}}"
+
+#. placeholder {0}: items.length
+#: src/lib/agent-needs.ts
+msgid "{0, plural, one {{agent} uses {names}, which is not ready yet. Get it ready?} other {{agent} uses {names}, which are not ready yet. Get them ready?}}"
+msgstr "{0, plural, one {{agent} usa {names}, que aún no está listo. ¿Prepararlo?} other {{agent} usa {names}, que aún no están listos. ¿Prepararlos?}}"
+
 #. placeholder {0}: steps.length
 #: src/components/clio/a2ui-steps.tsx
 msgid "{0, plural, one {{count}/# step complete} other {{count}/# steps complete}}"
@@ -425,7 +435,8 @@ msgid "{0, plural, one {# package} other {# packages}}"
 msgstr "{0, plural, one {# paquete} other {# paquetes}}"
 
 #. placeholder {0}: parts.length
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 msgid "{0, plural, one {# part} other {# parts}}"
 msgstr "{0, plural, one {# pieza} other {# piezas}}"
 
@@ -646,6 +657,11 @@ msgstr "{0, plural, one {# trayectoria en el mapa. Los colores se repiten; filtr
 msgid "{0, plural, one {# track on the map. Colours repeat; filter to compare them.} other {# tracks on the map. Colours repeat; filter to compare them.}}"
 msgstr "{0, plural, one {# trayectoria en el mapa. Los colores se repiten; filtra para compararlas.} other {# trayectorias en el mapa. Los colores se repiten; filtra para compararlas.}}"
 
+#. placeholder {0}: part.triangles
+#: src/components/clio/cad-tool-panels.tsx
+msgid "{0, plural, one {# triangle} other {# triangles}}"
+msgstr "{0, plural, one {# triángulo} other {# triángulos}}"
+
 #. placeholder {0}: total.turns
 #: src/components/clio/settings-usage.tsx
 msgid "{0, plural, one {# turn, no cost recorded} other {# turns, no cost recorded}}"
@@ -742,6 +758,11 @@ msgstr "{0, plural, one {Llamada # vez, {span}} other {Llamada # veces, {span}}}
 msgid "{0, plural, one {Called # time} other {Called # times}}"
 msgstr "{0, plural, one {Llamada # vez} other {Llamada # veces}}"
 
+#. placeholder {0}: items.length
+#: src/components/clio/cad-measure-tool.tsx
+msgid "{0, plural, one {Clear the measurement} other {Clear all # measurements}}"
+msgstr "{0, plural, one {Borrar la medición} other {Borrar las # mediciones}}"
+
 #. placeholder {0}: compacted.length
 #: src/components/clio/conversation-summarization.tsx
 msgid "{0, plural, one {Compacted here, # message summarized} other {Compacted here, # messages summarized}}"
@@ -802,6 +823,11 @@ msgstr "{0, plural, one {Adjunto del mensaje} other {# adjuntos del mensaje}}"
 msgid "{0, plural, one {Messages from # background script} other {Messages from # background scripts}}"
 msgstr "{0, plural, one {Mensajes de # script en segundo plano} other {Mensajes de # scripts en segundo plano}}"
 
+#. placeholder {0}: items.length
+#: src/components/clio/agent-needs-response.tsx
+msgid "{0, plural, one {Not now: {agent} works without it and can offer it later.} other {Not now: {agent} works without them and can offer them later.}}"
+msgstr "{0, plural, one {Ahora no: {agent} funciona sin él y puede ofrecerlo más tarde.} other {Ahora no: {agent} funciona sin ellos y puede ofrecerlos más tarde.}}"
+
 #. placeholder {0}: dependents.length
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "{0, plural, one {One more plugin leaves with {named}:} other {# more plugins leave with {named}:}}"
@@ -842,6 +868,11 @@ msgstr "{0, plural, one {problema} other {problemas}}"
 msgid "{0, plural, one {Publish # edit} other {Publish # edits}}"
 msgstr "{0, plural, one {Publicar # edición} other {Publicar # ediciones}}"
 
+#. placeholder {0}: item.tool_count
+#: src/lib/agent-needs.ts
+msgid "{0, plural, one {Ready, # tool} other {Ready, # tools}}"
+msgstr "{0, plural, one {Listo, # herramienta} other {Listo, # herramientas}}"
+
 #. placeholder {0}: Number(tag.value)
 #: src/lib/model-capability-tags.ts
 msgid "{0, plural, one {Released in the last # month.} other {Released in the last # months.}}"
@@ -881,6 +912,11 @@ msgstr "{0, plural, one {Se muestra el principio de este archivo (# byte en tota
 #: src/components/clio/host-folder-view.tsx
 msgid "{0, plural, one {Showing the first # item. {agent} can read the whole folder.} other {Showing the first # items. {agent} can read the whole folder.}}"
 msgstr "{0, plural, one {Se muestra el primer elemento (#). {agent} puede leer toda la carpeta.} other {Se muestran los primeros # elementos. {agent} puede leer toda la carpeta.}}"
+
+#. placeholder {0}: skills.length
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "{0, plural, one {Skill} other {Skills}}"
+msgstr "{0, plural, one {Habilidad} other {Habilidades}}"
 
 #. placeholder {0}: members.length
 #: src/hooks/use-flow-presentation.ts
@@ -951,6 +987,11 @@ msgstr "{0, select, an {Un {agentName} que ya está en ejecución} other {Un {ag
 #: src/components/clio/tool-operation-data.ts
 msgid "{0, select, failed {Task failed} error {Task error} denied {Task denied} cancelled {Task cancelled} other {Task interrupted}}"
 msgstr "{0, select, failed {La tarea falló} error {Error en la tarea} denied {Tarea denegada} cancelled {Tarea cancelada} other {Tarea interrumpida}}"
+
+#. placeholder {0}: item.name
+#: src/components/clio/agent-needs-response.tsx
+msgid "{0} settings"
+msgstr "Ajustes de {0}"
 
 #: src/components/clio/conversation-message-blocks.tsx
 msgid "{a2ui} surface"
@@ -1383,6 +1424,10 @@ msgstr "{attention, plural, one {# requiere atención} other {# requieren atenci
 #: src/components/clio/flow-trust-details.tsx
 msgid "{author}, not trusted yet"
 msgstr "{author}, aún no es de confianza"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "{axis} at {position}"
+msgstr "{axis} en {position}"
 
 #: src/components/clio/composer-queue.tsx
 msgid "{below} more"
@@ -1914,6 +1959,10 @@ msgstr "{entries, plural, one {Indexando carpeta… # entrada} other {Indexando 
 msgid "{errors, plural, one {# problem} other {# problems}}"
 msgstr "{errors, plural, one {# problema} other {# problemas}}"
 
+#: src/lib/agent-needs.ts
+msgid "{failed, plural, one {# could not be enabled} other {# could not be enabled}}"
+msgstr "{failed, plural, one {# no se pudo activar} other {# no se pudieron activar}}"
+
 #: src/components/clio/tool-operation.ts
 msgid "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
 msgstr "{failed, plural, one {# sin éxito} other {# sin éxito}}"
@@ -2024,6 +2073,10 @@ msgstr "{free}."
 msgid "{from} - {to} of {recordCount}"
 msgstr "{from} - {to} de {recordCount}"
 
+#: src/lib/plugin-presentation.ts
+msgid "{heading} ({count})"
+msgstr "{heading} ({count})"
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "{heading} 3D view"
 msgstr "Vista 3D de {heading}"
@@ -2043,6 +2096,14 @@ msgstr "{heading}, coloreado por {field} de {min} a {max} {unit}"
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "{heading}, geometry only"
 msgstr "{heading}, solo geometría"
+
+#: src/lib/plugin-presentation.ts
+msgid "{heading}: {list}"
+msgstr "{heading}: {list}"
+
+#: src/lib/plugin-presentation.ts
+msgid "{heading}: {list} ({count})"
+msgstr "{heading}: {list} ({count})"
 
 #: src/components/clio/global-search-results.tsx
 msgid "{hidden, plural, one {# more action} other {# more actions}}"
@@ -2711,6 +2772,10 @@ msgstr "{n, plural, one {# solicitud no reconocida} other {# solicitudes no reco
 msgid "{n, plural, one {Refine, up to # try} other {Refine, up to # tries}}"
 msgstr "{n, plural, one {Refinar, hasta # intento} other {Refinar, hasta # intentos}}"
 
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "{name} ({count})"
+msgstr "{name} ({count})"
+
 #: src/components/clio/flow-railroad.ts
 msgid "{name} (fork of {forkOf})"
 msgstr "{name} (bifurcación de {forkOf})"
@@ -2930,6 +2995,10 @@ msgid "{name} was not added"
 msgstr "No se añadió {name}"
 
 #: src/components/clio/agent-composition-view.tsx
+msgid "{name} was not added back"
+msgstr "No se volvió a añadir {name}"
+
+#: src/components/clio/agent-composition-view.tsx
 msgid "{name} was not removed"
 msgstr "No se quitó {name}"
 
@@ -2953,6 +3022,10 @@ msgstr "{name}, modificado en esta conversación"
 msgid "{name}, page {currentPage} of {pageCount}"
 msgstr "{name}, página {currentPage} de {pageCount}"
 
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "{name}, tools listed once enabled"
+msgstr "{name}; las herramientas se listan al activarlo"
+
 #: src/components/clio/flow-railroad.ts
 msgid "{name}: {status}, {attempts} attempts."
 msgstr "{name}: {status}, {attempts} intentos."
@@ -2968,6 +3041,10 @@ msgstr "{name}: {when}"
 #: src/tauri/native-copy.ts
 msgid "{name}: running"
 msgstr "{name}: en ejecución"
+
+#: src/lib/agent-needs.ts
+msgid "{names} enabled"
+msgstr "Activado: {names}"
 
 #: src/components/clio/mcp-connection-details.tsx
 msgid "{names}. Values are hidden."
@@ -3020,6 +3097,10 @@ msgstr "{path}\n"
 msgid "{pendingUpdates, plural, one {# update waits for trust} other {# updates wait for trust}}"
 msgstr "{pendingUpdates, plural, one {# actualización espera confianza} other {# actualizaciones esperan confianza}}"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "{percent} %"
+msgstr "{percent} %"
+
 #: src/components/clio/transcript-outline.tsx
 msgid "{percent} of attention"
 msgstr "{percent} de la atención"
@@ -3051,6 +3132,10 @@ msgstr "{permissionCount, plural, =1 {Aprobación} other {# aprobaciones}}"
 #: src/components/clio/settings-schedules.tsx
 msgid "{place}, applies to the selected conversation"
 msgstr "{place}, se aplica a la conversación seleccionada"
+
+#: src/components/clio/extension-scope-heading.tsx
+msgid "{place}, installed for this agent; each conversation adds what it uses"
+msgstr "{place}, instalado para este agente; cada conversación añade lo que usa"
 
 #: src/components/clio/agent-packages.tsx
 msgid "{plugin} brings"
@@ -3091,10 +3176,6 @@ msgstr "Subagentes de {plugin}"
 #: src/components/clio/agent-package-items.ts
 msgid "{plugin} tools"
 msgstr "Herramientas de {plugin}"
-
-#: src/components/clio/agent-composition-view.tsx
-msgid "{plugin} was not added back"
-msgstr "No se volvió a añadir {plugin}"
 
 #: src/components/clio/a2ui-carousel.tsx
 #: src/components/clio/pending-interactions.tsx
@@ -3886,10 +3967,15 @@ msgstr "{toolCount}; la configuración tiene {setupToolCount}"
 msgid "{toolName}: {list}"
 msgstr "{toolName}: {list}"
 
+#: src/lib/plugin-presentation.ts
+msgid "{tools, plural, one {# new tool} other {# new tools}}"
+msgstr "{tools, plural, one {# herramienta nueva} other {# herramientas nuevas}}"
+
 #: src/offline-review.tsx
 msgid "{tools, plural, one {# tool record} other {# tool records}}"
 msgstr "{tools, plural, one {# registro de herramienta} other {# registros de herramientas}}"
 
+#: src/components/clio/connector-plugin-contents.tsx
 #: src/lib/transcript-message-preview.ts
 msgid "{tools, plural, one {# tool} other {# tools}}"
 msgstr "{tools, plural, one {# herramienta} other {# herramientas}}"
@@ -3901,14 +3987,6 @@ msgstr "{tools, plural, one {1 servidor MCP (# herramienta)} other {1 servidor M
 #: src/components/clio/transcript-activity-summary.ts
 msgid "{tools, plural, one {called # tool} other {called # tools}}"
 msgstr "{tools, plural, one {llamó a # herramienta} other {llamó a # herramientas}}"
-
-#: src/lib/plugin-presentation.ts
-msgid "{tools, plural, one {Plugins changed (# new tool)} other {Plugins changed (# new tools)}}"
-msgstr "{tools, plural, one {Complementos modificados (# herramienta nueva)} other {Complementos modificados (# herramientas nuevas)}}"
-
-#: src/lib/plugin-presentation.ts
-msgid "{tools, plural, one {Plugins changed: {list} (# new tool)} other {Plugins changed: {list} (# new tools)}}"
-msgstr "{tools, plural, one {Complementos modificados: {list} (# herramienta nueva)} other {Complementos modificados: {list} (# herramientas nuevas)}}"
 
 #: src/lib/plugin-presentation.ts
 msgid "{total, plural, one {{active} of # member in this conversation} other {{active} of # members in this conversation}}"
@@ -4019,9 +4097,21 @@ msgstr "{usedText} de {limitText}"
 msgid "{usedText} used"
 msgstr "{usedText} usados"
 
+#: src/components/clio/cad-units.ts
+msgid "{value} in"
+msgstr "{value} in"
+
+#: src/components/clio/cad-units.ts
+msgid "{value} mm"
+msgstr "{value} mm"
+
 #: src/lib/model-capability-tags.ts
 msgid "{value} parameters."
 msgstr "{value} parámetros."
+
+#: src/components/clio/cad-units.ts
+msgid "{value}°"
+msgstr "{value}°"
 
 #: src/components/clio/map-legend.tsx
 msgid "{valueLabel} colour scale"
@@ -4088,7 +4178,11 @@ msgstr "{workspace} no disponible"
 msgid "{workspace}, archived {when}"
 msgstr "{workspace}, archivada {when}"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-units.ts
+msgid "{x} × {y} × {z} in"
+msgstr "{x} × {y} × {z} in"
+
+#: src/components/clio/cad-units.ts
 msgid "{x} × {y} × {z} mm"
 msgstr "{x} × {y} × {z} mm"
 
@@ -4228,9 +4322,9 @@ msgstr "30 días"
 msgid "3D view needs WebGL"
 msgstr "La vista 3D necesita WebGL"
 
-#: src/components/clio/cad-file-view.tsx
-msgid "3D view of {name}, {size}. Drag to orbit, right-drag to pan, scroll or pinch to zoom."
-msgstr "Vista 3D de {name}, {size}. Arrastra para girar, arrastra con el botón derecho para desplazar y usa la rueda o pellizca para hacer zoom."
+#: src/components/clio/cad-model-view.tsx
+msgid "3D view of {name}, {size}. Drag to orbit, right-drag to pan, scroll or pinch to zoom. Click a part to select it. Keys: M measure, S section, E explode, F fit, Esc cancel."
+msgstr "Vista 3D de {name}, {size}. Arrastra para girar, arrastra con el botón derecho para desplazar, usa la rueda o pellizca para acercar. Haz clic en una pieza para seleccionarla. Teclas: M medir, S sección, E despiece, F encuadrar, Esc cancelar."
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "3D view unavailable: {failure}"
@@ -4404,6 +4498,10 @@ msgstr "Una ejecución única usa la zona horaria de este dispositivo."
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
 msgstr "Una carpeta de complemento que contenga plugin.json o .claude-plugin/plugin.json."
+
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "A plugin with {kinds}. Adding it to a conversation brings both."
+msgstr "Un complemento con {kinds}. Al añadirlo a una conversación, aporta ambos."
 
 #: src/lib/onboarding/tour-script.ts
 msgid "A practice request is already typed in."
@@ -5337,13 +5435,13 @@ msgstr "Se añadió {label} al mensaje."
 msgid "Added {name}"
 msgstr "Se añadió {name}"
 
+#: src/components/clio/agent-composition-view.tsx
+msgid "Added {name} back"
+msgstr "Se volvió a añadir {name}"
+
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Added {name} to the message."
 msgstr "Se añadió {name} al mensaje."
-
-#: src/components/clio/agent-composition-view.tsx
-msgid "Added {plugin} back"
-msgstr "Se volvió a añadir {plugin}"
 
 #: src/components/clio/flow-run-edits.ts
 msgid "added after you approved it"
@@ -5436,12 +5534,12 @@ msgid "Adds"
 msgstr "Añade"
 
 #: src/components/clio/agent-composition-view.tsx
-msgid "Adds {name} to this conversation."
-msgstr "Añade {name} a esta conversación."
+msgid "Adds {name} back to this conversation."
+msgstr "Vuelve a añadir {name} a esta conversación."
 
 #: src/components/clio/agent-composition-view.tsx
-msgid "Adds {plugin} back to this conversation."
-msgstr "Vuelve a añadir {plugin} a esta conversación."
+msgid "Adds {name} to this conversation."
+msgstr "Añade {name} a esta conversación."
 
 #: src/lib/plugin-offer-contents.ts
 msgid "Adds it to this conversation only"
@@ -5609,7 +5707,6 @@ msgstr "Agente para una conversación nueva"
 msgid "Agent for this conversation"
 msgstr "Agente para esta conversación"
 
-#: src/components/clio/connector-pane.tsx
 #: src/gallery-skill-dialog.tsx
 #: src/widget-preview-app.tsx
 msgid "Agent guidance"
@@ -5668,10 +5765,6 @@ msgstr "Ejecuciones de agentes"
 #: src/components/clio/settings-about.tsx
 msgid "Agent service version"
 msgstr "Versión del servicio de agentes"
-
-#: src/components/clio/extension-discover.tsx
-msgid "Agent Skills"
-msgstr "Agent Skills"
 
 #: src/lib/variant-runs.ts
 msgid "Agent tries"
@@ -6159,6 +6252,10 @@ msgstr "Análisis"
 #: src/components/clio/science-log-sources.tsx
 msgid "Analysis: <0>{0}</0>"
 msgstr "Análisis: <0>{0}</0>"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Angle"
+msgstr "Ángulo"
 
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "Announced to the agent"
@@ -6818,6 +6915,10 @@ msgstr "Te pregunta"
 msgid "Asks you before each call"
 msgstr "Te pregunta antes de cada llamada"
 
+#: src/lib/agent-needs.ts
+msgid "asks you to sign in when first used"
+msgstr "pide iniciar sesión la primera vez"
+
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/tool-operation-result.tsx
@@ -7476,10 +7577,6 @@ msgstr "Mejor de N y refinamiento"
 msgid "Best of several"
 msgstr "El mejor de varios"
 
-#: src/components/clio/extension-discover.tsx
-msgid "Best practices, dashboards, automations and reference files from homeassistant-ai."
-msgstr "Buenas prácticas, paneles, automatizaciones y archivos de referencia de homeassistant-ai."
-
 #: src/components/clio/settings-app-updates.tsx
 #: src/lib/settings-search-rows.ts
 msgid "Beta updates"
@@ -7786,6 +7883,10 @@ msgstr "Problemas de compilación"
 #: src/components/clio/latex-workspace.tsx
 msgid "Build this paper"
 msgstr "Compilar este artículo"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Build volume {size}"
+msgstr "Volumen de impresión {size}"
 
 #: src/components/clio/latex-workspace.tsx
 msgid "Building the paper…"
@@ -9458,6 +9559,10 @@ msgstr "Borrar filtro"
 msgid "Clear filters"
 msgstr "Borrar filtros"
 
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Clear measurement {number}"
+msgstr "Borrar la medición {number}"
+
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -9482,6 +9587,10 @@ msgstr "Borra la búsqueda o muestra todos los tipos."
 msgid "Clear the search or show more kinds."
 msgstr "Borra la búsqueda o muestra más tipos."
 
+#: src/components/clio/cad-parts-panel.tsx
+msgid "Clear the selection"
+msgstr "Quitar la selección"
+
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Clear the terminal"
 msgstr "Limpiar la terminal"
@@ -9498,6 +9607,11 @@ msgstr "Haz clic en un punto para seleccionarlo. {primary}+clic selecciona su cu
 msgid "Click a point to select it. {primary}-click selects its track. Shift-click toggles a point; {primaryShift}-click merges or removes a track. Drag selects points; {primary}-drag selects tracks."
 msgstr "Haz clic en un punto para seleccionarlo. {primary}+clic selecciona su trayecto. Shift+clic alterna un punto; {primaryShift}+clic combina o quita un trayecto. Arrastrar selecciona puntos; {primary}+arrastrar selecciona trayectos."
 
+#: src/components/clio/cad-measure-state.ts
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click a round edge, such as the rim of a hole."
+msgstr "Haz clic en una arista redonda, como el borde de un agujero."
+
 #: src/lib/onboarding/tour-script.ts
 msgid "Click a table row, Shift+click another, then choose Reference this."
 msgstr "Haz clic en una fila de la tabla, Shift+clic en otra y luego elige Referenciar esto."
@@ -9505,6 +9619,18 @@ msgstr "Haz clic en una fila de la tabla, Shift+clic en otra y luego elige Refer
 #: src/components/clio/comments/comment-session.tsx
 msgid "Click an element to pick it."
 msgstr "Haz clic en un elemento para elegirlo."
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click the second face. Esc cancels."
+msgstr "Haz clic en la segunda cara. Esc cancela."
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click two faces."
+msgstr "Haz clic en dos caras."
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click two points. Vertices and edges snap."
+msgstr "Haz clic en dos puntos. Se ajustan a vértices y aristas."
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Client {version} is managed by {agent}."
@@ -9543,6 +9669,7 @@ msgctxt "menu key hint"
 msgid "close"
 msgstr "cerrar"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/composer-references.tsx
@@ -9583,6 +9710,10 @@ msgstr "Cerrar {label}"
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 msgid "Close {name}"
 msgstr "Cerrar {name}"
+
+#: src/components/clio/cad-tool-panel.tsx
+msgid "Close {title}"
+msgstr "Cerrar {title}"
 
 #: src/components/clio/comments/comment-controls.tsx
 msgid "Close capture"
@@ -10481,10 +10612,6 @@ msgstr "Conéctate primero al servicio."
 msgid "Connect vault"
 msgstr "Conectar bóveda"
 
-#: src/components/clio/extension-discover.tsx
-msgid "Connect your Home Assistant deployment, or run the ha-mcp package on the agent host."
-msgstr "Conecta tu instalación de Home Assistant o ejecuta el paquete ha-mcp en el host del agente."
-
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/connected-source-detail.tsx
 #: src/components/clio/infrastructure-hosts.tsx
@@ -10690,6 +10817,8 @@ msgstr "Conexiones"
 msgid "Connections from this client to the agent and managed computers"
 msgstr "Conexiones de este cliente al agente y a los equipos gestionados"
 
+#: src/components/clio/agent-plugin-menu.tsx
+#: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Connector"
 msgstr "Conector"
@@ -10698,23 +10827,32 @@ msgstr "Conector"
 msgid "Connector ({origin})"
 msgstr "Conector ({origin})"
 
-#: src/components/clio/extension-library.tsx
-msgid "Connector catalog"
-msgstr "Catálogo de conectores"
+#: src/components/clio/connector-pane.tsx
+msgid "Connector (an MCP server)"
+msgstr "Conector (un servidor MCP)"
+
+#: src/components/clio/connector-view-dialog.tsx
+msgid "Connector details"
+msgstr "Detalles del conector"
 
 #: src/lib/plugin-presentation.ts
 msgid "Connector you added"
 msgstr "Conector que añadiste"
 
+#: src/components/clio/agent-plugin-menu.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Connectors"
 msgstr "Conectores"
+
+#: src/lib/plugin-presentation.ts
+msgid "Connectors changed"
+msgstr "Conectores cambiados"
 
 #: src/components/clio/extension-library.tsx
 msgid "Connectors to enable"
 msgstr "Conectores para activar"
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Connectors, plugins, marketplaces and skills for your agents."
 msgstr "Conectores, plugins, marketplaces y habilidades para tus agentes."
 
@@ -12294,6 +12432,10 @@ msgstr "Espacio de trabajo actual"
 msgid "Custom repeat <0>{0}</0>"
 msgstr "Repetición personalizada <0>{0}</0>"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Custom size"
+msgstr "Tamaño personalizado"
+
 #: src/components/clio/settings-runtime-number.tsx
 msgid "Custom…"
 msgstr "Personalizado…"
@@ -12322,6 +12464,14 @@ msgstr "Personalizar el agente ({changes})"
 msgctxt "menu bar"
 msgid "Cut"
 msgstr "Cortar"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Cut across"
+msgstr "Cortar a lo largo de"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Cut across {axis}"
+msgstr "Cortar a lo largo de {axis}"
 
 #: src/components/clio/artifact-lineage-layout.ts
 msgid "Cut short"
@@ -12478,6 +12628,7 @@ msgstr "Decidir: {request}"
 
 #: src/components/clio/a2ui-action-lifecycle.tsx
 #: src/components/clio/agent-answer-domain.ts
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-setup-response.tsx
 #: src/components/clio/permission-response.tsx
@@ -12855,6 +13006,10 @@ msgstr "Se despliega como {id}@{value}"
 #: src/components/clio/managed-service-instance.tsx
 msgid "Deploys as {id}@name"
 msgstr "Se despliega como {id}@nombre"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Depth"
+msgstr "Fondo"
 
 #: src/widget-gallery-scenarios.ts
 msgid "Depth and magnitude"
@@ -13274,6 +13429,10 @@ msgstr "Escala de visualización"
 msgid "Displays the mobile sidebar."
 msgstr "Muestra la barra lateral móvil."
 
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Distance"
+msgstr "Distancia"
+
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "Do you want to proceed?"
 msgstr "¿Quieres continuar?"
@@ -13649,6 +13808,10 @@ msgstr "Descargando archivo…"
 msgid "Downloading folder…"
 msgstr "Descargando carpeta…"
 
+#: src/lib/agent-needs.ts
+msgid "Downloading its tools…"
+msgstr "Descargando sus herramientas…"
+
 #: src/components/clio/browser-new-page.tsx
 msgid "Downloading the browser"
 msgstr "Descargando el navegador"
@@ -13694,6 +13857,14 @@ msgstr "Descargando, {downloaded} de {total} MB"
 #: src/lib/shortcuts/catalog.ts
 msgid "Downloads"
 msgstr "Descargas"
+
+#: src/lib/agent-needs.ts
+msgid "downloads its tools"
+msgstr "descarga sus herramientas"
+
+#: src/lib/connector-plugin.ts
+msgid "Downloads its tools when you enable it"
+msgstr "Descarga sus herramientas al activarlo"
 
 #: src/components/clio/onboarding/tour-overlay.tsx
 msgid "Draft"
@@ -13847,6 +14018,10 @@ msgstr "Duración: {seconds} segundos"
 msgid "Each helper runs on the fast model unless you choose one for it here."
 msgstr "Cada ayudante usa el modelo rápido salvo que elijas uno para él aquí."
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Each part moves out from the assembly's centre."
+msgstr "Cada pieza se aleja del centro del conjunto."
+
 #: src/components/clio/settings-operations.tsx
 msgid "Each service the agent depends on. Open one for what to do next."
 msgstr "Cada servicio del que depende el agente. Abre uno para ver qué hacer a continuación."
@@ -13903,6 +14078,10 @@ msgstr "Lecturas sísmicas"
 #: src/components/clio/resource-dialogs.tsx
 msgid "EarthScope analysis"
 msgstr "Análisis de EarthScope"
+
+#: src/components/clio/cad-measure-state.ts
+msgid "Edge"
+msgstr "Arista"
 
 #: src/components/clio/composer-queue-row.tsx
 #: src/components/clio/memory-inbox.tsx
@@ -14169,9 +14348,24 @@ msgstr "Texto vacío"
 msgid "Enable"
 msgstr "Activar"
 
+#. placeholder {0}: item.name
+#. placeholder {0}: payload?.connector_name || t`what this agent uses`
+#: src/components/clio/agent-needs-response.tsx
+#: src/components/clio/connector-setup-activity.tsx
+msgid "Enable {0}"
+msgstr "Activar {0}"
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "Enable {count}"
+msgstr "Activar {count}"
+
 #: src/components/clio/connector-pane.tsx
 msgid "Enable {name} to add it to the conversations that need it."
 msgstr "Activa {name} para añadirlo a las conversaciones que lo necesiten."
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "Enable all"
+msgstr "Activar todo"
 
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/settings-health-views.tsx
@@ -14181,6 +14375,10 @@ msgstr "Activado"
 #: src/components/clio/connector-pane.tsx
 msgid "Enabled. Add {name} to a conversation from its plugins; other conversations don’t carry its tools."
 msgstr "Activado. Añade {name} a una conversación desde sus plugins; las demás conversaciones no llevan sus herramientas."
+
+#: src/lib/agent-needs.ts
+msgid "Enabling {names}…"
+msgstr "Activando {names}…"
 
 #: src/components/clio/ndp-station-filters.tsx
 msgid "End time"
@@ -14501,7 +14699,7 @@ msgstr "Todas las teclas, agrupadas según dónde funcionan."
 msgid "Every Monday"
 msgstr "Todos los lunes"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Every part's triangles, for a slicer"
 msgstr "Los triángulos de todas las piezas, para un laminador"
 
@@ -14788,6 +14986,22 @@ msgstr "caducada"
 msgid "Expired"
 msgstr "Caducada"
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Explode"
+msgstr "Despiece"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Explode (E)"
+msgstr "Despiece (E)"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Explode distance"
+msgstr "Distancia del despiece"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Exploded view"
+msgstr "Vista de despiece"
+
 #: src/components/clio/settings-fleet.tsx
 msgid "Explore"
 msgstr "Explore"
@@ -14888,6 +15102,7 @@ msgstr "Tipo de extensión"
 
 #: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Extensions"
 msgstr "Extensiones"
 
@@ -14915,6 +15130,10 @@ msgstr "El confinamiento adicional del sistema operativo no está activado. {age
 #: src/components/clio/memory-creation-log.tsx
 msgid "Extraction model"
 msgstr "Modelo de extracción"
+
+#: src/components/clio/cad-measure-state.ts
+msgid "Face"
+msgstr "Cara"
 
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Fact corrected"
@@ -15526,6 +15745,18 @@ msgstr "Primeros {loaded}"
 msgid "First conversation"
 msgstr "Primera conversación"
 
+#: src/components/clio/cad-measure-tool.tsx
+msgid "First point on a face. Click the second point; Esc cancels."
+msgstr "Primer punto en una cara. Haz clic en el segundo punto; Esc cancela."
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "First point on a vertex. Click the second point; Esc cancels."
+msgstr "Primer punto en un vértice. Haz clic en el segundo punto; Esc cancela."
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "First point on an edge. Click the second point; Esc cancels."
+msgstr "Primer punto en una arista. Haz clic en el segundo punto; Esc cancela."
+
 #: src/components/clio/attention-profile-editor.tsx
 msgid "First selected step"
 msgstr "Primer paso seleccionado"
@@ -15567,13 +15798,33 @@ msgstr "Ajustar a la GPU: {strategy}."
 msgid "Fit to GPU."
 msgstr "Ajustar a la GPU."
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Fit to view"
 msgstr "Ajustar a la vista"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Fit to view (F)"
+msgstr "Encuadrar (F)"
 
 #: src/components/clio/graph-controls.tsx
 msgid "Fit view"
 msgstr "Ajustar vista"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the {name} plate"
+msgstr "Cabe en la cama de {name}"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the {name} plate when turned 90°"
+msgstr "Cabe en la cama de {name} girado 90°"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the custom plate"
+msgstr "Cabe en la cama personalizada"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the custom plate when turned 90°"
+msgstr "Cabe en la cama personalizada girado 90°"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Fits: {free}."
@@ -15594,6 +15845,10 @@ msgstr "Indicadores aún no cargados"
 #: src/components/clio/search-assistant.tsx
 msgid "Fleet"
 msgstr "Flota"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Flip"
+msgstr "Invertir"
 
 #: src/lib/composer-reference-domain.ts
 msgid "flow"
@@ -16184,7 +16439,7 @@ msgstr "Desde tu equipo"
 msgid "From your OpenSSH configuration (read-only)"
 msgstr "De tu configuración de OpenSSH (solo lectura)"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Front"
 msgstr "Frontal"
 
@@ -16307,6 +16562,10 @@ msgstr "Obtener entorno de ejecución"
 msgid "Get notified when {agent} needs you"
 msgstr "Recibe una notificación cuando {agent} te necesite"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Ghost others"
+msgstr "Atenuar el resto"
+
 #: src/components/clio/extension-discover.tsx
 msgid "Git repository or host folder"
 msgstr "Repositorio Git o carpeta del host"
@@ -16335,7 +16594,7 @@ msgstr "Ponle un nombre a este servicio."
 msgid "Given to this try"
 msgstr "Proporcionado a este intento"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "GLB"
 msgstr "GLB"
 
@@ -16594,6 +16853,7 @@ msgstr "Perfil de calor: {name}"
 msgid "Heat shown in transcript"
 msgstr "Calor mostrado en la transcripción"
 
+#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Height"
 msgstr "Alto"
@@ -16642,7 +16902,7 @@ msgstr "Hola, Morgan:\n"
 "Gracias,\n"
 "Alex"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Hidden"
 msgstr "Oculto"
@@ -16659,6 +16919,7 @@ msgstr "Los archivos ocultos están desactivados en Ajustes > Apariencia; puede 
 msgid "Hidden from the agent. Calls are refused."
 msgstr "Oculto para el agente. Las llamadas se rechazan."
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/composer-queue.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Hide"
@@ -16672,7 +16933,7 @@ msgstr "Ocultar {label}"
 msgid "Hide {label} from pickers"
 msgstr "Ocultar {label} de los selectores"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Hide {name}"
@@ -16836,14 +17097,6 @@ msgstr "mantener {key}"
 msgid "Home"
 msgstr "Directorio personal"
 
-#: src/components/clio/extension-discover.tsx
-msgid "Home Assistant MCP"
-msgstr "Home Assistant MCP"
-
-#: src/components/clio/extension-discover.tsx
-msgid "Home Assistant skills"
-msgstr "Habilidades de Home Assistant"
-
 #: src/components/clio/connect-address.tsx
 msgid "Homelab"
 msgstr "Homelab"
@@ -16992,10 +17245,6 @@ msgstr "Cómo elegir una carpeta de Google Drive"
 #: src/components/clio/source-detail-access.tsx
 msgid "How to use this folder"
 msgstr "Cómo usar esta carpeta"
-
-#: src/components/clio/connector-pane.tsx
-msgid "How to work with {name}"
-msgstr "Cómo trabajar con {name}"
 
 #: src/components/clio/dashboard-view.tsx
 msgid "HTML dashboard (all tabs and data)"
@@ -17455,6 +17704,10 @@ msgstr "En uso, también es de donde leen SPOTTER y las vistas de procedencia."
 #: src/components/clio/browser-frame.tsx
 msgid "In your browser"
 msgstr "En tu navegador"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Inches"
+msgstr "Pulgadas"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Include a letter or number in the connection name"
@@ -18198,7 +18451,11 @@ msgctxt "date filter"
 msgid "is"
 msgstr "es"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Isolate"
+msgstr "Aislar"
+
+#: src/components/clio/cad-model-view.tsx
 msgid "Isometric"
 msgstr "Isométrica"
 
@@ -18237,6 +18494,10 @@ msgstr "No se ejecutó."
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "It finished in an earlier conversation load or was removed."
 msgstr "Terminó en una carga anterior de la conversación o se eliminó."
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "It goes on in the background."
+msgstr "Sigue en segundo plano."
 
 #: src/lib/local-servers.ts
 msgid "It has not been checked yet."
@@ -18647,6 +18908,7 @@ msgstr "Atajos de teclado"
 msgid "Keys and sign-ins"
 msgstr "Claves e inicios de sesión"
 
+#: src/components/clio/connector-pane.tsx
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-prompts.tsx
@@ -20395,6 +20657,10 @@ msgstr "Token máximo"
 msgid "Maximum wait between pieces of a streamed response."
 msgstr "Espera máxima entre fragmentos de una respuesta en streaming."
 
+#: src/lib/agent-needs.ts
+msgid "may download its tools"
+msgstr "puede descargar sus herramientas"
+
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "May have been blocked by the sandbox"
 msgstr "Puede que el entorno aislado lo haya bloqueado"
@@ -20421,6 +20687,7 @@ msgid "MCP Registry servers"
 msgstr "Servidores de MCP Registry"
 
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/connector-plugin-contents.tsx
 #: src/lib/mcp-service-presentation.ts
 msgid "MCP server"
 msgstr "Servidor MCP"
@@ -20515,6 +20782,16 @@ msgstr "Media"
 msgid "Mean per token"
 msgstr "Media por token"
 
+#: src/components/clio/cad-measure-tool.tsx
+#: src/components/clio/cad-model-view.tsx
+msgid "Measure"
+msgstr "Medir"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Measure (M)"
+msgstr "Medir (M)"
+
+#: src/components/clio/cad-measure-tool.tsx
 #: src/components/clio/science-log-panel.tsx
 msgid "Measurements"
 msgstr "Mediciones"
@@ -21434,6 +21711,11 @@ msgstr "cerca del límite"
 msgid "Needed by the agent"
 msgstr "Necesario para el agente"
 
+#: src/lib/agent-needs.ts
+msgid "needs {missing}"
+msgstr "necesita {missing}"
+
+#: src/lib/connector-plugin.ts
 #: src/lib/connector-presentation.ts
 msgid "Needs {needs}"
 msgstr "Necesita {needs}"
@@ -22560,6 +22842,10 @@ msgstr "Sin PDF: la compilación se detuvo antes de generarlo"
 msgid "No pending or recorded requests on this connection."
 msgstr "No hay solicitudes pendientes ni registradas en esta conexión."
 
+#: src/components/clio/cad-model-view.tsx
+msgid "No perspective: parallel edges stay parallel"
+msgstr "Sin perspectiva: las aristas paralelas siguen paralelas"
+
 #: src/components/clio/injection-presentation.ts
 msgid "No plan text was recorded."
 msgstr "No se registró ningún texto del plan."
@@ -23122,6 +23408,7 @@ msgid "Not connected to {agent}"
 msgstr "No conectado a {agent}"
 
 #: src/components/clio/connector-offer-response.tsx
+#: src/lib/agent-needs.ts
 #: src/lib/connector-presentation.ts
 msgid "Not enabled"
 msgstr "No activado"
@@ -23129,6 +23416,11 @@ msgstr "No activado"
 #: src/components/clio/connector-offer-response.tsx
 msgid "Not enabled (Add turns it on)"
 msgstr "No activado (Añadir lo activa)"
+
+#. placeholder {0}: item.detail
+#: src/lib/agent-needs.ts
+msgid "Not enabled: {0}"
+msgstr "No activado: {0}"
 
 #: src/components/clio/plan-decision-controls.tsx
 msgid "not executed"
@@ -23201,8 +23493,10 @@ msgstr "No es necesario: conectado directamente"
 msgid "Not needed: the {agent} already running there was reused"
 msgstr "No es necesario: se reutilizó el {agent} que ya se estaba ejecutando allí"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/connector-offer-response.tsx
+#: src/lib/agent-needs.ts
 msgid "Not now"
 msgstr "Ahora no"
 
@@ -23564,6 +23858,10 @@ msgstr "Nada en ejecución"
 msgid "Nothing saved here yet."
 msgstr "Aún no hay nada guardado aquí."
 
+#: src/components/clio/cad-measure-state.ts
+msgid "Nothing there to measure. Click on the model."
+msgstr "Ahí no hay nada que medir. Haz clic en el modelo."
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "Nothing to remember"
 msgstr "Nada que recordar"
@@ -23638,6 +23936,10 @@ msgstr "Control deslizante numérico"
 #: src/components/clio/managed-service-target-utils.ts
 msgid "NVIDIA GPU detected."
 msgstr "GPU NVIDIA detectada."
+
+#: src/components/clio/cad-measure-state.ts
+msgid "Ø {diameter}, radius {radius}"
+msgstr "Ø {diameter}, radio {radius}"
 
 #: src/components/clio/observability-dock.tsx
 msgid "Observability view"
@@ -24798,10 +25100,15 @@ msgstr "Imagen original"
 msgid "Original tool arguments, result, and diagnostics."
 msgstr "Argumentos originales de la herramienta, resultado y diagnósticos."
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Orthographic"
+msgstr "Ortográfica"
+
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/components/clio/service-installation-method.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/lib/artifact-categories.ts
+#: src/lib/connector-groups.ts
 #: src/lib/model-facets.ts
 msgid "Other"
 msgstr "Otros"
@@ -24825,6 +25132,10 @@ msgstr "Otro modelo"
 #: src/lib/model-filter-tokens.ts
 msgid "Other models can't hold a conversation."
 msgstr "Los otros modelos no pueden mantener una conversación."
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Other parts"
+msgstr "Otras piezas"
 
 #: src/lib/model-facets.ts
 msgid "Other tasks"
@@ -24983,6 +25294,7 @@ msgstr "Paquete: {plugin}, abrirlo"
 msgid "Packages"
 msgstr "Paquetes"
 
+#: src/components/clio/agent-plugin-menu.tsx
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Packs"
 msgstr "Paquetes"
@@ -25085,7 +25397,8 @@ msgctxt "mesh part"
 msgid "Part"
 msgstr "Parte"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
+#: src/components/clio/cad-tool-panels.tsx
 msgid "Part {number}"
 msgstr "Pieza {number}"
 
@@ -25105,11 +25418,11 @@ msgstr "Resultado parcial"
 msgid "partially selected"
 msgstr "seleccionado parcialmente"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 msgid "Parts"
 msgstr "Piezas"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Parts list"
 msgstr "Lista de piezas"
 
@@ -25585,6 +25898,14 @@ msgstr "Plan no disponible"
 msgid "Plan: {title}"
 msgstr "Plan: {title}"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Plane at {axis} = {position}, keeping the side above. Cut faces are filled."
+msgstr "Plano en {axis} = {position}, se conserva el lado superior. Las caras cortadas se rellenan."
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
+msgstr "Plano en {axis} = {position}, se conserva el lado inferior. Las caras cortadas se rellenan."
+
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/lib/tool-domain-labels.ts
 msgid "Planning"
@@ -25634,8 +25955,10 @@ msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr "Los gráficos, tablas e informes aparecen como tarjetas de archivo en la conversación."
 
 #: src/components/clio/connector-offer-response.tsx
+#: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
 msgstr "Complemento"
@@ -25703,14 +26026,18 @@ msgstr "complementos"
 msgid "Plugins"
 msgstr "Complementos"
 
+#: src/lib/plugin-presentation.ts
+msgid "Plugins and connectors changed"
+msgstr "Complementos y conectores cambiados"
+
+#: src/components/clio/extension-library.tsx
+msgid "Plugins and connectors to enable"
+msgstr "Complementos y conectores para activar"
+
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/lib/plugin-presentation.ts
 msgid "Plugins changed"
 msgstr "Los complementos cambiaron"
-
-#: src/lib/plugin-presentation.ts
-msgid "Plugins changed: {list}"
-msgstr "Complementos modificados: {list}"
 
 #: src/components/clio/installed-plugin-list.tsx
 msgid "Plugins couldn’t be loaded."
@@ -25727,6 +26054,10 @@ msgstr "Complementos de este paquete"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "Complementos que también se van"
+
+#: src/components/clio/extension-library.tsx
+msgid "Plugins to enable"
+msgstr "Complementos para activar"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -25771,7 +26102,7 @@ msgstr "Imagen PNG"
 msgid "PNG image (displayed view)"
 msgstr "Imagen PNG (vista mostrada)"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "PNG image of this view"
 msgstr "Imagen PNG de esta vista"
 
@@ -26105,9 +26436,18 @@ msgstr "Anteriores<0>{count}</0>"
 msgid "Primary folder"
 msgstr "Carpeta principal"
 
+#: src/components/clio/cad-model-view.tsx
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Print plate"
+msgstr "Cama de impresión"
+
 #: src/components/clio/script-run-body.tsx
 msgid "Printed"
 msgstr "Impreso"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Printer"
+msgstr "Impresora"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Priority"
@@ -26563,6 +26903,10 @@ msgstr "URL de metadatos de cliente publicada"
 msgid "Publishing selected edits…"
 msgstr "Publicando las ediciones seleccionadas…"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Put the parts back together"
+msgstr "Volver a montar las piezas"
+
 #: src/components/clio/settings-about.tsx
 msgid "Python"
 msgstr "Python"
@@ -26760,6 +27104,10 @@ msgstr "¿Salir de {product}?"
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Quit {wordmark}"
 msgstr "Salir de {wordmark}"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Radius"
+msgstr "Radio"
 
 #: src/components/clio/artifact-lineage-layout.ts
 #: src/components/clio/flow-run-parts.tsx
@@ -27041,6 +27389,10 @@ msgstr "Leer contexto retenido"
 msgid "Read session summary"
 msgstr "Leer resumen de la sesión"
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Read sizes and measurements in inches instead of millimetres"
+msgstr "Mostrar tamaños y mediciones en pulgadas en lugar de milímetros"
+
 #: src/components/clio/skill-tool-presentation.ts
 msgid "Read skill reference"
 msgstr "Leer referencia de la habilidad"
@@ -27214,7 +27566,9 @@ msgstr "Lee hasta {tokens} tokens a la vez. El propio modelo lee hasta {native}.
 #: src/components/clio/workbench-sources-list.tsx
 #: src/hooks/use-connection-availability.ts
 #: src/hooks/use-known-connections.ts
+#: src/lib/agent-needs.ts
 #: src/lib/connector-presentation.ts
+#: src/lib/extension-library-entries.ts
 #: src/routes/infrastructure-foundation.ts
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Ready"
@@ -29586,7 +29940,7 @@ msgstr "Rebobinando…"
 msgid "Rich results"
 msgstr "Resultados enriquecidos"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Right"
 msgstr "Derecha"
 
@@ -31117,8 +31471,18 @@ msgid "Secret access key"
 msgstr ""
 
 #: src/components/clio/agent-package-item-detail.tsx
+#: src/components/clio/cad-model-view.tsx
+#: src/components/clio/cad-tool-panels.tsx
 msgid "Section"
 msgstr "Sección"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Section (S)"
+msgstr "Sección (S)"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Section position"
+msgstr "Posición de la sección"
 
 #: src/components/clio/settings-navigation.tsx
 msgid "Sections"
@@ -31169,6 +31533,10 @@ msgstr "Seleccionar"
 #: src/components/clio/scientific-map-view.tsx
 msgid "Select {label}"
 msgstr "Seleccionar {label}"
+
+#: src/components/clio/cad-parts-panel.tsx
+msgid "Select {name}"
+msgstr "Seleccionar {name}"
 
 #: src/components/clio/conversation-relationships.tsx
 msgid "Select {title}"
@@ -31288,6 +31656,7 @@ msgid "selected"
 msgstr "seleccionado"
 
 #: src/components/clio/agent-answer-activity.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/capability-picker.tsx
 #: src/components/clio/model-download-search.tsx
 msgid "Selected"
@@ -31328,6 +31697,10 @@ msgstr "Elementos seleccionados"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Selected options"
 msgstr "Opciones seleccionadas"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Selected part"
+msgstr "Pieza seleccionada"
 
 #: src/widget-preview-app.tsx
 msgid "Selected rows become a precise, reusable reference in the conversation."
@@ -31958,6 +32331,7 @@ msgstr "Ajustes › {group}"
 msgid "Settings › {section}"
 msgstr "Ajustes › {section}"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/connector-offer-response.tsx
 msgid "Settings ({count})"
 msgstr "Ajustes ({count})"
@@ -32114,7 +32488,7 @@ msgstr "Mostrar {label} en los selectores"
 msgid "Show {label} in Work"
 msgstr "Mostrar {label} en Trabajo"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Show {name}"
@@ -32134,7 +32508,8 @@ msgid "Show {title}"
 msgstr "Mostrar {title}"
 
 #: src/components/clio/ask-card.tsx
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
+#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/conversation-list-groups.tsx
 #: src/components/clio/data-table.tsx
 #: src/components/clio/flow-run-parts.tsx
@@ -32219,7 +32594,7 @@ msgstr "Mostrar detalles"
 msgid "Show diffusion"
 msgstr "Mostrar difusión"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Show edges"
 msgstr "Mostrar aristas"
 
@@ -32261,6 +32636,10 @@ msgstr "Mostrar en Archivos"
 #: src/components/clio/science-log-take.tsx
 msgid "Show in log"
 msgstr "Mostrar en el registro"
+
+#: src/components/clio/mcp-app-look-waiting-notice.tsx
+msgid "Show it"
+msgstr "Mostrarla"
 
 #: src/components/clio/resource-states.tsx
 msgid "Show it anyway"
@@ -32555,6 +32934,10 @@ msgstr "Mostrando las últimas {rows} filas."
 msgid "Showing the last completed conversion"
 msgstr "Mostrando la última conversión completada"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Shown parts as modelled: {size}"
+msgstr "Piezas visibles tal como están modeladas: {size}"
+
 #: src/components/clio/image-reach.ts
 msgid "shown to the model"
 msgstr "se mostró al modelo"
@@ -32830,6 +33213,14 @@ msgstr "Tamaño"
 #: src/components/clio/file-viewer-actions.tsx
 msgid "Size unavailable"
 msgstr "Tamaño no disponible"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Sizes in inches"
+msgstr "Tamaños en pulgadas"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Sizes in millimetres"
+msgstr "Tamaños en milímetros"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
@@ -33360,7 +33751,7 @@ msgid "Standard error:\n"
 msgstr "Error estándar:\n"
 "{stderr}"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Standard views"
 msgstr "Vistas estándar"
 
@@ -33784,7 +34175,7 @@ msgstr "Todavía trabajando."
 msgid "Stir occasionally until slightly thickened."
 msgstr "Remueve de vez en cuando hasta que espese ligeramente."
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "STL (binary)"
 msgstr "STL (binario)"
 
@@ -34790,6 +35181,10 @@ msgstr "Ese nombre de conexión ya existe. Elige otro nombre."
 msgid "That did not work."
 msgstr "Eso no funcionó."
 
+#: src/components/clio/cad-measure-state.ts
+msgid "That edge is not round. Click a round edge, such as the rim of a hole."
+msgstr "Esa arista no es redonda. Haz clic en una arista redonda, como el borde de un agujero."
+
 #: src/components/clio/extension-add-dialog.tsx
 msgid "That folder couldn’t be read as an extension source on the agent host."
 msgstr "Esa carpeta no se pudo leer como fuente de extensiones en el host del agente."
@@ -34930,6 +35325,10 @@ msgstr "El agente aún está escribiendo el plan."
 #: src/components/clio/task-activity-row.tsx
 msgid "The agent is stopping. New input stays queued until its current execution exits."
 msgstr "El agente se está deteniendo. Las nuevas entradas permanecen en cola hasta que termine su ejecución actual."
+
+#: src/components/clio/mcp-app-look-waiting-notice.tsx
+msgid "The agent is waiting to see this view."
+msgstr "El agente espera para ver esta vista."
 
 #: src/lib/plugin-presentation.ts
 msgid "The agent layer selects this plugin."
@@ -35732,7 +36131,7 @@ msgstr "No se pudo compilar el artículo"
 msgid "The parent's original assignment."
 msgstr "La asignación original del agente principal."
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "The parts with their names and colours, for other 3D viewers"
 msgstr "Las piezas con sus nombres y colores, para otros visores 3D"
 
@@ -36561,6 +36960,10 @@ msgstr "No se pudo abrir la vista: {reason}"
 msgid "The view could not open"
 msgstr "No se pudo abrir la vista"
 
+#: src/components/clio/mcp-app-look-waiting-notice.tsx
+msgid "The view is not on screen. Show it so the agent can see it."
+msgstr "La vista no está en pantalla. Muéstrela para que el agente pueda verla."
+
 #: src/components/clio/mcp-app-surface.tsx
 msgid "The view is still loading."
 msgstr "La vista aún se está cargando."
@@ -36832,6 +37235,10 @@ msgstr "Esta actividad no está cargada"
 #: src/components/clio/flow-run-presentation.ts
 msgid "this agent"
 msgstr "este agente"
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "This agent"
+msgstr "Este agente"
 
 #: src/components/clio/settings-health-reason.ts
 msgid "This agent did not allow it."
@@ -37646,6 +38053,10 @@ msgstr "No se pudieron cargar las carpetas de este espacio de trabajo."
 msgid "This workspace’s name could not be loaded"
 msgstr "No se pudo cargar el nombre de este espacio de trabajo"
 
+#: src/components/clio/agent-needs-response.tsx
+msgid "Those with an empty required value ask for it when first used."
+msgstr "Los que tengan un valor obligatorio vacío lo pedirán la primera vez."
+
 #: src/components/clio/transcript-reasoning-passage.tsx
 msgid "Thought"
 msgstr "Pensamiento"
@@ -37840,9 +38251,21 @@ msgstr "Uso de tokens no disponible"
 msgid "Tokens"
 msgstr "Tokens"
 
+#: src/components/clio/cad-plate.ts
+msgid "Too deep by {length}"
+msgstr "Demasiado profundo por {length}"
+
 #: src/components/ai-elements/prompt-input.tsx
 msgid "Too many files. Some were not added."
 msgstr "Demasiados archivos. Algunos no se añadieron."
+
+#: src/components/clio/cad-plate.ts
+msgid "Too tall by {length}"
+msgstr "Demasiado alto por {length}"
+
+#: src/components/clio/cad-plate.ts
+msgid "Too wide by {length}"
+msgstr "Demasiado ancho por {length}"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Took"
@@ -38071,7 +38494,7 @@ msgstr "Herramientas que se van"
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
 msgstr "Herramientas: si cada herramienta de complemento se ejecuta, pregunta antes o se bloquea, y si el agente la llama directamente, desde un script o de ambas formas. Los servidores MCP proporcionan a los agentes herramientas, datos e instrucciones reutilizables. Las herramientas remotas provienen de servidores MCP a los que se accede por URL y se ejecutan en esa máquina."
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Top"
 msgstr "Arriba"
@@ -38306,6 +38729,7 @@ msgstr "Intento {number}"
 msgid "Try {number} selected"
 msgstr "Intento {number} seleccionado"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/browser-surface.tsx
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/github-revision-picker.tsx
@@ -38373,10 +38797,18 @@ msgstr "Actívalas en Ajustes › Notificaciones en cualquier momento."
 msgid "Turned off in system settings"
 msgstr "Desactivadas en la configuración del sistema"
 
+#: src/lib/agent-needs.ts
+msgid "Turning it on…"
+msgstr "Activando…"
+
 #: src/components/clio/connector-pane.tsx
 #: src/lib/connector-presentation.ts
 msgid "Turning off…"
 msgstr "Desactivando…"
+
+#: src/lib/agent-needs.ts
+msgid "turns it on"
+msgstr "lo activa"
 
 #: src/lib/search-source-text.ts
 msgid "Turns the source on."
@@ -39863,6 +40295,10 @@ msgstr "Versiones"
 msgid "Versions of {name}"
 msgstr "Versiones de {name}"
 
+#: src/components/clio/cad-measure-state.ts
+msgid "Vertex"
+msgstr "Vértice"
+
 #: src/components/clio/settings-schema-copy.ts
 msgid "Vertex region."
 msgstr "Región de Vertex."
@@ -39910,7 +40346,6 @@ msgid "Video unavailable"
 msgstr "Vídeo no disponible"
 
 #: src/components/clio/desktop-title-bar.tsx
-#: src/components/clio/extension-discover.tsx
 #: src/components/clio/science-log-model.ts
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/workbench-list-column.tsx
@@ -39946,6 +40381,10 @@ msgstr "Vista cerrada"
 msgid "View command, input, result, and timing"
 msgstr "Ver comando, entrada, resultado y tiempos"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "View connector"
+msgstr "Ver conector"
+
 #: src/components/clio/mcp-app-surface.tsx
 msgid "View ended"
 msgstr "Vista finalizada"
@@ -39953,6 +40392,14 @@ msgstr "Vista finalizada"
 #: src/components/clio/file-viewer-actions.tsx
 msgid "View file fullscreen"
 msgstr "Ver el archivo en pantalla completa"
+
+#: src/components/clio/cad-gizmo.tsx
+msgid "View from {axis}"
+msgstr "Ver desde {axis}"
+
+#: src/components/clio/cad-gizmo.tsx
+msgid "View from an axis"
+msgstr "Ver desde un eje"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "View image"
@@ -40103,6 +40550,7 @@ msgstr "en espera"
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/session-work.tsx
 #: src/components/clio/tool-operation.ts
+#: src/lib/agent-needs.ts
 msgid "Waiting"
 msgstr "Esperando"
 
@@ -40236,6 +40684,10 @@ msgstr "Esperando en {host}."
 #: src/components/clio/provider-actions.ts
 msgid "Waiting to install…"
 msgstr "Esperando para instalar…"
+
+#: src/components/clio/mcp-app-look-waiting-notice.tsx
+msgid "waiting to see the view"
+msgstr "esperando para ver la vista"
 
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "Waiting to send"
@@ -40409,6 +40861,10 @@ msgstr "Qué cambió en tu actualización."
 msgid "What happened, in order ({count})"
 msgstr "Lo que ocurrió, en orden ({count})"
 
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "What it brings"
+msgstr "Qué aporta"
+
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "What it can reach"
 msgstr "A qué puede acceder"
@@ -40416,6 +40872,10 @@ msgstr "A qué puede acceder"
 #: src/components/clio/agent-tab-overview.tsx
 msgid "What it can use"
 msgstr "Lo que puede usar"
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "What it needs"
+msgstr "Lo que necesita"
 
 #: src/components/clio/variant-pick-card.tsx
 msgid "What should change in {label}"
@@ -40461,6 +40921,10 @@ msgstr "Lo que se le pide a la sesión cuando llegue el momento."
 msgid "What this agent cannot do on this connection."
 msgstr "Lo que este agente no puede hacer en esta conexión."
 
+#: src/components/clio/connector-setup-activity.tsx
+msgid "what this agent uses"
+msgstr "lo que usa este agente"
+
 #: src/components/clio/flow-run-usage.tsx
 msgid "What this run used"
 msgstr "Lo que usó esta ejecución"
@@ -40468,6 +40932,10 @@ msgstr "Lo que usó esta ejecución"
 #: src/components/clio/settings-operations.tsx
 msgid "What to do next"
 msgstr "Qué hacer a continuación"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "What to measure"
+msgstr "Qué medir"
 
 #: src/components/clio/memory-create.tsx
 msgid "What to remember"
@@ -40554,6 +41022,10 @@ msgstr "Dónde se ejecutan los servicios y modelos de esta pestaña."
 msgid "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 msgstr "Dónde empiezan las conversaciones de este espacio de trabajo y qué otras carpetas pueden cambiar sus comandos. El color y el icono se guardan en este dispositivo."
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Whether the shown parts fit a printer"
+msgstr "Si las piezas visibles caben en una impresora"
+
 #: src/components/clio/settings-schema-copy.ts
 msgid "Which browser"
 msgstr "Qué navegador"
@@ -40618,6 +41090,7 @@ msgstr "Catálogo de widgets cargado. Usa los detalles técnicos para inspeccion
 msgid "Widget gallery"
 msgstr "Galería de widgets"
 
+#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Width"
 msgstr "Ancho"
@@ -41468,3 +41941,7 @@ msgstr "Haz zoom, comenta y descarga desde la barra de herramientas. Más tiene 
 #: src/components/clio/image-resource-view.tsx
 msgid "Zoomable image {name}"
 msgstr "Imagen ampliable {name}"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "ΔX {x}  ΔY {y}  ΔZ {z}"
+msgstr "ΔX {x}  ΔY {y}  ΔZ {z}"

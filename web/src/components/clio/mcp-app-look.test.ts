@@ -158,8 +158,8 @@ describe('McpAppLooks', () => {
       postMcpAppLook: vi.fn().mockResolvedValue({}),
     };
     let shown = true;
-    const older = new McpAppLooks(client, identity, seen, () => shown);
-    const newer = new McpAppLooks(client, identity, hidden, () => false);
+    const older = new McpAppLooks(client, identity, seen, undefined, () => shown);
+    const newer = new McpAppLooks(client, identity, hidden, undefined, () => false);
     older.start();
     newer.start();
     dispatchMcpAppLookFrame(

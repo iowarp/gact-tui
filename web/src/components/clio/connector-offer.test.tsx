@@ -6,7 +6,7 @@ import {
   type PluginEntry,
 } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -203,6 +203,92 @@ describe('the agent offers to add a connector to this conversation', () => {
     );
   });
 
+  it('keeps four rows when every required row is saved, with those rows in Settings (DOCS-F7)', async () => {
+    const user = userEvent.setup();
+    const needs = [
+      {
+        key: 'address',
+        kind: 'address',
+        label: 'Where it runs',
+        required: true,
+        value: 'https://lab.example',
+        has_value: true,
+      },
+      { key: 'token', kind: 'secret', label: 'Access token', required: true, has_value: true },
+      { key: 'mode', kind: 'value', label: 'Mode', required: false },
+    ];
+    repository.connectors.mockResolvedValue([viewer({ enabled: true, needs })]);
+    const filled = {
+      ...offer,
+      payload: { ...offer.payload, asks_sign_in: false, missing: needs },
+    } as PendingInteraction;
+    const onResponse = vi.fn(async () => undefined);
+    renderWith(
+      <ClioPendingInteractions
+        interactions={[filled]}
+        onResponse={onResponse}
+        viewedSessionId="sess_root"
+      />,
+    );
+    // No input inline: the saved rows wait behind Settings with the optional one.
+    expect(await screen.findByText('Enabled')).toBeTruthy();
+    expect(document.querySelector('[data-slot="connector-need-rows"]')).toBeNull();
+    const settings = screen.getByRole('button', { name: 'Settings (3)' });
+    expect(settings.getAttribute('aria-expanded')).toBe('false');
+    const add = screen.getByRole('button', { name: /^1?\s*Add$/u });
+    await waitFor(() => expect(add.hasAttribute('disabled')).toBe(false));
+    // Settings shows them, Required as they are, and keeps "Save as default".
+    await user.click(settings);
+    expect((screen.getByLabelText(/Where it runs/u) as HTMLInputElement).value).toBe(
+      'https://lab.example',
+    );
+    expect(screen.getByLabelText(/Access token/u)).toBeTruthy();
+    expect(screen.getAllByText('Required')).toHaveLength(2);
+    await user.click(screen.getAllByRole('checkbox', { name: /Save as default/u })[0]!);
+    await user.click(add);
+    expect(onResponse).toHaveBeenCalledWith(filled, {
+      action: 'submit',
+      values: { address: 'https://lab.example' },
+      metadata: { save_as_default: ['address'] },
+    });
+  });
+
+  it('shows inline only the required row still missing; the saved one is in Settings', async () => {
+    const user = userEvent.setup();
+    const needs = [
+      {
+        key: 'address',
+        kind: 'address',
+        label: 'Where it runs',
+        required: true,
+        value: 'https://lab.example',
+        has_value: true,
+      },
+      { key: 'token', kind: 'secret', label: 'Access token', required: true },
+    ];
+    repository.connectors.mockResolvedValue([viewer({ needs })]);
+    renderWith(
+      <ClioPendingInteractions
+        interactions={[
+          { ...offer, payload: { ...offer.payload, missing: needs } } as PendingInteraction,
+        ]}
+        onResponse={vi.fn(async () => undefined)}
+        viewedSessionId="sess_root"
+      />,
+    );
+    const token = await screen.findByLabelText(/Access token/u);
+    expect(screen.queryByLabelText(/Where it runs/u)).toBeNull();
+    // Typing does not move the row: it stays inline while it is filled.
+    await user.type(token, 'zz');
+    expect(screen.getByLabelText(/Access token/u)).toBe(token);
+    // Emptying the saved address in Settings keeps Settings open and Add waiting.
+    await user.click(screen.getByRole('button', { name: 'Settings (1)' }));
+    await user.clear(screen.getByLabelText(/Where it runs/u));
+    await user.click(screen.getByRole('button', { name: 'Settings (1)' }));
+    expect(screen.getByLabelText(/Where it runs/u)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^1?\s*Add$/u }).hasAttribute('disabled')).toBe(true);
+  });
+
   it('says Not now', async () => {
     const user = userEvent.setup();
     const onResponse = renderDock();
@@ -372,5 +458,38 @@ describe('the agent offers to add a connector to this conversation', () => {
       ),
     );
     expect(screen.getByRole('button', { name: 'View plugin' })).toBeTruthy();
+  });
+
+  it('views a connector as a connector, in its own pane, never through its carrier (PL-D1)', async () => {
+    const user = userEvent.setup();
+    repository.connectors.mockResolvedValue([
+      viewer({
+        enabled: true,
+        tool_count: 4,
+        plugin_ref: 'clio-connectors/connector-fixture-viewer',
+      }),
+    ]);
+    repository.plugins.mockResolvedValue({
+      plugins: [
+        pluginEntrySchema.parse({
+          id: 'connector-fixture-viewer',
+          ref: 'clio-connectors/connector-fixture-viewer',
+          marketplace: 'clio-connectors',
+          mcp_servers: ['fixture-viewer'],
+          follows: 'fixture-viewer',
+        }),
+      ],
+      default_marketplace_error: null,
+    });
+    renderDock();
+    await user.click(await screen.findByRole('button', { name: 'View connector' }));
+    expect(screen.queryByRole('button', { name: 'View plugin' })).toBeNull();
+    const dialog = await screen.findByRole('dialog', { name: 'Connector details' });
+    expect(within(dialog).getByText('Connector (an MCP server)')).toBeTruthy();
+    expect(dialog.textContent).not.toContain('connector-fixture-viewer');
+    // Closing it returns to the offer, which stays for Add.
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('button', { name: /^1?\s*Add$/u })).toBeTruthy();
   });
 });

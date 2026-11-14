@@ -130,8 +130,11 @@ export interface PendingInteractionResponse {
   action?: string;
   answer?: string;
   selected_options?: string[];
-  /** A `connector_setup` card's rows (CN5); a secret is sent once and never echoed. */
-  values?: Record<string, string | null>;
+  /**
+   * A `connector_setup` card's rows (CN5); a secret is sent once and never echoed. The
+   * agent-load card (`agent_needs`) sends them by connector id: `{id: {key: value}}`.
+   */
+  values?: Record<string, string | null> | Record<string, Record<string, string | null>>;
   metadata?: Record<string, unknown>;
   message?: unknown;
   correlation?: PendingInteractionCorrelation;

@@ -34,10 +34,11 @@ import {
   type McpAppViewDisplayMode,
 } from './mcp-app-bridge';
 import { mcpAppLabel } from './mcp-app-live-set';
+import { onScreen, revealView, trackViewLook } from './mcp-app-look-waiting';
+import { ViewLookCardNotice } from './mcp-app-look-waiting-notice';
 import { mcpAppServiceHostContext } from './mcp-app-service';
 import { McpAppViewTools } from './mcp-app-view-tools';
 import {
-  frameOnScreen,
   McpAppLooks,
   registerViewSnapshot,
   snapshotAnswer,
@@ -285,8 +286,22 @@ const McpAppSurfaceInstance = forwardRef<
           },
         });
       }).then(snapshotAnswer);
-    const looks = new McpAppLooks(latest.current.repository, identity, snapshot, () =>
-      frameOnScreen(iframe),
+    // A look waits while the frame is off screen; the row and the card say so (DOCS-F2).
+    const looks = new McpAppLooks(
+      latest.current.repository,
+      identity,
+      snapshot,
+      (callId) =>
+        trackViewLook(
+          {
+            callId,
+            sessionId: identity.sessionId,
+            appInstanceId: identity.appInstanceId,
+            reveal: () => revealView(placement, iframe, { ...latest.current, ...identity }),
+          },
+          iframe,
+        ),
+      () => onScreen(iframe),
     );
     let withdrawSnapshot = () => undefined as void;
     let firstPaint: ReturnType<typeof watchFirstPaint> | undefined;
@@ -482,6 +497,7 @@ const McpAppSurfaceInstance = forwardRef<
         {comments ? (
           <McpAppCommentsIcon disabledReason={ready ? undefined : t`The view is still loading.`} />
         ) : null}
+        <ViewLookCardNotice appInstanceId={props.appInstanceId} sessionId={props.sessionId} />
         {props.actions}
         <McpAppFrameMenu label={displayName} onReload={props.onReload} />
       </FrameHeader>

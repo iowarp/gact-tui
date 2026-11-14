@@ -11,6 +11,7 @@ import {
   openMcpAppInTab,
   useMcpAppPresence,
 } from './mcp-app-live-set';
+import { ViewLookCardNotice } from './mcp-app-look-waiting-notice';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import type { McpAppTabTarget } from './workbench-shared';
 import { t } from '@lingui/core/macro';
@@ -97,6 +98,7 @@ export function McpAppInTabRow({ target }: { target: McpAppTabTarget }) {
     >
       <PanelsTopLeftIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate text-foreground/85">{target.label}</span>
+      <ViewLookCardNotice appInstanceId={target.appInstanceId} sessionId={target.sessionId} />
       <span className="shrink-0 text-xs text-muted-foreground">{t`Open in a tab`}</span>
       <Button onClick={() => focusMcpAppTab(target)} size="sm" type="button" variant="ghost">
         <SquareArrowOutUpRightIcon aria-hidden="true" />

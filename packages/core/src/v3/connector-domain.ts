@@ -100,6 +100,16 @@ export const connectorSchema = z
       .transform((value) => value ?? null),
     state: connectorStateSchema,
     needs: z.array(connectorNeedSchema).default([]),
+    /** The domain Discover groups it under (clio-agent LZ-D9); null for none. */
+    group: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? null),
+    /** The clio-kit server it runs: enabling it first downloads that server's tools. */
+    kit: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? null),
   })
   .passthrough();
 export type Connector = z.infer<typeof connectorSchema>;
@@ -113,6 +123,42 @@ export type ConnectorValues = Record<string, string | null>;
 export type ConnectorCreateInput = ({ url: string } | { command: string; args: string[] }) & {
   name?: string;
 };
+
+/**
+ * One thing an agent needs that is not ready (the `agent_needs` card, clio-agent LZ-D2):
+ * a connector, or a plugin that bundles one (`kind`), and why it is not ready
+ * (`reasons`: `off`, `needs` a required value, `download` its tools). After Enable all,
+ * `progress` says where it is in words.
+ */
+export const agentNeedItemSchema = z
+  .object({
+    id: z.string(),
+    connector_id: z.string(),
+    name: z.string(),
+    kind: forwardCompatibleEnum(['connector', 'plugin']).default('connector'),
+    logo_url: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? null),
+    reasons: z.array(z.string()).default([]),
+    enabled: z.boolean().default(false),
+    download: z.boolean().default(false),
+    download_unknown: z.boolean().default(false),
+    asks_sign_in: z.boolean().default(false),
+    missing: z.array(connectorNeedSchema).default([]),
+    settings: z.array(connectorNeedSchema).default([]),
+    progress: optionalWireString(),
+    reason: optionalWireString(),
+    detail: optionalWireString(),
+    tool_count: z
+      .number()
+      .int()
+      .nonnegative()
+      .nullish()
+      .transform((value) => value ?? null),
+  })
+  .passthrough();
+export type AgentNeedItem = z.infer<typeof agentNeedItemSchema>;
 
 /**
  * The `connector_setup` pending interaction's payload (CN5): the tool call that
@@ -140,6 +186,12 @@ export const connectorSetupPayloadSchema = z
     asks_sign_in: z.boolean().optional(),
     /** The connector is on already: the card only adds it to this conversation. */
     connector_enabled: z.boolean().optional(),
+    /**
+     * `agent_needs`: the agent this conversation runs needs what is not ready (`items`);
+     * `phase` is `ask`, `working` (Enable all runs) or `done`.
+     */
+    phase: optionalWireString(),
+    items: z.array(agentNeedItemSchema).default([]),
   })
   .passthrough();
 export type ConnectorSetupPayload = z.infer<typeof connectorSetupPayloadSchema>;
@@ -153,6 +205,11 @@ export function connectorSetupPayload(payload: unknown): ConnectorSetupPayload |
 /** Whether a `connector_setup` payload is the agent's offer to add a connector here. */
 export function isConnectorOffer(payload: unknown): boolean {
   return connectorSetupPayload(payload)?.intent === 'enable';
+}
+
+/** Whether a `connector_setup` payload is the agent-load card (`agent_needs`). */
+export function isAgentNeeds(payload: unknown): boolean {
+  return connectorSetupPayload(payload)?.intent === 'agent_needs';
 }
 
 /** Whether a `connector_setup` payload is the agent's offer to add a plugin here. */

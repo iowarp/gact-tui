@@ -2,13 +2,12 @@ import type { MessageBlock } from '@clio/core/v3';
 import { SyringeIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { useConnectors } from '@/hooks/use-connectors';
-import { usePluginCatalog } from '@/hooks/use-session-agent';
+import { usePluginNames } from '@/hooks/use-plugin-names';
 import {
   humanizePluginId,
   pluginChangeLabel,
   pluginChangeTools,
-  pluginNameResolver,
+  type PluginKind,
 } from '@/lib/plugin-presentation';
 import { useHasConnection } from '@/providers/connection-provider';
 import { t } from '@lingui/core/macro';
@@ -32,22 +31,22 @@ export function PluginChangeInjection({ block }: { block: InjectionBlock }) {
 }
 
 function NamedPluginChange({ block }: { block: InjectionBlock }) {
-  const connectors = useConnectors();
-  const plugins = usePluginCatalog();
-  const nameOf = pluginNameResolver(plugins.data?.plugins, connectors.data);
-  return <PluginChangeChip block={block} nameOf={nameOf} />;
+  const { nameOf, kindOf } = usePluginNames();
+  return <PluginChangeChip block={block} kindOf={kindOf} nameOf={nameOf} />;
 }
 
 function PluginChangeChip({
   block,
   nameOf,
+  kindOf,
 }: {
   block: InjectionBlock;
   nameOf: (id: string) => string;
+  kindOf?: (id: string) => PluginKind;
 }) {
   const [open, setOpen] = useState(false);
   const detailsId = useId();
-  const label = pluginChangeLabel(block.text, nameOf);
+  const label = pluginChangeLabel(block.text, nameOf, kindOf);
   const tools = pluginChangeTools(block.text);
   const toolList = tools.join(', ');
   return (
