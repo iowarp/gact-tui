@@ -328,6 +328,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
             }
             slotWidth={SLOT_WIDTH}
             title={<FolderTitle folder={primary} />}
+            wrapMeta
           />
         </ItemList>
 
@@ -367,6 +368,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
                   key={folder.path}
                   meta={words}
                   title={<FolderTitle folder={folder} />}
+                  wrapMeta
                 />
               );
             })
