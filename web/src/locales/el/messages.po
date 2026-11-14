@@ -7762,6 +7762,10 @@ msgstr "Μεταφορά όλων μπροστά"
 msgid "Bring back the saved draft"
 msgstr "Επαναφορά του αποθηκευμένου πρόχειρου"
 
+#: src/lib/onboarding/tour-script.ts
+msgid "Bring in tools"
+msgstr "Προσθέστε εργαλεία"
+
 #: src/components/clio/extension-discover.tsx
 msgid "Bring your own plugin"
 msgstr "Φέρτε το δικό σας πρόσθετο"
@@ -10861,6 +10865,10 @@ msgstr "Σύνδεσμος που προσθέσατε"
 #: src/lib/extension-library-entries.ts
 msgid "Connectors"
 msgstr "Σύνδεσμοι"
+
+#: src/lib/onboarding/tour-script.ts
+msgid "Connectors and plugins add tools to a conversation. Just ask, and {agent} offers what fits, like this card, or browse Discover in Settings."
+msgstr "Οι σύνδεσμοι και τα πρόσθετα προσθέτουν εργαλεία σε μια συνομιλία. Απλώς ζητήστε το και ο {agent} προτείνει ό,τι ταιριάζει, όπως σε αυτή την κάρτα, ή εξερευνήστε την Ανακάλυψη στις Ρυθμίσεις."
 
 #: src/lib/plugin-presentation.ts
 msgid "Connectors changed"
@@ -14807,6 +14815,10 @@ msgstr "Δεδομένα παραδείγματος"
 #: src/widget-gallery-demos.ts
 msgid "Example forecast"
 msgstr "Παράδειγμα πρόγνωσης"
+
+#: src/components/clio/onboarding/tour-offer-card.tsx
+msgid "Example offer"
+msgstr "Παράδειγμα πρότασης"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Excel workbook"
@@ -32770,6 +32782,10 @@ msgstr "Εμφάνιση επιλεγμένων ({count})"
 msgid "Show source"
 msgstr "Εμφάνιση πηγαίου κώδικα"
 
+#: src/lib/onboarding/tour-offer.ts
+msgid "Show stations, regions, footprints and tracks from GeoJSON on an interactive 3D globe, make map images, and find places by name."
+msgstr "Εμφανίζει σταθμούς, περιοχές, αποτυπώματα και διαδρομές από GeoJSON σε διαδραστική τρισδιάστατη υδρόγειο, δημιουργεί εικόνες χαρτών και βρίσκει τοποθεσίες με το όνομά τους."
+
 #: src/components/clio/mcp-app-card.tsx
 msgid "Show tab"
 msgstr "Εμφάνιση καρτέλας"
@@ -41599,6 +41615,10 @@ msgstr "Ζητήσατε {target} σε αυτό το μήνυμα"
 #: src/components/clio/injection-presentation.ts
 msgid "You asked for changes. The agent stays in plan mode and revises the plan."
 msgstr "Ζητήσατε αλλαγές. Ο πράκτορας παραμένει σε λειτουργία σχεδίου και αναθεωρεί το σχέδιο."
+
+#: src/lib/onboarding/tour-offer.ts
+msgid "You asked for hurricane tracks; this shows them on an interactive 3D globe."
+msgstr "Ζητήσατε τις διαδρομές των τυφώνων· αυτό τις εμφανίζει σε διαδραστική τρισδιάστατη υδρόγειο."
 
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "You asked for the flow {target} on this message"

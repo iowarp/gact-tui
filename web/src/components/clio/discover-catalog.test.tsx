@@ -121,7 +121,9 @@ async function openDiscover() {
 const card = (name: string) =>
   screen.getByRole('article', { name }) as HTMLElement;
 
-describe('Discover cards (DC)', () => {
+// Each test renders the whole Extensions library; on a loaded machine that alone can take
+// several seconds, so these get more than the default five.
+describe('Discover cards (DC)', { timeout: 20_000 }, () => {
   let rows: Connector[];
   beforeEach(() => {
     rows = [...formats, home, printer, viewer];

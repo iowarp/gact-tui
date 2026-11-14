@@ -7762,6 +7762,10 @@ msgstr "すべてを手前に移動"
 msgid "Bring back the saved draft"
 msgstr "保存した下書きを復元"
 
+#: src/lib/onboarding/tour-script.ts
+msgid "Bring in tools"
+msgstr "ツールを追加する"
+
 #: src/components/clio/extension-discover.tsx
 msgid "Bring your own plugin"
 msgstr "独自のプラグインを使う"
@@ -10861,6 +10865,10 @@ msgstr "追加したコネクター"
 #: src/lib/extension-library-entries.ts
 msgid "Connectors"
 msgstr "コネクター"
+
+#: src/lib/onboarding/tour-script.ts
+msgid "Connectors and plugins add tools to a conversation. Just ask, and {agent} offers what fits, like this card, or browse Discover in Settings."
+msgstr "コネクターとプラグインは会話にツールを追加します。頼むだけで、このカードのように{agent}が合うものを提案します。設定の「見つける」から探すこともできます。"
 
 #: src/lib/plugin-presentation.ts
 msgid "Connectors changed"
@@ -14807,6 +14815,10 @@ msgstr "サンプルデータ"
 #: src/widget-gallery-demos.ts
 msgid "Example forecast"
 msgstr "予測の例"
+
+#: src/components/clio/onboarding/tour-offer-card.tsx
+msgid "Example offer"
+msgstr "提案の例"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Excel workbook"
@@ -32770,6 +32782,10 @@ msgstr "選択項目を表示（{count}）"
 msgid "Show source"
 msgstr "ソースを表示"
 
+#: src/lib/onboarding/tour-offer.ts
+msgid "Show stations, regions, footprints and tracks from GeoJSON on an interactive 3D globe, make map images, and find places by name."
+msgstr "GeoJSON の観測点、地域、フットプリント、軌跡をインタラクティブな 3D 地球儀に表示し、地図画像を作成し、地名で場所を検索します。"
+
 #: src/components/clio/mcp-app-card.tsx
 msgid "Show tab"
 msgstr "タブを表示"
@@ -41599,6 +41615,10 @@ msgstr "このメッセージで{target}をリクエストしました"
 #: src/components/clio/injection-presentation.ts
 msgid "You asked for changes. The agent stays in plan mode and revises the plan."
 msgstr "変更を依頼しました。エージェントはプランモードのままプランを修正します。"
+
+#: src/lib/onboarding/tour-offer.ts
+msgid "You asked for hurricane tracks; this shows them on an interactive 3D globe."
+msgstr "ハリケーンの進路を求められたので、これでインタラクティブな 3D 地球儀に表示できます。"
 
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "You asked for the flow {target} on this message"

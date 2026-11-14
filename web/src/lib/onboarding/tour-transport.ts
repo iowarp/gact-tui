@@ -3,6 +3,7 @@ import {
   BASIC_CATALOG_ROW,
   CLIO_WORKSPACE_CATALOG_ROW,
 } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
+import { TOUR_OFFER_CONNECTOR, tourOfferConnectorRow } from './tour-offer';
 
 export const TOUR_PRACTICE_SESSION_ID = 'tour_practice';
 export const TOUR_PRACTICE_WORKSPACE_ID = 'tour_practice';
@@ -16,7 +17,8 @@ const CAPABILITIES = new RegExp(
 
 /**
  * The practice conversation's only "service": it answers the catalog reads its
- * surfaces need and an empty connected-data list, and refuses everything else,
+ * surfaces need, an empty connected-data list and the example offer's connector and
+ * logo (the "Bring in tools" step), and refuses everything else,
  * so a click in the tour can never reach an agent, a model or the person's real
  * conversations.
  */
@@ -28,6 +30,13 @@ export class TourTransport implements ClioTransport {
     // Connected data is offered, with nothing connected yet.
     if (request.method === 'GET' && SOURCES.test(request.path)) {
       return request.decode({ sources: [] });
+    }
+    // The example offer's connector, off, and its logo.
+    if (request.method === 'GET' && request.path === '/v1/connectors') {
+      return request.decode({ connectors: [tourOfferConnectorRow()] });
+    }
+    if (request.method === 'GET' && request.path === `/v1/connectors/${TOUR_OFFER_CONNECTOR.id}/logo`) {
+      return request.decode(TOUR_OFFER_CONNECTOR.logo_svg);
     }
     if (request.method === 'GET' && CAPABILITIES.test(request.path)) {
       return request.decode({

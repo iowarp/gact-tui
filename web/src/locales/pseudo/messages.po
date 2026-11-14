@@ -7754,6 +7754,10 @@ msgstr ""
 msgid "Bring back the saved draft"
 msgstr ""
 
+#: src/lib/onboarding/tour-script.ts
+msgid "Bring in tools"
+msgstr ""
+
 #: src/components/clio/extension-discover.tsx
 msgid "Bring your own plugin"
 msgstr ""
@@ -10852,6 +10856,10 @@ msgstr ""
 #: src/components/clio/agent-plugin-menu.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Connectors"
+msgstr ""
+
+#: src/lib/onboarding/tour-script.ts
+msgid "Connectors and plugins add tools to a conversation. Just ask, and {agent} offers what fits, like this card, or browse Discover in Settings."
 msgstr ""
 
 #: src/lib/plugin-presentation.ts
@@ -14798,6 +14806,10 @@ msgstr ""
 
 #: src/widget-gallery-demos.ts
 msgid "Example forecast"
+msgstr ""
+
+#: src/components/clio/onboarding/tour-offer-card.tsx
+msgid "Example offer"
 msgstr ""
 
 #: src/components/clio/document-workspace.tsx
@@ -32753,6 +32765,10 @@ msgstr ""
 msgid "Show source"
 msgstr ""
 
+#: src/lib/onboarding/tour-offer.ts
+msgid "Show stations, regions, footprints and tracks from GeoJSON on an interactive 3D globe, make map images, and find places by name."
+msgstr ""
+
 #: src/components/clio/mcp-app-card.tsx
 msgid "Show tab"
 msgstr ""
@@ -41580,6 +41596,10 @@ msgstr ""
 
 #: src/components/clio/injection-presentation.ts
 msgid "You asked for changes. The agent stays in plan mode and revises the plan."
+msgstr ""
+
+#: src/lib/onboarding/tour-offer.ts
+msgid "You asked for hurricane tracks; this shows them on an interactive 3D globe."
 msgstr ""
 
 #: src/components/clio/conversation-summoned-work.tsx

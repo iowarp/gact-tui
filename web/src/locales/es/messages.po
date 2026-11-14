@@ -7762,6 +7762,10 @@ msgstr "Traer todo al frente"
 msgid "Bring back the saved draft"
 msgstr "Recuperar el borrador guardado"
 
+#: src/lib/onboarding/tour-script.ts
+msgid "Bring in tools"
+msgstr "Añade herramientas"
+
 #: src/components/clio/extension-discover.tsx
 msgid "Bring your own plugin"
 msgstr "Trae tu propio complemento"
@@ -8445,11 +8449,11 @@ msgstr "Estado del catálogo"
 
 #: src/components/clio/extension-library.tsx
 msgid "Catalog plugins"
-msgstr "Plugins del catálogo"
+msgstr "Complementos del catálogo"
 
 #: src/components/clio/extension-library.tsx
 msgid "Catalog plugins and connectors"
-msgstr "Plugins y conectores del catálogo"
+msgstr "Complementos y conectores del catálogo"
 
 #: src/components/clio/provider-model-refresh.ts
 msgid "Catalog refreshed; no compatible client update is available yet."
@@ -10861,6 +10865,10 @@ msgstr "Conector que añadiste"
 #: src/lib/extension-library-entries.ts
 msgid "Connectors"
 msgstr "Conectores"
+
+#: src/lib/onboarding/tour-script.ts
+msgid "Connectors and plugins add tools to a conversation. Just ask, and {agent} offers what fits, like this card, or browse Discover in Settings."
+msgstr "Los conectores y complementos añaden herramientas a una conversación. Solo pídelo y {agent} te ofrece lo que encaja, como en esta tarjeta, o explora Descubrir en Ajustes."
 
 #: src/lib/plugin-presentation.ts
 msgid "Connectors changed"
@@ -14807,6 +14815,10 @@ msgstr "Datos de ejemplo"
 #: src/widget-gallery-demos.ts
 msgid "Example forecast"
 msgstr "Pronóstico de ejemplo"
+
+#: src/components/clio/onboarding/tour-offer-card.tsx
+msgid "Example offer"
+msgstr "Oferta de ejemplo"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Excel workbook"
@@ -32770,6 +32782,10 @@ msgstr "Mostrar seleccionadas ({count})"
 msgid "Show source"
 msgstr "Mostrar código fuente"
 
+#: src/lib/onboarding/tour-offer.ts
+msgid "Show stations, regions, footprints and tracks from GeoJSON on an interactive 3D globe, make map images, and find places by name."
+msgstr "Muestra estaciones, regiones, huellas y trayectorias de GeoJSON en un globo 3D interactivo, crea imágenes de mapas y busca lugares por su nombre."
+
 #: src/components/clio/mcp-app-card.tsx
 msgid "Show tab"
 msgstr "Mostrar pestaña"
@@ -41599,6 +41615,10 @@ msgstr "Pediste {target} en este mensaje"
 #: src/components/clio/injection-presentation.ts
 msgid "You asked for changes. The agent stays in plan mode and revises the plan."
 msgstr "Pediste cambios. El agente sigue en modo de plan y revisa el plan."
+
+#: src/lib/onboarding/tour-offer.ts
+msgid "You asked for hurricane tracks; this shows them on an interactive 3D globe."
+msgstr "Pediste las trayectorias de los huracanes; esto las muestra en un globo 3D interactivo."
 
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "You asked for the flow {target} on this message"

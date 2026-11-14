@@ -7762,6 +7762,10 @@ msgstr "Bring All to Front"
 msgid "Bring back the saved draft"
 msgstr "Bring back the saved draft"
 
+#: src/lib/onboarding/tour-script.ts
+msgid "Bring in tools"
+msgstr "Bring in tools"
+
 #: src/components/clio/extension-discover.tsx
 msgid "Bring your own plugin"
 msgstr "Bring your own plugin"
@@ -10861,6 +10865,10 @@ msgstr "Connector you added"
 #: src/lib/extension-library-entries.ts
 msgid "Connectors"
 msgstr "Connectors"
+
+#: src/lib/onboarding/tour-script.ts
+msgid "Connectors and plugins add tools to a conversation. Just ask, and {agent} offers what fits, like this card, or browse Discover in Settings."
+msgstr "Connectors and plugins add tools to a conversation. Just ask, and {agent} offers what fits, like this card, or browse Discover in Settings."
 
 #: src/lib/plugin-presentation.ts
 msgid "Connectors changed"
@@ -14807,6 +14815,10 @@ msgstr "Example data"
 #: src/widget-gallery-demos.ts
 msgid "Example forecast"
 msgstr "Example forecast"
+
+#: src/components/clio/onboarding/tour-offer-card.tsx
+msgid "Example offer"
+msgstr "Example offer"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Excel workbook"
@@ -32770,6 +32782,10 @@ msgstr "Show selected ({count})"
 msgid "Show source"
 msgstr "Show source"
 
+#: src/lib/onboarding/tour-offer.ts
+msgid "Show stations, regions, footprints and tracks from GeoJSON on an interactive 3D globe, make map images, and find places by name."
+msgstr "Show stations, regions, footprints and tracks from GeoJSON on an interactive 3D globe, make map images, and find places by name."
+
 #: src/components/clio/mcp-app-card.tsx
 msgid "Show tab"
 msgstr "Show tab"
@@ -41599,6 +41615,10 @@ msgstr "You asked for {target} on this message"
 #: src/components/clio/injection-presentation.ts
 msgid "You asked for changes. The agent stays in plan mode and revises the plan."
 msgstr "You asked for changes. The agent stays in plan mode and revises the plan."
+
+#: src/lib/onboarding/tour-offer.ts
+msgid "You asked for hurricane tracks; this shows them on an interactive 3D globe."
+msgstr "You asked for hurricane tracks; this shows them on an interactive 3D globe."
 
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "You asked for the flow {target} on this message"
