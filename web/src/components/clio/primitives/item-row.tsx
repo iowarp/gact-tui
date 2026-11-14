@@ -201,7 +201,8 @@ export const ItemRow = memo(
               !floats &&
               !folds &&
               '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1]',
-            floatsOverName && '@max-sm:col-[2/-1]',
+            // Pinned to the first line: the actions floating over its end hold that line too.
+            floatsOverName && '@max-sm:col-[2/-1] @max-sm:row-start-1',
           )}
         >
           <span
