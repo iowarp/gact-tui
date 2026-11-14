@@ -32,7 +32,8 @@ const ConnectorViewDialog = lazy(() =>
  * server (13 tools) to this conversation"), a quiet "View plugin" that opens the
  * plugin explorer over the conversation (the card stays; "View connector" and the
  * connector's own pane for a connector, PL-D1), and "Settings (n)" when the
- * connector has optional settings. Required needs show only when there are some. Add
+ * connector has optional settings or required ones already saved. Only a required need
+ * that is still missing shows inline, so a filled card keeps its four rows. Add
  * puts it in this conversation only, turning a connector on first when it is off, and
  * the agent's request continues; Not now refuses.
  */
@@ -86,8 +87,14 @@ export function ConnectorOfferResponse({
   const plainConnector =
     !plugin && Boolean(connector) && !(entry && bringsMoreThanItsServer(entry, id));
   const unfilled = unfilledRequired(rows, draft);
-  const required = rows.filter((need) => need.required);
-  const optional = rows.filter((need) => !need.required);
+  // Inline only what is still missing, by what is saved (never by what is typed, so a
+  // row does not move while the person fills it). A required row already saved, for this
+  // conversation or as the default, folds into Settings with the optional ones (DOCS-F7).
+  const missingKeys = new Set(unfilledRequired(rows, {}).map((need) => need.key));
+  const inline = rows.filter((need) => missingKeys.has(need.key));
+  const settings = rows.filter((need) => !missingKeys.has(need.key));
+  // A saved required row the person empties keeps Settings open, so it is never hidden.
+  const settingsOpen = showSettings || unfilled.some((need) => !missingKeys.has(need.key));
   const settingsId = `${pendingInteractionDomId(interaction.id)}-settings`;
   const offered = (action: string) => !interaction.actions || interaction.actions.includes(action);
   const add = () => {
@@ -166,7 +173,7 @@ export function ConnectorOfferResponse({
         titleText={title}
         wrapTitle
       >
-        {description || payload?.reason || required.length || !payload ? (
+        {description || payload?.reason || inline.length || !payload ? (
           <AskBody>
             <AskSection className="mt-1.5 grid gap-1">
               {description ? (
@@ -183,7 +190,7 @@ export function ConnectorOfferResponse({
                 </div>
               ) : null}
               {!payload ? <p role="alert">{t`This offer can’t be read by this version.`}</p> : null}
-              {required.length ? <ConnectorNeedRows {...needProps} needs={required} /> : null}
+              {inline.length ? <ConnectorNeedRows {...needProps} needs={inline} /> : null}
             </AskSection>
           </AskBody>
         ) : null}
@@ -239,27 +246,27 @@ export function ConnectorOfferResponse({
                 {plainConnector ? t`View connector` : t`View plugin`}
               </button>
             ) : null}
-            {optional.length ? (
+            {settings.length ? (
               <button
                 aria-controls={settingsId}
-                aria-expanded={showSettings}
+                aria-expanded={settingsOpen}
                 className="flex h-7 w-fit shrink-0 items-center gap-1 rounded-[4px] px-1 text-xs whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
                 data-slot="connector-offer-settings"
-                onClick={() => setShowSettings((open) => !open)}
+                onClick={() => setShowSettings(!settingsOpen)}
                 type="button"
               >
                 <ChevronRightIcon
                   aria-hidden="true"
-                  className={cn('size-3.5 transition-transform', showSettings && 'rotate-90')}
+                  className={cn('size-3.5 transition-transform', settingsOpen && 'rotate-90')}
                 />
-                {t`Settings (${ph({ count: optional.length })})`}
+                {t`Settings (${ph({ count: settings.length })})`}
               </button>
             ) : null}
           </div>
         </AskOptions>
-        {optional.length && showSettings ? (
+        {settings.length && settingsOpen ? (
           <AskSection className="max-h-64 overflow-y-auto" id={settingsId}>
-            <ConnectorNeedRows {...needProps} needs={optional} />
+            <ConnectorNeedRows {...needProps} needs={settings} />
           </AskSection>
         ) : null}
       </AskCard>
