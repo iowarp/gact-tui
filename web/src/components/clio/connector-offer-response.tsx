@@ -177,7 +177,12 @@ export function ConnectorOfferResponse({
           </AskBody>
         ) : null}
         <AskError error={responseError} />
-        <AskOptions aria-label="Decision" className="mt-2">
+        <AskOptions
+          aria-label="Decision"
+          // In a narrow card the options are a column; one line, so the row of what it
+          // brings is as wide as the card and truncates instead of widening every button.
+          className="mt-2 @max-[420px]/ask:flex-nowrap"
+        >
           {offered('submit') ? (
             <AskButton
               disabled={disabled || !payload || unfilled.length > 0}
@@ -200,7 +205,7 @@ export function ConnectorOfferResponse({
             </AskButton>
           ) : null}
           <div
-            className="flex min-w-0 flex-1 basis-48 items-center gap-1.5"
+            className="flex min-w-0 flex-1 basis-48 items-center gap-1.5 @max-[420px]/ask:flex-none @max-[420px]/ask:basis-auto"
             data-slot="connector-offer-brings"
           >
             <span
@@ -213,7 +218,7 @@ export function ConnectorOfferResponse({
             {entry ? (
               <button
                 aria-haspopup="dialog"
-                className="flex h-7 w-fit shrink-0 items-center rounded-[4px] px-1 text-xs text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="flex h-7 w-fit shrink-0 items-center rounded-[4px] px-1 text-xs whitespace-nowrap text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
                 data-slot="connector-offer-view-plugin"
                 onClick={() => setExploring(true)}
                 type="button"
@@ -225,7 +230,7 @@ export function ConnectorOfferResponse({
               <button
                 aria-controls={settingsId}
                 aria-expanded={showSettings}
-                className="flex h-7 w-fit items-center gap-1 rounded-[4px] px-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                className="flex h-7 w-fit shrink-0 items-center gap-1 rounded-[4px] px-1 text-xs whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
                 data-slot="connector-offer-settings"
                 onClick={() => setShowSettings((open) => !open)}
                 type="button"
