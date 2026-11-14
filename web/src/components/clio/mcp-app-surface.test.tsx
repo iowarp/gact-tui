@@ -343,4 +343,68 @@ describe('McpAppSurface', () => {
     expect(second).not.toBe(first);
     expect(client.closeMcpApp).not.toHaveBeenCalled();
   });
+
+  it('looks again when a view that read blank reports a new state (FP-D9)', async () => {
+    const client = repository();
+    render(<McpAppSurface {...props} appInstanceId="app_paint" repository={client} />);
+    const iframe = await screen.findByTitle<HTMLIFrameElement>(
+      'vigil_open_viewer, interactive view',
+    );
+    const target = iframe.contentWindow!;
+    const post = vi.spyOn(target, 'postMessage');
+    const fromView = (data: Record<string, unknown>) =>
+      act(() => {
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            data: { jsonrpc: '2.0', ...data },
+            origin: 'http://localhost:8788',
+            source: target,
+          }),
+        );
+      });
+    fromView({
+      id: 'init',
+      method: 'ui/initialize',
+      params: {
+        protocolVersion: '2026-01-26',
+        appInfo: { name: 'VIGIL view', version: '1.0.0' },
+        appCapabilities: {},
+      },
+    });
+    fromView({ method: 'ui/notifications/initialized', params: {} });
+    const answered = new Set<string>();
+    const answerLooks = (canvas: number) =>
+      waitFor(
+        () => {
+          const looks = post.mock.calls
+            .map(([message]) => message as { id?: string; method?: string })
+            .filter(
+              (message) => message.method === 'clio/view-snapshot' && !answered.has(message.id!),
+            );
+          expect(looks.length).toBeGreaterThan(0);
+          for (const look of looks) {
+            answered.add(look.id!);
+            fromView({
+              id: look.id,
+              result: {
+                image: 'data:image/png;base64,AA==',
+                width: 10,
+                height: 10,
+                scale: 0.25,
+                painted: { canvas, image: 0, svg: 0, video: 0, text: 0 },
+                skipped: [],
+              },
+            });
+          }
+        },
+        { timeout: 8000 },
+      );
+    // The scene starts empty: every first-paint look reads blank.
+    for (let probe = 0; probe < 3; probe += 1) await answerLooks(0);
+    expect(await screen.findByText('Nothing drawn')).toBeVisible();
+    // The view draws later and says so through its model context: the host looks again.
+    fromView({ id: 'ctx', method: 'ui/update-model-context', params: { content: [] } });
+    await answerLooks(1);
+    expect(await screen.findByText('Ready')).toBeVisible();
+  }, 30_000);
 });
