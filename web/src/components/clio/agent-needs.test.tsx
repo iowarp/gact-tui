@@ -225,6 +225,7 @@ describe('the agent-load card', () => {
     render(
       <QueryClientProvider client={client}>
         <ConversationInteractionActivity
+          artifacts={{}}
           interaction={{ ...card({}), status: 'denied', actions: [] }}
         />
       </QueryClientProvider>,
