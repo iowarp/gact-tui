@@ -63,9 +63,13 @@ describe('folders settings', { timeout: 20_000 }, () => {
     expect(await screen.findByLabelText('Name')).toHaveValue('flat-NDP');
     const primary = screen.getByRole('group', { name: 'Primary folder' });
     expect(within(primary).getByText('Workspace folder')).toBeVisible();
-    expect(within(primary).getByText(primaryPath)).toBeVisible();
+    // The path wraps after its separators, so its parts are separate boxes; the row reads it whole.
+    expect(within(primary).getByTitle(primaryPath).textContent).toBe(primaryPath);
+    expect(within(primary).getByTitle(primaryPath)).toBeVisible();
     const additional = screen.getByRole('group', { name: 'Additional folders' });
-    expect(within(additional).getByText('D:\\data\\earthscope-raw')).toBeVisible();
+    const additionalPath = 'D:\\data\\earthscope-raw';
+    expect(within(additional).getByTitle(additionalPath).textContent).toBe(additionalPath);
+    expect(within(additional).getByTitle(additionalPath)).toBeVisible();
     expect(within(additional).getByText('Read and write')).toBeVisible();
     expect(screen.getByText(/Running tools pick up folder changes/)).toBeVisible();
   });
