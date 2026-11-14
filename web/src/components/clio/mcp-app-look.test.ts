@@ -1,7 +1,12 @@
 import type { TransportFrame } from '@clio/core/v3';
 import { describe, expect, it, vi } from 'vitest';
 import { markMcpAppEnded, noteMcpApp, resetMcpAppLiveSet } from './mcp-app-live-set';
-import { dispatchMcpAppLookFrame, McpAppLooks, snapshotAnswer } from './mcp-app-look';
+import {
+  dispatchMcpAppLookFrame,
+  McpAppLooks,
+  SNAPSHOT_ANSWER_MS,
+  snapshotAnswer,
+} from './mcp-app-look';
 
 const identity = { sessionId: 's1', appInstanceId: 'app1', dataRef: 'ref' };
 const PNG = 'data:image/png;base64,iVBORw0KGgo=';
@@ -117,5 +122,30 @@ describe('McpAppLooks', () => {
       error: { reason: 'snapshot_failed', message: 'The interactive view closed.' },
     });
     looks.stop();
+  });
+
+  it('answers a look whose frame never replies, typed, instead of holding the turn', async () => {
+    vi.useFakeTimers();
+    try {
+      const postMcpAppLook = vi.fn().mockResolvedValue({});
+      const looks = new McpAppLooks(
+        { setMcpAppShown: vi.fn().mockResolvedValue({}), postMcpAppLook },
+        identity,
+        () => new Promise(() => undefined),
+      );
+      looks.start();
+      dispatchMcpAppLookFrame(
+        frame({ session_id: 's1', app_instance_id: 'app1', call_id: 'c4', max_side: 900 }),
+      );
+      await vi.advanceTimersByTimeAsync(SNAPSHOT_ANSWER_MS - 1);
+      expect(postMcpAppLook).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(postMcpAppLook.mock.calls[0]![2]).toMatchObject({
+        error: { reason: 'snapshot_unanswered' },
+      });
+      looks.stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

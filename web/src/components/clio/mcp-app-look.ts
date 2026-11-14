@@ -28,8 +28,20 @@ export interface SnapshotOptions {
   maxSide?: number;
 }
 
+/** A snapshot in progress, as its mount follows it: whether the frame is on screen, and
+ * the end of the listing. */
+export interface TrackedLook {
+  visible: () => boolean;
+  end: () => void;
+}
+
 /** Ask the sandbox document for a snapshot of the view it hosts. */
 export type TakeSnapshot = (options: SnapshotOptions) => Promise<McpAppSnapshot>;
+
+/** How long a look waits for this window's own sandbox document to answer. CLIO waits on
+ * the agent's side until a surface answers, so a frame that never replies (hidden, frozen
+ * or still loading) must be answered here, typed, rather than hold the agent's turn. */
+export const SNAPSHOT_ANSWER_MS = 30_000;
 
 /** The snapshot of each mounted view, by its frame: a capture of a surface or a page that
  * holds the view paints the view from it (CM2), since a sandboxed frame cannot be cloned. */
@@ -123,8 +135,8 @@ export class McpAppLooks {
     private readonly repository: Partial<McpAppLookClient>,
     private readonly identity: McpAppIdentity,
     private readonly snapshot: TakeSnapshot,
-    /** Lists a snapshot in progress (a hidden frame waits for the person, DOCS-F2). */
-    private readonly track?: (callId: string) => () => void,
+    /** Lists a snapshot in progress and tells whether its frame is on screen (DOCS-F2). */
+    private readonly track?: (callId: string) => TrackedLook,
   ) {}
 
   /** The view finished initializing: this mount holds it. */
@@ -159,10 +171,37 @@ export class McpAppLooks {
     if (this.stopped || this.handled.has(look.call_id) || !this.repository.postMcpAppLook) return;
     this.handled.add(look.call_id);
     let answer: McpAppSnapshot;
-    const untrack = this.track?.(look.call_id);
+    const tracked = this.track?.(look.call_id);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // A frame that never answers is answered here, typed. A view off screen is the usual
+    // cause (the browser does not draw it): the answer says so in words, so the agent can
+    // ask the person to show it; meanwhile its row and card offered to (DOCS-F2).
+    const unanswered = new Promise<McpAppSnapshot>((resolve) => {
+      timer = setTimeout(
+        () =>
+          resolve(
+            tracked && !tracked.visible()
+              ? {
+                  error: {
+                    reason: 'view_not_visible',
+                    // i18n-ignore: error returned to the agent's look_at_view result
+                    message: `The view was not on screen for ${SNAPSHOT_ANSWER_MS / 1000} s (its card scrolled out of sight, or its tab not shown), so it could not be seen. Ask the person to show the view, then look again.`,
+                  },
+                }
+              : {
+                  error: {
+                    reason: 'snapshot_unanswered',
+                    // i18n-ignore: error returned to the agent's look_at_view result
+                    message: `The view's frame did not answer within ${SNAPSHOT_ANSWER_MS / 1000} s; it may be hidden or still loading.`,
+                  },
+                },
+          ),
+        SNAPSHOT_ANSWER_MS,
+      );
+    });
     try {
       const scale = (globalThis as { devicePixelRatio?: number }).devicePixelRatio || 1;
-      answer = await this.snapshot({ scale, maxSide: look.max_side });
+      answer = await Promise.race([this.snapshot({ scale, maxSide: look.max_side }), unanswered]);
     } catch (error) {
       answer = {
         error: {
@@ -171,7 +210,8 @@ export class McpAppLooks {
         },
       };
     } finally {
-      untrack?.();
+      clearTimeout(timer);
+      tracked?.end();
     }
     await this.repository
       .postMcpAppLook(this.identity, look.call_id, answer)

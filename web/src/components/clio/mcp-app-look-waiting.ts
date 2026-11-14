@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { McpAppPlacementKind } from './mcp-app-bridge';
+import type { TrackedLook } from './mcp-app-look';
 import { focusMcpAppTab, mcpAppLabel } from './mcp-app-live-set';
 import type { McpAppTabTarget } from './workbench-shared';
 
@@ -39,12 +40,13 @@ function patch(callId: string, change: Partial<WaitingViewLook>): void {
 
 /**
  * A mount began a snapshot for a look: list it, follow whether its frame is on screen,
- * and return the call that lists it no more (the snapshot answered or failed).
+ * and return whether it is on screen now and the call that lists it no more (the snapshot
+ * answered or failed).
  */
 export function trackViewLook(
   look: Omit<WaitingViewLook, 'visible'>,
   frame: Element | null | undefined,
-): () => void {
+): TrackedLook {
   const observerType = (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
     .IntersectionObserver;
   // Without a frame or an observer nothing can tell; the look is not said to be hidden.
@@ -57,10 +59,13 @@ export function trackViewLook(
     });
     observer.observe(frame);
   }
-  return () => {
-    observer?.disconnect();
-    if (looks.some((row) => row.callId === look.callId))
-      publish(looks.filter((row) => row.callId !== look.callId));
+  return {
+    visible: () => looks.find((row) => row.callId === look.callId)?.visible ?? true,
+    end: () => {
+      observer?.disconnect();
+      if (looks.some((row) => row.callId === look.callId))
+        publish(looks.filter((row) => row.callId !== look.callId));
+    },
   };
 }
 

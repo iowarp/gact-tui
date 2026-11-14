@@ -72,7 +72,7 @@ describe('a look that waits on a view the person cannot see (DOCS-F2)', () => {
     act(() => {
       done = trackViewLook({ callId: 'c1', sessionId: 's1', appInstanceId: 'app1', reveal }, {
         nodeName: 'IFRAME',
-      } as Element);
+      } as Element).end;
     });
     // On screen (or not known yet): the look will answer by itself; nothing to say.
     expect(screen.getByText('nothing hidden')).toBeTruthy();
@@ -129,6 +129,42 @@ describe('a look that waits on a view the person cannot see (DOCS-F2)', () => {
     await vi.waitFor(() => expect(postMcpAppLook).toHaveBeenCalledTimes(1));
     expect(screen.getByText('nothing hidden')).toBeTruthy();
     looks.stop();
+  });
+
+  it('answers a look still hidden after 30 s in words: the view was not on screen', async () => {
+    vi.useFakeTimers();
+    try {
+      for (const [hidden, reason] of [
+        [true, 'view_not_visible'],
+        [false, 'snapshot_unanswered'],
+      ] as const) {
+        const postMcpAppLook = vi.fn().mockResolvedValue({});
+        const looks = new McpAppLooks(
+          { setMcpAppShown: vi.fn().mockResolvedValue({}), postMcpAppLook },
+          { sessionId: 's1', appInstanceId: 'app1', dataRef: 'ref' },
+          (() => new Promise(() => undefined)) as never,
+          (callId) =>
+            trackViewLook(
+              { callId, sessionId: 's1', appInstanceId: 'app1', reveal: vi.fn() },
+              {} as Element,
+            ),
+        );
+        looks.start();
+        dispatchMcpAppLookFrame(lookFrame(`look_${reason}`));
+        await vi.advanceTimersByTimeAsync(10);
+        if (hidden) FakeObserver.last!.show(false);
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(postMcpAppLook).toHaveBeenCalledTimes(1);
+        const answer = postMcpAppLook.mock.calls[0]![2] as {
+          error: { reason: string; message: string };
+        };
+        expect(answer.error.reason).toBe(reason);
+        if (hidden) expect(answer.error.message).toContain('Ask the person to show the view');
+        looks.stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('the in-tab row of a view whose tab is hidden says the agent waits, and shows the tab', async () => {
