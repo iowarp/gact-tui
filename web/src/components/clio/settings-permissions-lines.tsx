@@ -6,9 +6,8 @@ import { t } from '@lingui/core/macro';
 export function GroupEmptyLine({ children }: { children: ReactNode }) {
   return (
     <p
-      className="truncate border-b border-border/70 px-2 py-2.5 text-xs text-muted-foreground max-[599px]:whitespace-normal"
+      className="border-b border-border/70 px-2 py-2.5 text-xs leading-snug break-words text-muted-foreground [line-break:strict] [word-break:auto-phrase]"
       data-announce-state=""
-      title={typeof children === 'string' ? children : undefined}
     >
       {children}
     </p>

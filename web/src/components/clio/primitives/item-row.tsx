@@ -304,8 +304,9 @@ export const ItemRow = memo(
                   !folds &&
                   '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:row-[3] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:justify-self-end @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:pt-1',
                 // Over the end of the name's first line, as overlay actions sit over the status.
+                // One line tall (a 12.5px/1.4 line), so a wrapped name's second line stays clear.
                 floatsOverName &&
-                  '@max-sm:col-[2/-1] @max-sm:row-start-1 @max-sm:self-start @max-sm:justify-self-end @max-sm:bg-hover @max-sm:pl-1',
+                  '@max-sm:col-[2/-1] @max-sm:row-start-1 @max-sm:h-[1.09375rem] @max-sm:self-start @max-sm:justify-self-end @max-sm:bg-hover @max-sm:pl-1 @max-sm:[&_button]:h-full',
                 folds &&
                   '@xl:pointer-coarse:pointer-events-auto @xl:pointer-coarse:opacity-100 @max-sm:pointer-events-auto @max-sm:opacity-100 @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
                 folds &&

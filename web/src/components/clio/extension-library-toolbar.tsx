@@ -120,6 +120,7 @@ export function ExtensionToolbar({
             { value: 'discover', label: t`Discover` },
           ]}
           value={view}
+          wrap
         />
       </div>
       <span className={cn('min-w-0 flex-1', searching && '@max-[35rem]/ext:hidden')} />

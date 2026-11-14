@@ -27,6 +27,8 @@ export interface SegmentedControlProps<Value extends string> {
    * `others` keeps the current option's name and folds the rest to icons.
    */
   iconOnly?: boolean | 'others';
+  /** Labels wrap between words rather than pushing past a narrow row. */
+  wrap?: boolean;
   className?: string;
 }
 
@@ -40,6 +42,7 @@ function SegmentedControlImpl<Value extends string>({
   value,
   onValueChange,
   iconOnly = false,
+  wrap = false,
   className,
 }: SegmentedControlProps<Value>) {
   return (
@@ -55,13 +58,13 @@ function SegmentedControlImpl<Value extends string>({
       className={cn(
         'h-7 shrink-0 gap-px rounded-[7px] bg-muted p-[2px]',
         // Folded: the current name wraps rather than pushing past a narrow row.
-        iconOnly === 'others' && 'h-auto min-h-7 max-w-full shrink',
+        (iconOnly === 'others' || wrap) && 'h-auto min-h-7 max-w-full shrink',
         className,
       )}
     >
       {options.map((option) => {
         const bare = iconOnly === true || (iconOnly === 'others' && option.value !== value);
-        const wraps = iconOnly === 'others' && !bare;
+        const wraps = (iconOnly === 'others' || wrap) && !bare;
         const item = (
           <ToggleGroupItem
             key={option.value}
