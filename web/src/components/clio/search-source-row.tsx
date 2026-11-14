@@ -141,26 +141,30 @@ export function SearchSourceRow({
           {confirming ? (
             <span className="flex items-center gap-1 text-xs max-sm:max-w-full max-sm:min-w-0 max-sm:flex-wrap">
               <span className="min-w-0 text-muted-foreground">{t`Remove the key?`}</span>
-              <Button
-                className={action}
-                onClick={() => setConfirming(false)}
-                size="sm"
-                variant="ghost"
-              >
-                {t({ message: 'Keep', context: 'verb: keep the saved key' })}
-              </Button>
-              <Button
-                className={action}
-                disabled={busy}
-                onClick={() => {
-                  setConfirming(false);
-                  onRemoveKey();
-                }}
-                size="sm"
-                variant="outline"
-              >
-                {t({ message: 'Remove', context: 'verb: remove the saved key' })}
-              </Button>
+              {/* Keep and Remove wrap together, so neither answer sits alone on a line; a
+                  line too narrow for both stacks the pair instead of overflowing the card. */}
+              <span className="flex max-w-full min-w-0 flex-wrap items-center gap-1">
+                <Button
+                  className={action}
+                  onClick={() => setConfirming(false)}
+                  size="sm"
+                  variant="ghost"
+                >
+                  {t({ message: 'Keep', context: 'verb: keep the saved key' })}
+                </Button>
+                <Button
+                  className={action}
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirming(false);
+                    onRemoveKey();
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  {t({ message: 'Remove', context: 'verb: remove the saved key' })}
+                </Button>
+              </span>
             </span>
           ) : source.has_key ? (
             <Button

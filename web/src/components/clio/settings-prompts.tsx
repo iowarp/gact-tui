@@ -405,17 +405,22 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
           <SelectTrigger
             aria-label={t`Prompt workspace`}
             className={cn(
-              'h-[30px]! min-w-0 justify-start gap-2 px-2.5 text-menu *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:text-left',
+              'min-w-0 justify-start gap-2 px-2.5 text-menu *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:text-left',
               // At least 11rem and its value ("No workspace" in every language): when
               // the line has no room, the field moves to the next line instead of cutting it.
+              // On that line of its own the value wraps, so a narrow phone still reads it whole.
               tight
-                ? 'order-last w-full'
-                : 'w-auto max-w-[min(100%,18rem)] min-w-[min(11rem,100%)] shrink-0',
+                ? 'order-last h-auto! min-h-[30px] w-full py-1 *:data-[slot=select-value]:overflow-visible! *:data-[slot=select-value]:leading-snug *:data-[slot=select-value]:break-words *:data-[slot=select-value]:whitespace-normal! *:data-[slot=select-value]:[-webkit-line-clamp:unset]! *:data-[slot=select-value]:[line-break:strict] *:data-[slot=select-value]:[word-break:auto-phrase]'
+                : 'h-[30px]! w-auto max-w-[min(100%,18rem)] min-w-[min(11rem,100%)] shrink-0 *:data-[slot=select-value]:truncate',
             )}
             size="sm"
             title={selectedWorkspaceName ?? t`No workspace`}
           >
-            <FolderIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+            <FolderIcon
+              aria-hidden="true"
+              // Below 20rem the value needs the icon's room to keep "workspace" whole.
+              className={cn('size-3.5 text-muted-foreground', tight && 'max-[20rem]:hidden')}
+            />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

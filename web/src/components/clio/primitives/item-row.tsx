@@ -156,6 +156,13 @@ export const ItemRow = memo(
           stacks && '@max-sm:data-confirm:grid-cols-[var(--item-icon)_minmax(0,1fr)]!',
           // Stacked, an empty slot kept only for alignment gives its width to the name and status.
           stacks && !hasSlot && '@max-sm:[--item-slot:0px]!',
+          // With the actions over the status, a row with no slot drops that track and its gap,
+          // so a status word ("Αξιόπιστο") fits whole beside the dot.
+          stacks &&
+            overlay &&
+            !folds &&
+            !hasSlot &&
+            '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)]!',
           // Stacked, a labelled slot button takes its own line under the text, so its column goes too.
           stacks &&
             !floats &&
@@ -304,8 +311,9 @@ export const ItemRow = memo(
                   !folds &&
                   '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:row-[3] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:justify-self-end @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:pt-1',
                 // Over the end of the name's first line, as overlay actions sit over the status.
+                // One line tall (a 12.5px/1.4 line), so a wrapped name's second line stays clear.
                 floatsOverName &&
-                  '@max-sm:col-[2/-1] @max-sm:row-start-1 @max-sm:self-start @max-sm:justify-self-end @max-sm:bg-hover @max-sm:pl-1',
+                  '@max-sm:col-[2/-1] @max-sm:row-start-1 @max-sm:h-[1.09375rem] @max-sm:self-start @max-sm:justify-self-end @max-sm:bg-hover @max-sm:pl-1 @max-sm:[&_button]:h-full',
                 folds &&
                   '@xl:pointer-coarse:pointer-events-auto @xl:pointer-coarse:opacity-100 @max-sm:pointer-events-auto @max-sm:opacity-100 @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
                 folds &&
@@ -323,7 +331,7 @@ export const ItemRow = memo(
                   (hasSlot && !folds
                     ? '@max-sm:col-end-[-1] @max-sm:row-start-1'
                     : '@max-sm:row-span-2'),
-                floatsOverName && '@max-sm:hidden',
+                (floatsOverName || (overlay && !folds && !hasSlot)) && '@max-sm:hidden',
                 // A labelled button ("Update", "Change") gets a line of its own, start-aligned
                 // under the name and meta, so a localized label never squeezes the name. Its
                 // indent is a spacer that gives way first, so a label wider than the name column
