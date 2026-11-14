@@ -34,6 +34,15 @@ describe('paintVerdict', () => {
     expect(paintVerdict({ error: { reason: 'view_not_laid_out', message: '' } })).toBe('blank');
   });
 
+  it('reads chrome around a silent WebGL drawing as blank, and a near-empty picture too', () => {
+    const icons = shot({ svg: 2, canvas: 1 }, ['webgl_frame_not_redrawn']);
+    expect(paintVerdict(icons, 0.01)).toBe('blank');
+    expect(paintVerdict(icons, 0.2)).toBe('drawn');
+    expect(paintVerdict(shot({ svg: 1 }), 0.003)).toBe('blank');
+    expect(paintVerdict(shot({ svg: 1 }), 0.06)).toBe('drawn');
+    expect(paintVerdict(icons)).toBe('drawn');
+  });
+
   it('cannot tell when pixels are unreadable or the snapshot was refused', () => {
     expect(paintVerdict(shot({}, ['cross_origin_pixels']))).toBe('unknown');
     expect(paintVerdict({ error: { reason: 'snapshot_tainted', message: '' } })).toBe('unknown');

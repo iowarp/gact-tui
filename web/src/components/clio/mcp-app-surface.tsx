@@ -463,9 +463,9 @@ const McpAppSurfaceInstance = forwardRef<
       data-mcp-app-placement={placement}
       spacing={null}
     >
-      <FrameHeader className="flex-row items-center gap-2 border-b px-3 py-2">
+      <FrameHeader className="flex-row flex-wrap items-center gap-2 border-b px-3 py-2">
         <PanelsTopLeftIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-        <FrameTitle className="min-w-0 flex-1 truncate">{displayName}</FrameTitle>
+        <FrameTitle className="min-w-[7rem] flex-1 truncate">{displayName}</FrameTitle>
         {error ? (
           <ClioStatus label="Unavailable" value="unavailable" />
         ) : descriptor?.service_refusal ? (
