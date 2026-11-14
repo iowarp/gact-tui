@@ -1,25 +1,57 @@
+import { SearchIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import type { DiscoverItem, useDiscoverItems } from './extension-discover';
 import { ItemList } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { SettingsGroupLabel } from './settings-row';
-import { t } from '@lingui/core/macro';
+import { ph, t } from '@lingui/core/macro';
 
-/** The MCP Registry's servers in Discover, with paging (public metadata only). */
+/**
+ * The MCP Registry's servers in Discover, with paging (public metadata only). While the
+ * search field holds a query the Registry has not been searched for, the section is one
+ * explicit action, "Search the MCP Registry for …" (DC-D9); Enter in the field does the
+ * same, but is never the only way.
+ */
 export function McpRegistrySection({
   registry,
   items,
   renderItem,
   cursor,
   onCursor,
+  query = '',
+  searched = '',
+  onSearch,
 }: {
   registry: ReturnType<typeof useDiscoverItems>['registry'];
   items: DiscoverItem[];
   renderItem: (item: DiscoverItem) => ReactNode;
   cursor: string;
   onCursor: (cursor: string) => void;
+  /** What the search field holds. */
+  query?: string;
+  /** What the Registry was last searched for. */
+  searched?: string;
+  onSearch?: () => void;
 }) {
+  if (query && query !== searched && onSearch)
+    return (
+      <section aria-label={t`MCP Registry`}>
+        <SettingsGroupLabel>{t`MCP Registry`}</SettingsGroupLabel>
+        <Button
+          className="h-auto min-h-8 w-full justify-start gap-2 py-1.5 text-left whitespace-normal"
+          data-slot="registry-search"
+          onClick={onSearch}
+          size="sm"
+          variant="outline"
+        >
+          <SearchIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          <span className="min-w-0 break-words">
+            {t`Search the MCP Registry for “${ph({ query })}”`}
+          </span>
+        </Button>
+      </section>
+    );
   return (
     <section aria-label={t`MCP Registry`}>
       <SettingsGroupLabel>{t`MCP Registry`}</SettingsGroupLabel>

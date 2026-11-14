@@ -194,11 +194,56 @@ describe('Discover cards (DC)', { timeout: 20_000 }, () => {
 
   it('narrows the cards with the search, every match shown', async () => {
     const { user } = await openDiscover();
-    await user.click(screen.getByRole('button', { name: 'Search extensions' }));
-    await user.type(screen.getByPlaceholderText(/^Search/), 'format');
+    await user.type(screen.getByLabelText('Search extensions'), 'format');
     await waitFor(() => expect(screen.queryByRole('article', { name: 'Home hub' })).toBeNull());
     expect(screen.getAllByRole('article')).toHaveLength(6);
     expect(screen.queryByRole('button', { name: /Show all/ })).toBeNull();
+  });
+
+  it('keeps one plain search field beside the tabs, with a clear button only while it has text', async () => {
+    const { user } = await openDiscover();
+    const field = screen.getByLabelText('Search extensions') as HTMLInputElement;
+    expect(field.placeholder).toBe('Search plugins, connectors and skills');
+    expect(document.body.textContent).not.toContain('Enter for the registry');
+    // Its own full-width line where the list is narrow, beside the tabs where it is wide.
+    const form = field.closest('form')!;
+    expect(form.className).toContain('basis-full');
+    expect(form.className).toContain('@[52rem]/ext:flex-1');
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull();
+    await user.type(field, 'hub');
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(field.value).toBe('');
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull();
+    expect(screen.getAllByRole('article').length).toBeGreaterThan(1);
+  });
+
+  it('searches the MCP Registry only when asked: its row, or Enter', async () => {
+    const { user } = await openDiscover();
+    const field = screen.getByLabelText('Search extensions');
+    await user.type(field, 'hdf');
+    const row = await screen.findByRole('button', { name: 'Search the MCP Registry for “hdf”' });
+    expect(repository.discoverMcp).not.toHaveBeenCalledWith('hdf', expect.anything(), expect.anything());
+    await user.click(row);
+    await waitFor(() =>
+      expect(repository.discoverMcp).toHaveBeenCalledWith('hdf', '', expect.anything()),
+    );
+    expect(screen.queryByRole('button', { name: /Search the MCP Registry/ })).toBeNull();
+    // A new query offers the row again; Enter does the same as the row.
+    await user.type(field, '5');
+    expect(screen.getByRole('button', { name: 'Search the MCP Registry for “hdf5”' })).toBeTruthy();
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(repository.discoverMcp).toHaveBeenCalledWith('hdf5', '', expect.anything()),
+    );
+  });
+
+  it('draws Enable as a 32 px circle around a 16 px plus', async () => {
+    await openDiscover();
+    const button = within(card('Format 1')).getByRole('button', { name: 'Enable' });
+    expect(button.className).toContain('size-8');
+    expect(button.className).toContain('rounded-full');
+    expect(button.className).not.toMatch(/(^|\s)size-7(\s|$)/);
+    expect(button.querySelector('svg')!.getAttribute('class')).toContain('size-4');
   });
 
   it('lays out one column on a phone and two where the list is wide', async () => {

@@ -211,7 +211,7 @@ function ExtensionLibraryContents({
   };
 
   const { curated, registry, registryItems } = useDiscoverItems({
-    enabled: view === 'discover' && (type === 'all' || type === 'mcp'),
+    enabled: view === 'discover' && (type === 'all' || type === 'mcp') && registrySearch === term,
     search: registrySearch,
     cursor,
     onAdd: setAdding,
@@ -674,8 +674,14 @@ function ExtensionLibraryContents({
           cursor={cursor}
           items={registryItems}
           onCursor={setCursor}
+          onSearch={() => {
+            setRegistrySearch(term);
+            setCursor('');
+          }}
+          query={term}
           registry={registry}
           renderItem={discoverRow}
+          searched={registrySearch}
         />
       ) : null}
       {!shownCurated.length && !showRegistry ? (
@@ -697,9 +703,16 @@ function ExtensionLibraryContents({
       <ExtensionToolbar
         onAdd={setAdding}
         onAddMarketplace={manager.openInstall}
-        onSearchChange={setSearch}
+        onSearchChange={(next) => {
+          setSearch(next);
+          // An emptied field browses the Registry again instead of the last query's page.
+          if (!next.trim()) {
+            setRegistrySearch('');
+            setCursor('');
+          }
+        }}
         onSearchSubmit={(next) => {
-          setRegistrySearch(next);
+          setRegistrySearch(next.trim());
           setCursor('');
         }}
         onTypeChange={changeType}
@@ -726,6 +739,7 @@ function ExtensionLibraryContents({
   return (
     <div
       className="-mt-4 -mr-5 -mb-17 flex min-w-0 sm:-mr-7"
+      data-slot="extension-library"
       ref={paneRoot}
       style={
         paneHeight

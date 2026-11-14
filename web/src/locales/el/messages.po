@@ -9581,6 +9581,7 @@ msgstr "Εκκαθάριση φίλτρων"
 msgid "Clear measurement {number}"
 msgstr "Διαγραφή μέτρησης {number}"
 
+#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -9764,7 +9765,6 @@ msgid "Close review"
 msgstr "Κλείσιμο ελέγχου"
 
 #: src/components/clio/activity-timeline-list.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workbench-list-column.tsx
 #: src/components/clio/workbench-list-search.tsx
@@ -31054,7 +31054,6 @@ msgid "SDK Python interpreter"
 msgstr "Διερμηνέας Python του SDK"
 
 #: src/components/clio/desktop-title-bar.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/navigation-header.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -31259,6 +31258,10 @@ msgstr "Αναζήτηση οργανισμών…"
 msgid "Search past sessions"
 msgstr "Αναζήτηση σε προηγούμενες συνεδρίες"
 
+#: src/components/clio/extension-library-toolbar.tsx
+msgid "Search plugins, connectors and skills"
+msgstr "Αναζήτηση προσθέτων, συνδέσμων και δεξιοτήτων"
+
 #: src/components/clio/model-picker-search.tsx
 msgid "Search providers and models"
 msgstr "Αναζήτηση παρόχων και μοντέλων"
@@ -31344,6 +31347,10 @@ msgstr "Αναζήτηση εργασιών"
 msgid "Search the list"
 msgstr "Αναζήτηση στη λίστα"
 
+#: src/components/clio/extension-registry-section.tsx
+msgid "Search the MCP Registry for “{query}”"
+msgstr "Αναζήτηση του «{query}» στο MCP Registry"
+
 #: src/components/clio/latex-workspace.tsx
 msgid "Search the outline"
 msgstr "Αναζήτηση στη διάρθρωση"
@@ -31400,10 +31407,6 @@ msgstr "Αναζήτηση στο πλαίσιο του χώρου εργασί�
 #: src/components/clio/memory-scope-picker.tsx
 msgid "Search workspaces…"
 msgstr "Αναζήτηση χώρων εργασίας…"
-
-#: src/components/clio/extension-library-toolbar.tsx
-msgid "Search, Enter for the registry"
-msgstr "Αναζήτηση, Enter για το μητρώο"
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Search..."

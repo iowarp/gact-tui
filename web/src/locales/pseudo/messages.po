@@ -9573,6 +9573,7 @@ msgstr ""
 msgid "Clear measurement {number}"
 msgstr ""
 
+#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -9756,7 +9757,6 @@ msgid "Close review"
 msgstr ""
 
 #: src/components/clio/activity-timeline-list.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workbench-list-column.tsx
 #: src/components/clio/workbench-list-search.tsx
@@ -31037,7 +31037,6 @@ msgid "SDK Python interpreter"
 msgstr ""
 
 #: src/components/clio/desktop-title-bar.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/navigation-header.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -31242,6 +31241,10 @@ msgstr ""
 msgid "Search past sessions"
 msgstr ""
 
+#: src/components/clio/extension-library-toolbar.tsx
+msgid "Search plugins, connectors and skills"
+msgstr ""
+
 #: src/components/clio/model-picker-search.tsx
 msgid "Search providers and models"
 msgstr ""
@@ -31327,6 +31330,10 @@ msgstr ""
 msgid "Search the list"
 msgstr ""
 
+#: src/components/clio/extension-registry-section.tsx
+msgid "Search the MCP Registry for “{query}”"
+msgstr ""
+
 #: src/components/clio/latex-workspace.tsx
 msgid "Search the outline"
 msgstr ""
@@ -31382,10 +31389,6 @@ msgstr ""
 #: src/components/clio/memory-import-dialog.tsx
 #: src/components/clio/memory-scope-picker.tsx
 msgid "Search workspaces…"
-msgstr ""
-
-#: src/components/clio/extension-library-toolbar.tsx
-msgid "Search, Enter for the registry"
 msgstr ""
 
 #: src/components/reui/cascader/cascader-i18n.tsx

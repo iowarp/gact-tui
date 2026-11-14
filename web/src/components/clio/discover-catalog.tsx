@@ -240,7 +240,9 @@ function CardAction({
         {...(action.kind === 'setup'
           ? { 'aria-description': t`Opens the setup of ${ph({ name })}` }
           : {})}
-        className="rounded-full border border-border bg-background text-foreground"
+        // A 32 px circle around a 16 px plus drawn with a 2 px stroke: the glyph sits 7 px
+        // in from each side of the 1 px border, on whole pixels, so it is centred exactly.
+        className="size-8 rounded-full border border-border bg-background p-0 text-foreground active:not-aria-[haspopup]:translate-y-0"
         data-slot="discover-card-enable"
         disabledReason={
           supported === true
@@ -249,7 +251,7 @@ function CardAction({
               ? t`Enabling needs a newer agent service`
               : t`Checking the agent service…`
         }
-        icon={<AddIcon />}
+        icon={<AddIcon absoluteStrokeWidth className="size-4" strokeWidth={2} />}
         label={t`Enable`}
         onClick={action.kind === 'setup' ? onSetup : onEnable}
       />

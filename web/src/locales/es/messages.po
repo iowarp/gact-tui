@@ -9581,6 +9581,7 @@ msgstr "Borrar filtros"
 msgid "Clear measurement {number}"
 msgstr "Borrar la medición {number}"
 
+#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -9764,7 +9765,6 @@ msgid "Close review"
 msgstr "Cerrar la revisión"
 
 #: src/components/clio/activity-timeline-list.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workbench-list-column.tsx
 #: src/components/clio/workbench-list-search.tsx
@@ -31054,7 +31054,6 @@ msgid "SDK Python interpreter"
 msgstr "Intérprete de Python del SDK"
 
 #: src/components/clio/desktop-title-bar.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/navigation-header.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -31259,6 +31258,10 @@ msgstr "Buscar organizaciones…"
 msgid "Search past sessions"
 msgstr "Buscar en sesiones anteriores"
 
+#: src/components/clio/extension-library-toolbar.tsx
+msgid "Search plugins, connectors and skills"
+msgstr "Buscar complementos, conectores y habilidades"
+
 #: src/components/clio/model-picker-search.tsx
 msgid "Search providers and models"
 msgstr "Buscar proveedores y modelos"
@@ -31344,6 +31347,10 @@ msgstr "Buscar tareas"
 msgid "Search the list"
 msgstr "Buscar en la lista"
 
+#: src/components/clio/extension-registry-section.tsx
+msgid "Search the MCP Registry for “{query}”"
+msgstr "Buscar «{query}» en el MCP Registry"
+
 #: src/components/clio/latex-workspace.tsx
 msgid "Search the outline"
 msgstr "Buscar en el esquema"
@@ -31400,10 +31407,6 @@ msgstr "Buscar en el contexto del espacio de trabajo"
 #: src/components/clio/memory-scope-picker.tsx
 msgid "Search workspaces…"
 msgstr "Buscar espacios de trabajo…"
-
-#: src/components/clio/extension-library-toolbar.tsx
-msgid "Search, Enter for the registry"
-msgstr "Buscar; Enter para el registro"
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Search..."
