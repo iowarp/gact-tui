@@ -1,6 +1,15 @@
 import * as THREE from 'three';
 import { useQuery } from '@tanstack/react-query';
-import { BoxIcon, EyeOffIcon, FileBoxIcon, ImageIcon, LayersIcon, ScanIcon } from 'lucide-react';
+import {
+  BoxIcon,
+  EyeOffIcon,
+  FileBoxIcon,
+  ImageIcon,
+  LayersIcon,
+  PentagonIcon,
+  Rotate3dIcon,
+  ScanIcon,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -181,6 +190,7 @@ function CadModelView({
     if (!scene) return;
     // A new model starts whole, framed from the isometric view.
     scene.setMesh(shown, edgeColorForTheme());
+    scene.setEdgeOpacity(0.7);
     scene.frameBounds(shown.bounds, up);
   }, [scene, shown, up]);
   useEffect(() => {
@@ -239,7 +249,7 @@ function CadModelView({
       label: t`Show edges`,
       kind: 'view',
       selected: edges,
-      icon: ScanIcon,
+      icon: PentagonIcon,
       onSelect: () => setEdges((value) => !value),
     });
     if (multipart)
@@ -268,7 +278,10 @@ function CadModelView({
     ['right', t`Right`],
   ];
   return (
-    <div className="relative size-full min-h-0 overflow-hidden bg-muted/40" data-slot="cad-view">
+    <div
+      className="@container relative size-full min-h-0 overflow-hidden bg-muted/40"
+      data-slot="cad-view"
+    >
       <ViewerToolbarContent>
         <ToolbarAction label={t`Fit to view`} onClick={() => bounds && scene?.fit(bounds)}>
           <ScanIcon aria-hidden="true" />
@@ -276,7 +289,7 @@ function CadModelView({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <ToolbarAction label={t`Standard views`}>
-              <BoxIcon aria-hidden="true" />
+              <Rotate3dIcon aria-hidden="true" />
             </ToolbarAction>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -294,6 +307,13 @@ function CadModelView({
         className="absolute inset-0 cursor-grab active:cursor-grabbing"
         role="img"
       />
+      {/* The frame bar folds its facts away when narrow; the size stays readable here. */}
+      <p
+        className="pointer-events-none absolute bottom-2 left-2 rounded-sm bg-background/80 px-1.5 py-0.5 text-caption text-muted-foreground tabular-nums @2xl:hidden"
+        data-slot="cad-size"
+      >
+        {sizeFact}
+      </p>
       {multipart && partsOpen ? (
         <section
           aria-label={t`Parts`}

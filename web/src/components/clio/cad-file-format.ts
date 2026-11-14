@@ -21,14 +21,3 @@ export function cadFormatOf(path: string): MeshFormat | undefined {
   if (!base.includes('.')) return undefined;
   return CAD_FORMATS[base.split('.').at(-1)!.toLowerCase()];
 }
-
-/** The media type the viewer reports for a 3D file, used where a listing gives none. */
-export const CAD_MEDIA_TYPES: Partial<Record<MeshFormat, string>> = {
-  step: 'model/step',
-  stl: 'model/stl',
-  '3mf': 'model/3mf',
-  obj: 'model/obj',
-  glb: 'model/gltf-binary',
-  gltf: 'model/gltf+json',
-  ply: 'application/octet-stream',
-};

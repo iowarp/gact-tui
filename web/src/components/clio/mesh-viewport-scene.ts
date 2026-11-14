@@ -206,6 +206,12 @@ export class MeshViewportScene {
     return selection;
   }
 
+  /** How strongly the feature edges show (0 to 1); a CAD part reads its edges at about half. */
+  public setEdgeOpacity(opacity: number): void {
+    this.edgeMaterial.opacity = opacity;
+    this.requestRender();
+  }
+
   /** Show or hide the feature edges drawn over the faces. */
   public setEdgesShown(shown: boolean): void {
     this.edgesShown = shown;
