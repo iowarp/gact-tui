@@ -402,7 +402,12 @@ export function ModelServerRow({
       status={
         // A live status: a check that changes the state is announced.
         <span className="flex min-w-0" role="status" title={state.hint}>
-          <StatusIndicator label={state.label} tone={state.tone} />
+          {/* A long localized status wraps inside its column rather than ending in an ellipsis. */}
+          <StatusIndicator
+            className="[&>span:last-child]:break-words [&>span:last-child]:whitespace-normal [&>span:last-child]:[word-break:auto-phrase]"
+            label={state.label}
+            tone={state.tone}
+          />
         </span>
       }
       statusWidth={158}

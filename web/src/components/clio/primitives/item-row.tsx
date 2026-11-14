@@ -249,6 +249,9 @@ export const ItemRow = memo(
                 stacks && '@max-sm:col-start-2 @max-sm:row-start-2',
                 // Beside a slot button, the status line runs under it too, so its words stay whole.
                 stacks && hasSlot && !folds && '@max-sm:col-[2/-1]',
+                // A folded ⋯ beside a labelled button's own line keeps to the name, so the status runs under it.
+                folds &&
+                  '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1]',
                 // On its own line, a long localized status wraps rather than clipping.
                 stacks &&
                   '@max-sm:[&_[data-slot=status-indicator]>span]:break-words @max-sm:[&_[data-slot=status-indicator]>span]:whitespace-normal @max-sm:[&_[data-slot=status-indicator]>span]:[word-break:auto-phrase]',
@@ -272,6 +275,8 @@ export const ItemRow = memo(
                   '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:row-[3] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:justify-self-end @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:pt-1',
                 folds &&
                   '@xl:pointer-coarse:pointer-events-auto @xl:pointer-coarse:opacity-100 @max-sm:pointer-events-auto @max-sm:opacity-100 @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
+                folds &&
+                  '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:row-span-1',
               )}
               data-slot="item-row-actions"
             >
