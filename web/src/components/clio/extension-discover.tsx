@@ -1,25 +1,13 @@
-import type {
-  McpRegistryPage,
-  PluginEntry,
-  PluginMarketplace,
-  SavedMcpService,
-} from '@clio/core/v3';
+import type { McpRegistryPage } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { BoxIcon, GlobeIcon, LayersIcon, PlugIcon, SparklesIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
-import {
-  shortSource,
-  type ExtensionMetaPart,
-  type ExtensionType,
-} from '@/lib/extension-library-entries';
+import type { ExtensionMetaPart, ExtensionType } from '@/lib/extension-library-entries';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import type { ExtensionAdd } from './extension-add-dialog';
 import { t } from '@lingui/core/macro';
-
-const HA_SKILLS = 'https://github.com/homeassistant-ai/skills';
-const HA_MCP = 'https://github.com/homeassistant-ai/ha-mcp';
 
 /** A suggestion or MCP Registry server before it is installed. */
 export interface DiscoverItem {
@@ -31,11 +19,7 @@ export interface DiscoverItem {
   source?: string;
   detail?: string;
   types: ExtensionType[];
-  /** Suggested in Yours while it is not installed. */
-  suggested?: boolean;
-  installed?: boolean;
-  /** `opensOnly` actions only show what is installed, so they work without plugin support. */
-  action: { label: string; run: () => void; opensOnly?: boolean };
+  action: { label: string; run: () => void };
 }
 
 export function registryChoice(server: McpRegistryPage['servers'][number]['server']): ExtensionAdd {
@@ -62,30 +46,23 @@ export function registryChoice(server: McpRegistryPage['servers'][number]['serve
 }
 
 /**
- * What Discover offers: curated starting points that know whether they are
- * installed, then one page of the public MCP Registry.
+ * What Discover offers besides the catalog's plugins (listed from the connector catalog
+ * by the library, PL-D1): curated starting points, then one page of the public MCP
+ * Registry. Home Assistant is a catalog plugin now, not a hard-coded suggestion.
  */
 export function useDiscoverItems({
   enabled,
   search,
   cursor,
-  plugins,
-  marketplaces,
-  services,
   onAdd,
   onAddMarketplace,
-  onViewSkill,
 }: {
   /** Browse the registry: Discover with All or MCP connections in view. */
   enabled: boolean;
   search: string;
   cursor: string;
-  plugins: readonly PluginEntry[];
-  marketplaces: readonly PluginMarketplace[];
-  services: readonly SavedMcpService[];
   onAdd: (choice: ExtensionAdd) => void;
   onAddMarketplace: () => void;
-  onViewSkill: (plugin: PluginEntry, skill: string) => void;
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -97,52 +74,7 @@ export function useDiscoverItems({
     staleTime: 60_000,
     retry: false,
   });
-  const haSource = marketplaces.find((row) => shortSource(row.source) === shortSource(HA_SKILLS));
-  const haSkill = plugins.find(
-    (row) => row.marketplace === haSource?.name && row.id === 'home-assistant-skills',
-  );
-  const haConnected = services.some((row) =>
-    /home.?assistant/iu.test(`${row.name} ${row.label ?? ''}`),
-  );
   const curated: DiscoverItem[] = [
-    {
-      key: 'home-assistant-skills',
-      title: t`Home Assistant skills`,
-      icon: <LayersIcon />,
-      meta: [
-        { text: t`Plugin` },
-        { text: t`Agent Skills` },
-        { text: shortSource(HA_SKILLS), mono: true },
-      ],
-      description: t`Best practices, dashboards, automations and reference files from homeassistant-ai.`,
-      source: HA_SKILLS,
-      types: ['all', 'plugins', 'skills'],
-      suggested: true,
-      installed: Boolean(haSkill),
-      action: haSkill
-        ? {
-            label: t`View`,
-            opensOnly: true,
-            run: () => onViewSkill(haSkill, 'home-assistant-best-practices'),
-          }
-        : {
-            label: t`Install`,
-            run: () => onAdd({ kind: 'import', category: 'skills', source: HA_SKILLS }),
-          },
-    },
-    {
-      key: 'home-assistant-mcp',
-      title: t`Home Assistant MCP`,
-      icon: <GlobeIcon />,
-      meta: [{ text: t`MCP connection` }, { text: shortSource(HA_MCP), mono: true }],
-      description: t`Connect your Home Assistant deployment, or run the ha-mcp package on the agent host.`,
-      source: HA_MCP,
-      types: ['all', 'mcp'],
-      suggested: true,
-      installed: haConnected,
-      // i18n-ignore: product name for the new connection
-      action: { label: t`Install`, run: () => onAdd({ kind: 'remote', title: 'Home Assistant' }) },
-    },
     {
       key: 'own-plugin',
       title: t`Bring your own plugin`,

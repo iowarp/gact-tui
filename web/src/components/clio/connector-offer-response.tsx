@@ -4,6 +4,7 @@ import { lazy, Suspense, useState } from 'react';
 import { useConnector, useSessionConnector } from '@/hooks/use-connectors';
 import { usePluginCatalog } from '@/hooks/use-session-agent';
 import { conversationAnswer, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
+import { bringsMoreThanItsServer } from '@/lib/connector-plugin';
 import { humanizePluginId } from '@/lib/plugin-presentation';
 import { offerContentsLine } from '@/lib/plugin-offer-contents';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,9 @@ import { sentenceGap } from '@/lib/locale-format';
 const PluginExplorer = lazy(() =>
   import('./plugin-explorer').then((module) => ({ default: module.PluginExplorer })),
 );
+const ConnectorViewDialog = lazy(() =>
+  import('./connector-view-dialog').then((module) => ({ default: module.ConnectorViewDialog })),
+);
 
 /**
  * The agent offers to add a connector or a plugin to this conversation (discovery).
@@ -26,7 +30,8 @@ const PluginExplorer = lazy(() =>
  * what it is (its own description, one line, the whole on expand); why (the agent's
  * reason, one line); Add, Not now, what it brings in words ("Brings 1 skill and 1 MCP
  * server (13 tools) to this conversation"), a quiet "View plugin" that opens the
- * plugin explorer over the conversation (the card stays), and "Settings (n)" when the
+ * plugin explorer over the conversation (the card stays; "View connector" and the
+ * connector's own pane for a connector, PL-D1), and "Settings (n)" when the
  * connector has optional settings. Required needs show only when there are some. Add
  * puts it in this conversation only, turning a connector on first when it is off, and
  * the agent's request continues; Not now refuses.
@@ -76,6 +81,10 @@ export function ConnectorOfferResponse({
     plugin ? null : { id, tool_count: connector?.tool_count ?? null },
   );
   const on = connector?.enabled ?? payload?.connector_enabled ?? false;
+  // A connector is viewed as a connector; a plugin (one that brings skills) as a plugin
+  // (PL-D1): a carrier's files and `connector-<id>` never reach the person.
+  const plainConnector =
+    !plugin && Boolean(connector) && !(entry && bringsMoreThanItsServer(entry, id));
   const unfilled = unfilledRequired(rows, draft);
   const required = rows.filter((need) => need.required);
   const optional = rows.filter((need) => !need.required);
@@ -219,7 +228,7 @@ export function ConnectorOfferResponse({
             >
               {contents}
             </span>
-            {entry ? (
+            {entry || plainConnector ? (
               <button
                 aria-haspopup="dialog"
                 className="flex h-7 w-fit shrink-0 items-center rounded-[4px] px-1 text-xs whitespace-nowrap text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -227,7 +236,7 @@ export function ConnectorOfferResponse({
                 onClick={() => setExploring(true)}
                 type="button"
               >
-                {t`View plugin`}
+                {plainConnector ? t`View connector` : t`View plugin`}
               </button>
             ) : null}
             {optional.length ? (
@@ -254,7 +263,13 @@ export function ConnectorOfferResponse({
           </AskSection>
         ) : null}
       </AskCard>
-      {exploring && entry ? (
+      {exploring && plainConnector && connector ? (
+        <div className="contents" onKeyDown={(event) => event.stopPropagation()}>
+          <Suspense fallback={null}>
+            <ConnectorViewDialog connector={connector} onClose={() => setExploring(false)} />
+          </Suspense>
+        </div>
+      ) : exploring && entry ? (
         // Outside the card, and its keys stop here: Escape closes the explorer and never
         // answers the offer, which stays for Add once the person has looked.
         <div className="contents" onKeyDown={(event) => event.stopPropagation()}>

@@ -882,6 +882,11 @@ msgstr ""
 msgid "{0, plural, one {Showing the first # item. {agent} can read the whole folder.} other {Showing the first # items. {agent} can read the whole folder.}}"
 msgstr ""
 
+#. placeholder {0}: skills.length
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "{0, plural, one {Skill} other {Skills}}"
+msgstr ""
+
 #. placeholder {0}: members.length
 #: src/hooks/use-flow-presentation.ts
 msgid "{0, plural, one {The {flow} flow's # call as it ran: {calls}} other {The {flow} flow's # calls as they ran: {calls}}}"
@@ -2020,6 +2025,10 @@ msgstr ""
 msgid "{from} - {to} of {recordCount}"
 msgstr ""
 
+#: src/lib/plugin-presentation.ts
+msgid "{heading} ({count})"
+msgstr ""
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "{heading} 3D view"
 msgstr ""
@@ -2038,6 +2047,14 @@ msgstr ""
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "{heading}, geometry only"
+msgstr ""
+
+#: src/lib/plugin-presentation.ts
+msgid "{heading}: {list}"
+msgstr ""
+
+#: src/lib/plugin-presentation.ts
+msgid "{heading}: {list} ({count})"
 msgstr ""
 
 #: src/components/clio/global-search-results.tsx
@@ -2707,6 +2724,10 @@ msgstr ""
 msgid "{n, plural, one {Refine, up to # try} other {Refine, up to # tries}}"
 msgstr ""
 
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "{name} ({count})"
+msgstr ""
+
 #: src/components/clio/flow-railroad.ts
 msgid "{name} (fork of {forkOf})"
 msgstr ""
@@ -2920,6 +2941,10 @@ msgid "{name} was not added"
 msgstr ""
 
 #: src/components/clio/agent-composition-view.tsx
+msgid "{name} was not added back"
+msgstr ""
+
+#: src/components/clio/agent-composition-view.tsx
 msgid "{name} was not removed"
 msgstr ""
 
@@ -2941,6 +2966,10 @@ msgstr ""
 
 #: src/components/clio/document-pdf-viewer.tsx
 msgid "{name}, page {currentPage} of {pageCount}"
+msgstr ""
+
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "{name}, tools listed once enabled"
 msgstr ""
 
 #: src/components/clio/flow-railroad.ts
@@ -3079,10 +3108,6 @@ msgstr ""
 
 #: src/components/clio/agent-package-items.ts
 msgid "{plugin} tools"
-msgstr ""
-
-#: src/components/clio/agent-composition-view.tsx
-msgid "{plugin} was not added back"
 msgstr ""
 
 #: src/components/clio/a2ui-carousel.tsx
@@ -3874,10 +3899,15 @@ msgstr ""
 msgid "{toolName}: {list}"
 msgstr ""
 
+#: src/lib/plugin-presentation.ts
+msgid "{tools, plural, one {# new tool} other {# new tools}}"
+msgstr ""
+
 #: src/offline-review.tsx
 msgid "{tools, plural, one {# tool record} other {# tool records}}"
 msgstr ""
 
+#: src/components/clio/connector-plugin-contents.tsx
 #: src/lib/transcript-message-preview.ts
 msgid "{tools, plural, one {# tool} other {# tools}}"
 msgstr ""
@@ -3888,14 +3918,6 @@ msgstr ""
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "{tools, plural, one {called # tool} other {called # tools}}"
-msgstr ""
-
-#: src/lib/plugin-presentation.ts
-msgid "{tools, plural, one {Plugins changed (# new tool)} other {Plugins changed (# new tools)}}"
-msgstr ""
-
-#: src/lib/plugin-presentation.ts
-msgid "{tools, plural, one {Plugins changed: {list} (# new tool)} other {Plugins changed: {list} (# new tools)}}"
 msgstr ""
 
 #: src/lib/plugin-presentation.ts
@@ -4391,6 +4413,10 @@ msgstr ""
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
+msgstr ""
+
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "A plugin with {kinds}. Adding it to a conversation brings both."
 msgstr ""
 
 #: src/lib/onboarding/tour-script.ts
@@ -5312,12 +5338,12 @@ msgstr ""
 msgid "Added {name}"
 msgstr ""
 
-#: src/components/clio/ndp-browser-tab.tsx
-msgid "Added {name} to the message."
+#: src/components/clio/agent-composition-view.tsx
+msgid "Added {name} back"
 msgstr ""
 
-#: src/components/clio/agent-composition-view.tsx
-msgid "Added {plugin} back"
+#: src/components/clio/ndp-browser-tab.tsx
+msgid "Added {name} to the message."
 msgstr ""
 
 #: src/components/clio/flow-run-edits.ts
@@ -5411,11 +5437,11 @@ msgid "Adds"
 msgstr ""
 
 #: src/components/clio/agent-composition-view.tsx
-msgid "Adds {name} to this conversation."
+msgid "Adds {name} back to this conversation."
 msgstr ""
 
 #: src/components/clio/agent-composition-view.tsx
-msgid "Adds {plugin} back to this conversation."
+msgid "Adds {name} to this conversation."
 msgstr ""
 
 #: src/lib/plugin-offer-contents.ts
@@ -5584,7 +5610,6 @@ msgstr ""
 msgid "Agent for this conversation"
 msgstr ""
 
-#: src/components/clio/connector-pane.tsx
 #: src/gallery-skill-dialog.tsx
 #: src/widget-preview-app.tsx
 msgid "Agent guidance"
@@ -5642,10 +5667,6 @@ msgstr ""
 
 #: src/components/clio/settings-about.tsx
 msgid "Agent service version"
-msgstr ""
-
-#: src/components/clio/extension-discover.tsx
-msgid "Agent Skills"
 msgstr ""
 
 #: src/lib/variant-runs.ts
@@ -7449,10 +7470,6 @@ msgstr ""
 
 #: src/lib/variant-runs.ts
 msgid "Best of several"
-msgstr ""
-
-#: src/components/clio/extension-discover.tsx
-msgid "Best practices, dashboards, automations and reference files from homeassistant-ai."
 msgstr ""
 
 #: src/components/clio/settings-app-updates.tsx
@@ -10452,10 +10469,6 @@ msgstr ""
 msgid "Connect vault"
 msgstr ""
 
-#: src/components/clio/extension-discover.tsx
-msgid "Connect your Home Assistant deployment, or run the ha-mcp package on the agent host."
-msgstr ""
-
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/connected-source-detail.tsx
 #: src/components/clio/infrastructure-hosts.tsx
@@ -10661,6 +10674,7 @@ msgstr ""
 msgid "Connections from this client to the agent and managed computers"
 msgstr ""
 
+#: src/components/clio/agent-plugin-menu.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Connector"
 msgstr ""
@@ -10669,16 +10683,25 @@ msgstr ""
 msgid "Connector ({origin})"
 msgstr ""
 
-#: src/components/clio/extension-library.tsx
-msgid "Connector catalog"
+#: src/components/clio/connector-pane.tsx
+msgid "Connector (an MCP server)"
+msgstr ""
+
+#: src/components/clio/connector-view-dialog.tsx
+msgid "Connector details"
 msgstr ""
 
 #: src/lib/plugin-presentation.ts
 msgid "Connector you added"
 msgstr ""
 
+#: src/components/clio/agent-plugin-menu.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Connectors"
+msgstr ""
+
+#: src/lib/plugin-presentation.ts
+msgid "Connectors changed"
 msgstr ""
 
 #: src/components/clio/extension-library.tsx
@@ -16797,14 +16820,6 @@ msgstr ""
 msgid "Home"
 msgstr ""
 
-#: src/components/clio/extension-discover.tsx
-msgid "Home Assistant MCP"
-msgstr ""
-
-#: src/components/clio/extension-discover.tsx
-msgid "Home Assistant skills"
-msgstr ""
-
 #: src/components/clio/connect-address.tsx
 msgid "Homelab"
 msgstr ""
@@ -16952,10 +16967,6 @@ msgstr ""
 
 #: src/components/clio/source-detail-access.tsx
 msgid "How to use this folder"
-msgstr ""
-
-#: src/components/clio/connector-pane.tsx
-msgid "How to work with {name}"
 msgstr ""
 
 #: src/components/clio/dashboard-view.tsx
@@ -18604,6 +18615,7 @@ msgstr ""
 msgid "Keys and sign-ins"
 msgstr ""
 
+#: src/components/clio/connector-pane.tsx
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-prompts.tsx
@@ -20374,6 +20386,7 @@ msgid "MCP Registry servers"
 msgstr ""
 
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/connector-plugin-contents.tsx
 #: src/lib/mcp-service-presentation.ts
 msgid "MCP server"
 msgstr ""
@@ -21387,6 +21400,7 @@ msgstr ""
 msgid "Needed by the agent"
 msgstr ""
 
+#: src/lib/connector-plugin.ts
 #: src/lib/connector-presentation.ts
 msgid "Needs {needs}"
 msgstr ""
@@ -24931,6 +24945,7 @@ msgstr ""
 msgid "Packages"
 msgstr ""
 
+#: src/components/clio/agent-plugin-menu.tsx
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Packs"
 msgstr ""
@@ -25582,6 +25597,7 @@ msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr ""
 
 #: src/components/clio/connector-offer-response.tsx
+#: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/extension-library-entries.ts
@@ -25651,13 +25667,17 @@ msgstr ""
 msgid "Plugins"
 msgstr ""
 
+#: src/lib/plugin-presentation.ts
+msgid "Plugins and connectors changed"
+msgstr ""
+
+#: src/components/clio/extension-library.tsx
+msgid "Plugins and connectors to enable"
+msgstr ""
+
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/lib/plugin-presentation.ts
 msgid "Plugins changed"
-msgstr ""
-
-#: src/lib/plugin-presentation.ts
-msgid "Plugins changed: {list}"
 msgstr ""
 
 #: src/components/clio/installed-plugin-list.tsx
@@ -25674,6 +25694,10 @@ msgstr ""
 
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
+msgstr ""
+
+#: src/components/clio/extension-library.tsx
+msgid "Plugins to enable"
 msgstr ""
 
 #: src/components/reui/time-picker.tsx
@@ -27154,6 +27178,7 @@ msgstr ""
 #: src/hooks/use-connection-availability.ts
 #: src/hooks/use-known-connections.ts
 #: src/lib/connector-presentation.ts
+#: src/lib/extension-library-entries.ts
 #: src/routes/infrastructure-foundation.ts
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Ready"
@@ -39839,7 +39864,6 @@ msgid "Video unavailable"
 msgstr ""
 
 #: src/components/clio/desktop-title-bar.tsx
-#: src/components/clio/extension-discover.tsx
 #: src/components/clio/science-log-model.ts
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/workbench-list-column.tsx
@@ -39873,6 +39897,10 @@ msgstr ""
 
 #: src/components/clio/activity-row.tsx
 msgid "View command, input, result, and timing"
+msgstr ""
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "View connector"
 msgstr ""
 
 #: src/components/clio/mcp-app-surface.tsx
@@ -40336,6 +40364,10 @@ msgstr ""
 
 #: src/components/clio/flow-run-view.tsx
 msgid "What happened, in order ({count})"
+msgstr ""
+
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "What it brings"
 msgstr ""
 
 #: src/components/clio/plugin-review-dialog.tsx

@@ -45,14 +45,23 @@ export function resolvedPluginName(plugin: Pick<ResolvedPlugin, 'id' | 'connecto
   return plugin.connector?.name || plugin.id;
 }
 
-/** An active plugin's origin in words; a connector's plugin says it is a connector. */
-export function resolvedPluginOrigin(plugin: Pick<ResolvedPlugin, 'provenance' | 'connector'>) {
+/**
+ * An active plugin's origin in words. A connector added through its carrier says it is a
+ * connector; a plugin that bundles a connector is a plugin like any other (PL-D1), named
+ * by its connector, its origin read as any plugin's.
+ */
+export function resolvedPluginOrigin(
+  plugin: Pick<ResolvedPlugin, 'id' | 'provenance' | 'connector'>,
+) {
   const label = provenanceLabel(plugin.provenance);
-  if (!plugin.connector) return label;
+  if (!plugin.connector || !plugin.id.startsWith(CONNECTOR_CARRIER_PREFIX)) return label;
   return plugin.provenance.source === 'user'
     ? t`Connector you added`
     : t`Connector (${ph({ origin: label.toLowerCase() })})`;
 }
+
+/** The id prefix of the carrier plugin CLIO builds for a connector with no plugin. */
+const CONNECTOR_CARRIER_PREFIX = 'connector-';
 
 /** A longer explanation for the provenance badge's tooltip. */
 export function provenanceDetail(provenance: PluginProvenance): string {
@@ -347,6 +356,7 @@ export function humanizePluginId(id: string): string {
 export function pluginNameResolver(
   plugins: readonly Pick<PluginEntry, 'id' | 'follows'>[] | undefined,
   connectors: readonly Pick<Connector, 'id' | 'name' | 'plugin'>[] | undefined,
+  fallback: (id: string) => string = humanizePluginId,
 ): (id: string) => string {
   const names = new Map<string, string>();
   for (const connector of connectors ?? []) {
@@ -357,30 +367,61 @@ export function pluginNameResolver(
     const followed = connectors?.find((connector) => connector.id === plugin.follows);
     if (followed) names.set(plugin.id, followed.name);
   }
-  return (id) => names.get(id) ?? humanizePluginId(id);
+  return (id) => names.get(id) ?? fallback(id);
 }
 
-/** "Plugins changed: +Shell, −Document runtime (2 new tools)", or "Plugins changed". */
+/** What a changed id is, for the person (PL-D1): a connector, or a plugin. */
+export type PluginKind = 'connector' | 'plugin';
+
+/**
+ * Whether an id names a connector or a plugin, for the person (PL-D1). The carrier CLIO
+ * builds for a connector (`connector-<id>`) and a following plugin that brings nothing
+ * but its connector's server are connectors; everything else is a plugin.
+ */
+export function pluginKindResolver(
+  plugins:
+    | readonly Pick<PluginEntry, 'id' | 'follows' | 'skills' | 'mcp_servers' | 'tools'>[]
+    | undefined,
+  connectors: readonly Pick<Connector, 'id'>[] | undefined,
+): (id: string) => PluginKind {
+  const kinds = new Map<string, PluginKind>();
+  for (const connector of connectors ?? []) kinds.set(`connector-${connector.id}`, 'connector');
+  for (const plugin of plugins ?? []) {
+    if (!plugin.follows) continue;
+    const more =
+      plugin.skills.length > 0 ||
+      plugin.tools.length > 0 ||
+      plugin.mcp_servers.some((name) => name !== plugin.follows);
+    kinds.set(plugin.id, more ? 'plugin' : 'connector');
+  }
+  return (id) => kinds.get(id) ?? (id.startsWith('connector-') ? 'connector' : 'plugin');
+}
+
+/**
+ * "Plugins changed: +Shell, −Document runtime (2 new tools)", "Connectors changed:
+ * +SPICE (8 new tools)" when every change is a connector (PL-D1), or "Plugins changed".
+ */
 export function pluginChangeLabel(
   text: string,
   nameOf: (id: string) => string = humanizePluginId,
+  kindOf: (id: string) => PluginKind = () => 'plugin',
 ): string {
   const { added, removed } = pluginChangeSummary(text);
   const items = [
     ...new Set([...added.map((id) => `+${nameOf(id)}`), ...removed.map((id) => `−${nameOf(id)}`)]),
   ];
+  const kinds = new Set([...added, ...removed].map(kindOf));
+  const heading =
+    kinds.size === 1 && kinds.has('connector')
+      ? t`Connectors changed`
+      : kinds.size > 1
+        ? t`Plugins and connectors changed`
+        : t`Plugins changed`;
   const tools = pluginChangeTools(text).length;
   const list = items.join(', ');
-  if (items.length && tools)
-    return plural(tools, {
-      one: `Plugins changed: ${list} (# new tool)`,
-      other: `Plugins changed: ${list} (# new tools)`,
-    });
-  if (items.length) return t`Plugins changed: ${list}`;
-  if (tools)
-    return plural(tools, {
-      one: 'Plugins changed (# new tool)',
-      other: 'Plugins changed (# new tools)',
-    });
-  return t`Plugins changed`;
+  const count = tools ? plural(tools, { one: '# new tool', other: '# new tools' }) : '';
+  if (items.length && tools) return t`${ph({ heading })}: ${ph({ list })} (${ph({ count })})`;
+  if (items.length) return t`${ph({ heading })}: ${ph({ list })}`;
+  if (tools) return t`${ph({ heading })} (${ph({ count })})`;
+  return heading;
 }
