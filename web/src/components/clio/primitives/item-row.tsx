@@ -143,6 +143,12 @@ export const ItemRow = memo(
           stacks &&
             !floats &&
             '@max-sm:has-[[data-slot=item-row-slot]_[data-slot=button]]:[--item-slot:0px]!',
+          // Hidden actions in their own column join that line too, so the name gets their width.
+          stacks &&
+            !floats &&
+            !overlay &&
+            !folds &&
+            '@max-sm:has-[[data-slot=item-row-slot]_[data-slot=button]]:[--item-actions:0px]!',
           // Floating actions: the name, then a slot that is only as wide as its content.
           floats && 'grid-cols-[var(--item-icon)_minmax(0,1fr)_auto]!',
           size === 'line'
@@ -243,6 +249,12 @@ export const ItemRow = memo(
                 stacks && '@max-sm:col-start-2 @max-sm:row-start-2',
                 // Beside a slot button, the status line runs under it too, so its words stay whole.
                 stacks && hasSlot && !folds && '@max-sm:col-[2/-1]',
+                // A folded ⋯ beside a labelled button's own line keeps to the name, so the status runs under it.
+                folds &&
+                  '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1]',
+                // On its own line, a long localized status wraps rather than clipping.
+                stacks &&
+                  '@max-sm:[&_[data-slot=status-indicator]>span]:break-words @max-sm:[&_[data-slot=status-indicator]>span]:whitespace-normal @max-sm:[&_[data-slot=status-indicator]>span]:[word-break:auto-phrase]',
               )}
               data-slot="item-row-status"
             >
@@ -256,8 +268,15 @@ export const ItemRow = memo(
                 // In the status cell, over its words; stacked, the status line under the name.
                 overlay && '@max-xl:col-start-3 @max-xl:row-start-1 @max-xl:bg-hover @max-xl:pl-1',
                 overlay && stacks && !folds && '@max-sm:col-start-2 @max-sm:row-start-2',
+                // Beside a labelled slot button on its own line, at that line's end.
+                stacks &&
+                  !overlay &&
+                  !folds &&
+                  '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:row-[3] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:justify-self-end @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:pt-1',
                 folds &&
                   '@xl:pointer-coarse:pointer-events-auto @xl:pointer-coarse:opacity-100 @max-sm:pointer-events-auto @max-sm:opacity-100 @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
+                folds &&
+                  '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:row-span-1',
               )}
               data-slot="item-row-actions"
             >
@@ -274,7 +293,7 @@ export const ItemRow = memo(
                 // A labelled button ("Update", "Change") gets a line of its own, start-aligned
                 // under the name and meta, so a localized label never squeezes the name.
                 stacks &&
-                  '@max-sm:has-[[data-slot=button]]:col-[2/-1] @max-sm:has-[[data-slot=button]]:row-[3] @max-sm:has-[[data-slot=button]]:justify-start @max-sm:has-[[data-slot=button]]:pt-1',
+                  '@max-sm:has-[[data-slot=button]]:col-[2/-1] @max-sm:has-[[data-slot=button]]:row-[3] @max-sm:has-[[data-slot=button]]:justify-self-start @max-sm:has-[[data-slot=button]]:pt-1',
               )}
               data-slot="item-row-slot"
             >

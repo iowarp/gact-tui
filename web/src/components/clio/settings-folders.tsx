@@ -378,11 +378,11 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
           )}
         </ItemList>
         <p
-          className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
+          className="flex min-h-[1.875rem] min-w-0 items-center gap-2 py-1 text-xs text-muted-foreground"
           data-slot="folders-note"
         >
           <InfoIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
-          <span className="min-w-0 truncate">
+          <span className="min-w-0 break-words [word-break:auto-phrase]">
             {t`Running tools pick up folder changes when they finish.`}
           </span>
         </p>
