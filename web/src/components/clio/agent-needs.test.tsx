@@ -170,6 +170,9 @@ describe('the agent-load card', () => {
       'turns it on, needs your address',
     );
     expect(screen.getByLabelText(/Your address/u)).toBeTruthy();
+    expect(
+      screen.getByText('Not now: EarthScope works without it and can offer it later.'),
+    ).toBeTruthy();
   });
 
   it('says each item’s progress in words while it works and when it is done', async () => {

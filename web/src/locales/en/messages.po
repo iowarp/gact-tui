@@ -812,6 +812,11 @@ msgstr "{0, plural, one {Message attachment} other {# message attachments}}"
 msgid "{0, plural, one {Messages from # background script} other {Messages from # background scripts}}"
 msgstr "{0, plural, one {Messages from # background script} other {Messages from # background scripts}}"
 
+#. placeholder {0}: items.length
+#: src/components/clio/agent-needs-response.tsx
+msgid "{0, plural, one {Not now: {agent} works without it and can offer it later.} other {Not now: {agent} works without them and can offer them later.}}"
+msgstr "{0, plural, one {Not now: {agent} works without it and can offer it later.} other {Not now: {agent} works without them and can offer them later.}}"
+
 #. placeholder {0}: dependents.length
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "{0, plural, one {One more plugin leaves with {named}:} other {# more plugins leave with {named}:}}"
@@ -23315,10 +23320,6 @@ msgstr "Not now"
 #: src/tauri/native-copy.ts
 msgid "Not Now"
 msgstr "Not Now"
-
-#: src/components/clio/agent-needs-response.tsx
-msgid "Not now: {agent} works without them and can offer them later."
-msgstr "Not now: {agent} works without them and can offer them later."
 
 #: src/components/clio/settings-models-rows.tsx
 msgid "Not offered"

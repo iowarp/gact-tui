@@ -812,6 +812,11 @@ msgstr "{0, plural, one {Συνημμένο μηνύματος} other {# συν�
 msgid "{0, plural, one {Messages from # background script} other {Messages from # background scripts}}"
 msgstr "{0, plural, one {Μηνύματα από # σενάριο παρασκηνίου} other {Μηνύματα από # σενάρια παρασκηνίου}}"
 
+#. placeholder {0}: items.length
+#: src/components/clio/agent-needs-response.tsx
+msgid "{0, plural, one {Not now: {agent} works without it and can offer it later.} other {Not now: {agent} works without them and can offer them later.}}"
+msgstr "{0, plural, one {Όχι τώρα: το {agent} λειτουργεί χωρίς αυτό και μπορεί να το προτείνει αργότερα.} other {Όχι τώρα: το {agent} λειτουργεί χωρίς αυτά και μπορεί να τα προτείνει αργότερα.}}"
+
 #. placeholder {0}: dependents.length
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "{0, plural, one {One more plugin leaves with {named}:} other {# more plugins leave with {named}:}}"
@@ -23315,10 +23320,6 @@ msgstr "Όχι τώρα"
 #: src/tauri/native-copy.ts
 msgid "Not Now"
 msgstr "Όχι τώρα"
-
-#: src/components/clio/agent-needs-response.tsx
-msgid "Not now: {agent} works without them and can offer them later."
-msgstr "Όχι τώρα: το {agent} λειτουργεί χωρίς αυτά και μπορεί να τα προτείνει αργότερα."
 
 #: src/components/clio/settings-models-rows.tsx
 msgid "Not offered"

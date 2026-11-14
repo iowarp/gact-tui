@@ -15,7 +15,7 @@ import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { StatusIndicator } from './primitives/status-indicator';
-import { ph, t } from '@lingui/core/macro';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /**
  * The agent-load card (clio-agent LZ-D2): the agent this conversation runs needs
@@ -95,7 +95,7 @@ export function AgentNeedsResponse({
       wrapTitle
     >
       <AskBody>
-        <AskSection className="mt-1.5 grid gap-1.5">
+        <AskSection className="mt-1.5 grid gap-1.5 pb-1">
           <ul aria-label={t`What it needs`} className="grid gap-1" data-slot="agent-needs-items">
             {items.map((item) => (
               <NeedItem asking={asking} item={item} key={item.id} left={Boolean(left[item.id])} />
@@ -103,7 +103,10 @@ export function AgentNeedsResponse({
           </ul>
           {asking ? (
             <p className="text-xs leading-5 text-muted-foreground" data-slot="agent-needs-not-now">
-              {t`Not now: ${agent} works without them and can offer them later.`}
+              {plural(items.length, {
+                one: `Not now: ${agent} works without it and can offer it later.`,
+                other: `Not now: ${agent} works without them and can offer them later.`,
+              })}
             </p>
           ) : null}
           {asking
@@ -268,7 +271,7 @@ function NeedItem({ item, asking, left }: { item: AgentNeedItem; asking: boolean
           {left ? t`Not now` : words}
         </span>
       ) : (
-        <span className="min-w-0 truncate text-xs" title={words}>
+        <span className="flex min-w-0 items-center overflow-hidden text-xs" title={words}>
           <StatusIndicator label={words} tone={agentNeedTone(item)} />
         </span>
       )}

@@ -812,6 +812,11 @@ msgstr "{0, plural, one {メッセージの添付ファイル} other {メッセ�
 msgid "{0, plural, one {Messages from # background script} other {Messages from # background scripts}}"
 msgstr "{0, plural, one {#個のバックグラウンドスクリプトからのメッセージ} other {#個のバックグラウンドスクリプトからのメッセージ}}"
 
+#. placeholder {0}: items.length
+#: src/components/clio/agent-needs-response.tsx
+msgid "{0, plural, one {Not now: {agent} works without it and can offer it later.} other {Not now: {agent} works without them and can offer them later.}}"
+msgstr "{0, plural, other {後で: {agent} はこれらなしで動作し、後で提案できます。}}"
+
 #. placeholder {0}: dependents.length
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "{0, plural, one {One more plugin leaves with {named}:} other {# more plugins leave with {named}:}}"
@@ -23315,10 +23320,6 @@ msgstr "後で"
 #: src/tauri/native-copy.ts
 msgid "Not Now"
 msgstr "後で"
-
-#: src/components/clio/agent-needs-response.tsx
-msgid "Not now: {agent} works without them and can offer them later."
-msgstr "後で: {agent} はこれらなしで動作し、後で提案できます。"
 
 #: src/components/clio/settings-models-rows.tsx
 msgid "Not offered"
