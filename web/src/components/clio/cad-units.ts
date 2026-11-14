@@ -52,3 +52,23 @@ export function formatAngle(degrees: number): string {
   const value = degrees.toFixed(1);
   return t`${ph({ value })}°`;
 }
+
+const UNIT_KEY = 'clio.cad.unit';
+
+/** The unit this browser last read models in (millimetres unless it chose inches). */
+export function readLengthUnit(): LengthUnit {
+  try {
+    return window.localStorage.getItem(UNIT_KEY) === 'in' ? 'in' : 'mm';
+  } catch {
+    return 'mm';
+  }
+}
+
+/** Remember the unit for the next model; a browser that refuses storage just forgets. */
+export function saveLengthUnit(unit: LengthUnit): void {
+  try {
+    window.localStorage.setItem(UNIT_KEY, unit);
+  } catch {
+    // Private windows and blocked storage keep the unit for this view only.
+  }
+}
