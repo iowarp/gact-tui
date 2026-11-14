@@ -37,6 +37,7 @@ import { mcpAppLabel } from './mcp-app-live-set';
 import { mcpAppServiceHostContext } from './mcp-app-service';
 import { McpAppViewTools } from './mcp-app-view-tools';
 import {
+  frameOnScreen,
   McpAppLooks,
   registerViewSnapshot,
   snapshotAnswer,
@@ -284,7 +285,9 @@ const McpAppSurfaceInstance = forwardRef<
           },
         });
       }).then(snapshotAnswer);
-    const looks = new McpAppLooks(latest.current.repository, identity, snapshot);
+    const looks = new McpAppLooks(latest.current.repository, identity, snapshot, () =>
+      frameOnScreen(iframe),
+    );
     let withdrawSnapshot = () => undefined as void;
     let firstPaint: ReturnType<typeof watchFirstPaint> | undefined;
     const answer = (message: JsonRpcMessage) => {

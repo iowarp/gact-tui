@@ -148,4 +148,30 @@ describe('McpAppLooks', () => {
       vi.useRealTimers();
     }
   });
+
+  it('answers from the mount the person can see, else the newest', async () => {
+    const seen = vi.fn().mockResolvedValue({ image: PNG });
+    const hidden = vi.fn().mockResolvedValue({ image: PNG });
+    const client = {
+      setMcpAppShown: vi.fn().mockResolvedValue({}),
+      postMcpAppLook: vi.fn().mockResolvedValue({}),
+    };
+    let shown = true;
+    const older = new McpAppLooks(client, identity, seen, () => shown);
+    const newer = new McpAppLooks(client, identity, hidden, () => false);
+    older.start();
+    newer.start();
+    dispatchMcpAppLookFrame(
+      frame({ session_id: 's1', app_instance_id: 'app1', call_id: 'c5', max_side: 900 }),
+    );
+    await vi.waitFor(() => expect(seen).toHaveBeenCalledTimes(1));
+    expect(hidden).not.toHaveBeenCalled();
+    shown = false;
+    dispatchMcpAppLookFrame(
+      frame({ session_id: 's1', app_instance_id: 'app1', call_id: 'c6', max_side: 900 }),
+    );
+    await vi.waitFor(() => expect(hidden).toHaveBeenCalledTimes(1));
+    older.stop();
+    newer.stop();
+  });
 });

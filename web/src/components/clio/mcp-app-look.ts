@@ -54,9 +54,40 @@ export function viewSnapshotFor(frame: Element): TakeSnapshot | undefined {
 }
 
 type LookHandler = (look: McpAppLookEvent) => void;
-/** Per view, every mount that holds it now; the newest answers (a card and a tab overlap
- * while a frame moves between them). */
-const lookHandlers = new Map<string, LookHandler[]>();
+/** One mount holding a view: how it answers, and whether the person can see it now. */
+interface LookMount {
+  answer: LookHandler;
+  onScreen?: () => boolean;
+}
+/** Per view, every mount that holds it now. The newest one on screen answers; with none on
+ * screen, the newest (a card and a tab overlap while a frame moves between them, and a
+ * kept-mounted card or sheet may be hidden: the browser does not draw it). */
+const lookHandlers = new Map<string, LookMount[]>();
+
+/** Whether a view's frame is laid out, visible and inside the window now. */
+export function frameOnScreen(frame: Element): boolean {
+  const visible = (frame as Element & { checkVisibility?: (options?: object) => boolean })
+    .checkVisibility;
+  if (visible && !visible.call(frame, { visibilityProperty: true })) return false;
+  if (getComputedStyle(frame).visibility !== 'visible') return false;
+  const box = frame.getBoundingClientRect();
+  return (
+    box.width > 0 &&
+    box.height > 0 &&
+    box.right > 0 &&
+    box.bottom > 0 &&
+    box.left < window.innerWidth &&
+    box.top < window.innerHeight
+  );
+}
+
+function chosenMount(mounts: LookMount[] | undefined): LookMount | undefined {
+  if (!mounts?.length) return undefined;
+  for (let index = mounts.length - 1; index >= 0; index -= 1) {
+    if (mounts[index]!.onScreen?.()) return mounts[index];
+  }
+  return mounts.at(-1);
+}
 
 function key(sessionId: string, appInstanceId: string): string {
   return `${sessionId}:${appInstanceId}`;
@@ -72,7 +103,7 @@ export function dispatchMcpAppLookFrame(frame: TransportFrame): void {
     return; // Frame reduction owns malformed-envelope reporting.
   }
   const look = lookEvent(payload);
-  if (look) lookHandlers.get(key(look.session_id, look.app_instance_id))?.at(-1)?.(look);
+  if (look) chosenMount(lookHandlers.get(key(look.session_id, look.app_instance_id)))?.answer(look);
 }
 
 function lookEvent(value: unknown): McpAppLookEvent | undefined {
@@ -122,20 +153,24 @@ export class McpAppLooks {
   private readonly handled = new Set<string>();
   private stopped = false;
   private started = false;
-  private readonly handler: LookHandler = (look) => void this.answer(look);
+  private readonly mount: LookMount;
 
   constructor(
     private readonly repository: Partial<McpAppLookClient>,
     private readonly identity: McpAppIdentity,
     private readonly snapshot: TakeSnapshot,
-  ) {}
+    /** Whether this mount's frame is on screen; a look prefers a mount the person sees. */
+    onScreen?: () => boolean,
+  ) {
+    this.mount = { answer: (look) => void this.answer(look), onScreen };
+  }
 
   /** The view finished initializing: this mount holds it. */
   start(): void {
     if (this.stopped || this.started || !this.repository.setMcpAppShown) return;
     this.started = true;
     const handlerKey = key(this.identity.sessionId, this.identity.appInstanceId);
-    lookHandlers.set(handlerKey, [...(lookHandlers.get(handlerKey) ?? []), this.handler]);
+    lookHandlers.set(handlerKey, [...(lookHandlers.get(handlerKey) ?? []), this.mount]);
     void this.repository
       .setMcpAppShown(this.identity, this.holder, true)
       .catch((error: unknown) =>
@@ -150,7 +185,7 @@ export class McpAppLooks {
     if (!this.started) return;
     // Another mount of the same view (card to tab) may hold it too: only this one goes.
     const handlerKey = key(this.identity.sessionId, this.identity.appInstanceId);
-    const rest = (lookHandlers.get(handlerKey) ?? []).filter((handler) => handler !== this.handler);
+    const rest = (lookHandlers.get(handlerKey) ?? []).filter((mount) => mount !== this.mount);
     if (rest.length) lookHandlers.set(handlerKey, rest);
     else lookHandlers.delete(handlerKey);
     // A view CLIO closed left the look table with its record, which now answers 404.
