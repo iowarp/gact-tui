@@ -1,9 +1,7 @@
 /** Read browser directory entries while preserving the selected folder structure. */
 export async function readDroppedFolders(entries: FileSystemEntry[]): Promise<File[]> {
   const files: File[] = [];
-  let visited = 0;
   const walk = async (entry: FileSystemEntry, parent: string): Promise<void> => {
-    if (++visited > 10000) throw new Error('Choose a smaller folder (limit 10,000 entries)');
     const relative = `${parent}${entry.name}`;
     if (entry.isFile) {
       const file = await new Promise<File>((resolve, reject) =>

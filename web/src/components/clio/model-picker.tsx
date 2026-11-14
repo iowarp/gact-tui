@@ -23,6 +23,7 @@ import { useShortcut } from '@/lib/shortcuts/hooks';
 import { modelPickerCatalog } from './model-picker-catalog-loader';
 import { LARGE_MODEL_CATALOG } from './use-progressive-model-catalog';
 import { RefreshButton } from './refresh-button';
+import { ph, t } from '@lingui/core/macro';
 
 interface ClioModelPickerProps {
   catalogStatus?: 'error' | 'loading' | 'ready';
@@ -106,7 +107,7 @@ export function ClioModelPicker({
   onRetryCatalog,
   options,
   provider,
-  title = 'Choose a model',
+  title = t`Choose a model`,
   trigger,
   placement = 'trigger',
   shortcut,
@@ -116,6 +117,7 @@ export function ClioModelPicker({
   const triggerRef = useRef<HTMLButtonElement>(null);
   // The composer box, measured at open: the picker spans it and sits just above it.
   const [composerFrame, setComposerFrame] = useState<ComposerFrame | null>(null);
+  const [windowFrame, setWindowFrame] = useState<{ element: Element; width: number } | null>(null);
   // Decided at open: a large catalog mounts only after the dialog and its
   // skeleton have painted, so the click answers at once.
   const [shellPainted, setShellPainted] = useState(true);
@@ -170,11 +172,13 @@ export function ClioModelPicker({
     return () => cancelAnimationFrame(frame);
   }, [open, shellPainted, Catalog, catalogStatus, options]);
   const loadingLabel = provider
-    ? `Loading ${providerDisplayName(
-        presets.find((preset) => preset.id === provider),
-        provider,
-      )} models\u2026`
-    : 'Loading available models\u2026';
+    ? t`Loading ${ph({
+        provider: providerDisplayName(
+          presets.find((preset) => preset.id === provider),
+          provider,
+        ),
+      })} models…`
+    : t`Loading available models…`;
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean): void => {
@@ -193,7 +197,11 @@ export function ClioModelPicker({
         setActiveProvider(provider);
         const frame = placement === 'composer' ? measureComposer(triggerRef.current) : null;
         setComposerFrame(frame);
-        const width = frame ? frame.width : Math.min(640, window.innerWidth - 16);
+        // Opened inside a window (Settings), the picker stays within that window's content.
+        const host = frame ? null : triggerRef.current?.closest('[data-window-content]');
+        const hostWidth = host ? host.getBoundingClientRect().width - 16 : Infinity;
+        setWindowFrame(host ? { element: host, width: hostWidth } : null);
+        const width = frame ? frame.width : Math.min(640, window.innerWidth - 16, hostWidth);
         setPickerWidth(width);
         setShellPainted(options.length < LARGE_MODEL_CATALOG);
       }
@@ -249,10 +257,10 @@ export function ClioModelPicker({
         avoidCollisions
         className={cn(
           // Its own data-slot skips the global popover layer, so restate it above the backdrop.
-          'z-[110] flex flex-col gap-0 overflow-hidden rounded-[10px] p-0 text-[12.5px] shadow-lg',
+          'z-[110] flex flex-col gap-0 overflow-hidden rounded-[10px] p-0 text-menu shadow-lg',
           placement === 'composer'
             ? 'max-h-[min(27.5rem,calc(var(--radix-popover-content-available-height)-0.5rem))] max-w-[calc(100vw-1rem)]'
-            : 'max-h-[min(27.5rem,calc(var(--radix-popover-content-available-height)-0.5rem))] w-[min(40rem,calc(100vw-1rem))]',
+            : 'max-h-[min(27.5rem,calc(var(--radix-popover-content-available-height)-0.5rem))] w-[min(44rem,calc(100vw-1rem))]',
         )}
         collisionPadding={8}
         data-slot="model-picker"
@@ -280,7 +288,14 @@ export function ClioModelPicker({
         onOpenAutoFocus={(event) => event.preventDefault()}
         side={placement === 'composer' ? 'top' : 'bottom'}
         sideOffset={composerFrame?.sideOffset ?? 6}
-        style={composerFrame ? { width: composerFrame.width } : undefined}
+        collisionBoundary={windowFrame?.element}
+        style={
+          composerFrame
+            ? { width: composerFrame.width }
+            : windowFrame
+              ? { maxWidth: windowFrame.width }
+              : undefined
+        }
       >
         {open && catalogStatus === 'error' ? (
           <ModelCatalogError onRetry={() => onRetryCatalog?.(activeProvider)} />
@@ -291,7 +306,11 @@ export function ClioModelPicker({
         {open && catalogOptions && shellPainted && Catalog ? (
           <div
             ref={catalogContent}
-            className="flex min-h-0 flex-1 flex-col"
+            className={cn(
+              'flex min-h-0 flex-1 flex-col',
+              // Rows fold their facts by the picker's width; a content-sized popover cannot be queried.
+              (placement !== 'composer' || composerFrame) && '@container/model-picker',
+            )}
             style={POSITION_VARIABLES_STOP}
           >
             <Catalog
@@ -320,7 +339,7 @@ function ModelCatalogSkeleton({ columns, label }: { columns: boolean; label: str
   return (
     <div
       aria-busy="true"
-      aria-label="Loading available models"
+      aria-label={t`Loading available models`}
       className="flex size-full min-h-0 flex-col"
       role="status"
     >
@@ -352,7 +371,7 @@ function ModelCatalogSkeleton({ columns, label }: { columns: boolean; label: str
           </div>
         ) : null}
       </div>
-      <span className="sr-only">Discovering providers and models from the connected service.</span>
+      <span className="sr-only">{t`Discovering providers and models from the connected service.`}</span>
     </div>
   );
 }
@@ -361,12 +380,12 @@ function ModelCatalogError({ onRetry }: { onRetry?: () => void }) {
   return (
     <div className="flex size-full items-start p-4">
       <Alert variant="destructive">
-        <AlertTitle>Models could not be loaded</AlertTitle>
+        <AlertTitle>{t`Models could not be loaded`}</AlertTitle>
         <AlertDescription>
-          <span>Check the provider connection or configuration, then try discovery again.</span>
+          <span>{t`Check the provider connection or configuration, then try discovery again.`}</span>
           {onRetry ? (
             <RefreshButton
-              label="Retry"
+              label={t`Retry`}
               className="mt-3"
               onRefresh={onRetry}
               size="sm"

@@ -32,6 +32,7 @@ import {
   useA2uiRegistrySnapshot,
   type A2uiRegistrySnapshot,
 } from './registry-store';
+import { t } from '@lingui/core/macro';
 
 /**
  * OWNER — call once from the session's own data hook
@@ -401,10 +402,11 @@ function applyPendingMessages(
       try {
         entry.processor.processMessages([part]);
       } catch (error) {
+        // The detail joins a VALIDATION_FAILED message posted to the agent: kept in English.
         const detail =
           error instanceof Error
             ? error.message
-            : 'The interactive surface could not be validated.';
+            : 'The interactive surface could not be validated.'; // i18n-ignore: posted to the agent
         failure = { code: 'processor_error', message: detail };
         if ('updateComponents' in part) {
           const [component] = part.updateComponents.components;
@@ -452,8 +454,7 @@ function reportDegradedProtocol(
   // row from a current server could in principle be missing one field
   // without the other). Plainly states the concrete, user-visible cost:
   // anything typed but not yet submitted is lost on every rebuild.
-  const message =
-    "This surface's data is missing what incremental updates need (a per-message revision stamp or a lifecycle id), so it rebuilds fully on every change -- any input you have not submitted yet is lost each time.";
+  const message = t`This surface's data is missing what incremental updates need (a per-message revision stamp or a lifecycle id), so it rebuilds fully on every change -- any input you have not submitted yet is lost each time.`;
   // eslint-disable-next-line no-console -- deliberate, typed degradation surface (no-silent-fallback)
   console.warn(`[A2UI] ${message}`);
   onValidationFailed({ code: 'a2ui_stamps_unavailable', message });
@@ -662,7 +663,7 @@ export function useA2uiSurfaceModel(
             message:
               typeof error.message === 'string'
                 ? error.message
-                : 'The interactive surface reported an error.',
+                : 'The interactive surface reported an error.', // i18n-ignore: may be posted to the agent
           });
         },
       );

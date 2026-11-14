@@ -99,6 +99,7 @@ export function snapshotAnswer(value: unknown): McpAppSnapshot {
       },
     };
   if (typeof row.image !== 'string' || !row.image.startsWith('data:image/png'))
+    // i18n-ignore: error returned to the agent's look_at_view result
     return { error: { reason: 'snapshot_failed', message: 'The sandbox returned no image.' } };
   return {
     image: row.image,

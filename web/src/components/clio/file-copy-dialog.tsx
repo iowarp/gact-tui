@@ -21,6 +21,7 @@ import {
   readFileViewerBytes,
   type FileViewerSource,
 } from './file-viewer-source';
+import { ph, t } from '@lingui/core/macro';
 
 /** Copies original files into another workspace on this same connected agent. */
 export function FileCopyDialog({
@@ -71,7 +72,7 @@ export function FileCopyDialog({
         ],
       });
       const copied = resources[0];
-      if (!copied) throw new Error('The agent did not register the copied file.');
+      if (!copied) throw new Error(t`The agent did not register the copied file.`);
       return copied;
     },
     onSuccess: async (copied) => {
@@ -83,7 +84,7 @@ export function FileCopyDialog({
           queryKey: queryKeys.workspaceFiles(settings.endpoint, copied.workspace_id),
         }),
       ]);
-      toast.success(`Copied ${identity.name}`);
+      toast.success(t`Copied ${ph({ name: identity.name })}`);
       onOpenChange(false);
       setDestination('');
       operationId.current = undefined;
@@ -99,23 +100,22 @@ export function FileCopyDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Copy to another workspace</DialogTitle>
+          <DialogTitle>{t`Copy to another workspace`}</DialogTitle>
           <DialogDescription>
-            Creates an independent file in another workspace on this connected agent. The original
-            stays in its workspace.
+            {t`Creates an independent file in another workspace on this connected agent. The original stays in its workspace.`}
           </DialogDescription>
         </DialogHeader>
         <p className="truncate text-sm font-medium" title={identity.name}>
           {identity.name}
         </p>
         <Select onValueChange={setDestination} value={destination} disabled={copy.isPending}>
-          <SelectTrigger aria-label="Destination workspace">
+          <SelectTrigger aria-label={t`Destination workspace`}>
             {destination
               ? choices.find((workspace) => workspace.id === destination)?.display_name ||
                 choices.find((workspace) => workspace.id === destination)?.name
               : workspaces.isPending
-                ? 'Loading workspaces…'
-                : 'Choose a workspace'}
+                ? t`Loading workspaces…`
+                : t`Choose a workspace`}
           </SelectTrigger>
           <SelectContent>
             {choices.map((workspace) => (
@@ -128,7 +128,7 @@ export function FileCopyDialog({
         {workspaces.isError ? (
           <p className="text-sm text-destructive">{workspaces.error.message}</p>
         ) : !workspaces.isPending && choices.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No other workspace is available.</p>
+          <p className="text-sm text-muted-foreground">{t`No other workspace is available.`}</p>
         ) : null}
         {copy.isError ? (
           <p role="alert" className="text-sm text-destructive">
@@ -137,13 +137,13 @@ export function FileCopyDialog({
         ) : null}
         <DialogFooter>
           <Button disabled={copy.isPending} onClick={() => onOpenChange(false)} variant="outline">
-            Cancel
+            {t`Cancel`}
           </Button>
           <Button
             disabled={!destination || copy.isPending || !identity.available}
             onClick={() => copy.mutate()}
           >
-            {copy.isPending ? 'Copying…' : 'Copy file'}
+            {copy.isPending ? t`Copying…` : t`Copy file`}
           </Button>
         </DialogFooter>
       </DialogContent>

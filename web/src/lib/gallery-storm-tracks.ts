@@ -7,6 +7,7 @@ export const galleryStormTracks = [
   Array.from({ length: 9 }, (_, index) => ({
     observation_id: `${storm.toLowerCase()}-${index + 1}`,
     storm,
+    // i18n-ignore: synthetic dataset rows standing in for agent-produced data
     label: `${storm}, day ${index + 1}`,
     time: `${2024 + group}-09-${String(index + 1).padStart(2, '0')}T12:00:00Z`,
     wind_kt: 35 + group * 10 + index * 5,

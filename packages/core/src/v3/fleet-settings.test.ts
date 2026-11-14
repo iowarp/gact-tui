@@ -26,4 +26,15 @@ describe('Fleet capability compatibility', () => {
     const { spotter: _spotter, ...legacy } = current;
     expect(fleetSettingsSchema.parse(legacy)).not.toHaveProperty('spotter');
   });
+  it('keeps the fast model, its automatic null, and its absence on an older service', () => {
+    const current = {
+      revision: 'r4',
+      judges: { goals: null, variants: null, permissions: null },
+      fast: { provider_id: 'claude_code', model_id: 'claude-haiku-4-5' },
+    };
+    expect(fleetSettingsSchema.parse(current)).toEqual(current);
+    expect(fleetSettingsSchema.parse({ ...current, fast: null }).fast).toBeNull();
+    const { fast: _fast, ...legacy } = current;
+    expect(fleetSettingsSchema.parse(legacy)).not.toHaveProperty('fast');
+  });
 });

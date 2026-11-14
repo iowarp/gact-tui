@@ -8,6 +8,7 @@ import type {
 } from '@clio/core/v3';
 import { formatBytes } from '@/lib/format';
 import { fileFormatLabel } from '@/lib/media-types';
+import { t, ph } from '@lingui/core/macro';
 
 /** One labelled fact rendered as its own sibling element — never middot-joined into a string. */
 interface EvidenceSourceDetailPart {
@@ -154,7 +155,7 @@ function provenanceSources(
       value,
       link: isWebLink(value),
       dedupeKey: `provenance:${node.id}`,
-      ownerLabel: ownerNode?.label || owner?.label || 'Unknown session',
+      ownerLabel: ownerNode?.label || owner?.label || t`Unknown session`,
       relation: relation.kind,
       artifact,
       detailParts: artifact
@@ -200,21 +201,21 @@ function resourceEvidenceDetail(
 ): EvidenceSourceDetailPart[] {
   const mediaType = deliveredMediaType || resource?.detected_mime || resource?.claimed_mime;
   const parts: EvidenceSourceDetailPart[] = [
-    { id: 'type', text: mediaType || 'Unknown type' },
-    { id: 'revision', text: `Revision ${deliveredRevision}` },
+    { id: 'type', text: mediaType || t`Unknown type` },
+    { id: 'revision', text: t`Revision ${deliveredRevision}` },
   ];
   if (resource && String(resource.revision) !== deliveredRevision) {
     parts.push({
       id: 'current-revision',
-      text: `Current revision ${resource.revision}`,
-      title:
-        'The workspace resource has since changed; this reference delivered an earlier revision to the model.',
+      text: t`Current revision ${ph({ revision: resource.revision })}`,
+      title: t`The workspace resource has since changed; this reference delivered an earlier revision to the model.`,
     });
   }
   if (resource?.received_size !== undefined) {
     parts.push({ id: 'size', text: formatBytes(resource.received_size) });
   }
   if (resource?.sha256) {
+    // i18n-ignore: hash algorithm name and digest
     parts.push({ id: 'sha', text: `SHA-256 ${resource.sha256.slice(0, 12)}…` });
   }
   return parts;

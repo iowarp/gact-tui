@@ -1,4 +1,3 @@
-import { brand } from '@brand';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -112,7 +111,7 @@ beforeEach(() => {
   }));
   installerInfra.installerRequestedLlamaCpp.mockResolvedValue(false);
   deployment.runManagedServiceAction.mockResolvedValue({
-    service_id: 'web_search',
+    service_id: 'notebook_server',
     action: 'status',
     target: 'this computer',
     status: 'ok',
@@ -159,7 +158,7 @@ beforeEach(() => {
   });
   repository.infrastructureOperation.mockResolvedValue({
     id: 'op-1',
-    service_id: 'web_search',
+    service_id: 'notebook_server',
     target_id: 'local',
     action: 'status',
     state: 'succeeded',
@@ -188,7 +187,7 @@ describe('ManagedServices', () => {
         {
           id: 'resumed-operation',
           target_id: 'local',
-          service_id: 'web_search',
+          service_id: 'notebook_server',
           action: 'start',
           state: 'running',
           progress: 'Waiting for the existing server',
@@ -196,9 +195,7 @@ describe('ManagedServices', () => {
       ],
     });
     renderServices();
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage Notebook server' }));
     expect(await screen.findByText('Waiting for the existing server')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Check status' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel operation' })).toBeEnabled();
@@ -209,7 +206,7 @@ describe('ManagedServices', () => {
     deployment.managedServiceCatalog.mockResolvedValue({
       facts: { os: 'linux', arch: 'x86_64', accelerator: 'none' },
       services: services.map((row) =>
-        row.id === 'web_search'
+        row.id === 'notebook_server'
           ? {
               ...row,
               configuration: { port: '8089' },
@@ -221,12 +218,10 @@ describe('ManagedServices', () => {
       ),
     });
     renderServices();
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage Notebook server' }));
     await userEvent.click(screen.getByRole('tab', { name: 'Configuration' }));
-    await userEvent.clear(screen.getByLabelText(`${vocab.agent} Web Search Port`));
-    await userEvent.type(screen.getByLabelText(`${vocab.agent} Web Search Port`), '9999');
+    await userEvent.clear(screen.getByLabelText('Notebook server Port'));
+    await userEvent.type(screen.getByLabelText('Notebook server Port'), '9999');
     await userEvent.click(screen.getByRole('tab', { name: 'Status' }));
     await userEvent.click(screen.getByRole('button', { name: 'Check status' }));
     await waitFor(() => expect(repository.runManagedServiceAction).toHaveBeenCalled());
@@ -234,7 +229,7 @@ describe('ManagedServices', () => {
       '8089',
     );
     await userEvent.click(screen.getByRole('tab', { name: 'Configuration' }));
-    expect(screen.getByLabelText(`${vocab.agent} Web Search Port`)).toHaveValue('9999');
+    expect(screen.getByLabelText('Notebook server Port')).toHaveValue('9999');
   });
 
   it('offers connection-only services separately from deployment ownership', async () => {
@@ -292,9 +287,7 @@ describe('ManagedServices', () => {
   it('shows installed inventory before choosing a new runtime', async () => {
     const user = userEvent.setup();
     renderServices();
-    expect(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    ).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Manage Notebook server' })).toBeVisible();
     expect(screen.queryByRole('dialog', { name: 'Set up vLLM' })).not.toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Install service' }));
@@ -318,7 +311,7 @@ describe('ManagedServices', () => {
         uv_available: true,
       },
       services: services.map((service) =>
-        service.id === 'web_search'
+        service.id === 'notebook_server'
           ? {
               ...service,
               state: 'not_installed' as const,
@@ -339,92 +332,9 @@ describe('ManagedServices', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Install service' }));
     expect(screen.getByText('Requires Docker.')).toBeVisible();
-    const research = screen.getByRole('group', { name: 'Web research' });
+    const research = screen.getByRole('group', { name: 'Scientific services' });
     expect(within(research).getByText('Unavailable')).toBeVisible();
     expect(within(research).queryByRole('button')).not.toBeInTheDocument();
-  });
-
-  it('connects a running service to CLIO without repeating its state as command output', async () => {
-    const user = userEvent.setup();
-    const connect = vi.fn();
-    renderServices({ onConnectWebSearch: connect, webSearchConnected: false });
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    );
-
-    expect(await screen.findByRole('button', { name: 'Connect' })).toBeVisible();
-    expect(
-      screen.getByRole('article', { name: `${vocab.agent} Web Search management` }),
-    ).toHaveTextContent('Running');
-    await user.click(screen.getByRole('button', { name: 'Connect' }));
-    expect(connect).toHaveBeenCalledWith('http://127.0.0.1:8089');
-    await user.click(screen.getByRole('button', { name: 'Check status' }));
-    expect(
-      screen.getByRole('article', { name: `${vocab.agent} Web Search management` }),
-    ).toHaveTextContent('Running');
-    expect(screen.getByText('Status refreshed.')).toBeVisible();
-    expect(screen.queryByText('running')).not.toBeInTheDocument();
-  });
-
-  it('disconnects the selected Web Search deployment instead of routing to tools', async () => {
-    const user = userEvent.setup();
-    const disconnect = vi.fn();
-    renderServices({
-      onDisconnectWebSearch: disconnect,
-      webSearchConnected: true,
-      webSearchConnection: {
-        name: 'web',
-        configured: true,
-        scope: 'user',
-        status: 'ready',
-        transport: 'stdio',
-        tools_count: 3,
-        tools: ['search', 'fetch', 'fetch_events'],
-        spec: {
-          args: ['mcp-server', 'web', '--remote-url', 'http://127.0.0.1:8089'],
-        },
-        retryable: false,
-      },
-    });
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    );
-
-    const action = await screen.findByRole('button', { name: 'Disconnect' });
-    expect(screen.queryByRole('link', { name: 'View tools' })).not.toBeInTheDocument();
-    await user.click(action);
-
-    expect(disconnect).toHaveBeenCalledOnce();
-  });
-
-  it('does not call a matching but degraded Web Search configuration connected', async () => {
-    renderServices({
-      webSearchConnected: false,
-      webSearchConnection: {
-        name: 'web',
-        configured: true,
-        scope: 'user',
-        status: 'degraded',
-        transport: 'stdio',
-        tools_count: 0,
-        tools: [],
-        spec: {
-          args: ['mcp-server', 'web', '--remote-url', 'http://127.0.0.1:8089'],
-        },
-        retryable: true,
-        error: 'Web Search document conversion is not ready',
-      },
-    });
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    );
-
-    expect(await screen.findByText('Connection needs attention')).toBeVisible();
-    expect(
-      within(screen.getByRole('dialog')).getByText('Web Search document conversion is not ready'),
-    ).toBeVisible();
-    expect(screen.queryByText(`Connected to ${brand.agentName}`)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Connect' })).toBeVisible();
   });
 
   it('shows an active status check and a completion result', async () => {
@@ -443,15 +353,13 @@ describe('ManagedServices', () => {
     );
     const user = userEvent.setup();
     renderServices();
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage Notebook server' }));
 
     await user.click(await screen.findByRole('button', { name: 'Check status' }));
     expect(screen.getByRole('button', { name: 'Checking…' })).toBeDisabled();
 
     resolveStatus({
-      service_id: 'web_search',
+      service_id: 'notebook_server',
       action: 'status',
       target: 'this computer',
       status: 'ok',
@@ -464,15 +372,13 @@ describe('ManagedServices', () => {
   it('sends the service id in the path only, never as an extra action body key', async () => {
     const user = userEvent.setup();
     renderServices();
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage Notebook server' }));
 
     await user.click(await screen.findByRole('button', { name: 'Check status' }));
 
     await waitFor(() => expect(repository.runManagedServiceAction).toHaveBeenCalled());
     const [serviceId, body] = repository.runManagedServiceAction.mock.calls.at(-1)!;
-    expect(serviceId).toBe('web_search');
+    expect(serviceId).toBe('notebook_server');
     expect(body).not.toHaveProperty('service_id');
     expect(body).toMatchObject({ target_id: 'local', action: 'status' });
   });
@@ -483,9 +389,7 @@ describe('ManagedServices', () => {
     );
     const user = userEvent.setup();
     renderServices();
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage Notebook server' }));
 
     await user.click(await screen.findByRole('button', { name: 'Check status' }));
 
@@ -496,94 +400,27 @@ describe('ManagedServices', () => {
 
   it('shows the real recent log tail in a dedicated scrollable panel', async () => {
     deployment.runManagedServiceAction.mockResolvedValueOnce({
-      service_id: 'web_search',
+      service_id: 'notebook_server',
       action: 'logs',
       target: 'this computer',
       status: 'ok',
       logs: 'line one\nline two',
     });
     renderServices();
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage Notebook server' }));
     await userEvent.click(screen.getByRole('tab', { name: 'Logs' }));
 
     await waitFor(() =>
       expect(repository.runManagedServiceAction).toHaveBeenCalledWith(
-        'web_search',
+        'notebook_server',
         expect.objectContaining({ action: 'logs' }),
       ),
     );
 
-    const logs = await screen.findByLabelText(`${vocab.agent} Web Search recent logs`);
+    const logs = await screen.findByLabelText('Notebook server recent logs');
     expect(screen.getByText('Recent logs on Local')).toBeVisible();
     expect(logs).toHaveTextContent('line one');
     expect(logs).toHaveTextContent('line two');
-  });
-
-  it('does not claim a selected deployment is connected when CLIO points elsewhere', async () => {
-    const connect = vi.fn();
-    const user = userEvent.setup();
-    renderServices({
-      onConnectWebSearch: connect,
-      webSearchConnected: true,
-      webSearchConnection: {
-        name: 'web',
-        configured: true,
-        scope: 'user',
-        status: 'ready',
-        transport: 'stdio',
-        tools_count: 3,
-        tools: ['search', 'fetch', 'fetch_events'],
-        spec: {
-          args: ['mcp-server', 'web', '--remote-url', 'http://10.0.0.102:8089'],
-        },
-        retryable: false,
-      },
-    });
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    );
-
-    expect(await screen.findByText('Another Web Search deployment is connected')).toBeVisible();
-    const action = screen.getByRole('button', { name: 'Connect' });
-    await user.click(action);
-    expect(connect).toHaveBeenCalledWith('http://127.0.0.1:8089');
-  });
-
-  it('uses the endpoint reported by remote CLIO for a same-host service', async () => {
-    const user = userEvent.setup();
-    const connect = vi.fn();
-    connection.isManagedConnection = false;
-    deployment.managedServiceCatalog.mockResolvedValue({
-      facts: {
-        target: 'homelab',
-        os: 'linux',
-        arch: 'x86_64',
-        accelerator: 'none',
-        docker_available: true,
-        docker_installed: true,
-        uv_available: true,
-      },
-      services: services.map((service) =>
-        service.id === 'web_search'
-          ? { ...service, connection_url: 'http://127.0.0.1:8089' }
-          : service,
-      ),
-    });
-    renderServices({
-      connectedAgentLabel: 'Homelab CLIO',
-      connectedAgentLocation: 'Homelab',
-      onConnectWebSearch: connect,
-    });
-    await userEvent.click(
-      await screen.findByRole('button', { name: `Manage ${vocab.agent} Web Search` }),
-    );
-
-    await user.click(await screen.findByRole('button', { name: 'Connect' }));
-
-    expect(connect).toHaveBeenCalledWith('http://127.0.0.1:8089');
-    expect(screen.queryByText('This connection would not be reachable')).not.toBeInTheDocument();
   });
 
   it('renders a recoverable error when target inspection fails', async () => {
@@ -639,4 +476,3 @@ describe('ManagedServices', () => {
     ).not.toBeInTheDocument();
   });
 });
-import { vocab } from '@/lib/brand-vocabulary';

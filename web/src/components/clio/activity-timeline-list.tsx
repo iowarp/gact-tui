@@ -1,9 +1,10 @@
-import type { Message } from '@clio/core/v3';
+import type { Message, ToolInvocation } from '@clio/core/v3';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ListFilterIcon, PanelRightOpenIcon, SearchIcon } from 'lucide-react';
 import {
   memo,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -37,24 +38,28 @@ import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
 import { MetaValue } from './primitives/tag';
+import { backgroundTaskLink } from './script-run';
 import { clioStatusLabel } from './status';
+import { useWorkTaskFocus } from './work-task-focus';
+import { liveChipWord } from './workbench-activity-model';
+import { t, ph } from '@lingui/core/macro';
 
 type TimelineKind = 'tools' | 'agents' | 'questions' | 'runs' | 'outputs';
 
 const TIMELINE_KINDS: readonly { id: TimelineKind; label: string }[] = [
-  { id: 'tools', label: 'Tool calls' },
-  { id: 'agents', label: 'Child agents and tasks' },
-  { id: 'questions', label: 'Questions' },
-  { id: 'runs', label: 'Runs' },
-  { id: 'outputs', label: 'Outputs and sources' },
+  { id: 'tools', label: t`Tool calls` },
+  { id: 'agents', label: t`Child agents and tasks` },
+  { id: 'questions', label: t`Questions` },
+  { id: 'runs', label: t`Runs` },
+  { id: 'outputs', label: t`Outputs and sources` },
 ];
 
 type TimelineGroup = 'now' | 'turn' | 'earlier';
 
 const TIMELINE_GROUPS: readonly { id: TimelineGroup; label: string }[] = [
-  { id: 'now', label: 'Now' },
-  { id: 'turn', label: 'This turn' },
-  { id: 'earlier', label: 'Earlier' },
+  { id: 'now', label: t`Now` },
+  { id: 'turn', label: t`This turn` },
+  { id: 'earlier', label: t`Earlier` },
 ];
 
 const TIMELINE_LIVE_STATES: ReadonlySet<string> = new Set([
@@ -102,6 +107,7 @@ function timelineGroup(item: ObservabilityActivityItem, turnStartedAt?: number):
 export function ClioActivityTimelineList({
   items,
   messages,
+  tools,
   turnStartedAt,
   renderHeader,
   notice,
@@ -109,6 +115,8 @@ export function ClioActivityTimelineList({
 }: {
   items: readonly ObservabilityActivityItem[];
   messages: readonly Message[];
+  /** The session's tool calls, to find the script call that started a linked task. */
+  tools?: readonly ToolInvocation[];
   /** When the current run started: later rows are This turn, older ones Earlier. */
   turnStartedAt?: string;
   renderHeader: (actions: ReactNode) => ReactNode;
@@ -162,6 +170,41 @@ export function ClioActivityTimelineList({
     return out;
   }, [agent, hidden, laneById, messageIds, query, rows, turnStart]);
 
+  // A link asked to show a task ("Show the task in Work"): select its row, or the
+  // script call that started it once the task has left the record, then clear the ask.
+  const focusHandle = useWorkTaskFocus((state) => state.handle);
+  const [selectedId, setSelectedId] = useState<string>();
+  const [focusedHandle, setFocusedHandle] = useState<string>();
+  const focusTarget = useMemo(() => {
+    if (!focusHandle) return undefined;
+    const launcher = tools?.find((tool) =>
+      tool.presentation?.blocks.some(
+        (block) => backgroundTaskLink(block) && block.uri === focusHandle,
+      ),
+    );
+    const target =
+      rows.find(
+        (row) =>
+          row.kind === 'process' &&
+          (row.taskId === focusHandle || row.id === focusHandle) &&
+          row.lifecycle !== 'close',
+      ) ?? (launcher ? rows.find((row) => row.kind === 'tool' && row.id === launcher.id) : undefined);
+    return target ? `${target.kind}:${target.id}` : undefined;
+  }, [focusHandle, rows, tools]);
+  if (focusHandle !== focusedHandle && (!focusHandle || focusTarget)) {
+    setFocusedHandle(focusHandle);
+    if (focusHandle) {
+      setSearching(false);
+      setQuery('');
+      setHidden(new Set());
+      setAgentFilter(null);
+      setSelectedId(focusTarget);
+    }
+  }
+  useEffect(() => {
+    if (focusHandle && focusTarget) useWorkTaskFocus.getState().clear(focusHandle);
+  }, [focusHandle, focusTarget]);
+
   const filtered = query.trim() !== '' || hidden.size > 0 || agent !== null;
   const closeSearch = () => {
     setSearching(false);
@@ -173,7 +216,7 @@ export function ClioActivityTimelineList({
       <IconButton
         aria-pressed={searching}
         icon={<SearchIcon />}
-        label={searching ? 'Close search' : 'Search activity'}
+        label={searching ? t`Close search` : t`Search activity`}
         onClick={() => (searching ? closeSearch() : setSearching(true))}
         size="sm"
         tooltipSide="bottom"
@@ -183,7 +226,7 @@ export function ClioActivityTimelineList({
           <IconButton
             aria-pressed={filterCount > 0}
             icon={<ListFilterIcon />}
-            label={filterCount ? `Filter activity, ${filterCount} on` : 'Filter activity'}
+            label={filterCount ? t`Filter activity, ${filterCount} on` : t`Filter activity`}
             size="sm"
             tooltipSide="bottom"
           />
@@ -191,12 +234,12 @@ export function ClioActivityTimelineList({
         <DropdownMenuContent align="end" className="w-56">
           {lanes.length > 1 ? (
             <>
-              <DropdownMenuLabel>Agent</DropdownMenuLabel>
+              <DropdownMenuLabel>{t`Agent`}</DropdownMenuLabel>
               <DropdownMenuRadioGroup
                 onValueChange={(value) => setAgentFilter(value === 'all' ? null : value)}
                 value={agent ?? 'all'}
               >
-                <DropdownMenuRadioItem value="all">All agents</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="all">{t`All agents`}</DropdownMenuRadioItem>
                 {lanes.map((lane) => (
                   <DropdownMenuRadioItem key={lane.id} value={lane.id}>
                     <span
@@ -211,7 +254,7 @@ export function ClioActivityTimelineList({
               <DropdownMenuSeparator />
             </>
           ) : null}
-          <DropdownMenuLabel>Show</DropdownMenuLabel>
+          <DropdownMenuLabel>{t`Show`}</DropdownMenuLabel>
           {TIMELINE_KINDS.map((kind) => (
             <DropdownMenuCheckboxItem
               checked={!hidden.has(kind.id)}
@@ -241,17 +284,17 @@ export function ClioActivityTimelineList({
   const body = !rows.length ? (
     <StateView
       className="p-4"
-      detail="Tool calls, child agents and questions appear here."
+      detail={t`Tool calls, child agents and questions appear here.`}
       kind="empty"
       size="panel"
-      title="Nothing has run yet"
+      title={t`Nothing has run yet`}
     />
   ) : !entries.length ? (
     <StateView
       action={
         filtered
           ? {
-              label: 'Clear filters',
+              label: t`Clear filters`,
               onClick: () => {
                 closeSearch();
                 setHidden(new Set());
@@ -261,10 +304,10 @@ export function ClioActivityTimelineList({
           : undefined
       }
       className="p-4"
-      detail={filtered ? 'Clear the search or show more kinds.' : undefined}
+      detail={filtered ? t`Clear the search or show more kinds.` : undefined}
       kind="empty"
       size="panel"
-      title="No activity matches"
+      title={t`No activity matches`}
     />
   ) : (
     <TimelineRows
@@ -273,6 +316,8 @@ export function ClioActivityTimelineList({
       hasActions={hasActions}
       laneSpacing={laneSpacing}
       lanes={lanes}
+      onActivate={() => setSelectedId(undefined)}
+      selectedId={selectedId}
     />
   );
   return (
@@ -281,7 +326,7 @@ export function ClioActivityTimelineList({
       {searching ? (
         <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
           <Input
-            aria-label="Search activity"
+            aria-label={t`Search activity`}
             autoFocus
             className="h-7 text-xs"
             onChange={(event) => setQuery(event.target.value)}
@@ -291,7 +336,7 @@ export function ClioActivityTimelineList({
                 closeSearch();
               }
             }}
-            placeholder="Search activity"
+            placeholder={t`Search activity`}
             value={query}
           />
         </div>
@@ -311,12 +356,17 @@ function TimelineRows({
   laneSpacing,
   gutterWidth,
   hasActions,
+  selectedId,
+  onActivate,
 }: {
   entries: readonly TimelineEntry[];
   lanes: readonly CausalLane[];
   laneSpacing: number;
   gutterWidth: number;
   hasActions: boolean;
+  /** The row a "show the task" link selected; it scrolls into view once. */
+  selectedId?: string;
+  onActivate: () => void;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   const windowed = entries.length > TIMELINE_WINDOW_ABOVE;
@@ -347,10 +397,27 @@ function TimelineRows({
     overscan: 12,
     scrollMargin,
   });
+  const selectedIndex = selectedId
+    ? entries.findIndex((entry) => entry.id === selectedId)
+    : -1;
+  useLayoutEffect(() => {
+    if (selectedIndex < 0) return;
+    if (windowed) virtualizer.scrollToIndex(selectedIndex, { align: 'center' });
+    const reveal = () => {
+      const row = listRef.current?.querySelector<HTMLElement>('[data-timeline-selected]');
+      if (!row) return;
+      if (!windowed) row.scrollIntoView({ block: 'nearest' });
+      row.querySelector<HTMLElement>('[tabindex="0"]')?.focus({ preventScroll: true });
+    };
+    if (windowed) requestAnimationFrame(reveal);
+    else reveal();
+    // Only a new selection scrolls; later updates leave the reader where they are.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
   const render = (entry: TimelineEntry) =>
     entry.type === 'group' ? (
       <p
-        className="flex h-7 items-end px-2 pb-1 text-[11px] font-semibold text-muted-foreground"
+        className="flex h-7 items-end px-2 pb-1 text-caption font-semibold text-muted-foreground"
         role="listitem"
       >
         {entry.label}
@@ -362,11 +429,13 @@ function TimelineRows({
         item={entry.item}
         laneSpacing={laneSpacing}
         lanes={lanes}
+        onActivate={onActivate}
+        selected={entry.id === selectedId}
       />
     );
   if (!windowed)
     return (
-      <div aria-label="Activity timeline" ref={listRef} role="list">
+      <div aria-label={t`Activity timeline`} ref={listRef} role="list">
         {entries.map((entry) => (
           <div key={entry.id}>{render(entry)}</div>
         ))}
@@ -374,7 +443,7 @@ function TimelineRows({
     );
   return (
     <div
-      aria-label="Activity timeline"
+      aria-label={t`Activity timeline`}
       className="relative"
       ref={listRef}
       role="list"
@@ -399,12 +468,16 @@ const TimelineRow = memo(function TimelineRow({
   laneSpacing,
   gutterWidth,
   hasActions,
+  selected,
+  onActivate,
 }: {
   item: ObservabilityActivityItem;
   lanes: readonly CausalLane[];
   laneSpacing: number;
   gutterWidth: number;
   hasActions: boolean;
+  selected: boolean;
+  onActivate: () => void;
 }) {
   const lane = lanes.find((candidate) => candidate.id === causalLaneId(item)) ?? lanes[0]!;
   const parent = lanes.find((candidate) => candidate.id === item.parentSessionId) ?? lanes[0]!;
@@ -412,8 +485,7 @@ const TimelineRow = memo(function TimelineRow({
   const attention = CAUSAL_ATTENTION_STATES.has(item.state);
   const live = timelineLive(item);
   const status = clioStatusLabel(item.state);
-  const when =
-    live && !attention ? (item.state === 'queued' ? 'queued' : 'running') : (item.fact ?? '');
+  const when = live && !attention ? liveChipWord(item.state) : (item.fact ?? '');
   const hover = [
     item.label,
     lane.label,
@@ -423,16 +495,19 @@ const TimelineRow = memo(function TimelineRow({
   ]
     .filter(Boolean)
     .join('. ');
-  const activate = (event: { shiftKey: boolean }) => activateActivityItem(item, event);
+  const activate = (event: { shiftKey: boolean }) => {
+    onActivate();
+    activateActivityItem(item, event);
+  };
   return (
-    <div role="listitem" title={hover}>
+    <div data-timeline-selected={selected || undefined} role="listitem" title={hover}>
       <ListRow
         actions={
           hasActions ? (
             item.onOpen && item.kind !== 'process' ? (
               <IconButton
                 icon={<PanelRightOpenIcon />}
-                label="Open in canvas"
+                label={t`Open in canvas`}
                 onClick={(event) => {
                   event.stopPropagation();
                   item.onOpen?.('canvas');
@@ -443,13 +518,14 @@ const TimelineRow = memo(function TimelineRow({
           ) : undefined
         }
         actionsWidth={26}
-        aria-label={target ? `Open ${item.label}, ${status}` : undefined}
-        className={cn('text-[12.5px]', target ? 'cursor-pointer' : 'hover:bg-transparent')}
+        aria-current={selected || undefined}
+        aria-label={target ? t`Open ${ph({ label: item.label })}, ${status}` : undefined}
+        className={cn('text-menu', target ? 'cursor-pointer' : 'hover:bg-transparent')}
         columns={
           <>
             {attention ? (
               <span
-                className={cn('shrink-0 text-[11px] font-medium', causalAttentionTone(item.state))}
+                className={cn('shrink-0 text-caption font-medium', causalAttentionTone(item.state))}
               >
                 {status}
               </span>
@@ -481,6 +557,7 @@ const TimelineRow = memo(function TimelineRow({
             : undefined
         }
         role={target ? 'button' : undefined}
+        selected={selected}
         tabIndex={target ? 0 : undefined}
         title={item.label}
       />

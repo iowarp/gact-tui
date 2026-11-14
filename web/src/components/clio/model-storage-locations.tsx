@@ -13,13 +13,14 @@ import { ListGroupLabel } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
 import { MiddleTruncate } from './primitives/truncate';
 import { HostStorageSettings, type HostStorageSaveState } from './host-storage-settings';
+import { t } from '@lingui/core/macro';
 
 const locations: { key: keyof HostStorageLocations; label: string; root?: boolean }[] = [
-  { key: 'root', label: 'Storage root', root: true },
-  { key: 'models', label: 'Models' },
-  { key: 'service_data', label: 'Service data' },
-  { key: 'captures', label: 'Evidence captures' },
-  { key: 'temporary', label: 'Temporary files' },
+  { key: 'root', label: t`Storage root`, root: true },
+  { key: 'models', label: t`Models` },
+  { key: 'service_data', label: t`Service data` },
+  { key: 'captures', label: t`Evidence captures` },
+  { key: 'temporary', label: t`Temporary files` },
 ];
 
 /** Where new downloads and deployments go on the selected computer, with one way to change it. */
@@ -45,27 +46,28 @@ export function ModelStorageLocations({
       <ListGroupLabel
         action={
           <Button
-            className="h-6 text-[11.5px] text-link"
+            className="h-6 text-label text-link"
             onClick={() => setEditing(true)}
             size="xs"
             variant="ghost"
           >
-            <EditIcon aria-hidden="true" /> Edit locations
+            <EditIcon aria-hidden="true" /> {t`Edit locations`}
           </Button>
         }
+        wrap
       >
-        Storage on {hostLabel}
+        {t`Storage on ${hostLabel}`}
       </ListGroupLabel>
       {storage.error ? (
         <StateView
-          action={{ label: 'Retry', onClick: () => void storage.refetch() }}
+          action={{ label: t`Retry`, onClick: () => void storage.refetch() }}
           detail={storage.error.message}
           kind="error"
           size="row"
-          title="Could not read storage locations"
+          title={t`Could not read storage locations`}
         />
       ) : !effective ? (
-        <StateView kind="loading" size="row" title="Loading storage locations…" />
+        <StateView kind="loading" size="row" title={t`Loading storage locations…`} />
       ) : (
         <KeyValueGrid
           className="px-2"
@@ -87,11 +89,11 @@ export function ModelStorageLocations({
         open={editing}
         onOpenChange={setEditing}
         icon={<HardDriveIcon />}
-        title={`Storage on ${hostLabel}`}
-        description={`Paths are on ${hostLabel}. New deployments inherit these locations.`}
+        title={t`Storage on ${hostLabel}`}
+        description={t`Paths are on ${hostLabel}. New deployments inherit these locations.`}
         bodyInset="edge"
         confirm={{
-          label: saveState?.pending ? 'Saving…' : 'Save locations',
+          label: saveState?.pending ? t`Saving…` : t`Save locations`,
           onConfirm: () => saveState?.submit(),
           disabled: !saveState || saveState.disabled,
         }}

@@ -1,5 +1,6 @@
 import { TransportError } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
+import { t } from '@lingui/core/macro';
 
 /**
  * The words for a refused delete, from the service's error code.
@@ -10,10 +11,11 @@ import { vocab } from '@/lib/brand-vocabulary';
  */
 export function deleteFailure(error: unknown): string {
   if (error instanceof TransportError && error.code === 'session_has_active_work') {
-    return 'Work this conversation started is still running. Wait for it to finish or cancel it, then delete the conversation.';
+    return t`Work this conversation started is still running. Wait for it to finish or cancel it, then delete the conversation.`;
   }
   if (error instanceof TransportError && error.code === 'workspace_has_active_work') {
-    return `Work started by a conversation in this ${vocab.workspace} is still running. Wait for it to finish or cancel it, then remove the ${vocab.workspace}.`;
+    const workspace = vocab.workspace;
+    return t`Work started by a conversation in this ${workspace} is still running. Wait for it to finish or cancel it, then remove the ${workspace}.`;
   }
   return error instanceof Error ? error.message : String(error);
 }

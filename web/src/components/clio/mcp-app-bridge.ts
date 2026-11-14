@@ -6,6 +6,7 @@ import {
   type McpAppSavedDownload,
 } from '@clio/core/v3';
 import { mcpAppStyleVariables } from './mcp-app-host-styles';
+import { t } from '@lingui/core/macro';
 
 /** The MCP Apps revision CLIO declares; draft features are offered by capability. */
 export const MCP_APPS_PROTOCOL_VERSION = '2026-01-26';
@@ -85,6 +86,7 @@ export function rpcFailure(id: JsonRpcMessage['id'], thrown: unknown): JsonRpcMe
   if (thrown instanceof TransportError && thrown.code) {
     return rpcError(id, -32000, thrown.message, { reason: thrown.code });
   }
+  // i18n-ignore: JSON-RPC error returned to the MCP App
   return rpcError(id, -32000, thrown instanceof Error ? thrown.message : 'MCP App request failed');
 }
 
@@ -94,24 +96,24 @@ export function validateDescriptor(
   identity: McpAppIdentity,
 ): void {
   if (descriptor.protocol_version !== MCP_APPS_PROTOCOL_VERSION) {
-    throw new Error('This interactive tool uses an unsupported protocol version.');
+    throw new Error(t`This interactive tool uses an unsupported protocol version.`);
   }
   if (descriptor.resource.uri !== resourceUri || !resourceUri.startsWith('ui://')) {
-    throw new Error('The interactive tool resource did not match its message.');
+    throw new Error(t`The interactive tool resource did not match its message.`);
   }
   if (!/^text\/html\s*;\s*profile=mcp-app(?:\s*;|$)/iu.test(descriptor.resource.mime_type)) {
-    throw new Error('The interactive tool resource is not MCP App HTML.');
+    throw new Error(t`The interactive tool resource is not MCP App HTML.`);
   }
   const sandbox = new URL(descriptor.sandbox_url);
   if (sandbox.origin === window.location.origin) {
-    throw new Error('The interactive tool sandbox is not isolated from the workspace.');
+    throw new Error(t`The interactive tool sandbox is not isolated from the workspace.`);
   }
   const expectedPath = `/v1/sessions/${encodeURIComponent(identity.sessionId)}/mcp-apps/${encodeURIComponent(identity.appInstanceId)}/sandbox`;
   if (
     sandbox.pathname !== expectedPath ||
     sandbox.searchParams.get('data_ref') !== identity.dataRef
   ) {
-    throw new Error('The interactive tool sandbox did not match its capability identity.');
+    throw new Error(t`The interactive tool sandbox did not match its capability identity.`);
   }
 }
 
@@ -170,6 +172,7 @@ export function initializeResult(
   return {
     protocolVersion: MCP_APPS_PROTOCOL_VERSION,
     hostCapabilities: hostCapabilities(descriptor),
+    // i18n-ignore: host identity sent to the MCP App
     hostInfo: { name: 'Agent Workspace', version: '0.11.0' },
     hostContext: hostContext(iframe, placement, extra),
   };
@@ -196,16 +199,19 @@ export function resolveDisplayMode(
 /** `ui/open-link` (MA15): `http` and `https` open a page in the in-app browser. */
 export function checkedLink(raw: unknown): URL {
   if (typeof raw !== 'string' || !raw.trim()) {
+    // i18n-ignore: JSON-RPC error message returned to the MCP App
     throw new McpAppRpcFailure('The link has no address.', 'invalid_url');
   }
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
+    // i18n-ignore: JSON-RPC error message returned to the MCP App
     throw new McpAppRpcFailure('The link is not a valid address.', 'invalid_url');
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new McpAppRpcFailure(
+      // i18n-ignore: JSON-RPC error message returned to the MCP App
       `Only http and https links open here, not ${url.protocol.replace(/:$/u, '')}.`,
       'unsupported_scheme',
       { scheme: url.protocol.replace(/:$/u, '') },
@@ -258,6 +264,7 @@ export async function bridgeRequest(
     }
     default:
       throw new McpAppRpcFailure(
+        // i18n-ignore: JSON-RPC error message returned to the MCP App
         `Unsupported MCP App method: ${message.method}`,
         'unsupported_method',
       );

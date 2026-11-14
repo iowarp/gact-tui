@@ -5,14 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { vocab } from '@/lib/brand-vocabulary';
 import { writeSshTransport, type SshPrompt } from '@/tauri/ssh-infrastructure-transport';
+import { t, ph } from '@lingui/core/macro';
 
 export type ManagedTargetKind = 'local' | 'ssh';
 
 const PROMPT_LABELS: Record<SshPrompt['kind'], string> = {
-  password: 'Password',
-  passphrase: 'Key passphrase',
-  host_key: 'Trust this host key?',
-  keyboard_interactive: 'Verification',
+  password: t`Password`,
+  passphrase: t`Key passphrase`,
+  host_key: t`Trust this host key?`,
+  keyboard_interactive: t`Verification`,
 };
 
 /**
@@ -31,9 +32,9 @@ export function SshAuthentication({ prompt, sessionId }: { prompt: SshPrompt; se
         {PROMPT_LABELS[prompt.kind]}
         <span
           className="text-muted-foreground"
-          title={`Sent only to this OpenSSH process; ${vocab.agent} never saves it.`}
+          title={t`Sent only to this OpenSSH process; ${ph({ agent: vocab.agent })} never saves it.`}
         >
-          <LockIcon aria-label="Not saved" className="size-3.5" />
+          <LockIcon aria-label={t`Not saved`} className="size-3.5" />
         </span>
       </AlertTitle>
       <AlertDescription className="space-y-3">
@@ -68,7 +69,7 @@ export function SshAuthentication({ prompt, sessionId }: { prompt: SshPrompt; se
             type={secret ? 'password' : 'text'}
             value={answer}
           />
-          <Button type="submit">Continue</Button>
+          <Button type="submit">{t`Continue`}</Button>
         </form>
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </AlertDescription>

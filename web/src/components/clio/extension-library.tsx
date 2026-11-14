@@ -23,7 +23,6 @@ import {
   copyAddress,
   copyReference,
   defaultAdd,
-  EXTENSION_TYPE_LABELS,
   extensionEntries,
   LOCAL_MARKETPLACE,
   LOCAL_PLACEHOLDER,
@@ -59,6 +58,16 @@ import { MarketplaceDetailPane } from './settings-plugins';
 import { RowConfirm } from './primitives/row-confirm';
 import { RemoveSavedMcpDialog } from './settings-saved-mcp';
 import { downloadBytes } from './surface-export';
+import { ph, t } from '@lingui/core/macro';
+
+/** Each type's empty state, written whole (not composed from the type's label). */
+const EMPTY_TITLES: Record<ExtensionType, string> = {
+  all: t`No extensions yet.`,
+  plugins: t`No plugins yet.`,
+  marketplaces: t`No marketplaces yet.`,
+  mcp: t`No MCP connections yet.`,
+  skills: t`No skills yet.`,
+};
 
 type Detail =
   | { kind: 'connector'; id: string }
@@ -177,9 +186,9 @@ function ExtensionLibraryContents({
     mutationFn: (server: McpServerDefinition) => repository.reconnectMcpServer(server.id),
     onSuccess: async (_value, server) => {
       await client.invalidateQueries({ queryKey: queryKeys.key('mcp-servers', settings.endpoint) });
-      toast.success(`Reconnected ${server.name}`);
+      toast.success(t`Reconnected ${ph({ name: server.name })}`);
     },
-    onError: (error: Error) => toast.error('Reconnect failed', { description: error.message }),
+    onError: (error: Error) => toast.error(t`Reconnect failed`, { description: error.message }),
   });
   const exportMarketplace = async () => {
     setExporting(true);
@@ -190,8 +199,8 @@ function ExtensionLibraryContents({
         'private-local-marketplace.zip',
       );
     } catch (error) {
-      toast.error('Could not export marketplace', {
-        description: error instanceof Error ? error.message : 'Try again',
+      toast.error(t`Could not export marketplace`, {
+        description: error instanceof Error ? error.message : t`Try again`,
       });
     } finally {
       setExporting(false);
@@ -275,7 +284,7 @@ function ExtensionLibraryContents({
           localCollection={
             local ? (
               <>
-                <SettingsGroupLabel>Saved here</SettingsGroupLabel>
+                <SettingsGroupLabel>{t`Saved here`}</SettingsGroupLabel>
                 <PrivateLocalLibrary
                   detailsOpen={localDetails}
                   onDetailsClose={() => setLocalDetails(false)}
@@ -367,7 +376,7 @@ function ExtensionLibraryContents({
               <IconButton
                 disabled={manager.busy}
                 icon={<RefreshIcon />}
-                label={`Update ${marketplace.name}`}
+                label={t`Update ${ph({ name: marketplace.name })}`}
                 onClick={() => manager.update(marketplace.name)}
               />
             ) : null
@@ -376,17 +385,19 @@ function ExtensionLibraryContents({
             <>
               {marketplace && (plugin.pending_trust || !plugin.trusted) ? (
                 <DropdownMenuItem onSelect={() => manager.requestTrust(marketplace)}>
-                  {plugin.pending_trust ? 'Trust update…' : `Trust ${marketplace.name}…`}
+                  {plugin.pending_trust
+                    ? t`Trust update…`
+                    : t`Trust ${ph({ name: marketplace.name })}…`}
                 </DropdownMenuItem>
               ) : null}
               {marketplace ? (
                 <DropdownMenuItem onSelect={() => manager.check(marketplace.name)}>
-                  Check plugins
+                  {t`Check plugins`}
                 </DropdownMenuItem>
               ) : null}
               <DropdownMenuItem onSelect={() => copyReference(plugin.ref)}>
                 <CopyIcon aria-hidden="true" />
-                Copy reference
+                {t`Copy reference`}
               </DropdownMenuItem>
             </>
           }
@@ -441,7 +452,7 @@ function ExtensionLibraryContents({
                 <IconButton
                   disabled={manager.busy}
                   icon={<DeleteIcon />}
-                  label={`Uninstall ${marketplace.name}`}
+                  label={t`Uninstall ${ph({ name: marketplace.name })}`}
                   onClick={() => manager.requestUninstall(marketplace)}
                 />
               ) : null}
@@ -486,11 +497,11 @@ function ExtensionLibraryContents({
         confirm={
           entry.saved && askingRemove === entry.key ? (
             <RowConfirm
-              action="Remove"
-              busyAction="Removing…"
+              action={t`Remove`}
+              busyAction={t`Removing…`}
               onConfirm={() => removeSaved.mutateAsync(entry.saved!)}
               onKeep={() => setAskingRemove('')}
-              question={`Remove ${entry.title}?`}
+              question={t`Remove ${ph({ title: entry.title })}?`}
             />
           ) : undefined
         }
@@ -498,10 +509,10 @@ function ExtensionLibraryContents({
           retry ? (
             <SlotButton
               disabled={reconnect.isPending}
-              label={`Reconnect ${entry.title}`}
+              label={t`Reconnect ${ph({ title: entry.title })}`}
               onClick={() => reconnect.mutate(retry)}
             >
-              Reconnect
+              {t`Reconnect`}
             </SlotButton>
           ) : undefined
         }
@@ -511,14 +522,14 @@ function ExtensionLibraryContents({
               <IconButton
                 disabled={reconnect.isPending}
                 icon={<RefreshIcon />}
-                label={`Reconnect ${entry.title}`}
+                label={t`Reconnect ${ph({ title: entry.title })}`}
                 onClick={() => reconnect.mutate(entry.server!)}
               />
             ) : null}
             {entry.saved ? (
               <IconButton
                 icon={<DeleteIcon />}
-                label={`Remove ${entry.title}`}
+                label={t`Remove ${ph({ title: entry.title })}`}
                 onClick={() => setAskingRemove(entry.key)}
               />
             ) : null}
@@ -529,19 +540,19 @@ function ExtensionLibraryContents({
             <>
               <DropdownMenuItem onSelect={() => setSigning(entry.name)}>
                 <KeyRoundIcon aria-hidden="true" />
-                Sign in…
+                {t`Sign in…`}
               </DropdownMenuItem>
               {address ? (
                 <DropdownMenuItem onSelect={() => copyAddress(address.full)}>
                   <CopyIcon aria-hidden="true" />
-                  Copy address
+                  {t`Copy address`}
                 </DropdownMenuItem>
               ) : null}
             </>
           ) : address ? (
             <DropdownMenuItem onSelect={() => copyAddress(address.full)}>
               <CopyIcon aria-hidden="true" />
-              {entry.remote ? 'Copy address' : 'Copy command'}
+              {entry.remote ? t`Copy address` : t`Copy command`}
             </DropdownMenuItem>
           ) : undefined
         }
@@ -561,13 +572,13 @@ function ExtensionLibraryContents({
         selected={isOpen(target)}
         slot={
           <SlotButton
-            disabled={supported !== true && item.action.label !== 'View'}
-            label={`${item.action.label} ${item.title}`}
+            disabled={supported !== true && !item.action.opensOnly}
+            label={t`${ph({ action: item.action.label })} ${ph({ name: item.title })}`}
             onClick={item.action.run}
             reason={
               supported === false
-                ? 'Installing needs a newer agent service'
-                : 'Checking the agent service…'
+                ? t`Installing needs a newer agent service`
+                : t`Checking the agent service…`
             }
           >
             {item.action.label}
@@ -590,7 +601,7 @@ function ExtensionLibraryContents({
     <div title={loadError.message}>
       <StateView
         action={{
-          label: 'Retry',
+          label: t`Retry`,
           onClick: () => {
             void catalog.refetch();
             void marketplaces.refetch();
@@ -598,38 +609,34 @@ function ExtensionLibraryContents({
         }}
         kind="error"
         size="row"
-        title="Extensions couldn’t be loaded."
+        title={t`Extensions couldn’t be loaded.`}
       />
     </div>
   ) : loading ? (
-    <StateView kind="loading" size="row" title="Loading extensions…" />
+    <StateView kind="loading" size="row" title={t`Loading extensions…`} />
   ) : nothingInstalled && type === 'all' && !term ? (
     <StateView
-      action={{ label: 'Add a marketplace', onClick: manager.openInstall }}
+      action={{ label: t`Add a marketplace`, onClick: manager.openInstall }}
       kind="empty"
-      secondaryAction={{ label: 'Discover', onClick: () => changeView('discover') }}
+      secondaryAction={{ label: t`Discover`, onClick: () => changeView('discover') }}
       size="row"
-      title="No extensions yet."
+      title={t`No extensions yet.`}
     />
   ) : (
     <>
       {entries.length ? (
-        <ItemList label="Extensions">{entries.map(row)}</ItemList>
+        <ItemList label={t`Extensions`}>{entries.map(row)}</ItemList>
       ) : (
         <StateView
           kind="empty"
           size="row"
-          title={
-            term
-              ? `No extensions match “${term}”.`
-              : `No ${EXTENSION_TYPE_LABELS[type].toLowerCase()} yet.`
-          }
+          title={term ? t`No extensions match “${term}”.` : EMPTY_TITLES[type]}
         />
       )}
       {suggestions.length ? (
         <>
-          <SettingsGroupLabel>Discover</SettingsGroupLabel>
-          <ItemList label="Suggested extensions">{suggestions.map(discoverRow)}</ItemList>
+          <SettingsGroupLabel>{t`Discover`}</SettingsGroupLabel>
+          <ItemList label={t`Suggested extensions`}>{suggestions.map(discoverRow)}</ItemList>
         </>
       ) : null}
     </>
@@ -640,16 +647,16 @@ function ExtensionLibraryContents({
     <>
       {type === 'mcp' && catalogOff.length ? (
         <>
-          <SettingsGroupLabel>Connector catalog</SettingsGroupLabel>
-          <ItemList label="Connectors to enable">{catalogOff.map(row)}</ItemList>
+          <SettingsGroupLabel>{t`Connector catalog`}</SettingsGroupLabel>
+          <ItemList label={t`Connectors to enable`}>{catalogOff.map(row)}</ItemList>
         </>
       ) : null}
       {shownCurated.length ? (
         <>
           <SettingsGroupLabel>
-            {type === 'mcp' ? 'MCP servers you add yourself' : 'Suggested'}
+            {type === 'mcp' ? t`MCP servers you add yourself` : t`Suggested`}
           </SettingsGroupLabel>
-          <ItemList label="Suggested extensions">{shownCurated.map(discoverRow)}</ItemList>
+          <ItemList label={t`Suggested extensions`}>{shownCurated.map(discoverRow)}</ItemList>
         </>
       ) : null}
       {showRegistry ? (
@@ -662,7 +669,7 @@ function ExtensionLibraryContents({
         />
       ) : null}
       {!shownCurated.length && !showRegistry ? (
-        <StateView kind="empty" size="row" title="No suggestions match." />
+        <StateView kind="empty" size="row" title={t`No suggestions match.`} />
       ) : null}
     </>
   );
@@ -677,8 +684,8 @@ function ExtensionLibraryContents({
       )}
     >
       <SettingsSectionHeading
-        description="Connectors, plugins, marketplaces and skills for your agents."
-        title="Extensions"
+        description={t`Connectors, plugins, marketplaces and skills for your agents.`}
+        title={t`Extensions`}
       />
       <ExtensionToolbar
         onAdd={setAdding}
@@ -700,7 +707,7 @@ function ExtensionLibraryContents({
           <StateView
             kind="error"
             size="row"
-            title="The shipped marketplace couldn’t be installed; other marketplaces still work."
+            title={t`The shipped marketplace couldn’t be installed; other marketplaces still work.`}
           />
         </div>
       ) : null}

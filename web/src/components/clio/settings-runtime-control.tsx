@@ -15,6 +15,7 @@ import {
   SettingsNumberInput,
   SettingsPresetInput,
 } from './settings-runtime-number';
+import { ph, t } from '@lingui/core/macro';
 
 /** The control for one runtime setting, sized to the right column of its setting row. */
 export function RuntimeSettingControl({
@@ -45,7 +46,7 @@ export function RuntimeSettingControl({
         <Select disabled={disabled} onValueChange={(next) => onChange(next)} value={String(value)}>
           <SelectTrigger
             aria-label={setting.title}
-            className="h-[1.875rem] w-full min-w-0 text-[0.78125rem]"
+            className="h-[1.875rem] w-full min-w-0 text-menu"
             id={id}
             size="sm"
           >
@@ -63,11 +64,11 @@ export function RuntimeSettingControl({
         <Input
           aria-label={setting.title}
           autoComplete="off"
-          className="h-[1.875rem] w-full min-w-0 text-[0.78125rem]"
+          className="h-[1.875rem] w-full min-w-0 text-menu"
           disabled={disabled}
           id={id}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Not set"
+          placeholder={t`Not set`}
           spellCheck={false}
           title={String(value) || undefined}
           type="text"
@@ -123,7 +124,7 @@ export function RuntimeSettingControl({
         <IconButton
           disabled={resetDisabled}
           icon={<RetryIcon />}
-          label={`Use inherited ${setting.title.toLowerCase()}`}
+          label={t`Use inherited ${ph({ setting: setting.title.toLowerCase() })}`}
           onClick={() => onChange(null)}
           size="sm"
         />

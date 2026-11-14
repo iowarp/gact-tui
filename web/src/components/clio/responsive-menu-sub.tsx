@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
 import {
   DropdownMenuItem,
+  DropdownMenuKey,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -20,12 +21,15 @@ const INLINE_BELOW = 600;
 export function ResponsiveMenuSub({
   icon: Icon,
   label,
+  menuKey,
   width = 260,
   contentClassName,
   children,
 }: {
   icon: MenuIcon;
   label: string;
+  /** The one letter that opens these rows while the menu is open. */
+  menuKey?: string;
   width?: number;
   contentClassName?: string;
   children: ReactNode;
@@ -38,7 +42,9 @@ export function ResponsiveMenuSub({
       <>
         <DropdownMenuItem
           aria-expanded={expanded}
+          aria-keyshortcuts={menuKey}
           className="whitespace-nowrap"
+          data-menu-key={menuKey?.toLowerCase()}
           onKeyDown={(event) => {
             // Same keys as a submenu: Right opens the rows, Left folds them.
             if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
@@ -53,9 +59,14 @@ export function ResponsiveMenuSub({
         >
           <Icon aria-hidden="true" className="text-muted-foreground" />
           {label}
+          {menuKey ? <DropdownMenuKey>{menuKey}</DropdownMenuKey> : null}
           <ChevronDownIcon
             aria-hidden="true"
-            className={cn('ml-auto text-muted-foreground', expanded && 'rotate-180')}
+            className={cn(
+              'text-muted-foreground',
+              !menuKey && 'ml-auto',
+              expanded && 'rotate-180',
+            )}
           />
         </DropdownMenuItem>
         {expanded ? (
@@ -83,7 +94,7 @@ export function ResponsiveMenuSub({
         setSideOffset(right < width && left < width ? right - width : 0);
       }}
     >
-      <DropdownMenuSubTrigger className="whitespace-nowrap" ref={trigger}>
+      <DropdownMenuSubTrigger className="whitespace-nowrap" menuKey={menuKey} ref={trigger}>
         <Icon aria-hidden="true" className="text-muted-foreground" />
         {label}
       </DropdownMenuSubTrigger>

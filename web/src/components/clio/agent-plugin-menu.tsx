@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { pluginConnectorStatus } from '@/lib/connector-presentation';
 import { CapabilityPicker } from './capability-picker';
 import { ConnectorLogo } from './connector-need-rows';
+import { t } from '@lingui/core/macro';
 export interface AgentPluginMenuProps {
   /** Installed plugins and packs; `undefined` while loading. */
   plugins?: readonly PluginEntry[];
@@ -30,19 +31,19 @@ function availability(
   active: ReadonlyMap<string, string>,
   delta: AgentDelta,
 ): Availability {
-  if (plugin.pending_trust) return { selectable: false, label: 'Waiting for trust in Settings' };
-  if (!plugin.trusted) return { selectable: false, label: 'Marketplace not trusted' };
+  if (plugin.pending_trust) return { selectable: false, label: t`Waiting for trust in Settings` };
+  if (!plugin.trusted) return { selectable: false, label: t`Marketplace not trusted` };
   if (delta.remove.some((reference) => pluginReferenceId(reference) === plugin.id))
-    return { selectable: true, label: 'Removed (select to add back)' };
+    return { selectable: true, label: t`Removed (select to add back)` };
   const activeFrom = active.get(plugin.id);
   if (activeFrom === plugin.marketplace)
-    return { selectable: false, label: plugin.connector ? 'In this conversation' : 'Active' };
-  if (activeFrom !== undefined) return { selectable: false, label: `Active from ${activeFrom}` };
+    return { selectable: false, label: plugin.connector ? t`In this conversation` : t`Active` };
+  if (activeFrom !== undefined) return { selectable: false, label: t`Active from ${activeFrom}` };
   if (plugin.diagnostics.some((row) => row.severity === 'error'))
-    return { selectable: false, label: 'Has errors' };
+    return { selectable: false, label: t`Has errors` };
   // A connector's plugin says its connector's state in words (CN3) beside its name.
   if (plugin.connector) return { selectable: true, label: pluginConnectorStatus(plugin.connector) };
-  return { selectable: true, label: 'Add' };
+  return { selectable: true, label: t`Add` };
 }
 
 /** Conversation availability stays with the agent resolver; the picker owns only presentation. */
@@ -100,11 +101,11 @@ export function AgentPluginMenu({
       error={pluginsError}
       onChoose={onAdd}
       disabled={disabled}
-      label="Plugins"
+      label={t`Plugins`}
       align={align}
       footer={
         <Link to="/settings/plugins" className="block rounded-md px-2 py-2 text-sm hover:bg-accent">
-          Browse extensions
+          {t`Browse extensions`}
         </Link>
       }
     >

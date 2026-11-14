@@ -136,7 +136,7 @@ describe('session attention', () => {
       total: 4,
     });
     expect(sessionAttentionLabel(attention)).toBe(
-      `1 permission, 1 question, 1 task input and 1 ${PROTOCOL.a2ui} surface`,
+      `1 permission, 1 question, 1 task input, and 1 ${PROTOCOL.a2ui} surface`,
     );
   });
 

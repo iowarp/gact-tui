@@ -9,12 +9,15 @@ import { SaveBar } from './primitives/save-bar';
 import { SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { type LocalProfile, useLocalProfile } from './settings-profile-store';
+import { t } from '@lingui/core/macro';
 
 const FIELD =
-  'h-[1.875rem] rounded-md px-[9px] text-[0.78125rem] placeholder:text-faint md:text-[0.78125rem]';
+  'h-[1.875rem] rounded-md px-[9px] text-menu placeholder:text-faint md:text-menu';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
 /** Name, email and a few words about the person, saved only on this computer. */
+const { agent } = vocab;
+
 export function ProfileSettings() {
   const { profile, save } = useLocalProfile();
   const [draft, setDraft] = useState<Partial<LocalProfile>>({});
@@ -23,17 +26,17 @@ export function ProfileSettings() {
     (field) => (draft[field] ?? '').trim() !== profile[field],
   );
   const emailError =
-    value.email.trim() && !EMAIL.test(value.email.trim()) ? 'Enter an email address.' : undefined;
+    value.email.trim() && !EMAIL.test(value.email.trim()) ? t`Enter an email address.` : undefined;
   const edit = (field: keyof LocalProfile) => (next: string) =>
     setDraft((current) => ({ ...current, [field]: next }));
 
   return (
     <div>
       <SettingsSectionHeading
-        info={`Who you are, for ${vocab.agent}. Saved only on this computer.`}
-        title="Profile"
+        info={t`Who you are, for ${agent}. Saved only on this computer.`}
+        title={t`Profile`}
       />
-      <SettingsRow dirty={changed.includes('name')} htmlFor="profile-name" title="Name">
+      <SettingsRow dirty={changed.includes('name')} htmlFor="profile-name" title={t`Name`}>
         <Input
           autoComplete="name"
           className={FIELD}
@@ -46,7 +49,7 @@ export function ProfileSettings() {
         dirty={changed.includes('email')}
         error={emailError}
         htmlFor="profile-email"
-        title="Email"
+        title={t`Email`}
       >
         <Input
           aria-invalid={Boolean(emailError)}
@@ -54,16 +57,16 @@ export function ProfileSettings() {
           className={FIELD}
           id="profile-email"
           onChange={(event) => edit('email')(event.target.value)}
-          placeholder="Optional"
+          placeholder={t`Optional`}
           type="email"
           value={value.email}
         />
       </SettingsRow>
       <SettingsRow
-        info={`What you work on and how. Kept on this computer; not sent to ${vocab.agent} yet.`}
+        info={t`What you work on and how. Kept on this computer; not sent to ${agent} yet.`}
         dirty={changed.includes('about')}
         htmlFor="profile-about"
-        title="About you"
+        title={t`About you`}
       >
         <Textarea
           className={cn(
@@ -76,11 +79,11 @@ export function ProfileSettings() {
         />
       </SettingsRow>
       <p
-        className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-faint"
+        className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
         data-slot="settings-footnote"
       >
         <LockIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
-        <span className="min-w-0 truncate">Stays local. Saved only on this computer.</span>
+        <span className="min-w-0 truncate">{t`Stays local. Saved only on this computer.`}</span>
       </p>
       <SaveBar
         count={changed.length}
@@ -89,7 +92,7 @@ export function ProfileSettings() {
         onSave={() => {
           save(value);
           setDraft({});
-          announce('Profile saved');
+          announce(t`Profile saved`);
         }}
       />
     </div>

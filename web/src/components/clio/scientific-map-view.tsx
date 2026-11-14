@@ -8,8 +8,21 @@ import {
   useMapThemeRepaint,
 } from './map-theme-paint';
 import { useOfflineArchive } from '@/providers/connection-provider';
+import {
+  claimMap,
+  type MapDebugSurface,
+  GEOMETRY_HANDOVER_MS,
+  GEOMETRY_SOURCE_ID,
+  geometryKey,
+  geometryKeys,
+  pendingGeometryTeardowns,
+  pointsLayerOwners,
+  removeGeometryLayers,
+} from './scientific-map-pool';
+import { MapInstanceReporter } from './map-instance-reporter';
 import { MapPinIcon } from 'lucide-react';
 import type { FeatureCollection } from 'geojson';
+import * as maplibre from 'maplibre-gl';
 import type { ExpressionSpecification, GeoJSONSource, MapLibreMap } from 'maplibre-gl';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -17,11 +30,11 @@ import Map, {
   Marker,
   NavigationControl,
   Popup,
-  useMap,
   type MapLayerMouseEvent,
   type MapRef,
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { LoadingFeedback } from './loading-feedback';
 import { cn } from '@/lib/utils';
 import {
   mapCategoryColors,
@@ -30,28 +43,15 @@ import {
   uncategorizedColor,
 } from './map-category-palette';
 import { nearestProjectedGeometryId } from './map-points';
-import { useMapSelectionPointerHandlers } from './map-selection-pointer';
+import { dragIsZone, useMapSelectionPointerHandlers, type DragBox } from './map-selection-pointer';
+import { t, ph } from '@lingui/core/macro';
+import {
+  pointsToGeoJson,
+  type PointsGeoJson,
+  type ScientificMapPoint,
+} from './scientific-map-points';
 
-export interface ScientificMapPoint {
-  id: string;
-  label: string;
-  latitude: number;
-  longitude: number;
-  detail?: string;
-  category?: string;
-  /**
-   * The referenced dataset's `selectionField` column value for this point,
-   * when `clio.map.v1` names one — the value a bound selection reads and
-   * writes, independent of `id`/`label`/`category`. Unset for inline points
-   * and for a dataUri map with no `selectionField`.
-   */
-  selectionValue?: string | number;
-  value?: number;
-  /** Index of this observation in a queried table, used to form ordered tracks. */
-  rowIndex?: number;
-  /** Renderer-derived track identity. A click can select its visible observations together. */
-  track?: string;
-}
+export type { ScientificMapPoint } from './scientific-map-points';
 
 interface ScientificMapViewProps {
   points: readonly ScientificMapPoint[];
@@ -100,76 +100,11 @@ interface ScientificMapViewProps {
  */
 const MANY_POINTS_THRESHOLD = 150;
 const POINTS_SOURCE_ID = 'clio-map-points';
-const GEOMETRY_SOURCE_ID = 'clio-map-geometry';
-/** Which mounted view last claimed the points layer on a (possibly pooled) map instance. */
-const pointsLayerOwners = new WeakMap<MapLibreMap, symbol>();
+export type { MapDebugSurface } from './scientific-map-pool';
 
-interface PointFeatureProperties {
-  id: string;
-  highlighted: boolean;
-  color: string;
-}
-
-function pointsToGeoJson(
-  points: readonly ScientificMapPoint[],
-  highlightedIds: ReadonlySet<string>,
-  categoryColors: ReadonlyMap<string, string>,
-  valueExtent?: [number, number],
-) {
-  return {
-    type: 'FeatureCollection' as const,
-    features: points.map((point) => ({
-      type: 'Feature' as const,
-      geometry: { type: 'Point' as const, coordinates: [point.longitude, point.latitude] },
-      properties: {
-        id: point.id,
-        highlighted: highlightedIds.has(point.id),
-        color: mapPointColor(point, categoryColors, valueExtent),
-      } satisfies PointFeatureProperties,
-    })),
-  };
-}
-
-type PointsGeoJson = ReturnType<typeof pointsToGeoJson>;
-
-/**
- * Read-only mounted map handle for capture and e2e inspection. An e2e assertion needs to see the map's ACTUAL declared
- * layer/source state, which no DOM query can ever observe — a "500 labeled
- * locations" list item proves the data resolved into React props, never
- * that the map component turned it into a real maplibre layer. Never read
- * by general app code; the region capture uses it to request a fresh frame. See `a2ui-data-everywhere.spec.ts`'s `mapPointsLayerData`
- * helper (and its doc comment, which also covers why a live WebGL-paint
- * assertion is not reliable in that harness).
- */
-export interface MapDebugSurface extends HTMLDivElement {
-  __clioMap?: MapLibreMap;
-  __clioMapFailure?: string;
-}
-
-/** Container-relative pixel coordinates of a rubber-band drag in progress. */
-interface DragBox {
-  startX: number;
-  startY: number;
-  x: number;
-  y: number;
-}
-
-/** Pixels a shift+drag must move before it counts as a zone (not a shift+click). */
-const ZONE_DRAG_THRESHOLD_PX = 4;
-
-/** Get the map instance from the provider, including maps returned from the reuse pool. */
-function MapInstanceReporter({ onMapInstance }: { onMapInstance: (map: MapLibreMap) => void }) {
-  const mapRef = useMap().current;
-  useEffect(() => {
-    const map = mapRef?.getMap();
-    if (!map) return;
-    // `onLoad` only fires for a newly created map. A pooled map may already be
-    // loaded when the new React view attaches, so report it from the provider.
-    map.boxZoom.disable();
-    onMapInstance(map);
-  }, [mapRef, onMapInstance]);
-  return null;
-}
+/** How long the loading placeholder may cover a map that never settles. */
+const FIRST_DRAW_TIMEOUT_MS = 5_000;
+const LOADING_PLACEHOLDER_DELAY_MS = 150;
 
 export function ClioScientificMapView({
   boxSelectMode = false,
@@ -229,6 +164,47 @@ export function ClioScientificMapView({
   const lastBoxDragAt = useRef(0);
   const suppressHandledClick = useRef(false);
   const manyPoints = !geometry && points.length > MANY_POINTS_THRESHOLD;
+  // The canvas exists well before its data is drawn. Keep the loading placeholder
+  // over it until the style is ready and the map's own data layer has drawn, so it
+  // never shows an empty frame. Basemap tiles may still stream in afterwards.
+  const dataSourceId = geometry ? GEOMETRY_SOURCE_ID : manyPoints ? POINTS_SOURCE_ID : undefined;
+  const [drawn, setDrawn] = useState(false);
+  // A map that draws within this delay (a preloaded, pooled instance) never flashes the placeholder.
+  const [slowDraw, setSlowDraw] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSlowDraw(true), LOADING_PLACEHOLDER_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!mapInstance) return undefined;
+    const map = mapInstance;
+    const finish = () => {
+      setDrawn(true);
+      map.off('render', check);
+    };
+    const check = () => {
+      if (!map.getLayer(MAP_BASE_LAYER_ID)) return;
+      // A handed-over source keeps drawing its tiles while new data loads.
+      if (
+        dataSourceId &&
+        !(
+          map.getSource(dataSourceId) &&
+          (map.isSourceLoaded(dataSourceId) || map.querySourceFeatures(dataSourceId).length > 0)
+        )
+      )
+        return;
+      finish();
+    };
+    map.on('render', check);
+    map.on('idle', finish);
+    map.triggerRepaint?.();
+    const timer = window.setTimeout(finish, FIRST_DRAW_TIMEOUT_MS);
+    return () => {
+      map.off('render', check);
+      map.off('idle', finish);
+      window.clearTimeout(timer);
+    };
+  }, [dataSourceId, mapInstance]);
   const denseTrajectories = Boolean(geometrySelectionByPoints && points.length > 1_000);
   // Point colors are resolved from the theme, so a theme change recolors them.
   const theme = useThemeKey();
@@ -284,17 +260,19 @@ export function ClioScientificMapView({
     const canvas = map.getCanvas();
     const previousCursor = canvas.style.cursor;
     const owner = Symbol('clio-map-geometry-owner');
+    const key = geometryKey(geometry, denseTrajectories);
     const ensureGeometryLayers = () => {
       // Raster tile requests can fail while the base style and its layer are
       // already usable. `isStyleLoaded()` remains false in that case and would
       // hide every data overlay even though the map itself is visible.
       if (!map.getLayer(MAP_BASE_LAYER_ID)) return;
-      pointsLayerOwners.set(map, owner);
+      claimMap(map, owner, key);
       if (!map.getSource(GEOMETRY_SOURCE_ID))
         map.addSource(GEOMETRY_SOURCE_ID, {
           type: 'geojson',
           data: styledGeometryRef.current ?? geometry,
         });
+      geometryKeys.set(map, key);
       const color: ExpressionSpecification = [
         'case',
         ['get', 'highlighted'],
@@ -347,7 +325,11 @@ export function ClioScientificMapView({
           type: 'fill',
           source: GEOMETRY_SOURCE_ID,
           filter: ['==', ['geometry-type'], 'Polygon'],
-          paint: { 'fill-color': color, 'fill-opacity': 0.42, 'fill-outline-color': markerOutlineColor() },
+          paint: {
+            'fill-color': color,
+            'fill-opacity': 0.42,
+            'fill-outline-color': markerOutlineColor(),
+          },
         });
       if (!map.getLayer(GEOMETRY_LAYER_IDS[1]))
         map.addLayer({
@@ -403,12 +385,18 @@ export function ClioScientificMapView({
       canvas.style.cursor = previousCursor;
       if (pointsLayerOwners.get(map) !== owner) return;
       pointsLayerOwners.delete(map);
-      try {
-        for (const id of GEOMETRY_LAYER_IDS) if (map.getLayer(id)) map.removeLayer(id);
-        if (map.getSource(GEOMETRY_SOURCE_ID)) map.removeSource(GEOMETRY_SOURCE_ID);
-      } catch {
-        /* Pooled map style was already removed. */
-      }
+      // With `reuseMaps`, the next view on this instance may show the same
+      // geometry; leave it briefly so that view need not parse it again.
+      const teardown = () => {
+        window.clearTimeout(timer);
+        removeGeometryLayers(map);
+      };
+      const timer = window.setTimeout(() => {
+        if (pendingGeometryTeardowns.get(map) !== teardown) return;
+        pendingGeometryTeardowns.delete(map);
+        removeGeometryLayers(map);
+      }, GEOMETRY_HANDOVER_MS);
+      pendingGeometryTeardowns.set(map, teardown);
     };
   }, [geometry, mapInstance, denseTrajectories]);
   useEffect(() => {
@@ -455,7 +443,7 @@ export function ClioScientificMapView({
     const owner = Symbol('clio-map-points-owner');
     const ensurePointsLayer = () => {
       if (!map.getLayer(MAP_BASE_LAYER_ID)) return;
-      pointsLayerOwners.set(map, owner);
+      claimMap(map, owner);
       if (!map.getSource(POINTS_SOURCE_ID)) {
         map.addSource(POINTS_SOURCE_ID, {
           type: 'geojson',
@@ -581,9 +569,7 @@ export function ClioScientificMapView({
     const point = containerPoint(event);
     const completed = { ...current, x: point.x, y: point.y };
     const map = mapRef.current?.getMap();
-    const moved =
-      Math.abs(completed.x - completed.startX) > ZONE_DRAG_THRESHOLD_PX ||
-      Math.abs(completed.y - completed.startY) > ZONE_DRAG_THRESHOLD_PX;
+    const moved = dragIsZone(completed);
     if (map && moved) {
       lastBoxDragAt.current = performance.now();
       const corner1 = map.unproject([completed.startX, completed.startY]);
@@ -692,6 +678,8 @@ export function ClioScientificMapView({
       <Map
         dragPan={!boxSelectMode}
         initialViewState={viewState}
+        // The loaded module, not a dynamic import: a pooled map reattaches in this commit's effects.
+        mapLib={maplibre}
         interactiveLayerIds={
           geometry ? [...GEOMETRY_LAYER_IDS] : manyPoints ? [POINTS_LAYER_ID] : undefined
         }
@@ -701,7 +689,7 @@ export function ClioScientificMapView({
         minZoom={1}
         onClick={handleLayerClick}
         onError={(event) => {
-          const detail = event.error?.message || 'The map tiles could not be loaded.';
+          const detail = event.error?.message || t`The map tiles could not be loaded.`;
           setMapError(detail);
           if (rootRef.current) (rootRef.current as MapDebugSurface).__clioMapFailure = detail;
         }}
@@ -723,7 +711,7 @@ export function ClioScientificMapView({
                   longitude={point.longitude}
                 >
                   <button
-                    aria-label={`Select ${point.label}`}
+                    aria-label={t`Select ${ph({ label: point.label })}`}
                     aria-pressed={highlighted}
                     className={cn(
                       'group grid size-8 cursor-pointer place-items-center rounded-full border border-media-foreground/80 text-media-foreground shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -760,9 +748,15 @@ export function ClioScientificMapView({
           </Popup>
         ) : null}
       </Map>
+      {drawn || mapError || !slowDraw ? null : (
+        <LoadingFeedback
+          className="pointer-events-none absolute inset-0 z-[2] justify-center bg-muted"
+          label={t`Loading map…`}
+        />
+      )}
       {boxSelectMode && onZoneSelect ? (
         <div
-          aria-label="Drag to select map points"
+          aria-label={t`Drag to select map points`}
           className="absolute inset-0 z-[1] cursor-crosshair touch-none"
         />
       ) : null}
@@ -780,7 +774,7 @@ export function ClioScientificMapView({
       ) : null}
       {offlineArchive ? (
         <p className="absolute bottom-1 left-2 rounded bg-background/90 px-2 py-1 text-xs text-muted-foreground">
-          Offline map: Natural Earth land outline and saved scientific data
+          {t`Offline map: Natural Earth land outline and saved scientific data`}
         </p>
       ) : null}
       {mapError ? (
@@ -789,8 +783,8 @@ export function ClioScientificMapView({
           role="alert"
         >
           {mapError.startsWith('layers.')
-            ? 'Map data layer unavailable'
-            : 'Map background unavailable'}
+            ? t`Map data layer unavailable`
+            : t`Map background unavailable`}
           : {mapError}
         </p>
       ) : null}

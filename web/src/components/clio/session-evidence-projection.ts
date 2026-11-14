@@ -7,6 +7,7 @@ import type {
   SessionDiff,
   ToolInvocation,
 } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 export interface EvidenceFile {
   id: string;
@@ -51,10 +52,10 @@ export function sessionFiles(
       file.path,
       file.display_path,
       file.mode === 'pin'
-        ? 'Pinned to context'
+        ? t`Pinned to context`
         : file.mode === 'edit'
-          ? 'Attached for editing'
-          : 'Attached for reading',
+          ? t`Attached for editing`
+          : t`Attached for reading`,
       file.size,
     );
   }
@@ -62,9 +63,9 @@ export function sessionFiles(
     if (tool.state !== 'succeeded' || !tool.presentation) continue;
     const action = tool.presentation.action?.toLocaleLowerCase() ?? '';
     const fact = action.includes('read')
-      ? 'Read by agent'
+      ? t`Read by agent`
       : action.includes('write') || action.includes('edit') || action.includes('patch')
-        ? 'Written by agent'
+        ? t`Written by agent`
         : undefined;
     if (!fact) continue;
     const size = presentationByteCount(tool.presentation.summary) ?? outputByteCount(tool.output);
@@ -81,28 +82,41 @@ export function sessionFiles(
     for (const node of executionProvenance.nodes) {
       if (node.kind !== 'tool' || node.status !== 'completed') continue;
       const toolName = stringAttribute(node.attributes, 'tool_name');
-      const fact = provenanceFileFact(toolName);
+      const access = provenanceFileAccess(toolName);
       const toolInput = objectAttribute(node.attributes, 'tool_input');
       const path = stringAttribute(toolInput, 'path');
-      if (!fact || !path) continue;
+      if (!access || !path) continue;
       const ownerSessionId =
         stringAttribute(node.attributes, 'owner_session_id') || node.session_id;
-      const ownerLabel = ownerBySession.get(ownerSessionId);
-      add(
-        path,
-        fileName(path),
-        ownerSessionId === executionProvenance.session_id || !ownerLabel
-          ? `${fact} by agent`
-          : `${fact} by ${ownerLabel}`,
-      );
+      const owner =
+        ownerSessionId === executionProvenance.session_id
+          ? undefined
+          : ownerBySession.get(ownerSessionId);
+      const fact =
+        access === 'read'
+          ? owner
+            ? t`Read by ${owner}`
+            : t`Read by agent`
+          : owner
+            ? t`Written by ${owner}`
+            : t`Written by agent`;
+      add(path, fileName(path), fact);
     }
   }
   return [...files.values()];
 }
 
-export function provenanceFileFact(toolName: string): 'Read' | 'Written' | undefined {
-  if (toolName === 'fs_read_file') return 'Read';
-  if (toolName === 'fs_write_file' || toolName === 'fs_edit_file') return 'Written';
+function provenanceFileAccess(toolName: string): 'read' | 'written' | undefined {
+  if (toolName === 'fs_read_file') return 'read';
+  if (toolName === 'fs_write_file' || toolName === 'fs_edit_file') return 'written';
+  return undefined;
+}
+
+/** What a file tool did to its file, as a label (`Read`, `Written`). */
+export function provenanceFileFact(toolName: string): string | undefined {
+  const access = provenanceFileAccess(toolName);
+  if (access === 'read') return t({ message: 'Read', context: 'past tense: the file was read' });
+  if (access === 'written') return t`Written`;
   return undefined;
 }
 

@@ -1,5 +1,6 @@
 import type { PendingInteraction, ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { isVariantPickInteraction } from '@/lib/variant-runs';
+import { t } from '@lingui/core/macro';
 
 /** True for an MCP request the server first addressed to an agent. */
 export function isAgentMcpInteraction(interaction: PendingInteraction): boolean {
@@ -117,7 +118,7 @@ export function withPermissionDecision(
   // refused call `denied`, the record only adds detail.
   if (tool.state === 'denied' || tool.presentation?.status === 'denied') {
     return tool.state === 'denied' && tool.presentation?.status === 'denied'
-      ? tool
+      ? withoutRefusal(tool)
       : asDenied(tool, 'you denied it');
   }
   // Sessions recorded before that projection: the call's own refusal reason is
@@ -133,23 +134,54 @@ function asDenied(tool: ToolInvocation, wording: string): ToolInvocation {
   const decision: ToolPresentationBlock = {
     id: 'permission-decision',
     type: 'text',
-    label: 'Decision',
+    label: t`Decision`,
     text: wording,
   };
+  const kept = (tool.presentation?.blocks ?? []).filter(
+    (block) => block.id !== decision.id && !refusalBlock(block),
+  );
   return {
     ...tool,
+    // The refusal is said once, as the decision; its technical error stays in ⓘ.
+    error: redundantError(tool, kept) ? undefined : tool.error,
     state: 'denied',
     presentation: {
       ...tool.presentation,
       summary: tool.presentation?.summary ?? '',
       status: 'denied',
-      blocks: [
-        ...(tool.presentation?.blocks ?? []).filter((block) => block.id !== decision.id),
-        decision,
-      ],
+      blocks: [...kept, decision],
     },
   };
 }
+
+/** The error is the refusal itself, or a kept block already says it. */
+function redundantError(tool: ToolInvocation, kept: readonly ToolPresentationBlock[]): boolean {
+  if (typeof tool.error !== 'string') return false;
+  const error = tool.error.trim();
+  return REFUSAL.test(error) || kept.some((block) => block.text?.trim() === error);
+}
+
+/** A refused call already reads "Denied"; the agent's refusal sentence stays in ⓘ. */
+function withoutRefusal(tool: ToolInvocation): ToolInvocation {
+  const blocks = tool.presentation?.blocks ?? [];
+  const kept = blocks.filter((block) => !refusalBlock(block));
+  const dropError = redundantError(tool, kept);
+  if (kept.length === blocks.length && !dropError) return tool;
+  return {
+    ...tool,
+    error: dropError ? undefined : tool.error,
+    presentation: tool.presentation && { ...tool.presentation, blocks: kept },
+  };
+}
+
+function refusalBlock(block: ToolPresentationBlock): boolean {
+  return (
+    (block.severity === 'error' || block.severity === 'warning') &&
+    REFUSAL.test(block.text ?? '')
+  );
+}
+
+const REFUSAL = /\(code_script_not_allowed\)|\bwas not approved\b/u;
 
 /** The agent refused the call because its approval was not given (not a rule's own reason). */
 function refusedForApproval(tool: ToolInvocation): boolean {
@@ -159,7 +191,7 @@ function refusedForApproval(tool: ToolInvocation): boolean {
       .filter((block) => block.severity === 'error')
       .map((block) => block.text ?? ''),
   ];
-  return texts.some((text) => /\(code_script_not_allowed\)|\bwas not approved\b/u.test(text));
+  return texts.some((text) => REFUSAL.test(text));
 }
 
 function argumentsCover(asked: unknown, called: unknown): boolean {
@@ -230,14 +262,14 @@ export function toolWaitsForYou(
 export function questionInteractionRequestLabel(interaction: PendingInteraction): string {
   const kind =
     interaction.payload?.mode === 'url'
-      ? 'URL consent request'
+      ? t`URL consent request`
       : interaction.payload?.mode === 'form'
-        ? 'Form request'
+        ? t`Form request`
         : interaction.kind === 'mcp_task_input'
-          ? 'Task input request'
+          ? t`Task input request`
           : interaction.source.protocol === 'native'
-            ? 'Question'
-            : 'Information request';
+            ? t`Question`
+            : t`Information request`;
   const index = interaction.payload?.request_index;
   const count = interaction.payload?.request_count;
   return index && count ? `${kind} ${index} of ${count}` : kind;

@@ -1,6 +1,7 @@
 import { GroundedMessageResponse } from '@/components/clio/grounded-message-response';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { plural, t } from '@lingui/core/macro';
 
 export interface RecordedPart {
   id?: string;
@@ -47,16 +48,14 @@ function SavedOutputText({ text }: { text: string }) {
     <div>
       {pages > 1 && (
         <div className="my-2 flex items-center gap-3 text-xs">
-          <span>
-            Complete output, page {page + 1} of {pages}
-          </span>
+          <span>{t`Complete output, page ${page + 1} of ${pages}`}</span>
           <Button
             size="sm"
             variant="outline"
             disabled={page === 0}
             onClick={() => setPage(page - 1)}
           >
-            Previous
+            {t`Previous`}
           </Button>
           <Button
             size="sm"
@@ -64,7 +63,7 @@ function SavedOutputText({ text }: { text: string }) {
             disabled={page + 1 === pages}
             onClick={() => setPage(page + 1)}
           >
-            Next
+            {t`Next`}
           </Button>
         </div>
       )}
@@ -79,20 +78,21 @@ function SavedOutputText({ text }: { text: string }) {
 function RecordedList({ values, outputs }: { values: unknown[]; outputs: SavedToolOutput[] }) {
   const [page, setPage] = useState(0);
   const pages = Math.ceil(values.length / 20);
+  const first = page * 20 + 1;
+  const last = Math.min(values.length, (page + 1) * 20);
+  const total = values.length;
   return (
     <div>
       {pages > 1 && (
         <div className="mb-2 flex items-center gap-3 text-xs">
-          <span>
-            Items {page * 20 + 1}–{Math.min(values.length, (page + 1) * 20)} of {values.length}
-          </span>
+          <span>{t`Items ${first}–${last} of ${total}`}</span>
           <Button
             size="sm"
             variant="outline"
             disabled={page === 0}
             onClick={() => setPage(page - 1)}
           >
-            Previous
+            {t`Previous`}
           </Button>
           <Button
             size="sm"
@@ -100,7 +100,7 @@ function RecordedList({ values, outputs }: { values: unknown[]; outputs: SavedTo
             disabled={page + 1 === pages}
             onClick={() => setPage(page + 1)}
           >
-            Next
+            {t`Next`}
           </Button>
         </div>
       )}
@@ -145,17 +145,17 @@ export function RecordedValue({
               className="underline"
               href={saved.archive_path.split('/').map(encodeURIComponent).join('/')}
             >
-              Open complete saved output
+              {t`Open complete saved output`}
             </a>
           )}
-          {saved.embedded && <span>Complete saved output</span>}{' '}
+          {saved.embedded && <span>{t`Complete saved output`}</span>}{' '}
           <span className="ml-1 text-xs text-muted-foreground">
-            {saved.bytes.toLocaleString()} bytes
+            {plural(saved.bytes, { one: '# byte', other: '# bytes' })}
           </span>
           {saved.text !== undefined && <SavedOutputText text={saved.text} />}
         </div>
       ) : (
-        <p>The complete saved output is unavailable. The recorded excerpt is retained.</p>
+        <p>{t`The complete saved output is unavailable. The recorded excerpt is retained.`}</p>
       );
     }
     if (
@@ -194,5 +194,5 @@ export function RecordedValue({
       </dl>
     );
   }
-  return <span>{value === undefined ? 'Not recorded' : JSON.stringify(value)}</span>;
+  return <span>{value === undefined ? t`Not recorded` : JSON.stringify(value)}</span>;
 }

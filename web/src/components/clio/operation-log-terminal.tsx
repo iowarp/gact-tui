@@ -2,7 +2,9 @@ import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import { useEffect, useRef, useState } from 'react';
 import { TERMINAL_FONT_FAMILY, loadXterm } from '@/tauri/workspace-terminal';
+import { interfaceScale, useInterfaceScale } from '@/theme/runtime';
 import type { OperationLogEntry } from './operation-progress-model';
+import { t } from '@lingui/core/macro';
 
 /** Lines the service itself wrote (reuse notes, step changes) stand apart from command output. */
 const SERVICE_LINE = (text: string) => `\x1b[36m${text}\x1b[0m`;
@@ -39,7 +41,7 @@ export function OperationLogTerminal({
           cursorBlink: false,
           disableStdin: true,
           fontFamily: TERMINAL_FONT_FAMILY,
-          fontSize: 12,
+          fontSize: 12 * interfaceScale(),
           scrollback: 10_000,
         });
         const fit = new FitAddonCtor();
@@ -76,6 +78,15 @@ export function OperationLogTerminal({
     }
   }, [lines, ready]);
 
+  // xterm draws in px; follow Interface size like the rem-sized text around it.
+  const scale = useInterfaceScale();
+  useEffect(() => {
+    const current = terminal.current;
+    if (!ready || !current || current.term.options.fontSize === 12 * scale) return;
+    current.term.options.fontSize = 12 * scale;
+    current.fit.fit();
+  }, [ready, scale]);
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -95,7 +106,7 @@ export function OperationLogTerminal({
     <div className="overflow-hidden rounded-md border bg-terminal" data-slot="operation-log">
       {gap ? (
         <p className="border-b border-terminal-border px-3 py-1.5 text-xs text-terminal-muted">
-          Earlier output is no longer kept by the service.
+          {t`Earlier output is no longer kept by the service.`}
         </p>
       ) : null}
       {failure ? (

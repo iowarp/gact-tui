@@ -22,24 +22,29 @@ import { IconButton } from './primitives/icon-button';
 import { ItemRow } from './primitives/item-row';
 import { MenuRow } from './primitives/menu-row';
 import { RowConfirm } from './primitives/row-confirm';
-
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+import { plural, t } from '@lingui/core/macro';
 
 /**
  * The muted line under an agent's name. Your agents say what they start from
  * and what they add or remove; installed agents show their description.
  */
 function agentMeta(agent: AgentEntry, agents: readonly AgentEntry[]): string[] {
-  const count = plural(agent.plugins.length, 'package');
+  const count = plural(agent.plugins.length, { one: '# package', other: '# packages' });
   if (agent.kind !== 'user') return agent.description ? [agent.description] : [count];
   const parent = agent.extends ? agentDisplayName(agent.extends, agents) : '';
   const add = agent.delta?.add ?? [];
   const remove = agent.delta?.remove ?? [];
-  const basis = parent
-    ? `Based on ${parent}${add.length ? ` and ${add.join(', ')}` : ''}${
-        remove.length ? `, without ${remove.join(', ')}` : ''
-      }`
-    : agent.description || 'Yours';
+  const added = add.join(', ');
+  const removed = remove.join(', ');
+  const basis = !parent
+    ? agent.description || t`Yours`
+    : add.length && remove.length
+      ? t`Based on ${parent} and ${added}, without ${removed}`
+      : add.length
+        ? t`Based on ${parent} and ${added}`
+        : remove.length
+          ? t`Based on ${parent}, without ${removed}`
+          : t`Based on ${parent}`;
   return [basis, count];
 }
 
@@ -126,6 +131,8 @@ export function AgentRow({
       onKeyDown={onKeyDown}
       selected={selected}
       slot={slot}
+      // Explore, Delete and More float over the row's end, so descriptions get the width.
+      floatActions
       tabIndex={0}
       title={<span title={name}>{name}</span>}
       actions={
@@ -133,38 +140,38 @@ export function AgentRow({
           <IconButton
             aria-pressed={selected}
             icon={<EyeIcon />}
-            label={`Explore ${name}`}
+            label={t`Explore ${name}`}
             onClick={onPreview}
           />
           {onDelete ? (
             <IconButton
               icon={<DeleteIcon />}
-              label={`Delete ${name}`}
+              label={t`Delete ${name}`}
               onClick={() => setAsking(true)}
             />
           ) : null}
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <IconButton icon={<MoreIcon />} label={`More actions for ${name}`} />
+              <IconButton icon={<MoreIcon />} label={t`More actions for ${name}`} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-52">
               {onViewSource ? (
                 <DropdownMenuItem onSelect={onViewSource}>
-                  <MenuRow icon={<FileIcon />} label="View saved file" />
+                  <MenuRow icon={<FileIcon />} label={t`View saved file`} />
                 </DropdownMenuItem>
               ) : null}
               <DropdownMenuItem
                 onSelect={() =>
                   void copyText(agent.ref).then(
-                    () => toast.success('Reference copied', { description: agent.ref }),
+                    () => toast.success(t`Reference copied`, { description: agent.ref }),
                     (error: unknown) =>
-                      toast.error('Could not copy the reference', {
+                      toast.error(t`Could not copy the reference`, {
                         description: error instanceof Error ? error.message : agent.ref,
                       }),
                   )
                 }
               >
-                <MenuRow icon={<CopyIcon />} label="Copy reference" description={agent.ref} />
+                <MenuRow icon={<CopyIcon />} label={t`Copy reference`} description={agent.ref} />
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -179,11 +186,26 @@ function useAgentDraft(agent: AgentEntry) {
 }
 
 /** An agent's resolved plugins, prompt and provenance, beside the list (detail pane). */
-export function AgentPreviewPane({ agent, onClose }: { agent: AgentEntry; onClose: () => void }) {
+export function AgentPreviewPane({
+  agent,
+  naming = false,
+  onClose,
+}: {
+  agent: AgentEntry;
+  /** Opened by New agent: the save dialog starts open to name the variation. */
+  naming?: boolean;
+  onClose: () => void;
+}) {
   const [draft, setDraft] = useAgentDraft(agent);
   return (
     <DetailPane icon={<BotIcon />} onClose={onClose} title={agent.name || agent.id}>
-      <DraftAgentCompositionView draft={draft} embedded library onChange={setDraft} />
+      <DraftAgentCompositionView
+        draft={draft}
+        embedded
+        library
+        naming={naming}
+        onChange={setDraft}
+      />
     </DetailPane>
   );
 }
@@ -204,7 +226,7 @@ export function AgentPreviewDialog({ agent, onClose }: { agent: AgentEntry; onCl
       <DialogContent className="flex h-[min(48rem,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
         <DialogTitle className="sr-only">{agent.name || agent.ref}</DialogTitle>
         <DialogDescription className="sr-only">
-          Explore this agent and save a local variation.
+          {t`Explore this agent and save a local variation.`}
         </DialogDescription>
         <DraftAgentCompositionView draft={draft} onChange={setDraft} library />
       </DialogContent>

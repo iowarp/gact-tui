@@ -1,7 +1,9 @@
 import type { FormEvent } from 'react';
 import { Input } from '@/components/ui/input';
-import { AskButton, AskRow, AskRows, AskSection } from './ask-card';
+import { AskButton, AskSection } from './ask-card';
+import { AskRow, AskRows } from './ask-rows';
 import { plainQuestionText } from './question-card-model';
+import { t } from '@lingui/core/macro';
 
 export interface QuestionChoice {
   value: string;
@@ -65,8 +67,8 @@ export function QuestionWriteIn({
   onChange,
   onSubmit,
   disabled,
-  placeholder = 'Type your answer',
-  label = 'Your response',
+  placeholder = t`Type your answer`,
+  label = t`Your response`,
   enterKey,
 }: {
   id?: string;
@@ -91,7 +93,7 @@ export function QuestionWriteIn({
       >
         <Input
           aria-label={label}
-          className="h-[34px] min-w-0 flex-1 rounded-[7px] border-input text-[12.5px] md:text-[12.5px]"
+          className="h-[34px] min-w-0 flex-1 rounded-[7px] border-input text-menu md:text-menu"
           disabled={disabled}
           id={id}
           onChange={(event) => onChange(event.target.value)}
@@ -100,14 +102,15 @@ export function QuestionWriteIn({
         />
         {onSubmit ? (
           <AskButton
-            aria-label="Send response"
+            aria-label={t`Send response`}
             className="h-[34px]"
             disabled={disabled || !value.trim()}
+            // i18n-ignore: key name
             hint={enterKey ? 'Enter' : undefined}
             primary
             type="submit"
           >
-            Send
+            {t`Send`}
           </AskButton>
         ) : null}
       </form>

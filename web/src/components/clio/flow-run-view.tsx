@@ -34,6 +34,7 @@ import {
   flowTaskHistoryUnavailable,
   settledTaskStatus,
   stepTally,
+  flowRowCount,
 } from './flow-run-presentation';
 import { flowLabel } from './flow-tool-presentation';
 import { FlowTrack } from './flow-track';
@@ -43,6 +44,7 @@ import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * A flow run drawn from the task layer: the live workflow, council or arena as a
@@ -85,7 +87,7 @@ export function FlowRunView({
       <div className="flex h-full min-h-0 flex-col bg-background">
         <FrameBar
           actions={actions}
-          label="Flow run actions"
+          label={t`Flow run actions`}
           what={what}
           where={<FrameCrumbs parts={crumbs} />}
         />
@@ -101,7 +103,7 @@ export function FlowRunView({
         className="min-h-0 flex-1"
         kind="loading"
         size={stateSize}
-        title="Loading the flow run"
+        title={t`Loading the flow run`}
       />,
     );
   }
@@ -109,7 +111,7 @@ export function FlowRunView({
     return framed(
       <StateView
         action={{
-          label: 'Retry',
+          label: t`Retry`,
           icon: <RetryIcon />,
           onClick: () => void run.refetch(),
         }}
@@ -117,7 +119,7 @@ export function FlowRunView({
         detail={run.error.message}
         kind="error"
         size={stateSize}
-        title="Flow run unavailable"
+        title={t`Flow run unavailable`}
       />,
     );
   }
@@ -126,8 +128,9 @@ export function FlowRunView({
       <div className="grid content-start gap-2 p-4 text-sm">
         <ClioStatus className="justify-self-start" label={ended.label} value={ended.value} />
         <p className="text-muted-foreground">
-          The task ended before its flow run was recorded
-          {task.data?.error_reason ? ':' : '.'}
+          {task.data?.error_reason
+            ? t`The task ended before its flow run was recorded:`
+            : t`The task ended before its flow run was recorded.`}
         </p>
         {task.data?.error_reason ? (
           <p className="[overflow-wrap:anywhere]">{task.data.error_reason}</p>
@@ -140,10 +143,10 @@ export function FlowRunView({
     return framed(
       <StateView
         className="min-h-0 flex-1"
-        detail="It appears once the flow starts."
+        detail={t`It appears once the flow starts.`}
         kind="empty"
         size={stateSize}
-        title="No flow run is recorded for this task yet."
+        title={t`No flow run is recorded for this task yet.`}
       />,
     );
   }
@@ -187,13 +190,13 @@ export function FlowRunView({
           <>
             <IconButton
               icon={<Maximize2Icon />}
-              label="Full screen"
+              label={t`Full screen`}
               onClick={() => setFullScreen(true)}
               size="sm"
             />
             <IconButton
               icon={<MessagesSquareIcon />}
-              label="Open its conversation"
+              label={t`Open its conversation`}
               onClick={() => openHandle(handle)}
               size="sm"
             />
@@ -206,7 +209,7 @@ export function FlowRunView({
         onOpenChange={setFullScreen}
         open={fullScreen}
         run={data}
-        title={label || `${flowLabel(data.flow)} run`}
+        title={label || t`${ph({ flow: flowLabel(data.flow) })} run`}
       >
         {details('wide')}
       </FlowRunFullScreen>
@@ -241,7 +244,7 @@ export function FlowRunFullScreen({
           <DialogTitle className="min-w-0 truncate text-sm font-medium">{title}</DialogTitle>
           <ClioStatus label={status.label} value={status.value} />
           <Button className="ml-auto" onClick={() => onOpenChange(false)} size="sm" variant="ghost">
-            <Minimize2Icon aria-hidden="true" /> Exit full screen
+            <Minimize2Icon aria-hidden="true" /> {t`Exit full screen`}
           </Button>
         </div>
         <div className="min-h-0 overflow-auto p-3 sm:p-5">{children}</div>
@@ -267,10 +270,10 @@ function flowRunFacts(run: FlowRun, presentation: FlowPresentation) {
     ? ''
     : stepTally((stepwise ? steps : members).map((row) => row.status));
   const count = historyUnavailable
-    ? 'Task history not recorded'
+    ? t`Task history not recorded`
     : stepwise
-      ? `${steps.length} ${steps.length === 1 ? 'step' : 'steps'}`
-      : `${members.length} ${run.flow === 'arena' ? (members.length === 1 ? 'entry' : 'entries') : run.flow === 'council' ? (members.length === 1 ? 'member' : 'members') : members.length === 1 ? 'task' : 'tasks'}`;
+      ? flowRowCount(steps.length, true, run.flow)
+      : flowRowCount(members.length, false, run.flow);
   const elapsed = runElapsed === undefined ? '' : formatDuration(runElapsed, 'compact');
   return {
     status,
@@ -279,7 +282,7 @@ function flowRunFacts(run: FlowRun, presentation: FlowPresentation) {
     kind: flowLabel(run.flow),
     count,
     tally,
-    depth: run.depth > 1 ? `nested ${run.depth} flows deep` : '',
+    depth: run.depth > 1 ? t`nested ${ph({ depth: run.depth })} flows deep` : '',
   };
 }
 
@@ -323,7 +326,7 @@ export function FlowRunDetails({
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <h2 className="flex min-w-0 items-center gap-2 text-base font-semibold tracking-tight">
             <WorkflowIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-            <span className="truncate">{label || `${flowLabel(run.flow)} run`}</span>
+            <span className="truncate">{label || t`${ph({ flow: flowLabel(run.flow) })} run`}</span>
           </h2>
           <ClioStatus label={status.label} value={status.value} />
         </div>
@@ -338,11 +341,11 @@ export function FlowRunDetails({
           <div className="ml-auto flex items-center gap-1">
             {onFullScreen ? (
               <Button onClick={onFullScreen} size="xs" variant="ghost">
-                <Maximize2Icon aria-hidden="true" /> Full screen
+                <Maximize2Icon aria-hidden="true" /> {t`Full screen`}
               </Button>
             ) : null}
             <Button onClick={() => onOpenHandle(handle)} size="xs" variant="ghost">
-              Open its conversation
+              {t`Open its conversation`}
             </Button>
           </div>
         </div>
@@ -384,7 +387,7 @@ export function FlowRunDetails({
       {run.events.length ? (
         <details className="rounded-md border px-2 py-1.5 text-xs">
           <summary className="cursor-pointer font-medium">
-            What happened, in order ({run.events.length})
+            {t`What happened, in order (${ph({ count: run.events.length })})`}
           </summary>
           <ol className="mt-2 grid gap-1">
             {run.events.map((event, index) => (
@@ -395,7 +398,7 @@ export function FlowRunDetails({
                 <span className="font-medium">{event.event.replaceAll('_', ' ')}</span>
                 {event.step ? <span className="text-muted-foreground">{event.step}</span> : null}
                 {typeof event.by === 'string' && event.by ? (
-                  <span className="text-muted-foreground">by {event.by}</span>
+                  <span className="text-muted-foreground">{t`by ${ph({ by: event.by })}`}</span>
                 ) : null}
                 {typeof event.message === 'string' ? (
                   <span className="text-muted-foreground">{event.message}</span>
@@ -446,8 +449,8 @@ function FlowResult({ result }: { result: unknown }) {
       ? (result as { answer: unknown }).answer
       : result;
   return (
-    <section aria-label="Flow result" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
-      <h3 className="text-xs font-medium text-muted-foreground">Result</h3>
+    <section aria-label={t`Flow result`} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
+      <h3 className="text-xs font-medium text-muted-foreground">{t`Result`}</h3>
       {finals ? (
         // A workflow's result is its final steps' answers; each earlier step's answer is
         // on that step in the diagram, not repeated here.

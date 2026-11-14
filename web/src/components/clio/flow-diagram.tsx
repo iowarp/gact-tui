@@ -9,8 +9,10 @@ import {
 } from 'react';
 import type { FlowDiagramSpec } from '@/hooks/use-flow-presentation';
 import { cn } from '@/lib/utils';
+import { useInterfaceScale } from '@/theme/runtime';
 import { renderPeleDiagram } from './diagram-renderer';
 import { markRailroad, scaleSvg } from './flow-railroad-marks';
+import { t } from '@lingui/core/macro';
 
 /** Widths are measured in steps of this size so a resize does not redraw on every pixel. */
 const WIDTH_STEP = 40;
@@ -58,7 +60,9 @@ export function FlowDiagram({
   // Preserve readable type for dense graphs too. Fitting the entire SVG into
   // the card can turn a 12px label into 4px; pan the natural layout instead.
   const renderWidth = undefined;
-  const renderKey = JSON.stringify([source, fontSize, renderWidth]);
+  // Pele lays text out in px scaled by Interface size, so a size change redraws.
+  const textScale = useInterfaceScale();
+  const renderKey = JSON.stringify([source, fontSize, renderWidth, textScale]);
   // Status/selection changes mark a cheap SVG clone. They do not lay out the
   // same railroad again whenever a usage or timer update changes its object.
   const svg = useMemo(() => {
@@ -154,7 +158,7 @@ export function FlowDiagram({
       >
         {failed && !svg ? (
           <p className="py-2 text-xs text-muted-foreground">
-            The diagram could not be drawn; the workflow below carries the same steps.
+            {t`The diagram could not be drawn; the workflow below carries the same steps.`}
           </p>
         ) : (
           <div aria-hidden={selectable ? undefined : true} dangerouslySetInnerHTML={html} />

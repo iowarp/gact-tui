@@ -111,7 +111,10 @@ export function ModelPickerHighlightSeed() {
       press('ArrowDown');
       return false;
     };
-    if (seed()) return;
+    // The pointer crossing onto the next row can clear the highlight just before that row's own
+    // move claims it. Seeding now would walk the highlight back, so give that move a frame first.
+    const hovered = panel.querySelector('[role="option"]:hover, [role="treeitem"]:hover');
+    if (!hovered && seed()) return;
     let frame = 0;
     let tries = 0;
     const retry = () => {

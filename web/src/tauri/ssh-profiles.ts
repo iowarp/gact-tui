@@ -1,5 +1,8 @@
+import { t } from '@lingui/core/macro';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { vocab } from '@/lib/brand-vocabulary';
+
+const { product } = vocab;
 
 export type SshProfile = {
   name: string;
@@ -47,7 +50,7 @@ export async function listAllSshProfiles(): Promise<SshProfile[]> {
 
 /** Persist only non-secret host configuration through the product's OpenSSH include. */
 export async function saveSshProfile(request: SaveSshProfileInput): Promise<SshProfile> {
-  if (!inTauri()) throw new Error(`SSH profiles can be saved only in ${vocab.product}.`);
+  if (!inTauri()) throw new Error(t`SSH profiles can be saved only in ${product}.`);
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<SshProfile>('ssh_profile_save', { request });
 }
@@ -66,7 +69,7 @@ export async function deleteSshProfile(name: string): Promise<void> {
 
 /** Rewrite only the ordered jump route of a profile CLIO saved; imported profiles are refused. */
 export async function setSshProfileRoute(name: string, jumpHosts: string[]): Promise<SshProfile> {
-  if (!inTauri()) throw new Error(`SSH routes can be saved only in ${vocab.product}.`);
+  if (!inTauri()) throw new Error(t`SSH routes can be saved only in ${product}.`);
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<SshProfile>('ssh_profile_set_route', { name, jumpHosts });
 }

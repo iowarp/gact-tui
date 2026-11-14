@@ -1,0 +1,50 @@
+import type { WorkspaceResource } from '@clio/core/v3';
+import { vocab } from '@/lib/brand-vocabulary';
+import { formatBytes } from '@/lib/format';
+import { t, ph, plural } from '@lingui/core/macro';
+
+/**
+ * The icon for an attached folder wherever it appears as one object (tab, Sources row,
+ * thumbnail, chip). It differs from the plain folder the Files tab uses, so a tab that
+ * drops its name can still be told apart.
+ */
+export { FolderInputIcon as AttachedFolderIcon } from 'lucide-react';
+
+/** A folder on the agent's computer, used in place or copied, recorded on its resource. */
+export type HostFolder = Record<string, string>;
+
+/** The host folder a resource stands for, when it is one. */
+export function hostFolderOf(resource: WorkspaceResource | undefined): HostFolder | undefined {
+  const source = resource?.connected_source;
+  return source?.kind === 'host_folder' ? source : undefined;
+}
+
+/** The name people know a resource by: a host folder's own name, not its internal record. */
+export function resourceDisplayName(resource: WorkspaceResource): string {
+  return hostFolderOf(resource)?.label || resource.name;
+}
+
+export function hostFolderInPlace(folder: HostFolder): boolean {
+  return folder.placement === 'in_place';
+}
+
+/** What the agent works on, and whether its changes reach the person's files. */
+export function hostFolderStatement(folder: HostFolder): string {
+  return hostFolderInPlace(folder)
+    ? t`In place. ${ph({ agent: vocab.agent })} works on your original folder, and its changes affect your files.`
+    : t`Full copy. ${ph({ agent: vocab.agent })} works on its own copy, and your originals stay untouched.`;
+}
+
+/** "N files, X", or empty when the record has no counts. */
+export function hostFolderSize(folder: HostFolder): string {
+  const files = Number(folder.file_count);
+  const bytes = Number(folder.total_bytes);
+  if (!folder.file_count || !Number.isFinite(files) || !Number.isFinite(bytes)) return '';
+  const size = formatBytes(bytes);
+  return plural(files, { one: `# file, ${size}`, other: `# files, ${size}` });
+}
+
+/** The person's own folder: the original of a copy, or the folder itself when in place. */
+export function hostFolderOriginal(folder: HostFolder): string {
+  return folder.original_path || (hostFolderInPlace(folder) ? folder.path : '');
+}

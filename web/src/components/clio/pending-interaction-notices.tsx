@@ -12,6 +12,7 @@ import type { PendingInteraction } from '@clio/core/v3';
 import { AlertTriangleIcon, BotIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AskError } from './ask-card';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * The surface's own read failure, and any degradation that did not fail.
@@ -33,17 +34,16 @@ export function PendingSurfaceNotices({
       {error ? (
         <Alert variant="destructive">
           <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>Some responses could not be read</AlertTitle>
+          <AlertTitle>{t`Some responses could not be read`}</AlertTitle>
           <AlertDescription>{error.message}</AlertDescription>
         </Alert>
       ) : null}
       {capabilityError ? (
         <Alert>
           <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>Using compatibility response routes</AlertTitle>
+          <AlertTitle>{t`Using compatibility response routes`}</AlertTitle>
           <AlertDescription>
-            Permissions and questions remain available, but the service capability check failed:{' '}
-            {capabilityError.message}
+            {t`Permissions and questions remain available, but the service capability check failed: ${ph({ message: capabilityError.message })}`}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -68,12 +68,12 @@ export function OwnerAttribution({
   if (!show) return null;
   return (
     <span
-      className="flex h-5 min-w-0 items-center gap-1.5 text-[11.5px] text-muted-foreground"
+      className="flex h-5 min-w-0 items-center gap-1.5 text-label text-muted-foreground"
       data-slot="pending-interaction-owner"
-      title={ownerLabel ?? `Requested by session ${interaction.owner_session_id}`}
+      title={ownerLabel ?? t`Requested by session ${ph({ session: interaction.owner_session_id })}`}
     >
       <BotIcon aria-hidden="true" className="size-3 shrink-0" />
-      <span className="truncate">{ownerLabel ?? 'Session not listed yet'}</span>
+      <span className="truncate">{ownerLabel ?? t`Session not listed yet`}</span>
     </span>
   );
 }

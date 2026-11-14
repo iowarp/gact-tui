@@ -1,14 +1,20 @@
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { Terminal, TerminalContent } from '@/components/ai-elements/terminal';
-import { PanelRightIcon } from 'lucide-react';
+import { PanelRightIcon, WrapTextIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { TokenSpan } from '@/components/ai-elements/code-block';
+import { languageForPath } from '@/lib/code-language';
 import { cn } from '@/lib/utils';
+import { NamedTooltip } from './primitives/icon-button';
 import { PresentationLink } from './presentation-link';
+import { useHighlightedTokens } from './source-highlight';
 import { CopyAction } from './tool-compact-row';
+import { plural, ph, t } from '@lingui/core/macro';
 
-const MONO = 'font-mono text-[11.5px] leading-[18px]';
+const MONO = 'font-mono text-label leading-4.5';
 const BAR =
-  'flex h-[30px] min-w-0 items-center gap-2 border-b border-border pl-2.5 pr-1 text-[11.5px]';
+  'flex h-[30px] min-w-0 items-center gap-2 border-b border-border pl-2.5 pr-1 text-label';
 
 interface DiffLine {
   kind: 'context' | 'added' | 'removed' | 'hunk';
@@ -46,6 +52,39 @@ function numberedDiff(text: string): DiffLine[] {
   return lines;
 }
 
+/**
+ * Syntax tokens for each diff line: the new side (context and additions) and the old side
+ * (context and removals) are each tokenized whole, so strings and docstrings colour as in
+ * the file.
+ */
+function useDiffTokens(lines: DiffLine[], path: string) {
+  const language = languageForPath(path);
+  const sides = useMemo(() => {
+    const after: string[] = [];
+    const before: string[] = [];
+    const at = lines.map((line) => {
+      if (line.kind === 'hunk') return undefined;
+      const side = line.kind === 'removed' ? before : after;
+      side.push(line.text);
+      if (line.kind === 'context') before.push(line.text);
+      return { removed: line.kind === 'removed', index: side.length - 1 };
+    });
+    return {
+      at,
+      after: after.join('\n'),
+      // Only a change with removals needs its old side coloured.
+      before: lines.some((line) => line.kind === 'removed') ? before.join('\n') : '',
+    };
+  }, [lines]);
+  const after = useHighlightedTokens(sides.after, language);
+  const before = useHighlightedTokens(sides.before, language);
+  return (index: number) => {
+    const place = sides.at[index];
+    if (!place) return undefined;
+    return (place.removed ? before : after)?.[place.index];
+  };
+}
+
 /** A file change in the transcript: path breadcrumb, counts, then numbered lines. */
 export function TranscriptDiffBody({
   block,
@@ -58,13 +97,15 @@ export function TranscriptDiffBody({
   onOpen?: () => void;
 }) {
   const text = block.text ?? '';
-  const lines = numberedDiff(text);
+  const lines = useMemo(() => numberedDiff(text), [text]);
   const path = block.path || subject?.uri || subject?.label || '';
   // An absolute path names only its folder and file, as a workspace-relative one would.
   const all = path.split(/[\\/]/u).filter(Boolean);
   const segments = /^(?:[a-z]:[\\/]|[\\/])/iu.test(path) ? all.slice(-2) : all;
   const added = lines.filter((line) => line.kind === 'added').length;
   const removed = lines.filter((line) => line.kind === 'removed').length;
+  const tokensAt = useDiffTokens(lines, path);
+  const [wrap, setWrap] = useState(true);
   return (
     <div data-slot="transcript-diff" className="min-w-0">
       <div className={cn(BAR, 'pl-3.5 text-xs')}>
@@ -87,22 +128,38 @@ export function TranscriptDiffBody({
           ))}
         </span>
         <span className="shrink-0 text-muted-foreground">
-          <span className="sr-only">{`${added} lines added, ${removed} removed`}</span>
+          <span className="sr-only">
+            {t`${plural(added, { one: '# line added', other: '# lines added' })}, ${removed} removed`}
+          </span>
           <span aria-hidden="true">{`+${added} −${removed}`}</span>
         </span>
         <span className="ml-auto flex shrink-0 items-center gap-0.5">
-          <CopyAction value={text} label="Copy diff" />
+          <NamedTooltip label={wrap ? t`Stop wrapping long lines` : t`Wrap long lines`}>
+            <Button
+              aria-label={t`Wrap long lines`}
+              aria-pressed={wrap}
+              className={cn(
+                'size-[22px] rounded-[5px] p-0 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[13px]',
+                wrap && 'bg-hover text-foreground',
+              )}
+              onClick={() => setWrap((value) => !value)}
+              variant="ghost"
+            >
+              <WrapTextIcon aria-hidden="true" className="size-[13px]" />
+            </Button>
+          </NamedTooltip>
+          <CopyAction value={text} label={t`Copy diff`} />
           {subject?.type === 'link' && subject.target && subject.target !== 'url' ? (
             <span className="grid size-[22px] place-items-center">
               <PresentationLink block={subject} compact iconOnly />
             </span>
           ) : onOpen ? (
             <Button
-              aria-label={`Open ${segments.at(-1) ?? path}`}
+              aria-label={t`Open ${ph({ name: segments.at(-1) ?? path })}`}
               className="size-[22px] text-muted-foreground hover:text-foreground"
               onClick={onOpen}
               size="icon-xs"
-              title={`Open ${path}`}
+              title={t`Open ${path}`}
               variant="ghost"
             >
               <PanelRightIcon aria-hidden="true" className="size-3.5" />
@@ -110,35 +167,63 @@ export function TranscriptDiffBody({
           ) : null}
         </span>
       </div>
-      <div className={cn('max-h-80 overflow-auto py-1', MONO)} role="table" aria-label="Changes">
-        {lines.map((line, index) => (
-          <div
-            key={index}
-            role="row"
-            data-diff-line={line.kind}
-            className={cn(
-              'grid grid-cols-[3rem_minmax(0,1fr)]',
-              line.kind === 'added' && 'bg-success/12',
-              line.kind === 'removed' && 'bg-destructive/12',
-            )}
-          >
-            <span role="cell" className="select-none pr-3 text-right text-muted-foreground/70">
-              {line.number ?? ''}
-            </span>
-            <span role="cell" className="whitespace-pre pr-3 text-foreground/90">
-              {line.kind === 'added' ? (
-                <span className="sr-only">Added: </span>
-              ) : line.kind === 'removed' ? (
-                <span className="sr-only">Removed: </span>
-              ) : null}
-              {line.kind === 'hunk' ? (
-                <span className="text-muted-foreground">{line.text}</span>
-              ) : (
-                line.text
-              )}
-            </span>
-          </div>
-        ))}
+      <div
+        className={cn(
+          'max-h-80 overflow-y-auto py-1',
+          wrap ? 'overflow-x-hidden' : 'overflow-x-auto',
+          MONO,
+        )}
+        data-wrap={wrap ? 'true' : 'false'}
+      >
+        {/* Unwrapped, the lines take the longest line's width, so a changed line's fill runs
+            under its text however far it scrolls. */}
+        <div className={cn(!wrap && 'w-max min-w-full')} role="table" aria-label={t`Changes`}>
+          {lines.map((line, index) => {
+            const tokens = tokensAt(index);
+            return (
+              <div
+                key={index}
+                role="row"
+                data-diff-line={line.kind}
+                className={cn(
+                  'grid',
+                  wrap
+                    ? 'grid-cols-[3rem_minmax(0,1fr)]'
+                    : 'grid-cols-[3rem_minmax(max-content,1fr)]',
+                  line.kind === 'added' && 'bg-success/12',
+                  line.kind === 'removed' && 'bg-destructive/12',
+                )}
+              >
+                <span role="cell" className="select-none pr-3 text-right text-muted-foreground/70">
+                  {line.number ?? ''}
+                </span>
+                <span
+                  role="cell"
+                  className={cn(
+                    'pr-3 text-foreground/90',
+                    wrap ? 'whitespace-pre-wrap [overflow-wrap:anywhere]' : 'whitespace-pre',
+                  )}
+                >
+                  {line.kind === 'added' ? (
+                    <span className="sr-only">{t`Added:`} </span>
+                  ) : line.kind === 'removed' ? (
+                    <span className="sr-only">{t`Removed:`} </span>
+                  ) : null}
+                  {line.kind === 'hunk' ? (
+                    <span className="text-muted-foreground">{line.text}</span>
+                  ) : tokens ? (
+                    tokens.map((token, position) => (
+                      // oxlint-disable-next-line react/no-array-index-key -- tokens are positional.
+                      <TokenSpan key={position} token={token} />
+                    ))
+                  ) : (
+                    line.text
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -177,14 +262,14 @@ export function TranscriptTerminalBody({
       {command ? (
         <>
           <div className={BAR}>
-            <span className="text-xs font-medium text-foreground">Command</span>
+            <span className="text-xs font-medium text-foreground">{t`Command`}</span>
             {where ? (
-              <span className="ml-auto truncate font-mono text-muted-foreground" title="Ran on">
+              <span className="ml-auto truncate font-mono text-muted-foreground" title={t`Ran on`}>
                 {where}
               </span>
             ) : null}
             <span className={cn('flex shrink-0 items-center', !where && 'ml-auto')}>
-              <CopyAction value={command} label="Copy command" />
+              <CopyAction value={command} label={t`Copy command`} />
             </span>
           </div>
           {/* Bounded like the output, so a long script never pushes its result out of view. */}
@@ -197,8 +282,8 @@ export function TranscriptTerminalBody({
         </>
       ) : null}
       <div className={BAR}>
-        <span className="text-xs font-medium text-foreground">Output</span>
-        {live ? <span className="text-muted-foreground">live</span> : null}
+        <span className="text-xs font-medium text-foreground">{t`Output`}</span>
+        {live ? <span className="text-muted-foreground">{t`live`}</span> : null}
       </div>
       {output ? (
         <Terminal
@@ -210,13 +295,13 @@ export function TranscriptTerminalBody({
           <TerminalContent className={cn('max-h-60 border-0 bg-transparent px-3 py-1.5', MONO)} />
         </Terminal>
       ) : (
-        <p className="px-3 py-1.5 text-[11.5px] text-muted-foreground">
-          {live ? 'Waiting for output' : 'No output'}
+        <p className="px-3 py-1.5 text-label text-muted-foreground">
+          {live ? t`Waiting for output` : t`No output`}
         </p>
       )}
       {failure && !failed && stopped ? (
-        <div className="border-t border-border px-3 py-1.5 text-[11.5px] [overflow-wrap:anywhere]">
-          <p className="text-xs font-medium text-muted-foreground">Stopped</p>
+        <div className="border-t border-border px-3 py-1.5 text-label [overflow-wrap:anywhere]">
+          <p className="text-xs font-medium text-muted-foreground">{t`Stopped`}</p>
           <p className="whitespace-pre-wrap text-foreground">
             {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
           </p>
@@ -225,7 +310,7 @@ export function TranscriptTerminalBody({
         <p
           role={failed ? 'alert' : undefined}
           className={cn(
-            'whitespace-pre-wrap border-t border-border px-3 py-1.5 text-[11.5px] [overflow-wrap:anywhere]',
+            'whitespace-pre-wrap border-t border-border px-3 py-1.5 text-label [overflow-wrap:anywhere]',
             failed ? 'text-destructive' : 'text-muted-foreground',
           )}
         >

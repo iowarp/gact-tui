@@ -1,5 +1,6 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { vocab } from './brand-vocabulary';
+import { t } from '@lingui/core/macro';
 
 /** The tool whose permission asks to trust a flow's plugin before running it. */
 export const RUN_FLOW_TOOL = 'run_flow';
@@ -46,8 +47,10 @@ export function flowTrustRequest(interaction: PendingInteraction): FlowTrustRequ
 
 /** Who wrote a flow's plugin, in words. */
 export function flowTrustAuthor(request: FlowTrustRequest): string {
-  if (request.authoredByAgent) return `Authored by ${vocab.agent}`;
-  return request.author ? `From ${request.author}` : 'From an unknown source';
+  const { agent } = vocab;
+  if (request.authoredByAgent) return t`Authored by ${agent}`;
+  const { author } = request;
+  return author ? t`From ${author}` : t`From an unknown source`;
 }
 
 /** The last segment of a plugin-relative path (`flows/debate.py` -> `debate.py`). */
@@ -59,14 +62,14 @@ export function fileName(path: string): string {
 export function pluginReachLabel(reach: string): string {
   switch (reach) {
     case 'files':
-      return 'Reads or writes files directly';
+      return t`Reads or writes files directly`;
     case 'network':
-      return 'Uses the network directly';
+      return t`Uses the network directly`;
     case 'commands':
-      return 'Runs commands';
+      return t`Runs commands`;
     case 'dynamic code':
-      return "Builds and runs code at run time, so its behaviour can't be read from the code alone";
+      return t`Builds and runs code at run time, so its behaviour can't be read from the code alone`;
     default:
-      return `Reaches something this version cannot name (${reach})`;
+      return t`Reaches something this version cannot name (${reach})`;
   }
 }

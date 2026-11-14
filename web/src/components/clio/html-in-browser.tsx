@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useOpenFileInBrowser } from '@/hooks/use-open-file-in-browser';
 import type { BrowserFileTarget } from '@/lib/html-in-browser';
 import { FileTextView } from './file-text-view';
+import { t } from '@lingui/core/macro';
 
 /**
  * An HTML file where a viewer would have previewed it: it opens in the browser when shown
@@ -51,16 +52,16 @@ export function HtmlFileInBrowser({
         <GlobeIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         {failure ? (
           <span className="min-w-0 flex-1" role="alert">
-            <span className="font-medium">Couldn't open it in the browser.</span>{' '}
+            <span className="font-medium">{t`Couldn't open it in the browser.`}</span>{' '}
             <span className="text-muted-foreground">{failure}</span>
           </span>
         ) : (
           <span className="min-w-0 flex-1 text-muted-foreground">
-            HTML files open in the shared browser, where their scripts run.
+            {t`HTML files open in the shared browser, where their scripts run.`}
           </span>
         )}
         <Button disabled={opening} onClick={show} size="sm" variant="secondary">
-          Open in browser
+          {t`Open in browser`}
         </Button>
       </div>
       <div className="min-h-0 flex-1">

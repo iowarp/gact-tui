@@ -5,6 +5,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { workspaceScopeLine } from '@/lib/settings-workspace-name';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
+import { t } from '@lingui/core/macro';
 
 export interface SettingsWorkspaceName {
   /** The workspace's name, or neutral words while it loads or when there is none. */
@@ -39,14 +40,14 @@ export function useSettingsWorkspaceName(workspaceId: string | undefined): Setti
   // The Workspace group keeps its own name until the workspace's name arrives; the
   // page's own lists show the loading state.
   if (workspaces.isPending)
-    return { label: 'Workspace', line: 'Loading this workspace…', known: false };
+    return { label: t`Workspace`, line: t`Loading this workspace…`, known: false };
   if (workspaces.isError || workspaceId)
     return {
-      label: 'This workspace',
+      label: t`This workspace`,
       line: workspaces.isError
-        ? 'This workspace’s name could not be loaded'
-        : 'This workspace is no longer available',
+        ? t`This workspace’s name could not be loaded`
+        : t`This workspace is no longer available`,
       known: false,
     };
-  return { label: 'No workspace yet', line: 'No workspace yet', known: false };
+  return { label: t`No workspace yet`, line: t`No workspace yet`, known: false };
 }

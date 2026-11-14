@@ -1,4 +1,5 @@
 import { useRef, useState, type PointerEvent } from 'react';
+import { t, ph } from '@lingui/core/macro';
 
 export type Rect = [number, number, number, number];
 
@@ -118,7 +119,7 @@ export function CommentRegionLayer({
               style={style}
             >
               <button
-                aria-label={`Edit ${mark.label}`}
+                aria-label={t`Edit ${ph({ label: mark.label })}`}
                 className="pointer-events-auto absolute -top-5 left-0 rounded-t bg-primary px-1.5 text-xs font-bold text-primary-foreground"
                 onClick={() => open(mark.label)}
                 onPointerDown={(event) => event.stopPropagation()}
@@ -131,7 +132,7 @@ export function CommentRegionLayer({
         }
         return mark.label && onOpenMark ? (
           <button
-            aria-label={`Edit ${mark.label}`}
+            aria-label={t`Edit ${ph({ label: mark.label })}`}
             className={`absolute ${shape}`}
             data-mark-label={mark.label}
             key={mark.label}

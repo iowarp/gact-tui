@@ -7,6 +7,8 @@ import {
   providerHealthPresentation,
   type ProviderGroup,
 } from './model-picker-model';
+import { providerActionStageLabel } from './provider-actions';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * The provider heartbeat: a health dot on EVERY provider row -- the model
@@ -25,8 +27,9 @@ export const ProviderHeartbeat = memo(function ProviderHeartbeat({
   stage?: string;
 }) {
   const presentation = stage
-    ? { ...providerHealthPresentation('checking'), label: stage }
+    ? { ...providerHealthPresentation('checking'), label: providerActionStageLabel(stage) }
     : providerGroupStatus(group);
+  const refreshed = group.freshness ? formatFreshness(group.freshness) : t`Unavailable`;
   return (
     <LazyHoverCard
       align="start"
@@ -34,7 +37,7 @@ export const ProviderHeartbeat = memo(function ProviderHeartbeat({
       openDelay={180}
       trigger={
         <span
-          aria-label={`${group.name} status: ${presentation.label}`}
+          aria-label={t`${ph({ name: group.name })} status: ${ph({ status: presentation.label })}`}
           className={cn(
             'pointer-events-auto inline-flex size-4 shrink-0 cursor-help items-center justify-center rounded-full',
             presentation.color,
@@ -43,15 +46,15 @@ export const ProviderHeartbeat = memo(function ProviderHeartbeat({
           data-state={stage ? 'checking' : group.health}
           onClick={(event) => event.stopPropagation()}
           role="img"
-          title={`${group.name} status: ${presentation.label}`}
+          title={t`${ph({ name: group.name })} status: ${ph({ status: presentation.label })}`}
         >
           <span aria-hidden="true" className="size-[7px] rounded-full bg-current" />
         </span>
       }
     >
-      <p className="font-medium">Provider status</p>
-      <p>Health: {presentation.label}</p>
-      <p>Refreshed: {group.freshness ? formatFreshness(group.freshness) : 'Unavailable'}</p>
+      <p className="font-medium">{t`Provider status`}</p>
+      <p>{t`Health: ${ph({ status: presentation.label })}`}</p>
+      <p>{t`Refreshed: ${ph({ time: refreshed })}`}</p>
       {group.endpoint ? <p className="truncate text-muted-foreground">{group.endpoint}</p> : null}
       {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
     </LazyHoverCard>

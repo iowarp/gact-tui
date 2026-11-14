@@ -18,6 +18,7 @@ import {
   sourceInputClass,
 } from './source-form-parts';
 import { useSourceFrameFooter } from './use-source-frame-footer';
+import { t, plural } from '@lingui/core/macro';
 
 /** Explicit, resumable desktop-to-connected-CLIO transfer retaining relative file paths. */
 export function DesktopFolderUpload({
@@ -44,8 +45,7 @@ export function DesktopFolderUpload({
   const upload = useMutation({
     mutationFn: async () => {
       uploadId.current ||= String(Date.now()) + Math.random().toString(36).slice(2);
-      if (!files.length || files.length > 10000)
-        throw new Error('Choose a folder containing between 1 and 10,000 files');
+      if (!files.length) throw new Error(t`Choose a folder that contains at least one file`);
       const abort = new AbortController();
       controller.current = abort;
       const total = files.reduce((sum, file) => sum + file.size, 0);
@@ -53,7 +53,7 @@ export function DesktopFolderUpload({
       let completed = 0;
       for (const file of files) {
         const path = file.webkitRelativePath || file.name;
-        setProgress({ loaded: completed, total, stage: `Preparing ${path}` });
+        setProgress({ loaded: completed, total, stage: t`Preparing ${path}` });
         const digest = sha256.create();
         digest.update(new TextEncoder().encode(`${path}\0${file.type}\0${file.size}\0`));
         for (let offset = 0; offset < file.size; offset += 8 * 1024 * 1024) {
@@ -83,44 +83,45 @@ export function DesktopFolderUpload({
             setProgress({ loaded: completed + current.loaded, total, stage: path }),
         });
         const resource = uploaded.resources[0];
-        if (!resource) throw new Error(`No custody receipt was returned for ${path}`);
+        if (!resource) throw new Error(t`No custody receipt was returned for ${path}`);
         manifest.push({ path, resource_id: resource.id, revision: resource.revision });
         completed += file.size;
       }
       setProgress({
         loaded: completed,
         total,
-        stage: 'Verifying folder structure and publishing inputs…',
+        stage: t`Verifying folder structure and publishing inputs…`,
       });
       return repository.publishUploadedSource(
         workspaceId,
-        label || files[0]?.webkitRelativePath.split('/')[0] || 'Desktop folder',
+        label || files[0]?.webkitRelativePath.split('/')[0] || t`Desktop folder`,
         manifest,
         abort.signal,
       );
     },
     onSuccess: onComplete,
   });
+  const sizeMb = (files.reduce((sum, file) => sum + file.size, 0) / 1024 ** 2).toFixed(1);
   const folderName =
-    files[0]?.webkitRelativePath.split('/')[0] || (files.length ? 'Selected folder' : '');
+    files[0]?.webkitRelativePath.split('/')[0] || (files.length ? t`Selected folder` : '');
   const footer = useSourceFrameFooter({
     confirm: {
-      label: upload.isPending ? 'Uploading…' : 'Upload folder',
+      label: upload.isPending ? t`Uploading…` : t`Upload folder`,
       disabled: !files.length || upload.isPending,
     },
     onConfirm: () => upload.mutate(),
     start: upload.isPending
-      ? { label: 'Pause upload', onClick: () => controller.current?.abort() }
+      ? { label: t`Pause upload`, onClick: () => controller.current?.abort() }
       : onBack
-        ? { label: 'Back', back: true, onClick: onBack }
+        ? { label: t`Back`, back: true, onClick: onBack }
         : undefined,
   });
   return (
-    <section className="flex flex-col gap-[13px]" aria-label="Upload desktop folder">
+    <section className="flex flex-col gap-[13px]" aria-label={t`Upload desktop folder`}>
       <input
         ref={folderInput}
         className="hidden"
-        aria-label="Folder on your computer"
+        aria-label={t`Folder on your computer`}
         type="file"
         multiple
         {...{ webkitdirectory: '' }}
@@ -133,18 +134,19 @@ export function DesktopFolderUpload({
         }}
       />
       <SourceField
-        label="Folder on your computer"
+        label={t`Folder on your computer`}
         aside={
-          <InfoTip label="About desktop folder transfers">
-            Files and their folder structure are uploaded to {hostLabel}. The desktop original stays
-            unchanged. Empty folders are not exposed by the browser picker. If interrupted, select
-            the same folder to resume from uploaded bytes.
+          <InfoTip label={t`About desktop folder transfers`}>
+            {t`Files and their folder structure are uploaded to ${hostLabel}. The desktop original stays unchanged. Empty folders are not exposed by the browser picker. If interrupted, select the same folder to resume from uploaded bytes.`}
           </InfoTip>
         }
         hint={
           files.length
-            ? `${files.length} files, ${(files.reduce((sum, file) => sum + file.size, 0) / 1024 ** 2).toFixed(1)} MB, copied to ${hostLabel}`
-            : `Copied to ${hostLabel}`
+            ? plural(files.length, {
+                one: `# file, ${sizeMb} MB, copied to ${hostLabel}`,
+                other: `# files, ${sizeMb} MB, copied to ${hostLabel}`,
+              })
+            : t`Copied to ${hostLabel}`
         }
       >
         <FolderFace path={folderName}>
@@ -156,16 +158,16 @@ export function DesktopFolderUpload({
             disabled={upload.isPending}
             onClick={() => folderInput.current?.click()}
           >
-            Choose…
+            {t`Choose…`}
           </Button>
         </FolderFace>
       </SourceField>
-      <SourceField label="Name" aside="Optional">
+      <SourceField label={t`Name`} aside={t`Optional`}>
         <Input
-          aria-label="Source name"
+          aria-label={t`Source name`}
           className={sourceInputClass}
           value={label}
-          placeholder="The folder name"
+          placeholder={t`The folder name`}
           disabled={upload.isPending}
           onChange={(e) => setLabel(e.target.value)}
         />
@@ -174,18 +176,18 @@ export function DesktopFolderUpload({
         value="read_only"
         onChange={() => undefined}
         unavailable={{
-          editable: 'A browser upload cannot write back to your computer',
-          write: 'A browser upload cannot write back to your computer',
+          editable: t`A browser upload cannot write back to your computer`,
+          write: t`A browser upload cannot write back to your computer`,
         }}
       />
       {upload.isPending && (
         <div role="status" className="flex flex-col gap-1.5">
           <SourceStatusLine icon={<RingSpinner />}>
-            {progress.stage || 'Uploading…'}
+            {progress.stage || t`Uploading…`}
           </SourceStatusLine>
           <progress
             className="h-1 w-full accent-primary"
-            aria-label="Folder upload progress"
+            aria-label={t`Folder upload progress`}
             value={progress.loaded}
             max={progress.total || 1}
           />
@@ -194,7 +196,7 @@ export function DesktopFolderUpload({
       {upload.error && (
         <SourceStatusLine role="alert" tone="error" icon={<CircleAlertIcon />}>
           {upload.error.name === 'AbortError'
-            ? 'Upload paused. Uploaded bytes are kept; upload again to resume.'
+            ? t`Upload paused. Uploaded bytes are kept; upload again to resume.`
             : upload.error.message}
         </SourceStatusLine>
       )}

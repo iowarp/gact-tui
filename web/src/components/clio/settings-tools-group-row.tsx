@@ -32,6 +32,7 @@ import {
 import { callersOptions, permissionOptions, type RowEditor } from './settings-tools-options';
 import type { ToolTableSection } from './settings-tools-section';
 import { ValueSummary } from './settings-tools-value-summary';
+import { ph, plural, t } from '@lingui/core/macro';
 
 function shared<T extends string>(values: T[]): T | 'mixed' {
   return values.length && values.every((value) => value === values[0]) ? values[0]! : 'mixed';
@@ -39,15 +40,15 @@ function shared<T extends string>(values: T[]): T | 'mixed' {
 
 function bulkTitle(choice: string, label: string): string {
   if (choice === 'mixed')
-    return 'Some tools differ from their default. Choose a value to set them all.';
-  if (choice === 'default') return 'Every tool uses its default. Choose a value to set them all.';
-  return `Every tool is set to ${label}. Choose Per tool to return each to its default.`;
+    return t`Some tools differ from their default. Choose a value to set them all.`;
+  if (choice === 'default') return t`Every tool uses its default. Choose a value to set them all.`;
+  return t`Every tool is set to ${ph({ value: label })}. Choose Per tool to return each to its default.`;
 }
 
 const PER_TOOL = {
   value: 'default' as const,
-  label: 'Per tool',
-  description: 'Each tool uses its own default.',
+  label: t`Per tool`,
+  description: t`Each tool uses its own default.`,
   icon: AdjustIcon,
 };
 
@@ -73,22 +74,22 @@ export const GroupRow = memo(function GroupRow({
   const callers = shared(section.tools.map(callersChoice));
   const permissionLabel =
     permission === 'mixed'
-      ? 'Mixed'
+      ? t`Mixed`
       : permission === 'default'
-        ? 'Per tool'
+        ? t`Per tool`
         : PERMISSION_TEXT[permission].label;
   const callersLabel =
     callers === 'mixed'
-      ? 'Mixed'
+      ? t`Mixed`
       : callers === 'default'
-        ? 'Per tool'
+        ? t`Per tool`
         : CALLERS_TEXT[callers].label;
   const hasTools = names.length > 0;
   const meta =
     section.meta ??
     (section.count === undefined
       ? []
-      : [`${section.count} ${section.count === 1 ? 'tool' : 'tools'}`]);
+      : [plural(section.count, { one: '# tool', other: '# tools' })]);
   const changed = section.tools.some((tool) => tool.permission || tool.configured_callers);
   const permissionIcon =
     permission === 'mixed' || permission === 'default' ? AdjustIcon : PERMISSION_ICON[permission];
@@ -111,7 +112,11 @@ export const GroupRow = memo(function GroupRow({
       {hasTools ? (
         <button
           aria-expanded={open}
-          aria-label={`${open ? 'Collapse' : 'Expand'} ${section.title}`}
+          aria-label={
+            open
+              ? t`Collapse ${ph({ group: section.title })}`
+              : t`Expand ${ph({ group: section.title })}`
+          }
           className="relative z-10 grid size-5 place-items-center rounded text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
           onClick={() => onToggle(section.id)}
           type="button"
@@ -134,11 +139,11 @@ export const GroupRow = memo(function GroupRow({
       <span
         className={cn('grid min-w-0 gap-0.5', section.notice && '@max-[32rem]/tools:col-span-2')}
       >
-        <h3 className="truncate text-[13px] font-semibold text-foreground" title={section.hint}>
+        <h3 className="truncate text-ui font-semibold text-foreground" title={section.hint}>
           {section.title}
         </h3>
         {section.notice || meta.length || summary ? (
-          <span className="flex min-w-0 gap-3 overflow-hidden text-xs whitespace-nowrap text-faint">
+          <span className="flex min-w-0 flex-wrap gap-x-3 gap-y-0.5 text-xs whitespace-nowrap text-muted-foreground">
             {section.notice ? (
               <span className="truncate" title={section.notice.title ?? section.notice.text}>
                 {section.notice.text}
@@ -148,7 +153,7 @@ export const GroupRow = memo(function GroupRow({
                 <span
                   className={cn(
                     // The count stays whole; a long server name gives way first.
-                    index === 0 && meta.length > 1 ? 'min-w-0 truncate' : 'shrink-0',
+                    index === 0 && meta.length > 1 ? 'max-w-full min-w-0 truncate' : 'shrink-0',
                   )}
                   key={part}
                   title={part}
@@ -165,7 +170,7 @@ export const GroupRow = memo(function GroupRow({
                 icon={permissionIcon}
                 isDefault={false}
                 label={permissionLabel}
-                title={`Permission and I/O: ${permissionLabel}`}
+                title={t`Permission and I/O: ${permissionLabel}`}
               />
             ) : summary ? (
               <>
@@ -175,7 +180,7 @@ export const GroupRow = memo(function GroupRow({
                   icon={permissionIcon}
                   isDefault={false}
                   label={permissionLabel}
-                  title={`Permission: ${permissionLabel}`}
+                  title={t`Permission: ${permissionLabel}`}
                 />
                 <ValueSummary
                   chosen={callers !== 'mixed' && callers !== 'default'}
@@ -183,7 +188,7 @@ export const GroupRow = memo(function GroupRow({
                   icon={callersIcon}
                   isDefault={false}
                   label={callersLabel}
-                  title={`I/O: ${callersLabel}`}
+                  title={t`I/O: ${callersLabel}`}
                 />
               </>
             ) : null}
@@ -196,7 +201,7 @@ export const GroupRow = memo(function GroupRow({
           title={section.notice.title}
         >
           <StatusIndicator
-            className={cn('text-[12px]', section.notice.tone === 'idle' && 'text-faint')}
+            className={cn('text-meta', section.notice.tone === 'idle' && 'text-muted-foreground')}
             label={section.notice.status}
             tone={section.notice.tone}
           />
@@ -208,7 +213,7 @@ export const GroupRow = memo(function GroupRow({
               variant="outline"
             >
               <RetryIcon aria-hidden="true" className="size-3.5" />
-              Retry
+              {t`Retry`}
             </Button>
           ) : null}
         </span>
@@ -223,10 +228,10 @@ export const GroupRow = memo(function GroupRow({
             disabled={busy}
             icon={permissionIcon}
             label={permissionLabel}
-            name={`Permission: ${section.bulkLabel}`}
+            name={t`Permission: ${ph({ group: section.bulkLabel })}`}
             onChoose={choosePermission}
             options={[PER_TOOL, ...permissionOptions()]}
-            search={`Permission for ${section.bulkLabel.toLowerCase()}`}
+            search={t`Permission for ${ph({ group: section.bulkPhrase })}`}
             selected={permission === 'mixed' ? undefined : permission}
             title={bulkTitle(permission, permissionLabel)}
           />
@@ -237,10 +242,10 @@ export const GroupRow = memo(function GroupRow({
             disabled={busy}
             icon={callersIcon}
             label={callersLabel}
-            name={`I/O: ${section.bulkLabel}`}
+            name={t`I/O: ${ph({ group: section.bulkLabel })}`}
             onChoose={chooseCallers}
             options={[PER_TOOL, ...callersOptions()]}
-            search={`I/O for ${section.bulkLabel.toLowerCase()}`}
+            search={t`I/O for ${ph({ group: section.bulkPhrase })}`}
             selected={callers === 'mixed' ? undefined : callers}
             title={bulkTitle(callers, callersLabel)}
           />
@@ -249,7 +254,7 @@ export const GroupRow = memo(function GroupRow({
               <IconButton
                 className="invisible group-hover/group:visible focus-visible:visible data-[state=open]:visible @max-[32rem]/tools:hidden"
                 icon={<MoreIcon />}
-                label={`More for ${section.bulkLabel.toLowerCase()}`}
+                label={t`More for ${ph({ group: section.bulkPhrase })}`}
               />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-52">
@@ -257,14 +262,14 @@ export const GroupRow = memo(function GroupRow({
                 disabled={busy || !changed}
                 onSelect={() => editor.save({ tools: names, permission: null, callers: null })}
               >
-                Reset all to defaults
+                {t`Reset all to defaults`}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <SummaryPicker
             actions={[
               {
-                label: 'Reset all to defaults',
+                label: t`Reset all to defaults`,
                 disabled: busy || !changed,
                 onSelect: () => editor.save({ tools: names, permission: null, callers: null }),
               },
@@ -273,20 +278,20 @@ export const GroupRow = memo(function GroupRow({
             disabled={busy}
             groups={[
               {
-                heading: 'Permission',
+                heading: t`Permission`,
                 options: [PER_TOOL, ...permissionOptions()],
                 selected: permission === 'mixed' ? undefined : permission,
                 onChoose: (value) => choosePermission(value as ToolPermission | 'default'),
               },
               {
-                heading: 'I/O',
+                heading: t`I/O`,
                 options: [PER_TOOL, ...callersOptions()],
                 selected: callers === 'mixed' ? undefined : callers,
                 onChoose: (value) => chooseCallers(value as ToolCallers | 'default'),
               },
             ]}
-            name={`Permission and I/O: ${section.bulkLabel}`}
-            search={`Choices for ${section.bulkLabel.toLowerCase()}`}
+            name={t`Permission and I/O: ${ph({ group: section.bulkLabel })}`}
+            search={t`Choices for ${ph({ group: section.bulkPhrase })}`}
           />
         </>
       ) : null}

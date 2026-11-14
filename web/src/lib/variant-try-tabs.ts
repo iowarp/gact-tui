@@ -2,6 +2,7 @@ import type { VariantRun } from '@clio/core/v3';
 import { useMemo, useSyncExternalStore } from 'react';
 import { useLiveStore } from '@/store/live-store';
 import { tryNoun, type VariantTabView } from './variant-runs';
+import { t, ph } from '@lingui/core/macro';
 
 /** Opens a run's tries as workbench tabs and brings one to the front. */
 export const OPEN_VARIANT_TRY_EVENT = 'clio:open-variant-try';
@@ -36,7 +37,7 @@ function formatScore(score: number): string {
 export function variantTryState(tab: VariantTabView): string | undefined {
   if (tab.state === 'running') return 'running';
   if (tab.state === 'failed') return 'failed';
-  if (tab.score !== undefined) return `score ${formatScore(tab.score)}`;
+  if (tab.score !== undefined) return t`score ${ph({ score: formatScore(tab.score) })}`;
   return undefined;
 }
 
@@ -90,7 +91,7 @@ function liveTryLabel(run: VariantRun | undefined, tryIndex: number): string | u
       : item.state === 'failed'
         ? 'failed'
         : item.score !== undefined && item.score !== null
-          ? `score ${formatScore(item.score)}`
+          ? t`score ${ph({ score: formatScore(item.score) })}`
           : undefined;
   return state ? `${label}, ${state}` : label;
 }

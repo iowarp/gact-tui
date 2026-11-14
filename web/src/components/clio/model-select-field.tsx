@@ -17,12 +17,14 @@ export interface SettingsSelectFieldProps
    * focusable, so a picker closing on its own choice can still return focus here.
    */
   busy?: boolean;
+  /** A long value wraps whole onto more lines instead of ending in an ellipsis. */
+  wrap?: boolean;
 }
 
 /** A select-shaped field (C): icon, value, chevron. Every select opens the one Picker. */
 export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectFieldProps>(
   function SettingsSelectField(
-    { icon, value, placeholder, busy, className, onClick, ...props },
+    { icon, value, placeholder, busy, wrap = false, className, onClick, ...props },
     ref,
   ) {
     return (
@@ -32,12 +34,13 @@ export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectF
         data-slot="settings-select-field"
         className={cn(
           // Light: the cream field of the row's text inputs (transparent on the card), not a tan fill.
-          'flex h-[1.875rem] w-full min-w-0 items-center gap-2 overflow-hidden rounded-md border border-input bg-transparent px-2.5 text-[0.78125rem] whitespace-nowrap text-foreground outline-none',
+          'flex h-[1.875rem] w-full min-w-0 items-center gap-2 overflow-hidden rounded-md border border-input bg-transparent px-2.5 text-menu whitespace-nowrap text-foreground outline-none',
           // Dark: inset like the row's text fields (the spec's dark field fill).
           'dark:bg-sidebar dark:hover:bg-input/30',
           'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60',
           'aria-expanded:border-ring aria-expanded:ring-2 aria-expanded:ring-ring/30',
           "[&_svg:not([class*='size-'])]:size-3.5",
+          wrap && 'h-auto min-h-[1.875rem] py-1 leading-snug whitespace-normal',
           className,
         )}
         aria-busy={busy || undefined}
@@ -60,7 +63,13 @@ export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectF
             {icon}
           </span>
         ) : null}
-        <span className={cn('min-w-0 flex-1 truncate text-left', !value && 'text-faint')}>
+        <span
+          className={cn(
+            'min-w-0 flex-1 text-left',
+            wrap ? 'break-words [word-break:auto-phrase] [line-break:strict]' : 'truncate',
+            !value && 'text-muted-foreground',
+          )}
+        >
           {value || placeholder}
         </span>
         <ChevronDownIcon aria-hidden="true" className="shrink-0 text-muted-foreground" />

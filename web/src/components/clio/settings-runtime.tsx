@@ -18,24 +18,28 @@ import { StateView } from './primitives/state-view';
 import { SettingsLoadError, UnofferedLine } from './settings-health-load-error';
 import { plainReason } from './settings-health-reason';
 import { RuntimeSettingControl } from './settings-runtime-control';
+import { localizeRuntimeSetting, runtimeGroupLabel } from './settings-schema-copy';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+
+const { agent } = vocab;
 
 type Draft = { source: RuntimeSettings; changes: Record<string, string | boolean | null> };
 const sourceLabels = {
-  user: 'Saved in your configuration',
-  workspace: 'Workspace configuration',
-  environment: 'Environment default',
-  default: `${vocab.agent} default`,
+  user: t`Saved in your configuration`,
+  workspace: t`Workspace configuration`,
+  environment: t`Environment default`,
+  default: t`${agent} default`,
 };
 
 const groupInfo: Record<string, string> = {
-  Execution: 'Choose request budgets and recovery behavior.',
-  Subagents: `Set child-agent limits without restarting ${vocab.agent}. Each agent can also have a smaller parallel-batch limit in Agents.`,
-  Workflows:
-    'Cap how far a running workflow may grow. Unlimited leaves it to the workflow and the subagent limits.',
-  Memory: `Choose what ${vocab.agent} remembers about you and how it learns.`,
-  Browser: `Choose the browser that shows the pages ${vocab.agent} opens. It runs on the computer ${vocab.agent} runs on.`,
+  Execution: t`Choose request budgets and recovery behavior.`,
+  Subagents: t`Set child-agent limits without restarting ${agent}. Each agent can also have a smaller parallel-batch limit in Agents.`,
+  Workflows: t`Cap how far a running workflow may grow. Unlimited leaves it to the workflow and the subagent limits.`,
+  Memory: t`Choose what ${agent} remembers about you and how it learns.`,
+  Browser: t`Choose the browser that shows the pages ${agent} opens. It runs on the computer ${agent} runs on.`,
 };
 
 function displayValue(setting: RuntimeSetting): string | boolean {
@@ -77,15 +81,21 @@ function SettingInfo({ setting }: { setting: RuntimeSetting }) {
     <div className="grid gap-1">
       {setting.description ? <p>{setting.description}</p> : null}
       <p>
-        <span className="font-medium">Source:</span> {sourceLabels[setting.source]}
+        <Trans>
+          <span className="font-medium">Source:</span> {sourceLabels[setting.source]}
+        </Trans>
       </p>
       <p>
-        <span className="font-medium">Effect:</span> {setting.effect}
+        <Trans>
+          <span className="font-medium">Effect:</span> {setting.effect}
+        </Trans>
       </p>
       {setting.has_user_value ? (
         <p>
-          <span className="font-medium">Reset:</span> removes your saved override and uses the
-          current inherited value.
+          <Trans>
+            <span className="font-medium">Reset:</span> removes your saved override and uses the
+            current inherited value.
+          </Trans>
         </p>
       ) : null}
     </div>
@@ -96,7 +106,7 @@ function SettingInfo({ setting }: { setting: RuntimeSetting }) {
 export function RuntimeSettingsPanel({
   only,
   exclude = [],
-  title = 'Execution & history',
+  title = t`Execution & history`,
   description,
   headingLevel = 1,
   insertBefore,
@@ -130,7 +140,7 @@ export function RuntimeSettingsPanel({
     onSuccess: (value) => {
       client.setQueryData(key, value);
       setDraft(undefined);
-      toast.success(`${title} settings saved`);
+      toast.success(t`${title} settings saved`);
     },
   });
   // Switches and choices apply at once; typed values wait for the save bar.
@@ -169,15 +179,15 @@ export function RuntimeSettingsPanel({
   const copyConfigPath = async () => {
     try {
       await navigator.clipboard.writeText(source?.config_path ?? '');
-      toast.success('Configuration path copied');
+      toast.success(t`Configuration path copied`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not copy configuration path');
+      toast.error(error instanceof Error ? error.message : t`Could not copy configuration path`);
     }
   };
   const patch = draft ? patchFor(draft) : undefined;
   const hint =
     description ??
-    `Global defaults for the connected ${vocab.agent} service. Session and workspace overrides take precedence.`;
+    t`Global defaults for the connected ${agent} service. Session and workspace overrides take precedence.`;
   const heading =
     !only || headingLevel === 2 ? (
       <SettingsSectionHeading info={hint || undefined} level={headingLevel} title={title} />
@@ -185,7 +195,7 @@ export function RuntimeSettingsPanel({
   const trailing = insertBefore?.content;
   if (current.isError && !source)
     return (
-      <div className="grid gap-1">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
         {heading}
         <UnofferedLine />
         <SettingsLoadError
@@ -193,17 +203,17 @@ export function RuntimeSettingsPanel({
           onRetry={() => void reload()}
           retrying={current.isFetching}
           noun="configuration"
-          title="Configuration unavailable."
+          title={t`Configuration unavailable.`}
         />
         {trailing}
       </div>
     );
   if (!source)
     return (
-      <div className="grid gap-1">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
         {heading}
         <UnofferedLine />
-        <StateView kind="loading" size="row" title="Loading configuration…" />
+        <StateView kind="loading" size="row" title={t`Loading configuration…`} />
         {trailing}
       </div>
     );
@@ -217,18 +227,21 @@ export function RuntimeSettingsPanel({
     const info =
       only && description !== undefined
         ? description
-        : (groupInfo[group] ?? 'Choose how context and response history are saved.');
+        : (groupInfo[group] ?? t`Choose how context and response history are saved.`);
     return (
       <section
-        aria-label={only ? undefined : group}
+        aria-label={only ? undefined : runtimeGroupLabel(group)}
         className={anchor ? 'scroll-mt-4' : undefined}
         data-settings-anchor={anchor}
       >
         {only && !anchor ? null : (
-          <SettingsGroupLabel info={info || undefined}>{group}</SettingsGroupLabel>
+          <SettingsGroupLabel info={info || undefined}>
+            {runtimeGroupLabel(group)}
+          </SettingsGroupLabel>
         )}
         {source.settings
           .filter((setting) => setting.group === group)
+          .map(localizeRuntimeSetting)
           .map((setting) => {
             const value = draft?.changes[setting.key] ?? displayValue(setting);
             const resetting = draft?.changes[setting.key] === null;
@@ -239,7 +252,7 @@ export function RuntimeSettingsPanel({
                 info={<SettingInfo setting={setting} />}
                 inlineControl={setting.kind === 'boolean'}
                 key={setting.key}
-                note={resetting ? 'Will inherit after saving' : (setting.reason ?? undefined)}
+                note={resetting ? t`Will inherit after saving` : (setting.reason ?? undefined)}
                 title={setting.title}
               >
                 <RuntimeSettingControl
@@ -258,7 +271,9 @@ export function RuntimeSettingsPanel({
     );
   };
   return (
-    <div className="grid">
+    // One track no wider than the page: a nowrap row (a retention line) would otherwise
+    // widen the page past a phone's width and push the heading's caption off screen.
+    <div className="grid grid-cols-[minmax(0,1fr)]">
       {heading}
       <UnofferedLine />
       {groups.map((group) => (
@@ -268,10 +283,10 @@ export function RuntimeSettingsPanel({
         </Fragment>
       ))}
       {insertBefore && !inserted ? <div>{insertBefore.content}</div> : null}
-      <SettingsGroupLabel>Configuration</SettingsGroupLabel>
-      <SettingsRow title="Configuration file">
+      <SettingsGroupLabel>{t`Configuration`}</SettingsGroupLabel>
+      <SettingsRow title={t`Configuration file`}>
         <Button
-          aria-label="Copy configuration path"
+          aria-label={t`Copy configuration path`}
           // No intrinsic width, so a long path ellipsizes instead of squeezing the label.
           className="h-7 max-w-full min-w-0 flex-1 justify-start gap-1.5 px-1.5 font-mono text-xs font-normal text-muted-foreground [contain:inline-size] @xs:justify-end max-[1023px]:in-data-window-content:justify-start!"
           onClick={() => void copyConfigPath()}
@@ -285,7 +300,7 @@ export function RuntimeSettingsPanel({
         <IconButton
           disabled={current.isFetching || save.isPending}
           icon={<RetryIcon />}
-          label="Reload current settings"
+          label={t`Reload current settings`}
           onClick={() => void reload()}
           size="sm"
         />
@@ -295,20 +310,20 @@ export function RuntimeSettingsPanel({
           error={current.error}
           onRetry={() => void reload()}
           retrying={current.isFetching}
-          title="Could not refresh configuration."
+          title={t`Could not refresh configuration.`}
         />
       ) : null}
       {apply.isError ? (
-        <SettingsLoadError error={apply.error} title="That change was not applied." />
+        <SettingsLoadError error={apply.error} title={t`That change was not applied.`} />
       ) : null}
       <SaveBar
         className={cn('sticky bottom-0 z-10 bg-background', SETTINGS_COLUMN)}
         count={changeCount}
         error={
           save.error
-            ? `${plainReason(save.error)} Your edits are still here.`
+            ? t`${ph({ reason: plainReason(save.error) })} Your edits are still here.`
             : draft && !patch
-              ? 'Enter a number within the allowed range.'
+              ? t`Enter a number within the allowed range.`
               : undefined
         }
         invalid={Boolean(draft && !patch)}

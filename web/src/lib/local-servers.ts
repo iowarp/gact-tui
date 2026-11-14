@@ -1,4 +1,5 @@
 import type { LanguageModelPreset, ProviderHandshake } from '@clio/core/v3';
+import { plural, t } from '@lingui/core/macro';
 
 /** The preset every self-hosted OpenAI-compatible server is reached through. */
 export const CUSTOM_SERVER_PRESET_ID = 'vllm';
@@ -59,8 +60,11 @@ export function serverCheckResult(result: ProviderHandshake): ServerCheck {
       reachable: true,
       models,
       sentence: models.length
-        ? `Running, with ${models.length} ${models.length === 1 ? 'model' : 'models'}.`
-        : 'Running, but no model is loaded yet.',
+        ? plural(models.length, {
+            one: 'Running, with # model.',
+            other: 'Running, with # models.',
+          })
+        : t`Running, but no model is loaded yet.`,
     };
   }
   return {
@@ -68,8 +72,8 @@ export function serverCheckResult(result: ProviderHandshake): ServerCheck {
     models: [],
     sentence:
       result.connectivity === 'timeout'
-        ? 'Nothing answered at this address in time.'
-        : 'Nothing is running at this address.',
+        ? t`Nothing answered at this address in time.`
+        : t`Nothing is running at this address.`,
   };
 }
 
@@ -107,12 +111,12 @@ export function serverStatus({
 export function savedCheckSentence(
   check: { reachable: boolean; models: readonly string[] } | undefined,
 ): string {
-  if (!check) return 'It has not been checked yet.';
-  if (!check.reachable) return 'Nothing is running at its address right now.';
+  if (!check) return t`It has not been checked yet.`;
+  if (!check.reachable) return t`Nothing is running at its address right now.`;
   const count = check.models.length;
   return count
-    ? `It is running, with ${count} ${count === 1 ? 'model' : 'models'}.`
-    : 'It is running, but no model is loaded yet.';
+    ? plural(count, { one: 'It is running, with # model.', other: 'It is running, with # models.' })
+    : t`It is running, but no model is loaded yet.`;
 }
 
 /** "http://localhost:11434/v1" as "localhost:11434"; a non-standard path stays. */
@@ -136,13 +140,13 @@ export function serverStatusWords(
   address: string,
   label: string,
 ): { tone: 'success' | 'idle' | 'inactive' | 'error'; label: string; hint?: string } {
-  if (status.kind === 'running') return { tone: 'success', label: 'Running' };
-  if (status.kind === 'unknown') return { tone: 'idle', label: 'Not checked yet' };
+  if (status.kind === 'running') return { tone: 'success', label: t`Running` };
+  if (status.kind === 'unknown') return { tone: 'idle', label: t`Not checked yet` };
   if (isLoopbackAddress(address))
     return {
       tone: 'inactive',
-      label: 'Not running',
-      hint: `Start ${label} and load a model, then check again.`,
+      label: t`Not running`,
+      hint: t`Start ${label} and load a model, then check again.`,
     };
-  return { tone: 'error', label: 'Can’t reach', hint: 'No answer at this address.' };
+  return { tone: 'error', label: t`Can’t reach`, hint: t`No answer at this address.` };
 }

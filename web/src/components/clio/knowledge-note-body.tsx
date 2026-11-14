@@ -7,6 +7,7 @@ import { knowledgeNoteName, knowledgeNoteResolver } from './knowledge-note-links
 import { KnowledgeNoteMarkdown } from './knowledge-note-markdown';
 import { ListGroupLabel, ListRow } from './primitives/list-row';
 import { WorkspaceResourceCarousel } from './workspace-resource-view';
+import { t, ph } from '@lingui/core/macro';
 
 export type KnowledgeOpened = Awaited<
   ReturnType<ReturnType<typeof useRepository>['knowledgeOpen']>
@@ -20,12 +21,18 @@ const LINK_ROWS = 5;
 function linkStatus(link: KnowledgeLink, titles: ReadonlyMap<string, string>) {
   const kind =
     link.status === 'ambiguous'
-      ? 'Ambiguous'
+      ? t`Ambiguous`
       : link.status === 'external'
-        ? 'External'
-        : 'Not found';
+        ? t`External`
+        : t`Not found`;
   const candidates = link.candidates?.map((path) => knowledgeNoteName(path, titles));
-  return candidates?.length ? `${kind}: ${candidates.join(', ')}` : kind;
+  return candidates?.length ? t`${kind}: ${ph({ candidates: candidates.join(', ') })}` : kind;
+}
+
+/** A resolved link's accessible name: its direction, the other note, and the heading or block. */
+function linkLabel(out: boolean, name: string, selector?: string | null): string {
+  if (out) return selector ? t`Links to ${name}, ${selector}` : t`Links to ${name}`;
+  return selector ? t`Linked from ${name}, ${selector}` : t`Linked from ${name}`;
 }
 
 /** Note: the selected note rendered, then the links it makes and the notes that link to it. */
@@ -98,7 +105,8 @@ export function KnowledgeNoteRead({
         >
           <ListGroupLabel id={headingId}>
             <span className="flex gap-3 tabular-nums">
-              <span>Links {outgoing.length}</span> <span>Backlinks {incoming.length}</span>
+              <span>{t`Links ${ph({ count: outgoing.length })}`}</span>{' '}
+              <span>{t`Backlinks ${ph({ count: incoming.length })}`}</span>
             </span>
           </ListGroupLabel>
           <div role="list">
@@ -113,11 +121,7 @@ export function KnowledgeNoteRead({
                   <ListRow
                     role={resolved ? 'button' : undefined}
                     tabIndex={resolved ? 0 : undefined}
-                    aria-label={
-                      resolved
-                        ? `${out ? 'Links to' : 'Linked from'} ${name}${link.selector ? `, ${link.selector}` : ''}`
-                        : undefined
-                    }
+                    aria-label={resolved ? linkLabel(out, name, link.selector) : undefined}
                     className={resolved ? 'cursor-pointer' : undefined}
                     icon={!resolved ? <UnlinkIcon /> : out ? <ArrowRightIcon /> : <ArrowLeftIcon />}
                     title={
@@ -127,7 +131,7 @@ export function KnowledgeNoteRead({
                     }
                     description={
                       resolved
-                        ? (link.selector ?? (link.kind === 'embed' ? 'Embedded' : undefined))
+                        ? (link.selector ?? (link.kind === 'embed' ? t`Embedded` : undefined))
                         : linkStatus(link, titles)
                     }
                     onClick={resolved ? follow : undefined}
@@ -149,15 +153,15 @@ export function KnowledgeNoteRead({
             <button
               type="button"
               aria-expanded={expanded}
-              className="h-6 rounded-[6px] px-2 text-[11.5px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-6 rounded-[6px] px-2 text-label text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
               onClick={() => setExpandedFor(expanded ? '' : path)}
             >
-              {expanded ? 'Show fewer' : `${hidden} more`}
+              {expanded ? t`Show fewer` : t`${hidden} more`}
             </button>
           ) : null}
           {opened.relationships_truncated ? (
-            <p className="px-2 py-1 text-[11.5px] text-muted-foreground">
-              More links than shown. Show its linked notes from More actions.
+            <p className="px-2 py-1 text-label text-muted-foreground">
+              {t`More links than shown. Show its linked notes from More actions.`}
             </p>
           ) : null}
         </section>
@@ -173,7 +177,7 @@ export function KnowledgeNoteSource({ opened }: { opened: KnowledgeOpened }) {
       name={opened.note.path}
       content={opened.text}
       language="markdown"
-      label={`Markdown of ${opened.note.title}`}
+      label={t`Markdown of ${ph({ title: opened.note.title })}`}
     />
   );
 }

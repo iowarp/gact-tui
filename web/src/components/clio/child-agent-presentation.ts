@@ -1,6 +1,7 @@
 import type { SubagentRun } from '@clio/core/v3';
 import { PRESENTATION_OVERRIDE_REGISTRY } from '@/lib/presentation-override-registry';
 import { reportPresentationOverride } from '@/lib/presentation-overrides';
+import { t } from '@lingui/core/macro';
 
 export interface ChildAgentAssignment {
   detail?: string;
@@ -15,7 +16,7 @@ export function getChildAgentAssignment(subagent: SubagentRun): ChildAgentAssign
   const summary = subagent.summary?.trim();
   if (summary) return { label: summary };
 
-  const label = 'Delegated work';
+  const label = t`Delegated work`;
   reportPresentationOverride({
     kind: 'child-assignment-fallback',
     entityId: subagent.id,

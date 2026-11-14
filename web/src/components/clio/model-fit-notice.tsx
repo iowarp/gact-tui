@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { ph, t } from '@lingui/core/macro';
 
 /**
  * Under the composer: the chosen model lacks what this conversation's agent
@@ -33,10 +34,9 @@ export function ModelFitNotice({
     .map((row) => row.model);
   return (
     <div className="px-3 pt-1 text-xs text-destructive" role="alert">
-      {modelId} lacks {entry.fit.unmet.join('; ')}.{' '}
       {fitting.length
-        ? `Choose a model that has it: ${fitting.slice(0, 4).join(', ')}${fitting.length > 4 ? '…' : ''}.`
-        : 'No connected model has it.'}
+        ? t`${ph({ model: modelId ?? '' })} lacks ${ph({ unmet: entry.fit.unmet.join('; ') })}. Choose a model that has it: ${ph({ models: fitting.slice(0, 4).join(', ') + (fitting.length > 4 ? '…' : '') })}.`
+        : t`${ph({ model: modelId ?? '' })} lacks ${ph({ unmet: entry.fit.unmet.join('; ') })}. No connected model has it.`}
     </div>
   );
 }

@@ -50,6 +50,19 @@ import {
   type ArchiveRelationship,
   type ArchiveTarget,
 } from './lib/session-export/archive-orchestration-model';
+import { ph, plural, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+import { formatDateTime } from './lib/locale-format';
+
+const { product } = vocab;
+
+/** The export depth as the archive names it; the same names its copy refers to. */
+function exportModeLabel(mode: string): string {
+  if (mode === 'transcript') return t`Transcript`;
+  if (mode === 'effects') return t`Effects`;
+  if (mode === 'full') return t`Full`;
+  return mode;
+}
 
 declare global {
   interface Window {
@@ -90,7 +103,7 @@ export function SavedView({ value }: { value: unknown }) {
   if (!result.success)
     return (
       <p className="rounded-lg border p-4">
-        This saved view could not be decoded. Its exact record remains in Evidence.
+        {t`This saved view could not be decoded. Its exact record remains in Evidence.`}
       </p>
     );
   return (
@@ -99,7 +112,7 @@ export function SavedView({ value }: { value: unknown }) {
         surface={result.data}
         readOnly
         onRemoteAction={async () => {
-          throw new Error('This archive is read-only. Open a live session to ask the agent.');
+          throw new Error(t`This archive is read-only. Open a live session to ask the agent.`);
         }}
       />
     </section>
@@ -187,32 +200,39 @@ export function Review() {
   const dashboards = useArchiveDashboards(ids);
   const tools = rows.reduce((count, row) => count + row.tool_records.length, 0);
   const skills = rows.reduce((count, row) => count + row.loaded_skills.length, 0);
+  const mode = exportModeLabel(data.manifest.mode);
+  const exportedAt = formatDateTime(data.transcript.exported_at);
+  const messageCount = plural(
+    rows.reduce((n, row) => n + row.messages.length, 0),
+    { one: '# message', other: '# messages' },
+  );
+  const toolCount = plural(tools, { one: '# tool record', other: '# tool records' });
+  const skillCount = plural(skills, { one: '# skill load', other: '# skill loads' });
   return (
     <main className="mx-auto min-w-0 max-w-5xl space-y-6 p-4 text-foreground sm:p-6">
       <header className="border-b pb-6">
         <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          {vocab.product} session archive
+          {t`${product} session archive`}
         </p>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight">
           {data.transcript.session.title}
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          {data.manifest.mode[0].toUpperCase() + data.manifest.mode.slice(1)},{' '}
-          {rows.reduce((n, row) => n + row.messages.length, 0)} messages, {tools} tool records,{' '}
-          {skills} skill loads
+          {t`${mode}, ${messageCount}, ${toolCount}, ${skillCount}`}
         </p>
         <p className="mt-3 text-sm">
-          Read the conversation and work in order. Saved views support local inspection; asking the
-          agent requires a live session.
+          {t`Read the conversation and work in order. Saved views support local inspection; asking the agent requires a live session.`}
         </p>
       </header>
       {(data.snapshot.failures.length > 0 || data.manifest.omissions.length > 0) && (
         <p className="rounded-lg bg-muted p-3 text-sm">
-          Some dependencies or workspace folders were unavailable or excluded. See{' '}
-          <button className="underline" onClick={() => setSection('evidence')}>
-            Evidence and coverage
-          </button>
-          .
+          <Trans>
+            Some dependencies or workspace folders were unavailable or excluded. See{' '}
+            <button className="underline" onClick={() => setSection('evidence')}>
+              Evidence and coverage
+            </button>
+            .
+          </Trans>
         </p>
       )}
       <Tabs
@@ -225,23 +245,23 @@ export function Review() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <TabsList className="h-auto max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto">
             <TabsTrigger className="h-auto whitespace-normal px-3 py-2" value="conversation">
-              Conversation & activity
+              {t`Conversation & activity`}
             </TabsTrigger>
             <TabsTrigger className="h-auto whitespace-normal px-3 py-2" value="results">
-              Results
+              {t`Results`}
             </TabsTrigger>
             {sections.science && (
               <TabsTrigger className="h-auto whitespace-normal px-3 py-2" value="science">
-                Science log
+                {t`Science log`}
               </TabsTrigger>
             )}
             {data.manifest.mode !== 'transcript' && (
               <TabsTrigger className="h-auto whitespace-normal px-3 py-2" value="files">
-                Files
+                {t`Files`}
               </TabsTrigger>
             )}
             <TabsTrigger className="h-auto whitespace-normal px-3 py-2" value="evidence">
-              Evidence & skills
+              {t`Evidence & skills`}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -299,7 +319,7 @@ export function Review() {
           />
         </TabsContent>
         <TabsContent value="results">
-          <h2 className="mb-3 text-2xl font-semibold">Saved results</h2>
+          <h2 className="mb-3 text-2xl font-semibold">{t`Saved results`}</h2>
           {dashboards.map(({ sessionId, dashboard }) => (
             <A2uiReferenceSessionProvider key={dashboard.artifact_id} value={sessionId}>
               <ArchiveDashboard
@@ -319,16 +339,14 @@ export function Review() {
           {!dashboards.length &&
             !Object.values(data.snapshot.sessions).some((views) => views.length) && (
               <p>
-                No interactive views were recorded. Images and file references remain in the
-                conversation.
+                {t`No interactive views were recorded. Images and file references remain in the conversation.`}
               </p>
             )}
         </TabsContent>
         <TabsContent value="files" id="included-files">
-          <h2 className="text-2xl font-semibold">Included files</h2>
+          <h2 className="text-2xl font-semibold">{t`Included files`}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Transcript contains the recorded work. Effects adds touched artifacts and inputs. Full
-            also includes the workspace snapshot.
+            {t`Transcript contains the recorded work. Effects adds touched artifacts and inputs. Full also includes the workspace snapshot.`}
           </p>
           <ArchiveFileList
             files={data.manifest.files}
@@ -364,10 +382,10 @@ export function Review() {
                 <p className="p-4">
                   {sourceLink(opened) ? (
                     <a className="underline" href={sourceLink(opened)}>
-                      Open included file
+                      {t`Open included file`}
                     </a>
                   ) : (
-                    'This source file was not included. Choose Effects or Full to include recorded inputs and artifacts.'
+                    t`This source file was not included. Choose Effects or Full to include recorded inputs and artifacts.`
                   )}
                 </p>
               )
@@ -376,7 +394,7 @@ export function Review() {
                 {sourceLink(`artifact://${opened.id}`) && (
                   <p className="p-3 text-sm">
                     <a className="underline" href={sourceLink(`artifact://${opened.id}`)}>
-                      Open included source file: {opened.name}
+                      {t`Open included source file: ${ph({ name: opened.name })}`}
                     </a>
                   </p>
                 )}
@@ -390,8 +408,7 @@ export function Review() {
                   />
                 ) : (
                   <p className="p-3 text-sm">
-                    This file has no embedded preview. Effects and Full include recorded artifacts
-                    as separate files; use the source-file link above when available.
+                    {t`This file has no embedded preview. Effects and Full include recorded artifacts as separate files; use the source-file link above when available.`}
                   </p>
                 )}
               </>
@@ -400,18 +417,18 @@ export function Review() {
         </DialogContent>
       </Dialog>
       <footer className="flex flex-wrap gap-x-4 gap-y-1 border-t pt-5 text-xs text-muted-foreground">
-        <span>Exported {new Date(data.transcript.exported_at).toLocaleString()}</span>
+        <span>{t`Exported ${exportedAt}`}</span>
         {data.manifest.mode === 'transcript' ? (
           <button className="underline" onClick={() => setSection('evidence')}>
-            Embedded transcript and skills
+            {t`Embedded transcript and skills`}
           </button>
         ) : (
           <>
             <a className="underline" href="transcript.json">
-              Raw transcript
+              {t`Raw transcript`}
             </a>
             <a className="underline" href="manifest.json">
-              File inventory and checksums
+              {t`File inventory and checksums`}
             </a>
           </>
         )}
@@ -429,7 +446,8 @@ function showFallback(error: unknown): void {
   const status = document.getElementById('archive-status');
   if (status) {
     status.className = 'notice';
-    status.textContent = `Interactive views could not start (${error instanceof Error ? error.message : String(error)}). The conversation, tool activity and saved evidence remain readable below.`;
+    const reason = error instanceof Error ? error.message : String(error);
+    status.textContent = t`Interactive views could not start (${reason}). The conversation, tool activity and saved evidence remain readable below.`;
   }
 }
 class ReviewBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {

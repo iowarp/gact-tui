@@ -13,6 +13,7 @@ import { BoundedResult } from './bounded-result';
 import { PagedBlock } from './tool-result-primitives';
 import { SavedTerminalOutput } from './tool-result-saved-output';
 import { terminalWorkingFolder } from './tool-terminal-folder';
+import { t, ph } from '@lingui/core/macro';
 
 /** Output without blank lines before or after it (the full text stays in Copy and details). */
 const trimBlankLines = (text: string) => text.replace(/^(?:[ \t]*\r?\n)+/u, '').trimEnd();
@@ -25,7 +26,7 @@ function WorkingFolderButton({ folder }: { folder: string }) {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            aria-label={`Ran in ${folder}. Copy the folder path`}
+            aria-label={t`Ran in ${folder}. Copy the folder path`}
             className="size-6 text-terminal-muted hover:text-terminal-foreground"
             data-slot="run-working-folder"
             onClick={() => {
@@ -39,8 +40,7 @@ function WorkingFolderButton({ folder }: { folder: string }) {
         </TooltipTrigger>
         <TooltipContent className="max-w-sm text-xs">
           <span className="[overflow-wrap:anywhere]">
-            {copied ? 'Copied: ' : 'Running in: '}
-            {folder}
+            {copied ? t`Copied: ${folder}` : t`Running in: ${folder}`}
           </span>
         </TooltipContent>
       </Tooltip>
@@ -77,14 +77,20 @@ export function ToolTerminalResult({
     </div>
   );
   return (
-    <Terminal output={block.text ?? ''} autoScroll={false} isStreaming={running}>
+    <Terminal
+      output={block.text ?? ''}
+      autoScroll={false}
+      isStreaming={running}
+      // The spec's command block sits on the conversation's own surface in either theme.
+      className="[--terminal-accent:var(--accent-foreground)] [--terminal-border:var(--border)] [--terminal-foreground:var(--foreground)] [--terminal-muted:var(--muted-foreground)] [--terminal:var(--background)]"
+    >
       {block.command ? (
-        <section aria-label="Input command" data-slot="run-command">
+        <section aria-label={t`Input command`} data-slot="run-command">
           <TerminalHeader className="min-h-8 border-b-0 px-3 pb-1 pt-1.5 text-xs text-terminal-muted">
-            <span>Command</span>
+            <span>{t`Command`}</span>
             {folder ? <WorkingFolderButton folder={folder} /> : null}
           </TerminalHeader>
-          <BoundedResult lines={Math.min(lines, 3)} title="Command">
+          <BoundedResult lines={Math.min(lines, 3)} title={t`Command`}>
             <TerminalCommand
               command={block.command}
               className="border-b-0 bg-transparent px-3 pb-2.5 pt-0"
@@ -96,12 +102,12 @@ export function ToolTerminalResult({
         </section>
       ) : null}
       <section
-        aria-label="Command output"
+        aria-label={t`Command output`}
         className={block.command ? 'border-t border-terminal-border' : ''}
         data-slot="run-output"
       >
         <TerminalHeader className="min-h-8 border-b-0 px-3 pb-1 pt-1.5 text-xs text-terminal-muted">
-          Output
+          {t`Output`}
         </TerminalHeader>
         {outputBlocks.some((item) => item.content_ref) && !running ? (
           <PagedBlock
@@ -111,10 +117,10 @@ export function ToolTerminalResult({
             renderBlock={renderOutput}
           />
         ) : (
-          <BoundedResult lines={lines} running={running} title="Output">
+          <BoundedResult lines={lines} running={running} title={t`Output`}>
             {!running && !outputBlocks.some((item) => item.text) ? (
               <p className="px-3 pb-2.5 text-xs text-terminal-muted">
-                No stdout or stderr was recorded.
+                {t`No stdout or stderr was recorded.`}
               </p>
             ) : null}
             {outputBlocks.map((item) => (
@@ -126,8 +132,8 @@ export function ToolTerminalResult({
         {!running && (block.timed_out || block.exit_code !== undefined) ? (
           <p className="border-t border-terminal-border px-3 py-2.5 text-xs text-terminal-muted">
             {block.timed_out
-              ? 'Process timed out.'
-              : `Process exited with code ${block.exit_code}.`}
+              ? t`Process timed out.`
+              : t`Process exited with code ${ph({ exit_code: String(block.exit_code) })}.`}
           </p>
         ) : null}
       </section>

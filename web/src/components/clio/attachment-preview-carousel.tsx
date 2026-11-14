@@ -9,6 +9,7 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import { cn } from '@/lib/utils';
+import { t, ph } from '@lingui/core/macro';
 
 export interface AttachmentPreviewCarouselItem {
   id: string;
@@ -112,14 +113,14 @@ export function AttachmentPreviewCarousel({
   return (
     <div
       className={cn(
-        'grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-3',
+        'grid min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] gap-3',
         items.length === 1 && 'grid-rows-[minmax(0,1fr)]',
         className,
       )}
       data-slot="attachment-preview-carousel"
     >
       <Carousel
-        aria-label="Attachment previews"
+        aria-label={t`Attachment previews`}
         className="h-full min-h-0 [&_[data-slot=carousel-content]]:h-full"
         onKeyDownCapture={handlePreviewKeyDown}
         onPointerDown={focusPreviewCarousel}
@@ -130,7 +131,7 @@ export function AttachmentPreviewCarousel({
         <CarouselContent className="-ml-0 h-full">
           {items.map((item, index) => (
             <CarouselItem
-              aria-label={`${index + 1} of ${items.length}: ${item.label}`}
+              aria-label={t`${ph({ position: index + 1 })} of ${ph({ total: items.length })}: ${ph({ label: item.label })}`}
               className="h-full pl-0"
               key={item.id}
             >
@@ -138,17 +139,18 @@ export function AttachmentPreviewCarousel({
             </CarouselItem>
           ))}
         </CarouselContent>
+        {/* Phones navigate with the thumbnail strip below; floating arrows would cover the preview's rows. */}
         {items.length > 1 ? (
           <>
             <CarouselPrevious
-              aria-label="Previous attachment"
-              className="left-3 bg-background/90 shadow-sm backdrop-blur-sm"
+              aria-label={t`Previous attachment`}
+              className="left-3 bg-background/90 shadow-sm backdrop-blur-sm max-sm:hidden"
               disabled={selectedIndex === 0}
               onClick={() => selectIndex(selectedIndex - 1)}
             />
             <CarouselNext
-              aria-label="Next attachment"
-              className="right-3 bg-background/90 shadow-sm backdrop-blur-sm"
+              aria-label={t`Next attachment`}
+              className="right-3 bg-background/90 shadow-sm backdrop-blur-sm max-sm:hidden"
               disabled={selectedIndex === items.length - 1}
               onClick={() => selectIndex(selectedIndex + 1)}
             />
@@ -158,8 +160,8 @@ export function AttachmentPreviewCarousel({
 
       {items.length > 1 ? (
         <Carousel
-          aria-label="Choose an attachment"
-          className="w-full"
+          aria-label={t`Choose an attachment`}
+          className="w-full pb-2"
           opts={{ containScroll: 'keepSnaps', dragFree: true, startIndex: selectedIndex }}
           setApi={setThumbnailApi}
         >
@@ -168,7 +170,7 @@ export function AttachmentPreviewCarousel({
               <CarouselItem className="basis-24 pl-2 sm:basis-28" key={item.id}>
                 <button
                   aria-current={index === selectedIndex ? 'true' : undefined}
-                  aria-label={`Show ${item.label}`}
+                  aria-label={t`Show ${ph({ label: item.label })}`}
                   className={cn(
                     'block w-full rounded-lg border-2 p-0.5 text-left opacity-55 transition-opacity',
                     'hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',

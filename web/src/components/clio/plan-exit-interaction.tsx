@@ -1,5 +1,5 @@
 import type { Artifact, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NotebookTextIcon, PanelRightIcon } from 'lucide-react';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { AskButton, AskCard, AskError, AskKeyChip, AskSection } from './ask-card';
 import { askKeyAttributes } from './ask-card-keys';
 import { useAttentionDraft } from './attention-drafts';
-import { pendingInteractionDomId } from './interaction-control';
+import { focusLost, isEmptyComposer, pendingInteractionDomId } from './interaction-control';
 import { OwnerAttribution } from './pending-interaction-notices';
 import { PlanDecision, PlanDecisionControls } from './plan-decision-controls';
 import { planArtifact } from './plan-artifact';
@@ -16,19 +16,23 @@ import { planOutline, planSections } from './plan-outline';
 import { NamedTooltip } from './primitives/icon-button';
 import { ActivityBody } from './activity-row';
 import { CopyAction } from './tool-compact-row';
+import { formatNumber } from '@/lib/locale-format';
+import { ph, t } from '@lingui/core/macro';
 
 type PlanExit = NonNullable<NonNullable<PendingInteraction['payload']>['plan_exit']>;
 
 // One scale: the plan's own title at 15px, section headings 12.5px medium, body 12.5px.
 // `[&>*+*]` would compile to a universal sibling selector that restyles whole lists on any insert.
 const PLAN_MARKDOWN =
-  'min-w-0 text-[12.5px] leading-[1.55] text-foreground/90 [overflow-wrap:anywhere] [&>:where(:not(:first-child))]:!mt-1.5 [&_p]:!my-0 [&_h1]:!m-0 [&_h1]:!font-heading [&_h1]:!text-[15px] [&_h1]:!leading-6 [&_h1]:!font-semibold [&>:is(h2,h3):first-child]:!font-heading [&>:is(h2,h3):first-child]:!text-[15px] [&>:is(h2,h3):first-child]:!font-semibold [&_:is(h2,h3,h4,h5,h6)]:!mb-0 [&_:is(h2,h3,h4,h5,h6)]:!mt-2.5 [&_:is(h2,h3,h4,h5,h6)]:!text-[12.5px] [&_:is(h2,h3,h4,h5,h6)]:!leading-5 [&_:is(h2,h3,h4,h5,h6)]:!font-medium [&_:is(h2,h3,h4,h5,h6)]:text-foreground [&_ol]:!mt-0.5 [&_ol]:!mb-0 [&_ol]:!list-outside [&_ol]:!pl-5 [&_ul]:!mt-0.5 [&_ul]:!mb-0 [&_ul]:!list-outside [&_ul]:!pl-5 [&_li]:!my-[3px] [&_li]:!py-0 [&_li>p]:inline [&_code]:!text-[11.5px]';
-const GUIDANCE_HEADING = 'mt-2.5 text-[12.5px] leading-5 font-medium text-foreground';
+  'min-w-0 text-menu leading-[1.55] text-foreground/90 [overflow-wrap:anywhere] [&>:where(:not(:first-child))]:!mt-1.5 [&_p]:!my-0 [&_h1]:!m-0 [&_h1]:!font-heading [&_h1]:!text-h3 [&_h1]:!leading-6 [&_h1]:!font-semibold [&>:is(h2,h3):first-child]:!font-heading [&>:is(h2,h3):first-child]:!text-h3 [&>:is(h2,h3):first-child]:!font-semibold [&_:is(h2,h3,h4,h5,h6)]:!mb-0 [&_:is(h2,h3,h4,h5,h6)]:!mt-2.5 [&_:is(h2,h3,h4,h5,h6)]:!text-menu [&_:is(h2,h3,h4,h5,h6)]:!leading-5 [&_:is(h2,h3,h4,h5,h6)]:!font-medium [&_:is(h2,h3,h4,h5,h6)]:text-foreground [&_ol]:!mt-0.5 [&_ol]:!mb-0 [&_ol]:!list-outside [&_ol]:!pl-5 [&_ul]:!mt-0.5 [&_ul]:!mb-0 [&_ul]:!list-outside [&_ul]:!pl-5 [&_li]:!my-[3px] [&_li]:!py-0 [&_li>p]:inline [&_code]:!text-label';
+const GUIDANCE_HEADING = 'mt-2.5 text-menu leading-5 font-medium text-foreground';
 
-/** Where the plan lives, short; the full path is on hover. */
+/** Where the plan lives, short; the full path is on hover. Storage ids are not names. */
 function planFileName(path: string) {
-  const parts = path.split(/[\\/]/u).filter(Boolean);
-  return parts.slice(-2).join('/');
+  const parts = path
+    .split(/[\\/]/u)
+    .filter((part) => part && !/^(?:(?:fld|res)_)?[0-9a-f]{16,}$/iu.test(part));
+  return parts.slice(-2).join('/') || path;
 }
 
 /** A plan's own "Steps" heading; the preview drops it (the full plan keeps it). */
@@ -41,16 +45,16 @@ function PlanGuidance({ plan }: { plan: PlanExit | undefined }) {
   const risks = sections.hasRisks ? undefined : plan?.risk_notes?.trim();
   if (!recommendation && !risks) return null;
   return (
-    <div className="text-[12.5px] leading-[1.6] text-foreground/90" data-slot="plan-guidance">
+    <div className="text-menu leading-[1.6] text-foreground/90" data-slot="plan-guidance">
       {recommendation ? (
         <section>
-          <h3 className={GUIDANCE_HEADING}>Execution recommendation</h3>
+          <h3 className={GUIDANCE_HEADING}>{t`Execution recommendation`}</h3>
           <p>{planModeLabel(recommendation)}</p>
         </section>
       ) : null}
       {risks ? (
         <section>
-          <h3 className={GUIDANCE_HEADING}>Risks</h3>
+          <h3 className={GUIDANCE_HEADING}>{t`Risks`}</h3>
           <p className="whitespace-pre-line">{risks}</p>
         </section>
       ) : null}
@@ -60,10 +64,10 @@ function PlanGuidance({ plan }: { plan: PlanExit | undefined }) {
 
 function missingPlanText(plan: PlanExit | undefined) {
   if (plan?.plan_content_status === 'unavailable')
-    return 'The saved plan could not be loaded. Request changes, or leave Plan mode without executing.';
+    return t`The saved plan could not be loaded. Request changes, or leave Plan mode without executing.`;
   if (plan?.plan_content_status === 'complete' || plan?.plan_content_status === 'truncated')
-    return 'The plan is empty.';
-  return 'The agent is still writing the plan.';
+    return t`The plan is empty.`;
+  return t`The agent is still writing the plan.`;
 }
 
 function footerText(plan: PlanExit | undefined) {
@@ -72,7 +76,7 @@ function footerText(plan: PlanExit | undefined) {
     const shown = plan.plan_content_included_chars;
     const total = plan.plan_content_chars;
     if (shown !== undefined && total !== undefined)
-      return `Showing ${shown.toLocaleString()} of ${total.toLocaleString()} characters`;
+      return t`Showing ${ph({ shown: formatNumber(shown) })} of ${ph({ total: formatNumber(total) })} characters`;
   }
   return planOutline(plan?.plan_content, plan ?? {});
 }
@@ -102,45 +106,83 @@ function PlanPreview({
   // The glance goes from the summary straight to the numbered steps, as the spec draws.
   const glance = expanded ? content : content?.replace(STEPS_HEADING, '');
   const [overflowing, setOverflowing] = useState(false);
+  // Under a tight height cap the reading area can get less than a line: show none of it, not a sliver.
+  const [cramped, setCramped] = useState(false);
   const clipRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const clip = clipRef.current;
     const body = bodyRef.current;
     if (!clip || !body || expanded) return;
-    const measure = () => setOverflowing(body.scrollHeight > clip.clientHeight + 1);
+    const measure = () => {
+      setOverflowing(body.scrollHeight > clip.clientHeight + 1);
+      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setCramped(clip.clientHeight > 0 && clip.clientHeight < 2.5 * rem);
+    };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(body);
+    observer.observe(clip);
     return () => observer.disconnect();
   }, [expanded, content]);
   const opens = Boolean(artifact && onOpenArtifact);
   const toggles = Boolean(content) && !opens && (overflowing || expanded);
   const clipped = !expanded && overflowing;
+  const hidden = !expanded && cramped;
   const footer = footerText(plan);
+  const hasFooter = Boolean(footer || opens || toggles);
+  // Once the button has taken its own line, the summary has the row to itself and wraps whole.
+  const [stacked, setStacked] = useState(false);
+  useLayoutEffect(() => {
+    const row = footerRef.current;
+    if (!row) return;
+    const measure = () => {
+      const first = row.firstElementChild as HTMLElement | null;
+      const last = row.lastElementChild as HTMLElement | null;
+      setStacked(
+        Boolean(
+          first && last && first !== last && last.offsetTop >= first.offsetTop + first.offsetHeight,
+        ),
+      );
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [hasFooter]);
   return (
     <AskSection
-      className={cn('overflow-hidden rounded-lg border border-border bg-background', className)}
+      // Under the card's height cap the reading area gives up height; the footer stays whole.
+      className={cn(
+        'flex min-h-[36px] flex-col overflow-hidden rounded-lg border border-border bg-background',
+        className,
+      )}
       data-slot="plan-preview"
     >
       <div
         className={cn(
-          'px-3.5 pt-2.5',
+          // The padding sits on the body, so the reading area can give up all of its height.
+          'min-h-0',
           expanded
-            ? 'clio-scrollbar max-h-[min(28rem,50dvh)] overflow-auto pb-2.5'
-            : 'max-h-[118px] overflow-hidden pb-2.5',
+            ? 'clio-scrollbar max-h-[min(28rem,50dvh)] overflow-auto'
+            : // A narrow card wraps the plan to more lines, so its glance gets more height.
+              'max-h-[118px] overflow-hidden @max-[420px]/ask:max-h-[11rem]',
           clipped && '[mask-image:linear-gradient(#000_55%,transparent)]',
+          hidden && 'invisible',
         )}
         data-plan-clipped={clipped || undefined}
+        data-plan-cramped={hidden || undefined}
         ref={clipRef}
         tabIndex={expanded ? 0 : undefined}
       >
-        <div ref={bodyRef}>
+        <div className="px-3.5 py-2.5" ref={bodyRef}>
           {content ? (
             <MessageResponse className={PLAN_MARKDOWN}>{glance}</MessageResponse>
           ) : (
-            <div className="grid gap-1 text-[12.5px] leading-[1.6]">
+            <div className="grid gap-1 text-menu leading-[1.6]">
               {plan?.summary ? <p className="text-foreground/90">{plan.summary}</p> : null}
               <p className="text-muted-foreground" title={plan?.plan_content_error}>
                 {missingPlanText(plan)}
@@ -150,18 +192,33 @@ function PlanPreview({
           <PlanGuidance plan={plan} />
         </div>
       </div>
-      {footer || opens || toggles ? (
+      {hasFooter ? (
         <div
-          className="flex h-[34px] min-w-0 items-center gap-2.5 border-t border-border pr-1.5 pl-3 text-[11.5px] whitespace-nowrap text-muted-foreground"
+          ref={footerRef}
+          // rem, so the footer grows with its button at larger interface sizes. The summary's
+          // basis is its whole line, so whenever it can't fit beside the button, the button
+          // takes its own line rather than cutting the summary short.
+          className={cn(
+            'flex min-h-[2.125rem] min-w-0 shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 border-border py-[0.3125rem] pr-1.5 pl-3 text-label whitespace-nowrap text-muted-foreground',
+            !hidden && 'border-t',
+          )}
           data-slot="plan-preview-footer"
         >
-          <span className="min-w-0 truncate" title={footer}>
+          <span
+            className={cn(
+              'min-w-0',
+              stacked ? 'whitespace-normal' : 'truncate',
+              footer && 'flex-auto',
+            )}
+            data-plan-summary-stacked={stacked || undefined}
+            title={footer}
+          >
             {footer}
           </span>
           {!keys && content ? (
             // The row's hover Copy can't be reached by touch or on a phone; the footer carries it there.
             <span className="ml-auto hidden shrink-0 pointer-coarse:inline-flex max-sm:inline-flex">
-              <CopyAction label="Copy plan" value={content} />
+              <CopyAction label={t`Copy plan`} value={content} />
             </span>
           ) : null}
           {opens || toggles ? (
@@ -169,7 +226,7 @@ function PlanPreview({
               {...(keys ? askKeyAttributes(['o']) : {})}
               aria-expanded={opens ? undefined : expanded}
               className={cn(
-                'h-6 px-2 text-[12px]',
+                'h-6 px-2 text-meta',
                 keys || !content ? 'ml-auto' : 'ml-auto pointer-coarse:ml-0 max-sm:ml-0',
               )}
               onClick={() =>
@@ -178,7 +235,7 @@ function PlanPreview({
             >
               <span className="inline-flex items-center gap-1.5">
                 {opens ? <PanelRightIcon aria-hidden="true" className="size-3.5" /> : null}
-                {opens ? 'Open plan' : expanded ? 'Show less' : 'Show all'}
+                {opens ? t`Open plan` : expanded ? t`Show less` : t`Show all`}
                 {keys ? <AskKeyChip askKey="o" /> : null}
               </span>
             </AskButton>
@@ -188,6 +245,17 @@ function PlanPreview({
     </AskSection>
   );
 }
+
+function planCard(interactionId: string): HTMLElement | null {
+  return (
+    document
+      .getElementById(pendingInteractionDomId(interactionId))
+      ?.closest<HTMLElement>('[data-slot="ask-card"]') ?? null
+  );
+}
+
+/** Plans that have already been offered focus in this page. */
+const focusedPlans = new Set<string>();
 
 export function InlinePlanExitResponse({
   artifacts,
@@ -205,9 +273,35 @@ export function InlinePlanExitResponse({
 }) {
   const [responding, setResponding] = useState(false);
   const [responseError, setResponseError] = useState<Error>();
+  // The control that answered, so a failed answer hands focus back to it once
+  // it is enabled again rather than leaving focus on the page.
+  const answeredFrom = useRef<HTMLElement | null>(null);
   const artifact = planArtifact(interaction, artifacts);
+  const pending = interaction.status === 'pending';
+  useEffect(() => {
+    // Like a docked card, a plan that arrives takes focus when nothing holds it
+    // or the composer is empty; once per plan, so a remount never steals focus.
+    if (!pending || focusedPlans.has(interaction.id)) return;
+    focusedPlans.add(interaction.id);
+    const active = document.activeElement;
+    if (!focusLost(active) && !isEmptyComposer(active)) return;
+    // Programmatic focus is not keyboard focus; Chromium would otherwise draw the focus edge.
+    planCard(interaction.id)?.focus({ preventScroll: true, focusVisible: false });
+  }, [interaction.id, pending]);
+  useEffect(() => {
+    if (responding || !responseError || !answeredFrom.current) return;
+    const control = answeredFrom.current;
+    answeredFrom.current = null;
+    if (!focusLost()) return;
+    const usable =
+      control.isConnected && !(control instanceof HTMLButtonElement && control.disabled);
+    (usable ? control : planCard(interaction.id))?.focus({ preventScroll: true });
+  }, [interaction.id, responding, responseError]);
   const respond = async (target: PendingInteraction, response: PendingInteractionResponse) => {
     if (!onResponse || responding) return;
+    const active = document.activeElement;
+    answeredFrom.current =
+      active instanceof HTMLElement && planCard(interaction.id)?.contains(active) ? active : null;
     setResponding(true);
     setResponseError(undefined);
     try {
@@ -259,14 +353,14 @@ function AnsweredPlan({
           content || opens ? (
             <>
               {content ? (
-                <CopyAction label="Copy plan" value={content} />
+                <CopyAction label={t`Copy plan`} value={content} />
               ) : (
                 <span className="w-[22px]" />
               )}
               {opens ? (
-                <NamedTooltip label="Open plan">
+                <NamedTooltip label={t`Open plan`}>
                   <Button
-                    aria-label="Open plan"
+                    aria-label={t`Open plan`}
                     className="size-[22px] rounded-[5px] p-0 text-muted-foreground hover:bg-hover hover:text-foreground [&_svg]:size-[13px]"
                     data-activity-action="open"
                     onClick={() => onOpenArtifact?.(opens)}
@@ -284,7 +378,7 @@ function AnsweredPlan({
         open={content ? shown : undefined}
       />
       {shown && content ? (
-        <ActivityBody framed={false} label="Plan">
+        <ActivityBody framed={false} label={t`Plan`}>
           <PlanPreview
             artifact={opens}
             interaction={interaction}
@@ -330,6 +424,9 @@ export function PlanExitResponse({
   const file = plan?.plan_file;
   return (
     <AskCard
+      // In a narrow dock the options stack and fill the cap, which would squeeze the plan down
+      // to its summary line. There the card keeps its height and the dock scrolls it instead.
+      className="@max-[420px]/dock:max-h-none"
       data-interaction-kind="plan_exit"
       icon={NotebookTextIcon}
       id={pendingInteractionDomId(interaction.id)}
@@ -347,7 +444,7 @@ export function PlanExitResponse({
           <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show />
         ) : undefined
       }
-      title="Plan"
+      title={t`Plan`}
       titleText={interaction.title}
     >
       <PlanPreview artifact={artifact} interaction={interaction} onOpenArtifact={onOpenArtifact} />
@@ -359,8 +456,8 @@ export function PlanExitResponse({
           onResponse={onResponse}
         />
       ) : (
-        <AskSection className="mt-2.5 text-[12px] text-muted-foreground">
-          Plan controls are not available yet.
+        <AskSection className="mt-2.5 text-meta text-muted-foreground">
+          {t`Plan controls are not available yet.`}
         </AskSection>
       )}
     </AskCard>

@@ -13,6 +13,7 @@ import {
 } from './mcp-app-live-set';
 import { McpAppSurface } from './mcp-app-surface';
 import type { McpAppTabTarget } from './workbench-shared';
+import { t } from '@lingui/core/macro';
 
 /**
  * An App in its fullscreen display mode: the tab holds the App's one frame
@@ -50,7 +51,7 @@ export function McpAppTabPanel({ target }: { target: McpAppTabTarget }) {
               variant="ghost"
             >
               <CornerDownLeftIcon aria-hidden="true" />
-              Return to conversation
+              {t`Return to conversation`}
             </Button>
           ) : null
         }

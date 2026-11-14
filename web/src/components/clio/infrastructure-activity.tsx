@@ -11,29 +11,53 @@ import { InfraList } from './infrastructure-row';
 import { InfraTabActions } from './infrastructure-tab-actions';
 import { MenuRow } from './primitives/menu-row';
 import { StateView } from './primitives/state-view';
+import { t, ph } from '@lingui/core/macro';
 
 type ActivityFilter = 'all' | 'active' | 'failed' | 'completed';
 const activeStates = new Set(['queued', 'running']);
 const completedStates = new Set(['succeeded', 'ready']);
 const stateLabels: Record<string, string> = {
-  succeeded: 'Completed',
-  ready: 'Completed',
-  running: 'Running',
-  queued: 'Queued',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-  removed: 'Removed',
+  succeeded: t`Completed`,
+  ready: t`Completed`,
+  running: t`Running`,
+  queued: t`Queued`,
+  failed: t`Failed`,
+  cancelled: t`Cancelled`,
+  removed: t`Removed`,
 };
 const filterLabels: Record<ActivityFilter, string> = {
-  all: 'All',
-  active: 'In progress',
-  failed: 'Failed',
-  completed: 'Completed',
+  all: t`All`,
+  active: t`In progress`,
+  failed: t`Failed`,
+  completed: t`Completed`,
 };
 
-const SEARCH_LABEL = 'Search actions, computers or results';
+const SEARCH_LABEL = t`Search actions, computers or results`;
 
 const sentence = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
+
+/** "Start vLLM": the agent's operation verbs in words, its own wording for any other. */
+function operationTitle(action: string, serviceId: string): string {
+  const name = infrastructureServiceName(serviceId);
+  switch (action) {
+    case 'install':
+      return t`Install ${ph({ label: name })}`;
+    case 'start':
+      return t`Start ${ph({ label: name })}`;
+    case 'stop':
+      return t`Stop ${ph({ label: name })}`;
+    case 'restart':
+      return t`Restart ${ph({ label: name })}`;
+    case 'update':
+    case 'upgrade':
+      return t`Update ${ph({ label: name })}`;
+    case 'remove':
+    case 'uninstall':
+      return t`Remove ${ph({ label: name })}`;
+    default:
+      return sentence(`${action.replaceAll('_', ' ')} ${name}`);
+  }
+}
 
 /** Recent operations in one timeline; host and result stay visible before opening details. */
 export function InfrastructureActivity({ data }: { data: InfrastructureInventory }) {
@@ -43,15 +67,13 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
   const searchShown = searchOpen || Boolean(search);
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const hosts = new Map(
-    data.targets.map((host) => [host.id, host.kind === 'local' ? 'Local' : host.label]),
+    data.targets.map((host) => [host.id, host.kind === 'local' ? t`Local` : host.label]),
   );
   const history = [
     ...data.operations.map((operation) => ({
       id: operation.id,
       target: operation.target_id,
-      title: sentence(
-        `${operation.action.replaceAll('_', ' ')} ${infrastructureServiceName(operation.service_id)}`,
-      ),
+      title: operationTitle(operation.action.toLocaleLowerCase(), operation.service_id),
       state: operation.state,
       time: new Date(operation.updated_at).getTime(),
       detail: operation.error || operation.progress,
@@ -62,7 +84,7 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
     ...data.model_acquisitions.map((model) => ({
       id: model.id,
       target: model.target_id || 'local',
-      title: `Download ${model.repository}`,
+      title: t`Download ${ph({ repository: model.repository })}`,
       state: model.state,
       time: model.updated_at * 1000,
       detail: model.error || model.phase,
@@ -93,7 +115,7 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
   }));
   const filterMenu = (
     <InfraFilterMenu
-      label="Activity filter"
+      label={t`Activity filter`}
       onValueChange={setFilter}
       options={filterOptions}
       value={filter}
@@ -108,7 +130,7 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
     <>
       <InfraTabActions
         fold={{
-          label: 'Activity actions',
+          label: t`Activity actions`,
           onCloseAutoFocus: (event) => {
             if (!focusSearch.current) return;
             focusSearch.current = false;
@@ -129,7 +151,7 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
           menu: (
             <>
               <DropdownMenuItem onSelect={openNarrowSearch}>
-                <MenuRow icon={<SearchIcon aria-hidden="true" />} label="Search" />
+                <MenuRow icon={<SearchIcon aria-hidden="true" />} label={t`Search`} />
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {filterOptions.map((option) => (
@@ -167,7 +189,7 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
         </div>
       ) : null}
       {rows.length ? (
-        <InfraList hover={26} label="Infrastructure activity">
+        <InfraList hover={26} label={t`Infrastructure activity`}>
           {rows.map((row) => (
             <InfrastructureActivityRow
               key={row.target + ':' + row.id}
@@ -180,7 +202,7 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
       ) : filtered ? (
         <StateView
           action={{
-            label: 'Clear filters',
+            label: t`Clear filters`,
             onClick: () => {
               setSearch('');
               setFilter('all');
@@ -188,16 +210,16 @@ export function InfrastructureActivity({ data }: { data: InfrastructureInventory
           }}
           kind="empty"
           size="row"
-          title="No matching activity."
+          title={t`No matching activity.`}
         />
       ) : (
-        <StateView kind="empty" size="row" title="No infrastructure operations yet.">
+        <StateView kind="empty" size="row" title={t`No infrastructure operations yet.`}>
           <div className="ml-auto flex shrink-0 gap-1.5">
             <Button asChild size="xs" variant="outline">
-              <Link to="/infrastructure/services">Set up a service</Link>
+              <Link to="/infrastructure/services">{t`Set up a service`}</Link>
             </Button>
             <Button asChild size="xs" variant="outline">
-              <Link to="/infrastructure/models">Download a model</Link>
+              <Link to="/infrastructure/models">{t`Download a model`}</Link>
             </Button>
           </div>
         </StateView>

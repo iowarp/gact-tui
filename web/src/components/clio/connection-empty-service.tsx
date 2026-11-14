@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ClioPathPicker } from './path-picker';
+import { t } from '@lingui/core/macro';
 
 const createWorkspaceValue = '__create_workspace__';
 
@@ -38,9 +39,9 @@ export function ConnectionEmptyService({
   onCreate,
 }: ConnectionEmptyServiceProps) {
   const [workspaceChoice, setWorkspaceChoice] = useState(workspaces[0]?.id ?? createWorkspaceValue);
-  const [workspaceName, setWorkspaceName] = useState('My workspace');
+  const [workspaceName, setWorkspaceName] = useState(t`My workspace`);
   const [rootPath, setRootPath] = useState('');
-  const [sessionTitle, setSessionTitle] = useState('First conversation');
+  const [sessionTitle, setSessionTitle] = useState(t`First conversation`);
   const creatingWorkspace = workspaceChoice === createWorkspaceValue;
   const canSubmit =
     Boolean(sessionTitle.trim()) &&
@@ -61,15 +62,15 @@ export function ConnectionEmptyService({
     <form className="grid gap-5" onSubmit={(event) => void submit(event)}>
       <Alert>
         <FolderPlusIcon aria-hidden="true" />
-        <AlertTitle>This service is ready</AlertTitle>
+        <AlertTitle>{t`This service is ready`}</AlertTitle>
         <AlertDescription>
-          Choose where the agent may work, then open its first conversation.
+          {t`Choose where the agent may work, then open its first conversation.`}
         </AlertDescription>
       </Alert>
 
       {workspaces.length ? (
         <div className="grid gap-2">
-          <Label htmlFor="first-workspace">Workspace</Label>
+          <Label htmlFor="first-workspace">{t`Workspace`}</Label>
           <Select onValueChange={setWorkspaceChoice} value={workspaceChoice}>
             <SelectTrigger className="h-11" id="first-workspace">
               <SelectValue />
@@ -80,7 +81,7 @@ export function ConnectionEmptyService({
                   {workspace.display_name}
                 </SelectItem>
               ))}
-              <SelectItem value={createWorkspaceValue}>Create another workspace</SelectItem>
+              <SelectItem value={createWorkspaceValue}>{t`Create another workspace`}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -89,7 +90,7 @@ export function ConnectionEmptyService({
       {creatingWorkspace ? (
         <>
           <div className="grid gap-2">
-            <Label htmlFor="first-workspace-name">Workspace name</Label>
+            <Label htmlFor="first-workspace-name">{t`Workspace name`}</Label>
             <Input
               autoComplete="off"
               className="h-11"
@@ -99,7 +100,7 @@ export function ConnectionEmptyService({
             />
           </div>
           <div className="grid gap-2">
-            <Label>Working folder</Label>
+            <Label>{t`Working folder`}</Label>
             <ClioPathPicker
               knownFolders={workspaces.map((workspace) => ({
                 detail: workspace.path,
@@ -107,7 +108,7 @@ export function ConnectionEmptyService({
                 path: workspace.path,
               }))}
               onChange={setRootPath}
-              placeholder="Choose a folder on this service"
+              placeholder={t`Choose a folder on this service`}
               value={rootPath}
             />
           </div>
@@ -115,7 +116,7 @@ export function ConnectionEmptyService({
       ) : null}
 
       <div className="grid gap-2">
-        <Label htmlFor="first-session-title">Conversation name</Label>
+        <Label htmlFor="first-session-title">{t`Conversation name`}</Label>
         <Input
           autoComplete="off"
           className="h-11"
@@ -127,13 +128,13 @@ export function ConnectionEmptyService({
 
       {error ? (
         <Alert variant="destructive">
-          <AlertTitle>Could not create the first conversation</AlertTitle>
+          <AlertTitle>{t`Could not create the first conversation`}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
 
       <Button className="h-11 justify-between" disabled={!canSubmit || pending} type="submit">
-        {pending ? 'Creating…' : 'Create and open conversation'}
+        {pending ? t`Creating…` : t`Create and open conversation`}
         <MessageSquarePlusIcon aria-hidden="true" />
       </Button>
     </form>

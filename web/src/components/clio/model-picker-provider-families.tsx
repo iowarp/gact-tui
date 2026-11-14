@@ -6,12 +6,18 @@ import {
   type ProviderGroup,
   type ProviderHealth,
 } from './model-picker-model';
+import { t } from '@lingui/core/macro';
 
 export const ALCF_FAMILY_VALUE = 'provider-family:alcf';
+// ALCF system names are product names, kept as they are.
 export const ALCF_SERVERS = {
+  // i18n-ignore: ALCF system name
   argonne_sophia: 'Sophia',
+  // i18n-ignore: ALCF system name
   argonne_metis: 'Metis',
+  // i18n-ignore: ALCF system name
   argonne_minerva: 'Minerva',
+  // i18n-ignore: ALCF system name
   argonne_tara: 'Tara',
 };
 
@@ -42,7 +48,7 @@ export function groupAlcfProviders(
   );
   const group: ProviderGroup = {
     id: 'alcf',
-    name: 'ALCF inference',
+    name: t`ALCF inference`,
     choices: [],
     availableChoices: [],
     health: familyHealth(groups),

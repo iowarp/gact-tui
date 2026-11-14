@@ -10,6 +10,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { t } from '@lingui/core/macro';
 
 export interface CapabilityOption {
   id: string;
@@ -30,7 +31,7 @@ export function CapabilityPicker({
   error,
   onChoose,
   children,
-  label = 'Choose capabilities',
+  label = t`Choose capabilities`,
   align = 'start',
   disabled = false,
   footer,
@@ -58,7 +59,7 @@ export function CapabilityPicker({
           className="w-[min(26rem,calc(100vw-2rem))] p-0"
         >
           <Command
-            label={`Search ${label.toLowerCase()}`}
+            label={t`Search ${label.toLowerCase()}`}
             filter={(value, search, keywords) =>
               [value, ...(keywords ?? [])].some((text) =>
                 text.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
@@ -67,11 +68,11 @@ export function CapabilityPicker({
                 : 0
             }
           >
-            <CommandInput aria-label={`Search ${label.toLowerCase()}`} placeholder="Search…" />
+            <CommandInput aria-label={t`Search ${label.toLowerCase()}`} placeholder={t`Search…`} />
             <CommandList className="max-h-[min(24rem,60dvh)]">
               {pending ? (
                 <p role="status" className="p-4 text-sm text-muted-foreground">
-                  Loading capabilities…
+                  {t`Loading capabilities…`}
                 </p>
               ) : null}
               {error ? (
@@ -79,7 +80,9 @@ export function CapabilityPicker({
                   {error}
                 </p>
               ) : null}
-              {!pending && !error ? <CommandEmpty>No matching capabilities.</CommandEmpty> : null}
+              {!pending && !error ? (
+                <CommandEmpty>{t`No matching capabilities.`}</CommandEmpty>
+              ) : null}
               {[...new Set(items.map((row) => row.group))].map((group) => (
                 <CommandGroup key={group} heading={group}>
                   {items
@@ -165,7 +168,7 @@ export function CapabilitySelection({
         items={items.map((row) => ({
           ...row,
           disabled: row.disabled || values.includes(row.id),
-          state: values.includes(row.id) ? 'Selected' : row.state,
+          state: values.includes(row.id) ? t`Selected` : row.state,
         }))}
         pending={pending}
         error={error}
@@ -175,9 +178,9 @@ export function CapabilitySelection({
           type="button"
           variant="outline"
           className="w-fit"
-          aria-label={`Choose ${label.toLowerCase()}`}
+          aria-label={t`Choose ${label.toLowerCase()}`}
         >
-          Choose…
+          {t`Choose…`}
         </Button>
       </CapabilityPicker>
       {values.length ? (
@@ -200,7 +203,7 @@ export function CapabilitySelection({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`Remove ${row?.title ?? value}`}
+                  aria-label={t`Remove ${row?.title ?? value}`}
                   onClick={() => onChange(values.filter((item) => item !== value))}
                 >
                   <RemoveIcon aria-hidden="true" />

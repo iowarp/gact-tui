@@ -33,6 +33,8 @@ import {
 import { McpAppTabPanel } from './mcp-app-tab-panel';
 import { humanizeToolName } from './tool-presentation';
 import { mcpAppTab, type McpAppTabTarget, type WorkbenchTab } from './workbench-shared';
+import { ph, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 type ReopenClient = Pick<ClioRepository, 'reopenMcpApp'>;
 
@@ -42,7 +44,7 @@ function McpAppPending() {
       aria-busy="true"
       className="flex min-h-10 items-center rounded-lg border bg-muted/20 px-3 text-sm text-muted-foreground"
     >
-      Loading interactive view
+      {t`Loading interactive view`}
     </div>
   );
 }
@@ -102,7 +104,7 @@ export function McpAppReopenLine(props: McpAppReopenLineProps) {
         setState({
           phase: 'failed',
           reason: 'request_failed',
-          detail: thrown instanceof Error ? thrown.message : `${vocab.agent} could not be reached.`,
+          detail: thrown instanceof Error ? thrown.message : t`${ph({ agent: vocab.agent })} could not be reached.`,
           savedCall: null,
         });
       });
@@ -123,19 +125,21 @@ export function McpAppReopenLine(props: McpAppReopenLineProps) {
     return (
       <Alert data-mcp-app-reopen={appInstanceId} data-reopen-reason={state.reason}>
         <AlertTriangleIcon aria-hidden="true" />
-        <AlertTitle>Could not reopen {displayName}</AlertTitle>
+        <AlertTitle>{t`Could not reopen ${displayName}`}</AlertTitle>
         <AlertDescription className="grid gap-2">
           <p>{failure.sentence}</p>
           {state.savedCall ? <SavedCallLine call={state.savedCall} /> : null}
           {failure.code ? (
             <p className="text-xs text-muted-foreground">
-              Technical details: <span className="font-mono">{failure.code}</span>
+              <Trans>
+                Technical details: <span className="font-mono">{failure.code}</span>
+              </Trans>
             </p>
           ) : null}
           {retryable ? (
             <Button className="justify-self-start" onClick={reopen} size="sm" variant="outline">
               <RetryIcon aria-hidden="true" />
-              Retry
+              {t`Retry`}
             </Button>
           ) : null}
         </AlertDescription>
@@ -151,11 +155,11 @@ export function McpAppReopenLine(props: McpAppReopenLineProps) {
       <PanelsTopLeftIcon aria-hidden="true" className="size-4" />
       <span className="min-w-0 flex-1 truncate text-foreground/85">{displayName}</span>
       <span aria-live="polite" className="shrink-0 text-xs text-muted-foreground">
-        {reopening ? 'Reopening' : 'View closed'}
+        {reopening ? t`Reopening` : t`View closed`}
       </span>
       <Button disabled={reopening} onClick={reopen} size="sm" variant="outline">
         <RetryIcon aria-hidden="true" />
-        Reopen
+        {t({ message: 'Reopen', context: 'verb' })}
       </Button>
     </div>
   );
@@ -165,11 +169,11 @@ export function McpAppReopenLine(props: McpAppReopenLineProps) {
 export function SavedCallLine({ call }: { call: McpAppSavedCall }) {
   return (
     <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-xs">
-      <dt className="text-muted-foreground">Saved call</dt>
+      <dt className="text-muted-foreground">{t`Saved call`}</dt>
       <dd className="min-w-0 break-words">
-        {call.label || call.tool} from {call.server}
+        {t`${ph({ tool: call.label || call.tool })} from ${ph({ server: call.server })}`}
       </dd>
-      <dt className="text-muted-foreground">With</dt>
+      <dt className="text-muted-foreground">{t({ message: 'With', context: 'saved call arguments' })}</dt>
       <dd className="min-w-0 font-mono break-words">{formatArguments(call)}</dd>
     </dl>
   );

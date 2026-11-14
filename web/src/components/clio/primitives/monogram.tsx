@@ -21,7 +21,7 @@ export function Monogram({
     <span
       aria-hidden="true"
       className={cn(
-        'grid size-[26px] shrink-0 place-items-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground',
+        'grid size-[26px] shrink-0 place-items-center rounded-full bg-accent text-caption font-semibold text-accent-foreground',
         className,
       )}
       data-slot="monogram"

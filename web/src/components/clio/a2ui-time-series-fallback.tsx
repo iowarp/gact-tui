@@ -1,5 +1,6 @@
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { z } from 'zod';
+import { t } from '@lingui/core/macro';
 
 /**
  * `clio.time-series.v1` was retired when charts moved to the unified,
@@ -17,8 +18,8 @@ export const ClioTimeSeriesFallbackCatalogComponent = createComponentImplementat
   { name: 'clio.time-series.v1', schema: z.object({}).passthrough() },
   () => (
     <div className="min-w-0 space-y-1" role="group">
-      <h3 className="text-sm font-medium">This chart type is no longer supported</h3>
-      <p className="text-sm text-muted-foreground">Ask the agent to redraw it to see it again.</p>
+      <h3 className="text-sm font-medium">{t`This chart type is no longer supported`}</h3>
+      <p className="text-sm text-muted-foreground">{t`Ask the agent to redraw it to see it again.`}</p>
     </div>
   ),
 );

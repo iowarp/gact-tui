@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { HelpIcon } from '@/lib/icon-vocabulary';
+import { t } from '@lingui/core/macro';
 
 export type SessionBehaviorPatch = Partial<
   Pick<Session, 'mode' | 'edit_mode' | 'routing_mode' | 'approval_mode'>
@@ -28,20 +29,20 @@ export interface SessionBehaviorOption<T extends string> {
 export const SESSION_MODE_OPTIONS = [
   {
     value: 'edit',
-    label: 'Execute',
-    description: 'Does the work, within the policy.',
+    label: t`Execute`,
+    description: t`Does the work, within the policy.`,
     icon: PlayIcon,
   },
   {
     value: 'plan',
-    label: 'Plan',
-    description: 'Proposes a plan and waits for you.',
+    label: t`Plan`,
+    description: t`Proposes a plan and waits for you.`,
     icon: MapIcon,
   },
   {
     value: 'architect',
-    label: 'Deep research',
-    description: 'A long, sourced investigation.',
+    label: t`Deep research`,
+    description: t`A long, sourced investigation.`,
     icon: GlobeIcon,
   },
 ] satisfies readonly SessionBehaviorOption<Session['mode']>[];
@@ -49,32 +50,32 @@ export const SESSION_MODE_OPTIONS = [
 export const SESSION_APPROVAL_OPTIONS = [
   {
     value: 'ask',
-    label: 'Ask first',
-    description: 'Ask before edits or commands.',
+    label: t`Ask first`,
+    description: t`Ask before edits or commands.`,
     icon: HelpIcon,
   },
   {
     value: 'auto-edits',
-    label: 'Workspace edits',
-    description: 'Edit files without asking.',
+    label: t`Workspace edits`,
+    description: t`Edit files without asking.`,
     icon: FolderCheckIcon,
   },
   {
     value: 'ai-review',
-    label: 'AI review',
-    description: 'Let AI review each action.',
+    label: t`AI review`,
+    description: t`Let AI review each action.`,
     icon: BotIcon,
   },
   {
     value: 'spotter-ai',
-    label: 'SPOTTER review',
-    description: 'An AI agent watches the session.',
+    label: t`SPOTTER review`,
+    description: t`An AI agent watches the session.`,
     icon: RadarIcon,
   },
   {
     value: 'bypass',
-    label: 'Bypass checks',
-    description: 'Run without asking.',
+    label: t`Bypass checks`,
+    description: t`Run without asking.`,
     icon: ShieldOffIcon,
   },
 ] satisfies readonly SessionBehaviorOption<Session['approval_mode']>[];
@@ -98,5 +99,5 @@ export function sessionPatchForMessageBehavior(behavior: MessageBehavior): Sessi
 }
 
 export function sessionModeLabel(mode: Session['mode']): string {
-  return SESSION_MODE_OPTIONS.find((option) => option.value === mode)?.label ?? 'Unknown mode';
+  return SESSION_MODE_OPTIONS.find((option) => option.value === mode)?.label ?? t`Unknown mode`;
 }

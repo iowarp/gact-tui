@@ -29,6 +29,7 @@ import { SessionPlanBody } from './session-plan-section';
 import { planStatusLabel } from '@/lib/plan-status';
 import { TodoList, TodoStatusIcon } from './todo-list';
 import type { ReactNode } from 'react';
+import { t } from '@lingui/core/macro';
 
 /** Assemble the rail from the same projections, query keys and navigation as full details. */
 export function SessionRailContent({
@@ -110,7 +111,7 @@ export function SessionRailContent({
               className="mt-1 h-6 px-0 text-xs"
               onClick={() => evidence.onOpenCanvas?.('context')}
             >
-              Open full context view
+              {t`Open full context view`}
               <ExternalLinkIcon aria-hidden="true" className="size-3" />
             </Button>
           ) : null}
@@ -123,7 +124,7 @@ export function SessionRailContent({
       id: 'connected',
       count: sources.length,
       content: connected.error ? (
-        <p role="alert">Connected sources could not be loaded.</p>
+        <p role="alert">{t`Connected sources could not be loaded.`}</p>
       ) : (
         sources.map((source) => (
           <SessionSummaryRow
@@ -142,7 +143,7 @@ export function SessionRailContent({
     inventory.push({
       id: 'goal',
       content: work.error ? (
-        <p role="alert">Session work could not be loaded.</p>
+        <p role="alert">{t`Session work could not be loaded.`}</p>
       ) : (
         <SessionWorkSummary
           sessionId={evidence.sessionId!}
@@ -180,10 +181,10 @@ export function SessionRailContent({
                 label={todo.content}
                 metadata={
                   todo.status === 'in_progress'
-                    ? 'In progress'
+                    ? t`In progress`
                     : todo.status === 'completed'
-                      ? 'Completed'
-                      : 'Pending'
+                      ? t`Completed`
+                      : t`Pending`
                 }
                 onOpen={evidence.onOpenWork}
               />
@@ -197,7 +198,7 @@ export function SessionRailContent({
       id: 'schedules',
       count: scheduled.length,
       content: schedules.error ? (
-        <p role="alert">Schedules could not be loaded.</p>
+        <p role="alert">{t`Schedules could not be loaded.`}</p>
       ) : (
         scheduled.map((schedule) => (
           <SessionSummaryRow
@@ -220,7 +221,7 @@ export function SessionRailContent({
           key={page.id}
           icon={<GlobeIcon />}
           label={browserPageLabel(page)}
-          metadata={page.host || 'Blank page'}
+          metadata={page.host || t`Blank page`}
           title={page.url}
           onOpen={
             evidence.onOpenBrowser

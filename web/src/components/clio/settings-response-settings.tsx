@@ -1,10 +1,12 @@
 import type { AcceptedParameter } from '@clio/core/v3';
 import { ChevronRightIcon } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useContext, useState } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
+import { settingFromHash } from '@/lib/settings-search-rows';
+import { SettingsResultsContext } from '@/lib/settings-search-results';
 import { cn } from '@/lib/utils';
 import {
   INLINE_SETTINGS_LIMIT,
@@ -12,19 +14,23 @@ import {
   unusedResponseSettings,
   type ModelSettingsValues,
   type ResponseSettingName,
+  RESPONSE_SETTING_DESCRIPTIONS,
+  RESPONSE_SETTING_LABELS,
 } from './settings-models-form';
 import {
   defaultText,
-  rangeText,
+  rangeInfo,
   responseSettingError,
   toNumber,
 } from './settings-response-setting-error';
 import { SettingsChoice, SettingsGroupLabel, SettingsRow } from './settings-row';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 const GROUPS: ReadonlyArray<{ id: AcceptedParameter['group']; title: string }> = [
-  { id: 'sampling', title: 'Sampling' },
-  { id: 'length', title: 'Length' },
-  { id: 'advanced', title: 'Advanced' },
+  { id: 'sampling', title: t`Sampling` },
+  { id: 'length', title: t`Length` },
+  { id: 'advanced', title: t`Advanced` },
 ];
 
 const PROVIDER_DEFAULT = '__provider_default__';
@@ -67,8 +73,23 @@ export function SettingsResponseSettings({
   onEdit,
   leading,
 }: SettingsResponseSettingsProps) {
-  const [open, setOpen] = useState(false);
-  const shown = shownResponseParameters(parameters);
+  const [openState, setOpen] = useState<boolean>();
+  // The service names and describes each parameter in English; a name this
+  // interface knows is shown in the interface language.
+  const shown = shownResponseParameters(parameters).map((parameter) => ({
+    ...parameter,
+    label: RESPONSE_SETTING_LABELS[parameter.name as ResponseSettingName] ?? parameter.label,
+    description:
+      RESPONSE_SETTING_DESCRIPTIONS[parameter.name as ResponseSettingName] ??
+      parameter.description,
+  }));
+  // A search match or a search arrival on one of its rows opens the disclosure.
+  const results = useContext(SettingsResultsContext);
+  const arrival = settingFromHash(typeof window === 'undefined' ? '' : window.location.hash);
+  const named = shown.some(
+    (parameter) => results?.labels.has(parameter.label) || arrival === parameter.label,
+  );
+  const open = openState ?? named;
   const unused = unusedResponseSettings(
     settings,
     parameters?.map((parameter) => parameter.name),
@@ -80,8 +101,8 @@ export function SettingsResponseSettings({
     // says so, and it can still be saved away with the model choice.
     if (leading)
       return (
-        <section aria-label="Response settings" data-slot="response-settings">
-          <SettingsGroupLabel>Response</SettingsGroupLabel>
+        <section aria-label={t`Response settings`} data-slot="response-settings">
+          <SettingsGroupLabel>{t`Response`}</SettingsGroupLabel>
           {leading}
           {note}
         </section>
@@ -104,8 +125,8 @@ export function SettingsResponseSettings({
   if (shown.length <= INLINE_SETTINGS_LIMIT) {
     const at = shown.findIndex((parameter) => parameter.name === 'max_tokens') + 1;
     return (
-      <section aria-label="Response settings" data-slot="response-settings">
-        <SettingsGroupLabel>Response</SettingsGroupLabel>
+      <section aria-label={t`Response settings`} data-slot="response-settings">
+        <SettingsGroupLabel>{t`Response`}</SettingsGroupLabel>
         {rows(shown.slice(0, at))}
         {leading}
         {rows(shown.slice(at))}
@@ -117,15 +138,15 @@ export function SettingsResponseSettings({
   return (
     <>
       {leading ? (
-        <section aria-label="Response" data-slot="response-leading">
-          <SettingsGroupLabel>Response</SettingsGroupLabel>
+        <section aria-label={t`Response`} data-slot="response-leading">
+          <SettingsGroupLabel>{t`Response`}</SettingsGroupLabel>
           {leading}
         </section>
       ) : null}
       <Collapsible data-slot="response-settings" onOpenChange={setOpen} open={open}>
         <div className="mt-4 flex h-7 items-center" data-slot="settings-group-label">
           <CollapsibleTrigger
-            className="-ms-1.5 flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-[0.71875rem] whitespace-nowrap text-faint outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="-ms-1.5 flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-label whitespace-nowrap text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             type="button"
           >
             <ChevronRightIcon
@@ -135,10 +156,12 @@ export function SettingsResponseSettings({
                 open && 'rotate-90',
               )}
             />
-            Response settings
-            <span className="rounded-full bg-muted px-1.5 text-[0.65625rem] tabular-nums text-muted-foreground">
-              {shown.length}
-            </span>
+            <Trans>
+              Response settings
+              <span className="rounded-full bg-muted px-1.5 text-[0.65625rem] tabular-nums text-muted-foreground">
+                {shown.length}
+              </span>
+            </Trans>
           </CollapsibleTrigger>
         </div>
         <CollapsibleContent>
@@ -160,8 +183,8 @@ export function SettingsResponseSettings({
 
 function UnusedNote({ unused }: { unused: ReturnType<typeof unusedResponseSettings> }) {
   return (
-    <p className="mt-2 truncate text-xs text-faint" data-slot="response-settings-unused">
-      Saved but not used by this model:{' '}
+    <p className="mt-2 truncate text-xs text-muted-foreground" data-slot="response-settings-unused">
+      {t`Saved but not used by this model:`}{' '}
       {unused.map((item, index) => (
         <span key={item.name}>
           {index ? ', ' : ''}
@@ -186,8 +209,7 @@ function ParameterRow({
   onChange: (value: string) => void;
 }) {
   const id = `response-${parameter.name}`;
-  const range = rangeText(parameter);
-  const info = range ? `Range ${range}.` : undefined;
+  const info = rangeInfo(parameter);
   if (parameter.kind === 'enum') {
     const options = parameter.options ?? [];
     return (
@@ -198,7 +220,7 @@ function ParameterRow({
             label={parameter.label}
             onChange={(next) => onChange(next === PROVIDER_DEFAULT ? '' : next)}
             options={[
-              { value: PROVIDER_DEFAULT, label: 'Default', description: defaultText(parameter) },
+              { value: PROVIDER_DEFAULT, label: t`Default`, description: defaultText(parameter) },
               ...options.map((option) => ({ value: option, label: option })),
             ]}
             value={value && options.includes(value) ? value : PROVIDER_DEFAULT}
@@ -233,7 +255,7 @@ function ParameterRow({
       id={id}
       inputMode={parameter.kind === 'integer' ? 'numeric' : 'decimal'}
       onChange={(event) => onChange(event.target.value)}
-      placeholder={bounded ? 'Default' : defaultText(parameter)}
+      placeholder={bounded ? t`Default` : defaultText(parameter)}
       spellCheck={false}
       value={value}
     />
@@ -269,7 +291,7 @@ function ParameterRow({
         info={info}
         title={parameter.label}
       >
-        <span className="shrink-0 text-[0.71875rem] text-faint" data-slot="response-default">
+        <span className="shrink-0 text-label text-muted-foreground" data-slot="response-default">
           {defaultText(parameter)}
         </span>
         <Slider

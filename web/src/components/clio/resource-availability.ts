@@ -3,6 +3,7 @@ import type {
   ResourceDeliveryRepresentation,
   WorkspaceResource,
 } from '@clio/core/v3';
+import { ph, t } from '@lingui/core/macro';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -30,8 +31,12 @@ export interface ResourcePipelineStage {
   detail?: string;
   kind: 'active' | 'complete' | 'failed' | 'unknown' | 'waiting';
   label: string;
-  name: 'Conversion' | 'Upload' | 'Workspace copy';
+  /** A stable stage id; `resource-pipeline-status` shows it in words. */
+  name: 'Conversion' | 'Upload' | typeof WORKSPACE_COPY;
 }
+
+// i18n-ignore: stage id, shown through a label map
+const WORKSPACE_COPY = 'Workspace copy';
 
 export interface ResourcePipelineStages {
   conversion: ResourcePipelineStage;
@@ -42,11 +47,11 @@ export interface ResourcePipelineStages {
 }
 
 const AVAILABILITY_LABELS: Record<ResourceAvailabilityState, string> = {
-  needs_processing: 'Needs processing',
-  preparing: 'Preparing',
-  ready: 'Ready',
-  unavailable: 'Unavailable',
-  unknown: 'Unknown',
+  needs_processing: t`Needs processing`,
+  preparing: t`Preparing`,
+  ready: t`Ready`,
+  unavailable: t`Unavailable`,
+  unknown: t`Unknown`,
 };
 
 /**
@@ -72,13 +77,13 @@ export function resourceAvailability(
   if (!resource) {
     return availability(
       'unknown',
-      'Availability could not be verified for this historical attachment.',
+      t`Availability could not be verified for this historical attachment.`,
     );
   }
   if (resource.state === 'uploading') {
     return availability(
       'preparing',
-      'The attachment is still uploading and is not available to the agent yet.',
+      t`The attachment is still uploading and is not available to the agent yet.`,
     );
   }
   if (resource.state === 'failed' || resource.state === 'quarantined') {
@@ -86,18 +91,18 @@ export function resourceAvailability(
       'unavailable',
       resource.failure ||
         (resource.state === 'quarantined'
-          ? 'The attachment was quarantined and is not available to the agent.'
-          : 'The attachment is not available to the agent.'),
+          ? t`The attachment was quarantined and is not available to the agent.`
+          : t`The attachment is not available to the agent.`),
     );
   }
 
   if (delivery?.representation === 'native') {
-    const evidence = delivery.evidence_source
-      ? ` Capability evidence: ${delivery.evidence_source.replaceAll('_', ' ')}.`
-      : '';
+    const evidence = delivery.evidence_source?.replaceAll('_', ' ');
     return availability(
       'ready',
-      `Ready; the selected model received the original attachment natively.${evidence}`,
+      evidence
+        ? t`Ready; the selected model received the original attachment natively. Capability evidence: ${evidence}.`
+        : t`Ready; the selected model received the original attachment natively.`,
     );
   }
 
@@ -111,11 +116,12 @@ export function resourceAvailability(
     // agent-readable, this one included: a conversion in flight is exactly when
     // the person most needs telling that what they handed over is still intact
     // and still theirs to look at.
-    const activity =
+    return availability(
+      'preparing',
       processing.state === 'submitted'
-        ? 'Conversion queued.'
-        : `${conversionActivityLabel(processing.stage)}.`;
-    return availability('preparing', `${activity} The original is retained and can be previewed.`);
+        ? t`Conversion queued. The original is retained and can be previewed.`
+        : t`${ph({ activity: conversionActivityLabel(processing.stage) })}. The original is retained and can be previewed.`,
+    );
   }
 
   if (processing?.state === 'failed' && !processing.derivatives_available) {
@@ -123,34 +129,34 @@ export function resourceAvailability(
       'unavailable',
       typeof processing.failure.message === 'string'
         ? processing.failure.message
-        : 'Structured conversion failed, so this attachment is not currently readable by the agent.',
+        : t`Structured conversion failed, so this attachment is not currently readable by the agent.`,
     );
   }
 
   if (processing?.state === 'cancelled' && !processing.derivatives_available) {
     return availability(
       'unavailable',
-      'Structured conversion was cancelled before a usable derivative was created. The original remains available for preview.',
+      t`Structured conversion was cancelled before a usable derivative was created. The original remains available for preview.`,
     );
   }
 
   if (!agentReadable(resource, delivery) && !processing?.derivatives_available) {
     return availability(
       'needs_processing',
-      'The original is retained and can be previewed, but no agent-readable conversion is available yet.',
+      t`The original is retained and can be previewed, but no agent-readable conversion is available yet.`,
     );
   }
 
-  let detail = 'The original attachment is available to the agent.';
+  let detail = t`The original attachment is available to the agent.`;
   if (processing?.derivatives_available) {
     detail =
       processing.state === 'cancelled'
-        ? 'Ready; the agent can reuse a previously converted derivative. The latest refresh was cancelled.'
+        ? t`Ready; the agent can reuse a previously converted derivative. The latest refresh was cancelled.`
         : processing.state === 'failed'
-          ? 'Ready; the agent can reuse a previously converted derivative. The latest refresh failed.'
+          ? t`Ready; the agent can reuse a previously converted derivative. The latest refresh failed.`
           : processing.state === 'submitted' || processing.state === 'processing'
-            ? 'Ready; the agent can reuse a previously converted derivative while a refresh runs.'
-            : 'Ready; converted content is available to the agent.';
+            ? t`Ready; the agent can reuse a previously converted derivative while a refresh runs.`
+            : t`Ready; converted content is available to the agent.`;
   }
   return availability('ready', detail);
 }
@@ -162,21 +168,21 @@ export function resourcePipelineStages(
 ): ResourcePipelineStages {
   const upload: ResourcePipelineStage =
     resource?.state === 'uploading'
-      ? { kind: 'active', label: 'In progress', name: 'Upload' }
+      ? { kind: 'active', label: t`In progress`, name: 'Upload' }
       : resource?.state === 'ready'
-        ? { kind: 'complete', label: 'Complete', name: 'Upload' }
+        ? { kind: 'complete', label: t`Complete`, name: 'Upload' }
         : resource?.state === 'failed' || resource?.state === 'quarantined'
-          ? { detail: resource.failure, kind: 'failed', label: 'Failed', name: 'Upload' }
+          ? { detail: resource.failure, kind: 'failed', label: t`Failed`, name: 'Upload' }
           : // No resource record, or a state this build does not recognise. That
             // is not the same as waiting for something.
-            { kind: 'unknown', label: 'Status unavailable', name: 'Upload' };
+            { kind: 'unknown', label: t`Status unavailable`, name: 'Upload' };
 
   const processing = resource?.processing;
   let conversion: ResourcePipelineStage;
   if (resource?.state === 'uploading') {
-    conversion = { kind: 'waiting', label: 'Waiting for upload', name: 'Conversion' };
+    conversion = { kind: 'waiting', label: t`Waiting for upload`, name: 'Conversion' };
   } else if (processing?.derivatives_available || processing?.state === 'complete') {
-    conversion = { kind: 'complete', label: 'Complete', name: 'Conversion' };
+    conversion = { kind: 'complete', label: t`Complete`, name: 'Conversion' };
   } else if (processing?.state === 'processing') {
     conversion = {
       detail:
@@ -188,19 +194,19 @@ export function resourcePipelineStages(
       name: 'Conversion',
     };
   } else if (processing?.state === 'submitted') {
-    conversion = { kind: 'waiting', label: 'Queued', name: 'Conversion' };
+    conversion = { kind: 'waiting', label: t`Queued`, name: 'Conversion' };
   } else if (processing?.state === 'failed' || processing?.state === 'cancelled') {
     conversion = {
       kind: 'failed',
-      label: processing.state === 'cancelled' ? 'Cancelled' : 'Failed',
+      label: processing.state === 'cancelled' ? t`Cancelled` : t`Failed`,
       name: 'Conversion',
     };
   } else if (availabilityOf.state === 'ready') {
-    conversion = { kind: 'complete', label: 'Not required', name: 'Conversion' };
+    conversion = { kind: 'complete', label: t`Not required`, name: 'Conversion' };
   } else if (availabilityOf.state === 'unknown') {
-    conversion = { kind: 'unknown', label: 'Status unavailable', name: 'Conversion' };
+    conversion = { kind: 'unknown', label: t`Status unavailable`, name: 'Conversion' };
   } else {
-    conversion = { kind: 'waiting', label: 'Waiting', name: 'Conversion' };
+    conversion = { kind: 'waiting', label: t`Waiting`, name: 'Conversion' };
   }
 
   // Independent of upload/conversion: a resource can be fully ready in
@@ -213,14 +219,19 @@ export function resourcePipelineStages(
   const materialization = resource?.materialization;
   const workspaceCopy: ResourcePipelineStage =
     resource?.state === 'uploading'
-      ? { kind: 'waiting', label: 'Waiting for upload', name: 'Workspace copy' }
+      ? { kind: 'waiting', label: t`Waiting for upload`, name: WORKSPACE_COPY }
       : materialization === undefined
-        ? { kind: 'complete', label: 'Not tracked', name: 'Workspace copy' }
+        ? { kind: 'complete', label: t`Not tracked`, name: WORKSPACE_COPY }
         : materialization.state === 'failed'
-          ? { detail: materialization.reason, kind: 'failed', label: 'Failed', name: 'Workspace copy' }
+          ? {
+              detail: materialization.reason,
+              kind: 'failed',
+              label: t`Failed`,
+              name: WORKSPACE_COPY,
+            }
           : materialization.state === 'ready'
-            ? { kind: 'complete', label: 'Complete', name: 'Workspace copy' }
-            : { kind: 'active', label: 'Preparing', name: 'Workspace copy' };
+            ? { kind: 'complete', label: t`Complete`, name: WORKSPACE_COPY }
+            : { kind: 'active', label: t`Preparing`, name: WORKSPACE_COPY };
 
   return summarizeResourcePipelineStages(upload, conversion, workspaceCopy);
 }
@@ -231,8 +242,8 @@ export function summarizeResourcePipelineStages(
   conversion: ResourcePipelineStage,
   workspaceCopy: ResourcePipelineStage = {
     kind: 'waiting',
-    label: 'Waiting for upload',
-    name: 'Workspace copy',
+    label: t`Waiting for upload`,
+    name: WORKSPACE_COPY,
   },
 ): ResourcePipelineStages {
   const stages = [upload, conversion, workspaceCopy];
@@ -240,20 +251,26 @@ export function summarizeResourcePipelineStages(
   // whatever another stage is still doing. A failed workspace copy must never
   // read as "Ready" just because upload and conversion both succeeded.
   if (stages.some((stage) => stage.kind === 'failed')) {
-    return { conversion, overall: 'failed', overallLabel: 'Unavailable', upload, workspaceCopy };
+    return { conversion, overall: 'failed', overallLabel: t`Unavailable`, upload, workspaceCopy };
   }
   // An unknown stage outranks the ones that are merely in motion: reporting
   // progress for a pipeline whose other half cannot be read is a claim.
   if (stages.some((stage) => stage.kind === 'unknown')) {
-    return { conversion, overall: 'unknown', overallLabel: 'Status unknown', upload, workspaceCopy };
+    return {
+      conversion,
+      overall: 'unknown',
+      overallLabel: t`Status unknown`,
+      upload,
+      workspaceCopy,
+    };
   }
   if (stages.some((stage) => stage.kind === 'active')) {
-    return { conversion, overall: 'active', overallLabel: 'Processing', upload, workspaceCopy };
+    return { conversion, overall: 'active', overallLabel: t`Processing`, upload, workspaceCopy };
   }
   if (stages.some((stage) => stage.kind === 'waiting')) {
-    return { conversion, overall: 'waiting', overallLabel: 'Waiting', upload, workspaceCopy };
+    return { conversion, overall: 'waiting', overallLabel: t`Waiting`, upload, workspaceCopy };
   }
-  return { conversion, overall: 'complete', overallLabel: 'Ready', upload, workspaceCopy };
+  return { conversion, overall: 'complete', overallLabel: t`Ready`, upload, workspaceCopy };
 }
 
 function availability(state: ResourceAvailabilityState, detail: string): ResourceAvailability {
@@ -265,16 +282,16 @@ function conversionActivityLabel(stage?: string): string {
   switch (stage?.trim().toLowerCase()) {
     case 'starting':
     case 'initialization':
-      return 'Starting';
+      return t`Starting`;
     case 'docling':
     case 'conversion':
-      return 'Converting';
+      return t`Converting`;
     case 'export':
-      return 'Preparing output';
+      return t`Preparing output`;
     case 'grobid':
-      return 'Enriching metadata';
+      return t`Enriching metadata`;
     default:
-      return 'In progress';
+      return t`In progress`;
   }
 }
 

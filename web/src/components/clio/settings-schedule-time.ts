@@ -1,15 +1,40 @@
+import { t } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
+
 export type ScheduleKind = 'once' | 'repeating';
 export type RepeatPreset = 'daily' | 'weekdays' | 'weekly' | 'advanced';
 
 export const weekdayLabels = [
-  ['1', 'Monday'],
-  ['2', 'Tuesday'],
-  ['3', 'Wednesday'],
-  ['4', 'Thursday'],
-  ['5', 'Friday'],
-  ['6', 'Saturday'],
-  ['0', 'Sunday'],
+  ['1', t`Monday`],
+  ['2', t`Tuesday`],
+  ['3', t`Wednesday`],
+  ['4', t`Thursday`],
+  ['5', t`Friday`],
+  ['6', t`Saturday`],
+  ['0', t`Sunday`],
 ] as const;
+
+/** "Every Monday" for a cron day of week (`0` is Sunday); "Every week" for any other value. */
+export function everyWeekday(weekday: string): string {
+  switch (weekday) {
+    case '1':
+      return t`Every Monday`;
+    case '2':
+      return t`Every Tuesday`;
+    case '3':
+      return t`Every Wednesday`;
+    case '4':
+      return t`Every Thursday`;
+    case '5':
+      return t`Every Friday`;
+    case '6':
+      return t`Every Saturday`;
+    case '0':
+      return t`Every Sunday`;
+    default:
+      return t`Every week`;
+  }
+}
 
 /** `YYYY-MM-DDTHH:MM` in local wall time, the value the date-time field edits. */
 export function toLocalInput(date: Date) {
@@ -49,14 +74,35 @@ function dateParts(date: Date, timezone?: string) {
   };
 }
 
+function localizedDateTime(date: Date, timezone: string | undefined, short: boolean) {
+  const options: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'short',
+    ...(short ? {} : { year: 'numeric' as const }),
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  };
+  try {
+    return new Intl.DateTimeFormat(formatLocale(), {
+      ...options,
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(formatLocale(), options).format(date);
+  }
+}
+
 /**
  * "14 Nov 2026 16:00": the page's one date format, a 24-hour clock like the
  * date-time field. `short` drops the year, as a row does.
  */
 export function formatDateTime(value: string, timezone?: string, short = false) {
-  if (!value) return 'Not scheduled';
+  if (!value) return t`Not scheduled`;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Unavailable';
+  if (Number.isNaN(date.getTime())) return t`Unavailable`;
+  // English keeps the page's own day-month order; other languages use their own date format.
+  if (!formatLocale().startsWith('en')) return localizedDateTime(date, timezone, short);
   const { day, month, year, time } = dateParts(date, timezone);
   return short ? `${day} ${month} ${time}` : `${day} ${month} ${year} ${time}`;
 }

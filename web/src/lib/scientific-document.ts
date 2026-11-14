@@ -1,4 +1,5 @@
 import type { Artifact } from '@clio/core/v3';
+import { plural } from '@lingui/core/macro';
 
 /**
  * A scientific document (a paper): one artifact the server builds from a project's source
@@ -24,7 +25,9 @@ export function paperLabels(artifact: Artifact): { type: string; venue: string; 
   const producer = artifact.producer ?? {};
   const count = producer['page_count'];
   const pages =
-    typeof count === 'number' && count > 0 ? `${count} ${count === 1 ? 'page' : 'pages'}` : '';
+    typeof count === 'number' && count > 0
+      ? plural(count, { one: '# page', other: '# pages' })
+      : '';
   return {
     type: text(producer['document_type']) || 'Paper',
     venue: text(producer['venue']),

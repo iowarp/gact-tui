@@ -14,6 +14,7 @@ import { MessageMarkButton } from './message-mark-button';
 import { IconButton } from './primitives/icon-button';
 import { ResponseRating } from './response-rating';
 import { TranscriptContentPicker } from './transcript-content-picker';
+import { t } from '@lingui/core/macro';
 
 type MessageRowActionEntities = Pick<
   ConversationMessageRowProps,
@@ -71,7 +72,7 @@ export function PendingCancelButton({
             <CloseIcon aria-hidden="true" />
           )
         }
-        label={cancelling ? 'Cancelling pending message' : 'Cancel pending message'}
+        label={cancelling ? t`Cancelling pending message` : t`Cancel pending message`}
         onClick={() => void entities.onCancelPendingSteer?.(message.id)}
         size="sm"
         type="button"
@@ -156,7 +157,7 @@ export function MessageRowActions({
                 <RetryIcon aria-hidden="true" />
               )
             }
-            label={retrying ? 'Retrying response' : 'Retry response'}
+            label={retrying ? t`Retrying response` : t`Retry response`}
             onClick={() => void entities.onRetryMessage?.(message.id)}
             size="sm"
             type="button"
@@ -175,7 +176,7 @@ export function MessageRowActions({
           />
         ) : assistant && marked ? (
           <BookmarkIcon
-            aria-label="Marked message"
+            aria-label={t`Marked message`}
             className="mx-1 size-3.5 shrink-0 text-muted-foreground"
             fill="currentColor"
             role="img"
@@ -199,7 +200,7 @@ export function MessageRowActions({
         ) : null}
         <IconButton
           icon={<CopyIcon aria-hidden="true" />}
-          label="Copy message"
+          label={t`Copy message`}
           onClick={() => copyMessage(message)}
           size="sm"
           type="button"

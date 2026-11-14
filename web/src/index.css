@@ -189,6 +189,8 @@
   --color-spin-track: var(--spin-track);
   --color-hover: var(--hover);
   --color-menu-highlight: var(--menu-highlight);
+  /* The current place in a navigation list (Settings nav); a theme without one uses the menu highlight. */
+  --color-nav-current: var(--nav-current, var(--menu-highlight));
   --color-key: var(--key);
   --color-key-border: var(--key-border);
   --color-muted: var(--muted);
@@ -213,11 +215,15 @@
   --radius-4xl: calc(var(--radius) * 2.6);
   --color-invert-foreground: var(--invert-foreground);
   --color-invert: var(--invert);
+  --color-tooltip-foreground: var(--tooltip-foreground);
+  --color-tooltip: var(--tooltip);
   --color-warning-foreground: var(--warning-foreground);
   --color-info-foreground: var(--info-foreground);
   --color-success-foreground: var(--success-foreground);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-text: var(--destructive-text);
+  --color-destructive-solid: var(--destructive-solid);
+  --color-destructive-solid-foreground: var(--destructive-solid-foreground);
   --color-link: var(--link);
   --color-status-supported: var(--status-supported);
   --color-status-supported-foreground: var(--status-supported-foreground);
@@ -335,7 +341,6 @@
   body {
     @apply bg-background text-foreground;
     height: 100%;
-    min-width: 320px;
     margin: 0;
   }
   /* The app shell never scrolls the document. Holding the values Radix's
@@ -580,6 +585,23 @@
 
 .clio-scrollbar:hover::-webkit-scrollbar-thumb {
   background: color-mix(in oklch, var(--muted-foreground) 52%, transparent);
+}
+
+/* A highlighted source's wrapped line marks its continuation rows ↪ under the
+   line number, as the numbered code blocks do. */
+.clio-source-wrap-marks pre code > span::after {
+  content: '';
+  position: absolute;
+  top: 1.65em;
+  bottom: 0;
+  left: 0;
+  width: 2rem;
+  background: var(--warning);
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m15 10 5 5-5 5'/%3E%3Cpath d='M4 4v7a4 4 0 0 0 4 4h12'/%3E%3C/svg%3E");
+  mask-position: right top;
+  mask-repeat: repeat-y;
+  mask-size: 9px 1.65em;
+  pointer-events: none;
 }
 
 /* Radix scroll and select viewports draw their own thin scrollbars and hide
@@ -888,7 +910,7 @@ html[data-clio-motion='reduced'] *::after {
 }
 /* An edit's change reads at the transcript's code size, like a prose code block. */
 [data-slot='transcript-diff-card'] .tool-presentation-body :is(pre, code) {
-  font-size: 11.5px;
+  font-size: var(--text-label);
   line-height: 1.65;
 }
 
@@ -916,7 +938,7 @@ html[data-clio-motion='reduced'] *::after {
   background: transparent;
 }
 [data-slot='activity-body'] [data-slot='tool-result-panel'] :is(pre, code) {
-  font-size: 11.5px;
+  font-size: var(--text-label);
   line-height: 1.65;
 }
 [data-slot='activity-body'] [data-slot='tool-result-panel'] pre {
@@ -965,86 +987,104 @@ html[data-clio-motion='reduced'] *::after {
   overflow-wrap: break-word;
 }
 /* Transcript markdown follows the conversation spec's `.md`, `.cbk` and `.tbl`:
-   one frame per block, a 30px header, compact rows and tight list rhythm. */
-[data-slot='message-text'] .space-y-4 > :not(:last-child) {
+   one frame per block, a 30px header, compact rows and tight list rhythm. The
+   final reply and the agent's interim prose between tool calls share it, so the
+   same text reads at one scale before and after a tool call. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) .space-y-4 > :not(:last-child) {
   margin-block-end: 10px;
 }
-[data-slot='message-text'] :is(h1, h2, h3, h4, h5, h6)[data-streamdown] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) :is(h1, h2, h3, h4, h5, h6)[data-streamdown] {
   margin: 0;
   font-family: var(--font-heading);
   font-weight: 600;
   line-height: 1.35;
   color: var(--foreground);
 }
-[data-slot='message-text'] .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:last-child) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:last-child) {
   margin-block-end: 6px;
 }
-[data-slot='message-text'] .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:first-child) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:first-child) {
   margin-block-start: 14px;
 }
-[data-slot='message-text'] h1[data-streamdown] {
-  font-size: 18px;
+/* The spec's largest transcript heading is `.md h3` at 17px; h1 stops there. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) h1[data-streamdown] {
+  font-size: var(--text-title);
 }
-[data-slot='message-text'] h2[data-streamdown] {
-  font-size: 17px;
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) h2[data-streamdown] {
+  font-size: var(--text-title);
 }
-[data-slot='message-text'] h3[data-streamdown] {
-  font-size: 15px;
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) h3[data-streamdown] {
+  font-size: var(--text-h3);
 }
-[data-slot='message-text'] :is(h4, h5, h6)[data-streamdown] {
-  font-size: 14px;
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) :is(h4, h5, h6)[data-streamdown] {
+  font-size: 0.875rem;
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   :is([data-streamdown='unordered-list'], [data-streamdown='ordered-list']) {
   list-style-position: outside;
   padding-left: 20px;
 }
-[data-slot='message-text'] li[data-streamdown='list-item'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) li[data-streamdown='list-item'] {
   margin: 3px 0;
   padding: 0;
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   li
   > :is([data-streamdown='unordered-list'], [data-streamdown='ordered-list']) {
   margin-top: 3px;
   padding-left: 20px;
 }
 /* The spec's 20px gutter holds a one-digit marker; an outside "11. " or "100. "
-   would overflow it and be clipped by the message frame. Lists that reach two or
-   three digits (by item count, or a `start` that isn't one digit) widen the
-   gutter so every marker shows whole and the item text stays on one edge. */
-[data-slot='message-text'] [data-streamdown='ordered-list']:has(> li:nth-child(10)),
-[data-slot='message-text']
-  [data-streamdown='ordered-list'][start]:not(
-    :where(
-        [start='0'],
-        [start='1'],
-        [start='2'],
-        [start='3'],
-        [start='4'],
-        [start='5'],
-        [start='6'],
-        [start='7'],
-        [start='8'],
-        [start='9']
-      )
-  ) {
-  padding-left: calc(2ch + 0.75em);
+   would overflow it and be clipped by the message frame. MarkdownText marks a
+   list whose widest marker (start + items − 1) has more digits, and the gutter
+   widens to that count so every marker shows whole and item text keeps one edge. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='ordered-list'][data-marker-digits] {
+  padding-left: calc(var(--marker-digits, 2) * 1ch + 0.75em);
 }
-[data-slot='message-text'] [data-streamdown='ordered-list']:has(> li:nth-child(100)) {
-  padding-left: calc(3ch + 0.75em);
-}
-[data-slot='message-text'] li::marker {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) li::marker {
   font-variant-numeric: tabular-nums;
 }
-[data-slot='message-text'] [data-streamdown='blockquote'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] {
   margin: 0;
   border-left: 2px solid var(--border);
   padding-left: 12px;
   font-style: normal;
   color: var(--muted-foreground);
 }
-[data-slot='message-text'] :is([data-streamdown='code-block'], [data-streamdown='table-wrapper']) {
+/* A tool call written in a message: a ">>> call(...)" line and its indented output
+   (a fixed-width table, say) parse as three nested quotes holding one paragraph. Show
+   it as a console block: no quote chrome, monospace, whitespace kept so columns line
+   up. Only styling changes; the text, and so the attention-heat mapping, is untouched,
+   and the ">>>" marker is drawn by CSS, never part of the page text. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote']:has([data-streamdown='blockquote'] [data-streamdown='blockquote']) {
+  margin: 0.75rem 0;
+  border-left: 0;
+  padding-left: 0;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote']:has([data-streamdown='blockquote'] [data-streamdown='blockquote']) [data-streamdown='blockquote'] {
+  margin: 0;
+  border-left: 0;
+  padding-left: 0;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] {
+  overflow-x: auto;
+  border-radius: 0.375rem;
+  background-color: color-mix(in oklch, var(--muted) 70%, transparent);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--foreground);
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] p {
+  margin: 0;
+  white-space: pre;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] > p:first-child::before {
+  content: '>>> ';
+  opacity: 0.6;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) :is([data-streamdown='code-block'], [data-streamdown='table-wrapper']) {
   position: relative;
   gap: 0;
   margin: 0;
@@ -1054,8 +1094,8 @@ html[data-clio-motion='reduced'] *::after {
   background: var(--background);
   padding: 0;
 }
-[data-slot='message-text'] [data-streamdown='code-block-header'],
-[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-header'],
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:first-child {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1063,31 +1103,31 @@ html[data-clio-motion='reduced'] *::after {
   padding: 0 4px 0 10px;
   border-bottom: 1px solid var(--border);
   font-family: var(--font-sans);
-  font-size: 11.5px;
+  font-size: var(--text-label);
   color: var(--muted-foreground);
   white-space: nowrap;
 }
-[data-slot='message-text'] [data-streamdown='code-block-header'] > span {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-header'] > span {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--text-meta);
   font-weight: 500;
   color: var(--foreground);
 }
-[data-slot='message-text'] [data-streamdown='code-block-header'] > span:empty::before {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-header'] > span:empty::before {
   content: 'Code';
 }
-[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:first-child {
   gap: 0;
 }
-[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:first-child::before {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:first-child::before {
   content: 'Table';
   margin-right: auto;
-  font-size: 12px;
+  font-size: var(--text-meta);
   font-weight: 500;
   color: var(--foreground);
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   [data-streamdown='code-block']
   > div:has(> [data-streamdown='code-block-actions']) {
   top: 0;
@@ -1095,14 +1135,14 @@ html[data-clio-motion='reduced'] *::after {
   margin-top: -30px;
   padding-right: 4px;
 }
-[data-slot='message-text'] [data-streamdown='code-block-actions'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-actions'] {
   gap: 0;
   border: 0;
   background: transparent;
   padding: 0;
   backdrop-filter: none;
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
   button {
   display: grid;
@@ -1112,71 +1152,113 @@ html[data-clio-motion='reduced'] *::after {
   padding: 0;
   border-radius: 6px;
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
   button:hover {
   background: var(--hover);
 }
-[data-slot='message-text']
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
   :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
   button
   svg {
   width: 13px;
   height: 13px;
 }
-[data-slot='message-text'] [data-streamdown='code-block-body'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] {
   border: 0;
   border-radius: 0;
   background: transparent;
   padding: 6px 10px 6px 0;
   overflow-x: auto;
-  font: 11.5px/1.65 var(--font-mono);
+  font: var(--text-label)/1.65 var(--font-mono);
 }
-[data-slot='message-text'] [data-streamdown='code-block-body'] :is(pre, code) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] :is(pre, code) {
   font: inherit;
   white-space: pre;
 }
-[data-slot='message-text'] [data-streamdown='code-block-body'] code > span {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] code > span {
   padding-left: 34px;
 }
-[data-slot='message-text'] [data-streamdown='code-block-body'] code > span::before {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] code > span::before {
   box-sizing: border-box;
   width: 34px;
   margin: 0 0 0 -34px;
   padding-right: 12px;
-  font-size: 11.5px;
+  font-size: var(--text-label);
   color: var(--faint);
 }
-[data-slot='message-text'] [data-streamdown='table-wrapper'] > div:last-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] {
+  min-width: 0;
+  max-width: 100%;
+}
+/* Only a table whose code columns cannot fit scrolls, and then with a visible bar. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:last-child {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
   border: 0;
   border-radius: 0;
+  /* Edge shades appear only on a side with hidden columns, so overlay scrollbars still
+     leave a cue. The local covers scroll with the content and hide the fixed shades. */
+  background:
+    linear-gradient(to right, var(--background) 40%, transparent) left / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--background) 40%, transparent) right / 24px 100% no-repeat local,
+    linear-gradient(to right, color-mix(in oklch, var(--foreground) 14%, transparent), transparent) left / 10px 100%
+      no-repeat scroll,
+    linear-gradient(to left, color-mix(in oklch, var(--foreground) 14%, transparent), transparent) right / 10px 100%
+      no-repeat scroll,
+    var(--background);
+  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 40%, transparent) transparent;
+  scrollbar-width: thin;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:last-child::-webkit-scrollbar {
+  height: 8px;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:last-child::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-header'] {
   background: transparent;
 }
-[data-slot='message-text'] [data-streamdown='table-header'] {
-  background: transparent;
+/* Spec table.p: the table fills the column, prose cells wrap and only code columns stay
+   on one line (full-picture.html:36-40). */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table'] {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
 }
-/* A table takes its content width up to max(100%, 48em) and scrolls past the column, so a
-   narrow transcript gives long prose cells room instead of a one-word-wide column. */
-[data-slot='message-text'] [data-streamdown='table'] {
-  width: max-content;
-  min-width: 100%;
-  max-width: max(100%, 48em);
-}
-[data-slot='message-text'] [data-streamdown='table-header-cell'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-header-cell'] {
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
-  font: 500 11px var(--font-sans);
+  font: 500 var(--text-caption) var(--font-sans);
   color: var(--muted-foreground);
+  white-space: normal;
 }
-[data-slot='message-text'] [data-streamdown='table-cell'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell'] {
   min-width: 6em;
   padding: 6px 8px;
   vertical-align: top;
   font-family: var(--font-sans);
-  font-size: 12.5px;
+  font-size: var(--text-menu);
   line-height: 1.45;
+  overflow-wrap: break-word;
 }
-[data-slot='message-text'] [data-streamdown='table-row'] > :first-child {
+/* The trailing prose column carries the sentence; keep a readable measure and let the table scroll instead. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell']:last-child {
+  min-width: 14em;
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell'][data-code-only] {
+  min-width: 0;
+  white-space: nowrap;
+}
+/* Spec table.p draws an identifier column as plain mono at the cell's scale, not a pill. */
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell'] [data-streamdown='inline-code'] {
+  padding: 0;
+  background: transparent;
+  font-size: var(--text-label);
+}
+:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-row'] > :first-child {
   padding-left: 10px;
 }
 [data-diff-line='addition'] {
@@ -1318,7 +1400,7 @@ html[data-clio-motion='reduced'] *::after {
 .clio-flow-diagram .clio-flow-parallel {
   fill: var(--muted-foreground);
   font-family: var(--pele-font);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-style: italic;
 }
 .clio-flow-diagram .st-proposed > :is(rect, polygon, path) {

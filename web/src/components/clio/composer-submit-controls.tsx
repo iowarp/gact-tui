@@ -7,7 +7,9 @@ import { useComposerDelivery } from '@/hooks/use-composer-delivery';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { IconButton } from './primitives/icon-button';
 import { TOOLTIP_KEY } from './primitives/tooltip-key';
-import { ClioStatus } from './status';
+import { StatusIndicator } from './primitives/status-indicator';
+import { clioStatusLabel } from './status';
+import { t } from '@lingui/core/macro';
 
 /**
  * The 28px square the row ends with, filled so it reads as the primary action.
@@ -43,14 +45,19 @@ export function ComposerSubmitControls({
   return (
     <>
       {state === 'waiting_permission' || state === 'waiting_user' ? (
-        <ClioStatus className="shrink-0 px-1 whitespace-nowrap" value={state} />
+        // The status word (a dot and a muted 12px word); a narrow row leaves it to the card above.
+        <StatusIndicator
+          className="shrink-0 px-1 @max-[440px]/composer:hidden"
+          label={clioStatusLabel(state)}
+          tone="waiting"
+        />
       ) : null}
       {stoppable && !sendable ? (
         <IconButton
           className={SQUARE}
           disabled={!onStop}
           icon={<SquareIcon className="size-3 fill-current" />}
-          label="Stop"
+          label={t`Stop`}
           onClick={onStop}
           shortcut="stop"
           shortcutSide="above-icon"
@@ -62,7 +69,7 @@ export function ComposerSubmitControls({
           className={SQUARE}
           disabled={disabled || !sendable}
           icon={<ArrowUpIcon />}
-          label="Send"
+          label={t`Send`}
           onClick={onSubmit}
           shortcut="send"
           shortcutSide="above-icon"
@@ -74,7 +81,7 @@ export function ComposerSubmitControls({
           className={SQUARE}
           disabled={disabled}
           icon={<ArrowUpIcon />}
-          label="Steer"
+          label={t`Steer`}
           onClick={onSubmit}
           shortcut="steer"
           shortcutSide="above-icon"
@@ -105,20 +112,20 @@ function QueueButton({
           className={SQUARE}
           disabled={disabled}
           icon={<ListPlusIcon />}
-          label="Queue"
+          label={t`Queue`}
           onClick={onSubmit}
           tooltip={false}
           type="submit"
         />
       </TooltipTrigger>
       <TooltipContent
-        className="grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5 px-2 py-1 text-[11.5px] font-medium"
+        className="grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5"
         side="top"
         sideOffset={4}
       >
-        <span>Queue</span>
+        <span>{t`Queue`}</span>
         <kbd className={TOOLTIP_KEY}>{send?.text}</kbd>
-        <span>Steer instead</span>
+        <span>{t`Steer instead`}</span>
         <kbd className={TOOLTIP_KEY}>{steer?.text}</kbd>
       </TooltipContent>
     </Tooltip>

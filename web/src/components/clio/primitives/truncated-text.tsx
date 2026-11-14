@@ -33,7 +33,9 @@ interface Hint {
  * pointer, or inside the control keyboard focus lands on (or that control's
  * row), and only while something is actually cut. A surface opts out with
  * `data-truncation-hint="off"`; a cut element with a different full text
- * (a compact label) names it in `data-full-text`.
+ * (a compact label) names it in `data-full-text`; a line whose parts are one
+ * text (a state and a name) is marked `data-truncation-scope` and reads whole;
+ * parts spaced as one phrase read with plain spaces under `data-truncation-gap="space"`.
  */
 export function TruncationHints() {
   const [hint, setHint] = useState<Hint | null>(null);
@@ -165,7 +167,7 @@ function TruncationHintBubble({ hint }: { hint: Hint }) {
 
   return (
     <div
-      className="pointer-events-none fixed w-max max-w-[min(32rem,calc(100vw-16px))] rounded-md bg-foreground px-3 py-1.5 text-xs leading-[1.45] break-words whitespace-pre-wrap text-background shadow-md"
+      className="pointer-events-none fixed w-max max-w-[min(32rem,calc(100vw-16px))] rounded-[6px] bg-tooltip px-[9px] py-1.5 text-label leading-normal break-words whitespace-pre-wrap text-tooltip-foreground shadow-md"
       data-slot="truncation-hint"
       ref={ref}
       role="tooltip"

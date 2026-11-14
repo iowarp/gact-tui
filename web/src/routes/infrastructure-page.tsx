@@ -7,18 +7,18 @@ import { queryKeys } from '@/lib/query-keys';
 import { INFRASTRUCTURE_POLL_MS, MCP_PREPARING_POLL_MS } from '@/lib/runtime-limits';
 import { anyServerPreparing } from '@/lib/mcp-preparation';
 import type { EffectiveAgentTool, McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { ChevronLeftIcon, NetworkIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'sonner';
-import { WebSearchSetup } from '@/components/clio/web-search-setup';
 import { FrameClioMenu } from '@/components/clio/frame-clio-menu';
 import { settingsWindowOpen } from '@/lib/settings-window-route';
 import { InfrastructureServicesSection } from '@/components/clio/infrastructure-services-section';
 import { InfrastructureInventory } from '@/components/clio/infrastructure-inventory';
 import { NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { NavTabs } from '@/components/clio/primitives/nav-tabs';
+import { navTabsFloorWidth, navTabsMinWidth } from '@/components/clio/primitives/nav-tabs-measure';
+import { useInterfaceScale } from '@/theme/runtime';
 import { StateView } from '@/components/clio/primitives/state-view';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { Button } from '@/components/ui/button';
@@ -31,25 +31,30 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
-import { WEB_MCP_COMMAND, WEB_MCP_ENV, webSearchMcpArgs } from '@/lib/web-search-service';
 import {
   returnRouteFromState,
   sessionIdFromRoute,
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
 import { InfrastructureAgentHosts } from '@/components/clio/infrastructure-agent-hosts';
+import { ph, t } from '@lingui/core/macro';
+
+const { workspace } = vocab;
 
 /**
  * Narrow (under 600px), a section with more than one tab action (the host and the
  * section's main verb, a search and its filter) gives them their own row under the
  * tabs, so they stay reachable instead of running off the edge. A lone action
- * (refresh) stays beside the tabs. A main verb that folds into ⋯ (Services,
- * Models) keeps the host beside the tabs; the open tab's name truncates first.
+ * (refresh) stays beside the tabs while the open tab's name can wrap between its
+ * words there. A main verb that folds into ⋯ (Services, Models) keeps the host
+ * beside the tabs while the open tab's whole name fits. Otherwise the row is marked
+ * crowded and the actions move to the second row too. A name that still does not
+ * fit wraps, whole, between words.
  */
 const TAB_ROW =
-  'mx-auto grid h-11 max-w-[840px] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-2 whitespace-nowrap sm:px-3 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>[data-tab-fold]]:gap-x-1.5 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[2.75rem_auto]';
+  'mx-auto grid min-h-11 max-w-[840px] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-2 whitespace-nowrap sm:px-3 data-crowded:h-auto data-crowded:grid-cols-[auto_minmax(0,1fr)] data-crowded:grid-rows-[minmax(2.75rem,auto)_auto] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>[data-tab-fold]]:gap-x-1.5 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[minmax(2.75rem,auto)_auto]';
 const TAB_ACTIONS =
-  'flex min-w-0 items-center justify-end gap-1.5 @max-[600px]/infra-page:has-[>:nth-child(2)]:col-span-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:-mx-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:h-10 @max-[600px]/infra-page:has-[>:nth-child(2)]:border-t @max-[600px]/infra-page:has-[>:nth-child(2)]:border-border @max-[600px]/infra-page:has-[>:nth-child(2)]:px-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:-mx-3 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:px-3';
+  'flex min-w-0 items-center justify-end gap-1.5 @max-[600px]/infra-page:has-[>:nth-child(2)]:col-span-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:-mx-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:h-10 @max-[600px]/infra-page:has-[>:nth-child(2)]:border-t @max-[600px]/infra-page:has-[>:nth-child(2)]:border-border @max-[600px]/infra-page:has-[>:nth-child(2)]:px-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:-mx-3 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:px-3 in-data-crowded:col-span-2 in-data-crowded:-mx-2 in-data-crowded:h-10 in-data-crowded:border-t in-data-crowded:border-border in-data-crowded:px-2 in-data-crowded:sm:-mx-3 in-data-crowded:sm:px-3';
 
 /** Set by Alt ←/→ so the next section focuses its tab; it outlives a remount of the page. */
 let sectionMovedByKey = false;
@@ -63,14 +68,12 @@ export function InfrastructurePage() {
     ? section
     : 'overview';
   const repository = useRepository();
-  const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
   const [toolScope, setToolScope] = useState<'session' | 'agent'>('session');
   const sessionToolScope = Boolean(sessionId) && toolScope === 'session';
-  const [webSearchOpen, setWebSearchOpen] = useState(false);
   const health = useQuery({
     enabled: currentSection === 'agent',
     queryKey: queryKeys.key('service-health', settings.endpoint),
@@ -109,21 +112,15 @@ export function InfrastructurePage() {
       sessionId ? ((await repository.effectiveAgentToolset(sessionId, signal)) ?? null) : null,
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
-  const webSearchConfiguration = useQuery({
-    enabled: currentSection === 'services' || currentSection === 'overview',
-    queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
-    queryFn: ({ signal }) => repository.mcpConfiguration('web', signal),
-    refetchInterval: INFRASTRUCTURE_POLL_MS,
-  });
   const error =
     currentSection === 'agent'
       ? health.error
       : currentSection === 'tools'
         ? ((sessionToolScope ? effectiveToolset.error : undefined) ?? tools.error ?? servers.error)
-        : (servers.error ?? webSearchConfiguration.error);
+        : servers.error;
   const agentUnanswered = noAnswer(error);
   const retrySection = () => {
-    for (const query of [health, servers, tools, effectiveToolset, webSearchConfiguration]) {
+    for (const query of [health, servers, tools, effectiveToolset]) {
       if (query.error) void query.refetch();
     }
   };
@@ -134,68 +131,6 @@ export function InfrastructurePage() {
     : (tools.data ?? []);
   const toolsPending =
     tools.isPending || servers.isPending || (sessionToolScope && effectiveToolset.isPending);
-  const webSearch = servers.data?.find(isWebSearchServer);
-  const webSearchReady =
-    webSearchConfiguration.data?.status === 'ready' || webSearch?.status === 'ready';
-  const webSearchConfigured = webSearchConfiguration.data?.configured ?? Boolean(webSearch);
-  const refreshWebSearchQueries = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.key('mcp-servers', settings.endpoint),
-      }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) }),
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
-      }),
-    ]);
-  };
-  const connectDetectedWebSearch = useMutation({
-    mutationFn: (remoteUrl: string) =>
-      repository.configureMcpServer('web', {
-        name: 'CLIO Web Search',
-        transport: 'stdio',
-        command: WEB_MCP_COMMAND,
-        args: webSearchMcpArgs(remoteUrl),
-        env: WEB_MCP_ENV,
-        always_load: true,
-      }),
-    onSuccess: async (result) => {
-      queryClient.setQueryData(
-        queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
-        result,
-      );
-      await refreshWebSearchQueries();
-      if (result.status === 'ready') {
-        toast.success(`CLIO Web Search connected with ${result.tools_count} tools`);
-      } else {
-        toast.error('CLIO Web Search could not complete the connection', {
-          description: result.error ?? 'The service is saved, but its tools did not respond.',
-        });
-      }
-    },
-    onError: (connectionError) =>
-      toast.error('CLIO Web Search could not be connected', {
-        description: connectionError.message,
-      }),
-  });
-  const disconnectWebSearch = useMutation({
-    mutationFn: () => repository.removeMcpConfiguration('web'),
-    onSuccess: async (result) => {
-      queryClient.setQueryData(
-        queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
-        result,
-      );
-      await refreshWebSearchQueries();
-      toast.success('CLIO Web Search disconnected', {
-        description: 'The deployment is still running and can be connected again at any time.',
-      });
-    },
-    onError: (connectionError) =>
-      toast.error('CLIO Web Search could not be disconnected', {
-        description: connectionError.message,
-      }),
-  });
 
   const sectionDefinition = INFRASTRUCTURE_SECTIONS.find((item) => item.id === currentSection)!;
   const sectionTabs = INFRASTRUCTURE_SECTIONS.map(({ id, icon, label }) => ({
@@ -230,6 +165,45 @@ export function InfrastructurePage() {
   useShortcut('previous-tab', () => moveSection(-1), { region: tabKeyRegion });
   useShortcut('next-tab', () => moveSection(1), { region: tabKeyRegion });
   const [tabActions, setTabActions] = useState<HTMLElement | null>(null);
+  const [tabRow, setTabRow] = useState<HTMLDivElement | null>(null);
+  const scaleKey = useInterfaceScale();
+  // Natural widths only, so moving the actions down never changes the answer.
+  useLayoutEffect(() => {
+    const nav = tabRow?.querySelector<HTMLElement>('[data-slot=nav-tabs]');
+    const back = tabRow?.firstElementChild;
+    if (!tabRow || !nav || !tabActions || !back) return;
+    const measure = () => {
+      const row = getComputedStyle(tabRow);
+      const inner = tabRow.clientWidth - parseFloat(row.paddingLeft) - parseFloat(row.paddingRight);
+      const gap = parseFloat(row.columnGap) || 0;
+      const items = [...tabActions.children].filter((item) => item.getClientRects().length);
+      const actions =
+        items.reduce(
+          (sum, item) => sum + Math.max(item.scrollWidth, item.getBoundingClientRect().width),
+          0,
+        ) +
+        (parseFloat(getComputedStyle(tabActions).columnGap) || 0) * Math.max(0, items.length - 1);
+      const button = back.getBoundingClientRect().width;
+      const beside = button + actions + 2 * gap;
+      // A host picker moves down before the name wraps; any action, even a lone icon,
+      // moves down before the name would wrap past its longest word.
+      tabRow.toggleAttribute(
+        'data-crowded',
+        (actions > 2 * button && beside + navTabsMinWidth(nav) > inner) ||
+          beside + navTabsFloorWidth(nav) > inner,
+      );
+    };
+    measure();
+    const resize = new ResizeObserver(measure);
+    resize.observe(tabRow);
+    resize.observe(tabActions);
+    const mutation = new MutationObserver(measure);
+    mutation.observe(tabRow, { childList: true, subtree: true, characterData: true });
+    return () => {
+      resize.disconnect();
+      mutation.disconnect();
+    };
+  }, [tabRow, tabActions, scaleKey]);
   return (
     <main
       className="clio-scrollbar @container/infra-page h-full min-h-0 overflow-y-auto bg-background"
@@ -238,16 +212,16 @@ export function InfrastructurePage() {
     >
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
         <FrameClioMenu className="bottom-0 left-2 sm:left-3" covered={settingsWindowOpen} />
-        <div className={TAB_ROW}>
-          <NamedTooltip label={`Back to ${vocab.workspace}`}>
+        <div className={TAB_ROW} ref={setTabRow}>
+          <NamedTooltip label={t`Back to ${workspace}`}>
             <Button asChild className="text-muted-foreground" size="icon-sm" variant="ghost">
-              <Link aria-label={`Back to ${vocab.workspace}`} to={workspaceRoute}>
+              <Link aria-label={t`Back to ${workspace}`} to={workspaceRoute}>
                 <ChevronLeftIcon aria-hidden="true" />
               </Link>
             </Button>
           </NamedTooltip>
-          <h1 className="sr-only">Infrastructure: {sectionDefinition.label}</h1>
-          <NavTabs active={currentSection} label="Infrastructure sections" tabs={sectionTabs} />
+          <h1 className="sr-only">{t`Infrastructure: ${ph({ label: sectionDefinition.label })}`}</h1>
+          <NavTabs active={currentSection} label={t`Infrastructure sections`} tabs={sectionTabs} />
           <span
             className={TAB_ACTIONS}
             data-slot="infrastructure-tab-actions"
@@ -270,25 +244,18 @@ export function InfrastructurePage() {
                   icon={NetworkIcon}
                   title={
                     agentUnanswered
-                      ? `Can't reach ${agentIdentity(settings.endpoint, settings.label, settings.location).name}`
-                      : 'This section could not load completely'
+                      ? t`Can't reach ${ph({ name: agentIdentity(settings.endpoint, settings.label, settings.location).name })}`
+                      : t`This section could not load completely`
                   }
                   detail={error.message}
-                  action={{ label: 'Retry', onClick: retrySection }}
+                  action={{ label: t`Retry`, onClick: retrySection }}
                 />
               ) : null}
 
               {currentSection === 'overview' ||
               currentSection === 'models' ||
               currentSection === 'activity' ? (
-                <InfrastructureInventory
-                  section={currentSection}
-                  overview={{
-                    webSearch: webSearchConfiguration.data,
-                    webSearchConnected: webSearchReady,
-                    onManageWebSearch: () => setWebSearchOpen(true),
-                  }}
-                />
+                <InfrastructureInventory section={currentSection} />
               ) : null}
 
               {currentSection === 'tools' ? (
@@ -302,23 +269,9 @@ export function InfrastructurePage() {
                 />
               ) : null}
 
-              {currentSection === 'services' ? (
-                <InfrastructureServicesSection
-                  webSearch={{
-                    connection: webSearchConfiguration.data,
-                    connected: webSearchReady,
-                    configured: webSearchConfigured,
-                    connecting: connectDetectedWebSearch.isPending,
-                    disconnecting: disconnectWebSearch.isPending,
-                    onConnect: (remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl),
-                    onDisconnect: () => disconnectWebSearch.mutate(),
-                  }}
-                />
-              ) : null}
+              {currentSection === 'services' ? <InfrastructureServicesSection /> : null}
 
               {currentSection === 'agent' ? <InfrastructureAgentHosts health={health} /> : null}
-
-              <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
             </section>
           </div>
         </AgentUnansweredProvider>
@@ -381,9 +334,4 @@ function effectiveToolCatalog(
     });
   }
   return [...projected.values()];
-}
-
-function isWebSearchServer(server: McpServerDefinition): boolean {
-  const identity = `${server.id} ${server.name}`.toLowerCase();
-  return identity.includes('web-search') || identity.includes('web search') || identity === 'web';
 }

@@ -5,16 +5,19 @@ import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
+import { useStableEvent } from '@/hooks/use-stable-event';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { toast } from 'sonner';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   closeEmbeddedTerminalsForSession,
+  openWorkspaceFolder,
   openWorkspaceTerminal,
 } from '@/tauri/workspace-terminal';
 import { useLiveStore } from '@/store/live-store';
 import { movedFromWorkspace, sessionMoveFailure } from '@/lib/session-move';
+import { plural, t } from '@lingui/core/macro';
 
 /**
  * The workspace/session CRUD surface for navigation-owning components (command
@@ -27,9 +30,18 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
+  // The open route and router are read when an action runs, so the actions keep
+  // one identity across conversations and the memoized rail rows don't re-render
+  // on every switch (`navigate` itself changes with each location).
+  const route = useStableEvent(() => ({
+    navigate,
+    navigateToAvailableSession,
+    sessionId,
+    workspaceId,
+  }));
 
   const refreshNavigation = useCallback(
-    async (targetWorkspaceId = workspaceId) => {
+    async (targetWorkspaceId = route().workspaceId) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.key('workspaces', settings.endpoint) }),
         queryClient.invalidateQueries({
@@ -48,7 +60,7 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         }),
       ]);
     },
-    [queryClient, settings.endpoint, workspaceId],
+    [queryClient, route, settings.endpoint],
   );
 
   const updateSessionIdentity = useCallback(
@@ -128,10 +140,6 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         await repository.revokeWorkspaceFolder(targetWorkspaceId, path);
         await refreshWorkspaceFolders(targetWorkspaceId);
       },
-      workspaceMemory: (targetWorkspaceId) => repository.workspaceMemory(targetWorkspaceId),
-      setWorkspaceMemory: async (targetWorkspaceId, useAccountMemory) => {
-        await repository.setWorkspaceMemory(targetWorkspaceId, useAccountMemory);
-      },
       renameSession: async (targetSessionId, title) => {
         await updateSessionIdentity(targetSessionId, { title });
         await refreshNavigation();
@@ -146,8 +154,8 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       },
       archiveSession: async (targetSessionId) => {
         await repository.updateSession(targetSessionId, { archived: true });
-        if (targetSessionId === sessionId) {
-          await navigateToAvailableSession();
+        if (targetSessionId === route().sessionId) {
+          await route().navigateToAvailableSession();
           return;
         }
         await refreshNavigation();
@@ -155,7 +163,7 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       forkSession: async (targetSessionId) => {
         const forked = await repository.forkSession(targetSessionId, {});
         await refreshNavigation(forked.workspace_id);
-        await navigate(
+        await route().navigate(
           `/workspaces/${encodeURIComponent(forked.workspace_id)}/sessions/${encodeURIComponent(forked.id)}`,
         );
       },
@@ -179,10 +187,11 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
             },
           };
         });
-        const from = movedFromWorkspace(moved) ?? previous ?? workspaceId;
+        const open = route();
+        const from = movedFromWorkspace(moved) ?? previous ?? open.workspaceId;
         await Promise.all([refreshNavigation(from), refreshNavigation(moved.workspace_id)]);
-        if (targetSessionId === sessionId && moved.workspace_id !== workspaceId) {
-          await navigate(
+        if (targetSessionId === open.sessionId && moved.workspace_id !== open.workspaceId) {
+          await open.navigate(
             `/workspaces/${encodeURIComponent(moved.workspace_id)}/sessions/${encodeURIComponent(moved.id)}`,
             { replace: true },
           );
@@ -195,19 +204,20 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       compactSession: async (targetSessionId) => {
         const result = await repository.compactSession(targetSessionId);
         await refreshTranscript(targetSessionId);
-        if (result.compacted) toast.success('Conversation compacted');
+        if (result.compacted) toast.success(t`Conversation compacted`);
         else
-          toast.info('Conversation was not compacted', {
-            description: result.reason ?? 'The service did not report a reason.',
+          toast.info(t`Conversation was not compacted`, {
+            description: result.reason ?? t`The service did not report a reason.`,
           });
       },
       undoSession: async (targetSessionId) => {
         const result = await repository.undoSession(targetSessionId);
         await refreshTranscript(targetSessionId);
         toast.success(
-          result.deleted_message_ids.length === 1
-            ? 'Last message removed'
-            : `${result.deleted_message_ids.length} messages removed`,
+          plural(result.deleted_message_ids.length, {
+            1: 'Last message removed',
+            other: '# messages removed',
+          }),
         );
       },
       openSystemTerminal: inTauri()
@@ -215,11 +225,25 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
             try {
               await openWorkspaceTerminal(workspacePath);
             } catch (error) {
-              toast.error('Could not open the workspace terminal', {
+              toast.error(t`Could not open the workspace terminal`, {
                 description:
                   error instanceof Error
                     ? error.message
-                    : 'No supported terminal could be started.',
+                    : t`No supported terminal could be started.`,
+              });
+            }
+          }
+        : undefined,
+      openSystemFolder: inTauri()
+        ? async (workspacePath) => {
+            try {
+              await openWorkspaceFolder(workspacePath);
+            } catch (error) {
+              toast.error(t`Could not open the workspace folder`, {
+                description:
+                  error instanceof Error
+                    ? error.message
+                    : t`The file manager could not be started.`,
               });
             }
           }
@@ -230,8 +254,8 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       },
       deleteWorkspace: async (targetWorkspaceId) => {
         await repository.deleteWorkspace(targetWorkspaceId);
-        if (targetWorkspaceId === workspaceId) {
-          await navigateToAvailableSession();
+        if (targetWorkspaceId === route().workspaceId) {
+          await route().navigateToAvailableSession();
           return;
         }
         await refreshNavigation(targetWorkspaceId);
@@ -242,8 +266,8 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         // closed. Never blocks the actual delete on pty teardown.
         await closeEmbeddedTerminalsForSession(targetSessionId).catch(() => undefined);
         await repository.deleteSession(targetSessionId);
-        if (targetSessionId === sessionId) {
-          await navigateToAvailableSession();
+        if (targetSessionId === route().sessionId) {
+          await route().navigateToAvailableSession();
           return;
         }
         await refreshNavigation();
@@ -253,21 +277,18 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
       importSession: async (value) => {
         const imported = await repository.importSession(value);
         await refreshNavigation(imported.workspace_id);
-        await navigate(
+        await route().navigate(
           `/workspaces/${encodeURIComponent(imported.workspace_id)}/sessions/${encodeURIComponent(imported.id)}`,
         );
       },
     }),
     [
-      navigate,
-      navigateToAvailableSession,
       refreshNavigation,
       refreshTranscript,
       refreshWorkspaceFolders,
       repository,
-      sessionId,
+      route,
       settings.endpoint,
-      workspaceId,
       updateSessionIdentity,
     ],
   );

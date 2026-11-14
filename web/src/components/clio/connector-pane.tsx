@@ -12,6 +12,7 @@ import { KeyValueGrid } from './primitives/key-value-grid';
 import { RowConfirm } from './primitives/row-confirm';
 import { StatusIndicator } from './primitives/status-indicator';
 import { SettingsGroupLabel } from './settings-row';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /**
  * The setup card in the Extensions detail pane (CN4): the logo, the name, the state in
@@ -53,7 +54,7 @@ export function ConnectorPane({
         removable ? (
           <IconButton
             icon={<DeleteIcon />}
-            label={`Remove ${connector.name}`}
+            label={t`Remove ${ph({ name: connector.name })}`}
             onClick={() => setRemoving(true)}
           />
         ) : undefined
@@ -88,16 +89,24 @@ export function ConnectorPane({
         <KeyValueGrid
           className="mt-3"
           items={[
-            { label: 'Source', value: connector.source === 'custom' ? 'Added by you' : 'Catalog' },
+            {
+              label: t`Source`,
+              value: connector.source === 'custom' ? t`Added by you` : t`Catalog`,
+            },
             ...(connector.tool_count === null
               ? []
-              : [{ label: 'Tools', value: `${connector.tool_count}` }]),
+              : [{ label: t`Tools`, value: `${connector.tool_count}` }]),
             ...(connector.plugin
-              ? [{ label: 'Agent guidance', value: `How to work with ${connector.name}` }]
+              ? [
+                  {
+                    label: t`Agent guidance`,
+                    value: t`How to work with ${ph({ name: connector.name })}`,
+                  },
+                ]
               : []),
           ]}
         />
-        <SettingsGroupLabel>Setup</SettingsGroupLabel>
+        <SettingsGroupLabel>{t`Setup`}</SettingsGroupLabel>
         {connector.needs.length ? (
           <>
             <ConnectorNeedRows
@@ -107,7 +116,7 @@ export function ConnectorPane({
               onDraft={(key, value) => setDraft((current) => ({ ...current, [key]: value }))}
               onSignIn={(need) => onSignIn(connector, need)}
               onSubmit={save}
-              submitLabel={`Set up ${connector.name}`}
+              submitLabel={t`Set up ${ph({ name: connector.name })}`}
             />
             <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2">
               <Button
@@ -116,7 +125,7 @@ export function ConnectorPane({
                 onClick={save}
                 size="sm"
               >
-                {saving ? 'Connecting…' : 'Save'}
+                {saving ? t`Connecting…` : t({ message: 'Save', context: 'verb' })}
               </Button>
               {changed ? (
                 <Button
@@ -126,20 +135,21 @@ export function ConnectorPane({
                   size="sm"
                   variant="ghost"
                 >
-                  Discard changes
+                  {t`Discard changes`}
                 </Button>
               ) : null}
               {missing.length && !saving ? (
                 <span className="text-xs text-muted-foreground">
-                  {missing.length === 1
-                    ? '1 required row is empty'
-                    : `${missing.length} required rows are empty`}
+                  {plural(missing.length, {
+                    one: '# required row is empty',
+                    other: '# required rows are empty',
+                  })}
                 </span>
               ) : null}
             </div>
           </>
         ) : (
-          <p className="leading-5 text-muted-foreground">It needs nothing from you.</p>
+          <p className="leading-5 text-muted-foreground">{t`It needs nothing from you.`}</p>
         )}
         <ConnectorEnableControls change={change} connector={connector} />
       </div>
@@ -163,14 +173,14 @@ function ConnectorEnableControls({
   // Pending here or from another place this connector appears: one state, in words (CN3).
   const busy = Boolean(change) || actions.enable.isPending || actions.disable.isPending;
   return (
-    <section aria-label="In conversations" data-slot="connector-enable">
-      <SettingsGroupLabel>In conversations</SettingsGroupLabel>
+    <section aria-label={t`In conversations`} data-slot="connector-enable">
+      <SettingsGroupLabel>{t`In conversations`}</SettingsGroupLabel>
       <p className="text-xs leading-5 text-muted-foreground" role="status">
         {change
           ? connectorStatus(connector, change).label
           : connector.enabled
-            ? `Enabled. Add ${connector.name} to a conversation from its plugins; other conversations don’t carry its tools.`
-            : `Enable ${connector.name} to add it to the conversations that need it.`}
+            ? t`Enabled. Add ${ph({ name: connector.name })} to a conversation from its plugins; other conversations don’t carry its tools.`
+            : t`Enable ${ph({ name: connector.name })} to add it to the conversations that need it.`}
       </p>
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
         {!connector.enabled ? (
@@ -180,7 +190,7 @@ function ConnectorEnableControls({
             onClick={() => actions.enable.mutate(connector.id)}
             size="sm"
           >
-            {change === 'starting' ? 'Starting…' : 'Enable'}
+            {change === 'starting' ? t`Starting…` : t`Enable`}
           </Button>
         ) : (
           <Button
@@ -190,7 +200,7 @@ function ConnectorEnableControls({
             size="sm"
             variant="outline"
           >
-            {change === 'turning-off' ? 'Turning off…' : 'Turn off'}
+            {change === 'turning-off' ? t`Turning off…` : t`Turn off`}
           </Button>
         )}
       </div>

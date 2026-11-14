@@ -31,6 +31,7 @@ import {
   McpAppActivity,
   type McpAppActivityEntry,
 } from './conversation-iteration-detail';
+import { t } from '@lingui/core/macro';
 
 /** The flow a run_flow / run_workflow call started, once its start was accepted. */
 function startedFlow(
@@ -315,7 +316,7 @@ export function ConversationTurn({
   }
   if (mode === 'full') {
     return (
-      <section aria-label="Full agent activity">
+      <section aria-label={t`Full agent activity`}>
         <div className="space-y-3">
           {iterations.map((iteration) => (
             <IterationDetail
@@ -386,6 +387,7 @@ export function ConversationTurn({
       {blocks.map(({ text: iteration, steps: group }, index) => {
         const summary = transcriptActivitySummary(group, interactions);
         const hasActivity = group.some((item) => item.activity.length || item.interrupted);
+        const laneLive = (turnLive || followLiveActivity) && index === groups.length - 1;
         return (
           <Fragment key={iteration.id}>
             <TranscriptIterationText iteration={iteration} />
@@ -395,7 +397,7 @@ export function ConversationTurn({
                 group={group}
                 label={summary.label}
                 live={followLiveActivity && index === groups.length - 1}
-                turnLive={(turnLive || followLiveActivity) && index === groups.length - 1}
+                turnLive={laneLive}
                 subagents={subagents}
                 interactions={interactions}
                 rowInputs={[
@@ -416,6 +418,7 @@ export function ConversationTurn({
                     <IterationReasoningText iteration={item} />
                     <IterationDetail
                       compact
+                      openFileChanges={!laneLive}
                       flowCards={flowCards}
                       showText={false}
                       iteration={item}

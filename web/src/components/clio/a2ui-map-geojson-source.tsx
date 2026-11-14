@@ -12,6 +12,7 @@ import { downloadBlob, filenameStemFromTitle } from './surface-export';
 import type { SurfaceExportFormat } from './surface-toolbar';
 import { artifactIdFromDataUri } from './table-query-rows';
 import type { MapCameraProps } from './map-camera';
+import { plural, t } from '@lingui/core/macro';
 
 interface GeoJsonSourceProps extends MapCameraProps {
   accessibility?: A2UIAccessibility;
@@ -43,7 +44,7 @@ export function ClioMapGeoJsonSource({
   selectionField,
   selection,
   setSelection,
-  title = 'Locations',
+  title = t`Locations`,
   ...rest
 }: GeoJsonSourceProps) {
   const artifact = useArtifactText(geojsonUri);
@@ -71,7 +72,7 @@ export function ClioMapGeoJsonSource({
   if (artifact.error || parsed.error) {
     return (
       <LoadingFailure
-        title="Map unavailable"
+        title={t`Map unavailable`}
         detail={artifact.error || parsed.error}
         onRetry={artifact.error ? artifact.retry : undefined}
       />
@@ -79,7 +80,7 @@ export function ClioMapGeoJsonSource({
   }
   if (!parsed.data) {
     return (
-      <LoadingFeedback label={`Loading ${title} map…`} variant="skeleton">
+      <LoadingFeedback label={t`Loading ${title} map…`} variant="skeleton">
         <Skeleton className="h-[26rem] w-full rounded-none" />
       </LoadingFeedback>
     );
@@ -89,6 +90,7 @@ export function ClioMapGeoJsonSource({
   const selected = selectedValues?.length
     ? points.filter((point) => selectedValues.includes(point.selectionValue ?? -1))
     : [];
+  const totalText = points.length.toLocaleString();
   const reference = () =>
     buildZoneReference({
       componentLabel: title,
@@ -113,13 +115,19 @@ export function ClioMapGeoJsonSource({
           : {}),
       },
       zoneDescription: selected.length
-        ? `${selected.length.toLocaleString()} selected ${selected.length === 1 ? 'feature' : 'features'} of ${points.length.toLocaleString()}`
-        : `the filtered current view (${points.length.toLocaleString()} features)`,
+        ? plural(selected.length, {
+            one: `# selected feature of ${totalText}`,
+            other: `# selected features of ${totalText}`,
+          })
+        : plural(points.length, {
+            one: 'the filtered current view (# feature)',
+            other: 'the filtered current view (# features)',
+          }),
     });
   const exportFormats: SurfaceExportFormat[] = [
     {
       id: 'geojson',
-      label: 'GeoJSON data',
+      label: t`GeoJSON data`,
       run: () =>
         downloadBlob(
           new Blob([JSON.stringify(collection)], { type: 'application/geo+json' }),
@@ -129,7 +137,7 @@ export function ClioMapGeoJsonSource({
   ];
   return (
     <div className="grid min-w-0 gap-2">
-      {artifact.refreshing ? <LoadingFeedback label="Updating map…" /> : null}
+      {artifact.refreshing ? <LoadingFeedback label={t`Updating map…`} /> : null}
       <ClioScientificMap
         {...rest}
         dataCapabilities={{ buildReference: reference, exportFormats }}

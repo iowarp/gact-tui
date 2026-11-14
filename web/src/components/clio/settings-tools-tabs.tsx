@@ -13,13 +13,14 @@ import { IconButton } from './primitives/icon-button';
 import { SegmentedControl } from './primitives/segmented-control';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ToolPermissionsSettings } from './settings-tool-permissions';
+import { t } from '@lingui/core/macro';
 
 type ToolsTab = 'tool-permissions' | 'tools' | 'relays';
 
 const TABS = [
-  { value: 'tool-permissions', label: 'Tools' },
-  { value: 'tools', label: 'MCP servers' },
-  { value: 'relays', label: 'Remote tools' },
+  { value: 'tool-permissions', label: t`Tools` },
+  { value: 'tools', label: t`MCP servers` },
+  { value: 'relays', label: t`Remote tools` },
 ] as const;
 
 function tabOf(section: string): ToolsTab {
@@ -73,15 +74,18 @@ export function ToolsSettingsTabs({
     );
   };
   return (
-    <div className="@container/toolspage grid min-w-0 gap-2" data-settings-anchor={section}>
+    <div
+      className="@container/toolspage grid min-w-0 grid-cols-1 gap-2"
+      data-settings-anchor={section}
+    >
       <SettingsSectionHeading
         actions={
           <div className="flex min-w-0" ref={switcher}>
             <PageTabs onValueChange={choose} value={tab} />
           </div>
         }
-        info="Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
-        title="Tools and MCP servers"
+        info={t`Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine.`}
+        title={t`Tools and MCP servers`}
       />
       <div aria-label={TABS.find((item) => item.value === tab)?.label} role="region">
         {tab === 'tool-permissions' ? (
@@ -120,7 +124,7 @@ function PageTabs({
     <>
       <div className="hidden min-w-0 @[35rem]/toolspage:flex" data-fold="full">
         <SegmentedControl
-          label="Tools pages"
+          label={t`Tools pages`}
           onValueChange={onValueChange}
           options={TABS}
           value={value}
@@ -132,14 +136,14 @@ function PageTabs({
         onKeyDown={step}
       >
         <SegmentedControl
-          label="Tools pages"
+          label={t`Tools pages`}
           onValueChange={onValueChange}
           options={[current]}
           value={value}
         />
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <IconButton icon={<MoreIcon />} label="Other Tools pages" />
+            <IconButton icon={<MoreIcon />} label={t`Other Tools pages`} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-40">
             <DropdownMenuRadioGroup

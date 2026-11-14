@@ -124,6 +124,23 @@ export function workbenchTabLabel(tab: WorkbenchTab): string {
   return tab.kind === 'artifact' ? artifactDisplayName(tab.artifact) : tab.label;
 }
 
+/**
+ * Version tags ("v2") for artifact tabs that share their name with another open tab, so
+ * two versions of one file (each opened from its comments) read apart.
+ */
+export function workbenchTabVersions(
+  tabs: readonly WorkbenchTab[],
+  label: (tab: WorkbenchTab) => string = workbenchTabLabel,
+): Map<string, string> {
+  const named = new Map<string, number>();
+  for (const tab of tabs) named.set(label(tab), (named.get(label(tab)) ?? 0) + 1);
+  const versions = new Map<string, string>();
+  for (const tab of tabs)
+    if (tab.kind === 'artifact' && tab.artifact.version && (named.get(label(tab)) ?? 0) > 1)
+      versions.set(tab.id, `v${tab.artifact.version}`);
+  return versions;
+}
+
 /** Teal: a diff, or a file the conversation changed. */
 export function tabChanged(tab: WorkbenchTab, changedPaths: ReadonlySet<string>): boolean {
   if (tab.kind === 'diff') return true;

@@ -22,6 +22,7 @@ import { revealPendingInteraction } from './interaction-control';
 import { humanizeProtocolValue } from './presentation-labels';
 import { TechnicalDetails } from './technical-details';
 import { isAgentMcpInteraction, questionInteractionRequestLabel } from './agent-answer-domain';
+import { t } from '@lingui/core/macro';
 
 /**
  * Scrolls the transcript reader straight to this interaction's card in the
@@ -35,7 +36,7 @@ function AnswerBelowLink({ interaction }: { interaction: PendingInteraction }) {
   const label = interaction.prompt ?? interaction.title;
   return (
     <Button
-      aria-label={`Answer below: ${label}`}
+      aria-label={t`Answer below: ${label}`}
       className="h-auto gap-1 p-0 text-xs"
       onClick={() => revealPendingInteraction(interaction.id)}
       size="sm"
@@ -43,7 +44,7 @@ function AnswerBelowLink({ interaction }: { interaction: PendingInteraction }) {
       variant="link"
     >
       <ArrowDownToLineIcon aria-hidden="true" className="size-3.5" />
-      Answer below
+      {t`Answer below`}
     </Button>
   );
 }
@@ -58,18 +59,18 @@ export function WaitingForYou({ interaction }: { interaction?: PendingInteractio
   if (!interaction)
     return (
       <span className="text-warning" data-slot="activity-waiting">
-        waiting for you
+        {t`waiting for you`}
       </span>
     );
   const label = interaction.prompt ?? interaction.title;
   const verb =
     interaction.kind === 'permission'
-      ? 'Review below'
+      ? t`Review below`
       : interaction.kind === 'connector_setup'
         ? isConnectorOffer(interaction.payload) || isPluginOffer(interaction.payload)
-          ? 'Choose below'
-          : 'Set up below'
-        : 'Answer below';
+          ? t`Choose below`
+          : t`Set up below`
+        : t`Answer below`;
   return (
     <button
       aria-label={`${verb}: ${label}`}
@@ -79,7 +80,7 @@ export function WaitingForYou({ interaction }: { interaction?: PendingInteractio
       title={verb}
       type="button"
     >
-      waiting for you
+      {t`waiting for you`}
     </button>
   );
 }
@@ -120,16 +121,16 @@ export function AgentAnswerActivity({
         <span className="font-medium text-foreground/80">{requestLabel}</span>
         <span>
           {fallbackPending
-            ? 'Needs your response'
+            ? t`Needs your response`
             : fallbackAnswered
-              ? 'You responded'
+              ? t`You responded`
               : answered
-                ? 'Agent responded'
-                : 'Agent is answering'}
+                ? t`Agent responded`
+                : t`Agent is answering`}
         </span>
         {!fallback ? (
           <span aria-hidden="true" className="sr-only">
-            {answered ? 'Agent answered MCP request' : 'Agent is answering MCP request'}
+            {answered ? t`Agent answered MCP request` : t`Agent is answering MCP request`}
           </span>
         ) : null}
       </span>
@@ -163,7 +164,7 @@ export function AgentAnswerActivity({
       <ActivityStep icon={MessageCircleQuestionIcon} title={requestLabel}>
         {interaction.prompt}
       </ActivityStep>
-      <ActivityStep icon={WorkflowIcon} title="Agent answer turn">
+      <ActivityStep icon={WorkflowIcon} title={t`Agent answer turn`}>
         <div className="flex flex-wrap items-center gap-2">
           <ClioStatus className="py-0.5" value={taskStatus} />
           {taskTiming ? <span>{taskTiming}</span> : null}
@@ -178,10 +179,10 @@ export function AgentAnswerActivity({
         icon={BotIcon}
         title={
           answered
-            ? 'Agent responded'
+            ? t`Agent responded`
             : fallback
-              ? 'Agent answer attempt'
-              : 'Agent is reading conversation context'
+              ? t`Agent answer attempt`
+              : t`Agent is reading conversation context`
         }
       >
         {answered && answers.length > 0 ? (
@@ -197,9 +198,9 @@ export function AgentAnswerActivity({
       </ActivityStep>
       {answered ? (
         <>
-          <ActivityStep icon={CircleCheckIcon} title="Validated by MCP schema" />
-          <ActivityStep icon={ArrowUpToLineIcon} title="Answer returned to MCP">
-            The waiting request resumed with the accepted response.
+          <ActivityStep icon={CircleCheckIcon} title={t`Validated by MCP schema`} />
+          <ActivityStep icon={ArrowUpToLineIcon} title={t`Answer returned to MCP`}>
+            {t`The waiting request resumed with the accepted response.`}
           </ActivityStep>
         </>
       ) : null}
@@ -209,20 +210,20 @@ export function AgentAnswerActivity({
             icon={CircleAlertIcon}
             title={
               interaction.fallback_detail === 'agent_answer_schema_invalid'
-                ? 'Answer rejected by MCP schema'
-                : 'Agent could not complete the answer'
+                ? t`Answer rejected by MCP schema`
+                : t`Agent could not complete the answer`
             }
           >
             {fallbackDescription(interaction.fallback_detail)}
             {interaction.fallback_detail ? (
-              <TechnicalDetails className="mt-1" title="Technical details">
+              <TechnicalDetails className="mt-1" title={t`Technical details`}>
                 <code>{interaction.fallback_detail}</code>
               </TechnicalDetails>
             ) : null}
           </ActivityStep>
           {fallbackPending ? (
-            <ActivityStep icon={RouteIcon} title="Routed to you">
-              The request remains available in the response stack.
+            <ActivityStep icon={RouteIcon} title={t`Routed to you`}>
+              {t`The request remains available in the response stack.`}
               <div className="mt-1">
                 <AnswerBelowLink interaction={interaction} />
               </div>
@@ -230,7 +231,7 @@ export function AgentAnswerActivity({
           ) : null}
           {fallbackAnswered ? (
             <>
-              <ActivityStep icon={CircleCheckIcon} title="You responded">
+              <ActivityStep icon={CircleCheckIcon} title={t`You responded`}>
                 {answers.length > 0 ? (
                   <dl className="mt-1 grid gap-x-2 gap-y-1 sm:grid-cols-[max-content_minmax(0,1fr)]">
                     {answers.map((entry) => (
@@ -242,8 +243,8 @@ export function AgentAnswerActivity({
                   </dl>
                 ) : null}
               </ActivityStep>
-              <ActivityStep icon={ArrowUpToLineIcon} title="Answer returned to MCP">
-                The waiting request resumed with your accepted response.
+              <ActivityStep icon={ArrowUpToLineIcon} title={t`Answer returned to MCP`}>
+                {t`The waiting request resumed with your accepted response.`}
               </ActivityStep>
             </>
           ) : null}
@@ -270,13 +271,13 @@ function HumanQuestionActivity({
   const isMcp = interaction.source.protocol === 'mcp';
   const stateLabel = answered
     ? declined
-      ? 'Declined by you'
-      : 'Answered by you'
+      ? t`Declined by you`
+      : t`Answered by you`
     : cancelled
-      ? 'Cancelled'
+      ? t`Cancelled`
       : expired
-        ? 'Expired'
-        : 'Needs your response';
+        ? t`Expired`
+        : t`Needs your response`;
 
   if (compact) {
     return (
@@ -286,7 +287,7 @@ function HumanQuestionActivity({
       >
         <UserRoundIcon aria-hidden="true" className="size-3.5 shrink-0" />
         <span className="font-medium text-foreground/80">{requestLabel}</span>
-        <span>{answered && !declined ? 'You responded' : stateLabel}</span>
+        <span>{answered && !declined ? t`You responded` : stateLabel}</span>
       </span>
     );
   }
@@ -311,7 +312,12 @@ function HumanQuestionActivity({
         outcome={<WaitingForYou interaction={interaction} />}
         outcomeTone="warning"
         status={
-          <StatusIndicator display="column" label="Waiting for you" mark="glyph" tone="running" />
+          <StatusIndicator
+            display="column"
+            label={t`Waiting for you`}
+            mark="glyph"
+            tone="running"
+          />
         }
       />
     );
@@ -319,12 +325,12 @@ function HumanQuestionActivity({
 
   return (
     <div className="flex flex-col gap-3 border-l-2 border-border pl-3 text-xs" {...activity}>
-      <ActivityStep icon={MessageCircleQuestionIcon} title={isMcp ? requestLabel : 'Agent asked'}>
+      <ActivityStep icon={MessageCircleQuestionIcon} title={isMcp ? requestLabel : t`Agent asked`}>
         {interaction.prompt}
       </ActivityStep>
       {answered ? (
         <>
-          <ActivityStep icon={UserRoundIcon} title={declined ? 'You declined' : 'You responded'}>
+          <ActivityStep icon={UserRoundIcon} title={declined ? t`You declined` : t`You responded`}>
             {answers.length > 0 ? (
               <dl className="mt-1 grid gap-x-2 gap-y-1 sm:grid-cols-[max-content_minmax(0,1fr)]">
                 {answers.map((entry) => (
@@ -336,7 +342,7 @@ function HumanQuestionActivity({
               </dl>
             ) : null}
             {attachments.length > 0 ? (
-              <ul aria-label="Attached files" className="mt-1.5 flex flex-wrap gap-1.5">
+              <ul aria-label={t`Attached files`} className="mt-1.5 flex flex-wrap gap-1.5">
                 {attachments.map((attachment, index) => (
                   <li key={`${attachment.name}:${index}`}>
                     <Badge className="max-w-full gap-1 font-normal" variant="outline">
@@ -349,11 +355,11 @@ function HumanQuestionActivity({
             ) : null}
           </ActivityStep>
           {isMcp && interaction.payload?.mode === 'form' && !declined ? (
-            <ActivityStep icon={CircleCheckIcon} title="Validated by MCP schema" />
+            <ActivityStep icon={CircleCheckIcon} title={t`Validated by MCP schema`} />
           ) : null}
           {isMcp ? (
-            <ActivityStep icon={ArrowUpToLineIcon} title="Response returned to MCP">
-              The waiting request resumed with your response.
+            <ActivityStep icon={ArrowUpToLineIcon} title={t`Response returned to MCP`}>
+              {t`The waiting request resumed with your response.`}
             </ActivityStep>
           ) : null}
         </>
@@ -361,7 +367,7 @@ function HumanQuestionActivity({
       {cancelled || expired ? (
         <ActivityStep
           icon={CircleAlertIcon}
-          title={cancelled ? 'You cancelled the request' : 'The request expired'}
+          title={cancelled ? t`You cancelled the request` : t`The request expired`}
         />
       ) : null}
     </div>
@@ -407,7 +413,7 @@ function answerEntries(interaction: PendingInteraction): AnswerEntry[] {
   if (selectedOptions.length > 0) {
     entries.push({
       key: 'selected-options',
-      label: selectedOptions.length === 1 ? 'Selected' : 'Selected options',
+      label: selectedOptions.length === 1 ? t`Selected` : t`Selected options`,
       value: selectedOptions
         .map((value) => optionLabels.get(String(value)) ?? formatAnswerValue(value))
         .join(', '),
@@ -426,7 +432,7 @@ function answerEntries(interaction: PendingInteraction): AnswerEntry[] {
   ) {
     entries.push({
       key: 'answer',
-      label: selectedOptions.length > 0 ? 'Comment' : 'Response',
+      label: selectedOptions.length > 0 ? t`Comment` : t`Response`,
       value: formatAnswerValue(values.answer),
     });
   }
@@ -437,7 +443,7 @@ function answerEntries(interaction: PendingInteraction): AnswerEntry[] {
       const optionLabel = optionLabels.get(optionValue) ?? optionValue;
       entries.push({
         key: `option-comment:${optionValue}:${index}`,
-        label: `Comment on ${optionLabel}`,
+        label: t`Comment on ${optionLabel}`,
         value: formatAnswerValue(comment),
       });
     });
@@ -479,7 +485,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function formatAnswerValue(value: unknown): string {
   if (Array.isArray(value)) return value.map(formatAnswerValue).join(', ');
-  if (value === null || value === undefined) return 'Not provided';
+  if (value === null || value === undefined) return t`Not provided`;
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
@@ -499,11 +505,11 @@ function answerTaskTiming(createdAt: string | undefined, updatedAt: string | und
 
 function fallbackDescription(detail: string | undefined): string {
   if (detail === 'agent_answer_schema_invalid') {
-    return 'The proposed values did not satisfy the schema supplied by the MCP server.';
+    return t`The proposed values did not satisfy the schema supplied by the MCP server.`;
   }
-  if (detail === 'agent_answer_timeout') return 'The answer turn did not finish in time.';
-  if (detail === 'agent_declined') return 'The conversation did not establish a confident answer.';
+  if (detail === 'agent_answer_timeout') return t`The answer turn did not finish in time.`;
+  if (detail === 'agent_declined') return t`The conversation did not establish a confident answer.`;
   if (detail === 'agent_answer_unparseable')
-    return 'The answer turn did not return structured values.';
-  return 'The automatic answer path stopped before MCP accepted a response.';
+    return t`The answer turn did not return structured values.`;
+  return t`The automatic answer path stopped before MCP accepted a response.`;
 }

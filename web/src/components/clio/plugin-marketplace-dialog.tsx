@@ -11,6 +11,9 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { vocab } from '@/lib/brand-vocabulary';
+import { t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 export interface PluginMarketplaceInput {
   source: string;
@@ -45,10 +48,9 @@ export function PluginMarketplaceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Install a marketplace</DialogTitle>
+          <DialogTitle>{t`Install a marketplace`}</DialogTitle>
           <DialogDescription>
-            Plugin marketplaces in the Agent Plugins or Claude Code format are both supported. The{' '}
-            {vocab.agent} fetches the source; you trust it in the next step.
+            {t`Plugin marketplaces in the Agent Plugins or Claude Code format are both supported. The ${agent} fetches the source; you trust it in the next step.`}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -66,7 +68,7 @@ export function PluginMarketplaceDialog({
         >
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="marketplace-source">Source</FieldLabel>
+              <FieldLabel htmlFor="marketplace-source">{t`Source`}</FieldLabel>
               <Input
                 autoFocus
                 id="marketplace-source"
@@ -75,35 +77,35 @@ export function PluginMarketplaceDialog({
                 value={source}
               />
               <FieldDescription>
-                A git repository URL or a folder on the service&apos;s host.
+                {t`A git repository URL or a folder on the service's host.`}
               </FieldDescription>
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="marketplace-ref">Branch or tag</FieldLabel>
+                <FieldLabel htmlFor="marketplace-ref">{t`Branch or tag`}</FieldLabel>
                 <Input
                   id="marketplace-ref"
                   onChange={(event) => setRef(event.target.value)}
-                  placeholder="Default branch"
+                  placeholder={t`Default branch`}
                   value={ref}
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="marketplace-commit">Pinned commit</FieldLabel>
+                <FieldLabel htmlFor="marketplace-commit">{t`Pinned commit`}</FieldLabel>
                 <Input
                   id="marketplace-commit"
                   onChange={(event) => setCommit(event.target.value)}
-                  placeholder="Latest"
+                  placeholder={t`Latest`}
                   value={commit}
                 />
               </Field>
             </div>
             <Field>
-              <FieldLabel htmlFor="marketplace-name">Name</FieldLabel>
+              <FieldLabel htmlFor="marketplace-name">{t`Name`}</FieldLabel>
               <Input
                 id="marketplace-name"
                 onChange={(event) => setName(event.target.value)}
-                placeholder="From the marketplace"
+                placeholder={t`From the marketplace`}
                 value={name}
               />
             </Field>
@@ -115,10 +117,10 @@ export function PluginMarketplaceDialog({
           ) : null}
           <DialogFooter>
             <Button onClick={() => onOpenChange(false)} type="button" variant="ghost">
-              Cancel
+              {t`Cancel`}
             </Button>
             <Button disabled={!source.trim() || pending} type="submit">
-              {pending ? 'Installing…' : 'Install'}
+              {pending ? t`Installing…` : t`Install`}
             </Button>
           </DialogFooter>
         </form>

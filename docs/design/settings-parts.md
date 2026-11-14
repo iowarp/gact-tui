@@ -24,7 +24,9 @@ page renders exactly one `level={1}` heading, the page h1.
 
 **`SettingsRow`** (B) `components/clio/settings-row.tsx`
 `{ title, description?, info?, note?, error?, children, htmlFor?, inlineControl?, wideControl?, fullWidth?, dirty? }`.
-The label column sits on the left and the control on the right. Use `inlineControl` for a
+The label column sits on the left and the control on the right. It is at least 6rem and the
+label's longest word, so a long Greek word wraps whole instead of breaking mid-word, and
+Japanese labels break between phrases. Use `inlineControl` for a
 switch. Use `wideControl` for a control that can outgrow the 52% column, such as a
 segmented choice with many options: it sits beside the label while both fit and drops
 under it, left-aligned, when they don't, so it never covers the label. Following the spec (`.xrw{width:60%}`), a row takes 60% of a wide content column,
@@ -101,8 +103,10 @@ the left. The chips are hidden from screen readers, so a button's name stays its
 The overlay is the theme's `--scrim`; Notebook dark uses the spec's `rgba(10,9,8,.62)`.
 The frame is `DIALOG_FRAME_WIDTH`: 36% of the window, 340 to 640 px (`clamp(340px,36vw,640px)`,
 connect-infrastructure's "Dialogs" rule; 340 px at 768, 461 px at 1280), and a full-width
-bottom sheet below 600 px. Callers don't override it. Its setting rows stay inline at every
-width: label 36%, control the rest (spec `.xdb .xr`). Narrowing drops the chips first (spec:
+bottom sheet below 600 px. Callers don't override it. Its setting rows stay inline: label
+36%, or its longest word when that is wider, and the control takes the rest (spec `.xdb .xr`).
+A row under 18rem stacks the label over the control instead. That only happens at a
+larger interface size, such as the phone sheet at 150%. Narrowing drops the chips first (spec:
 dialogs "drop the key hints before anything else"): the footer is a container and the chips
 hide once it is under 24rem, a window under about 1180 px. They stay hidden in the sheet. With `keyboard: false` or a disabled
 confirm, the confirm button has no chip. Acknowledgement dialogs such as What's new pass
@@ -160,7 +164,9 @@ Takes the same props as `SettingsNavigation`. It is one named icon per scope
 
 **Picker field** `components/clio/model-select-field.tsx`
 
-- `SettingsSelectField`: a button-styled select with `icon?`, `value?` and `placeholder?`, plus button props.
+- `SettingsSelectField`: a button-styled select with `icon?`, `value?`, `placeholder?` and `wrap?`, plus button props.
+  By default a long value ends in an ellipsis. With `wrap` it wraps whole onto more lines, and
+  Japanese breaks between phrases. The memory pickers use `wrap`.
 - `ModelSelectField { title, options, providerId?, modelId?, option?, placeholder, catalogStatus, onRetryCatalog, onChange, label?, id?, providerName?, disabled? }`
   opens the shared model picker. Use it for every model choice in Settings.
 

@@ -1,4 +1,7 @@
 import { vocab } from '@/lib/brand-vocabulary';
+import { t } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 /**
  * Bridge protocols, newest first. With `clio.infrastructure.v2` the agent
@@ -30,23 +33,24 @@ export function infrastructureSocket(
 /** The agent's own reason for refusing an attachment, in plain language. */
 export function transportRefusalMessage(code: number, reason: string): string {
   if (code === 4401 || reason === 'authentication_required') {
-    return `${vocab.agent} did not accept this app's sign-in for the SSH connection. Reconnect to ${vocab.agent}, then deploy again.`;
+    return t`${agent} did not accept this app's sign-in for the SSH connection. Reconnect to ${agent}, then deploy again.`;
   }
   if (code === 4404 || reason === 'target_not_found') {
-    return `${vocab.agent} no longer has this SSH host saved. Choose the host again, then deploy.`;
+    return t`${agent} no longer has this SSH host saved. Choose the host again, then deploy.`;
   }
   if (code === 4403 || reason === 'origin_not_allowed') {
-    return `${vocab.agent} accepts SSH connections only from this app's own window, and refused this one.`;
+    return t`${agent} accepts SSH connections only from this app's own window, and refused this one.`;
   }
   if (code === 4409 || reason === 'target_not_ssh') {
-    return `${vocab.agent} can attach an SSH connection only to an SSH host, and this host is not one.`;
+    return t`${agent} can attach an SSH connection only to an SSH host, and this host is not one.`;
   }
-  const said = reason ? `: ${reason}` : '';
-  return `${vocab.agent} closed the SSH connection before attaching it (code ${code}${said}).`;
+  return reason
+    ? t`${agent} closed the SSH connection before attaching it (code ${code}: ${reason}).`
+    : t`${agent} closed the SSH connection before attaching it (code ${code}).`;
 }
 
 /** What the webview reports when the handshake itself failed: no reason is available. */
-export const HANDSHAKE_FAILED_MESSAGE = `${vocab.agent} refused the SSH connection before it opened and gave no reason. An older ${vocab.agent} does not report one; update ${vocab.agent} and try again.`;
+export const HANDSHAKE_FAILED_MESSAGE = t`${agent} refused the SSH connection before it opened and gave no reason. An older ${agent} does not report one; update ${agent} and try again.`;
 
 /**
  * Resolve once the agent has attached the transport, or reject with its reason.

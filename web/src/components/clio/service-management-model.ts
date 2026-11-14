@@ -2,6 +2,7 @@ import type { ManagedServiceDefinition } from '@clio/core/v3';
 import { managedServiceStatus } from '@/lib/managed-service-status';
 import { engineId } from './managed-service-gpus';
 import type { StatusTone } from './primitives/status-indicator';
+import { t } from '@lingui/core/macro';
 
 /** The plain sentence behind the ⓘ beside a service's name. */
 export function serviceAbout(service: ManagedServiceDefinition, variant: string) {
@@ -11,10 +12,10 @@ export function serviceAbout(service: ManagedServiceDefinition, variant: string)
   return [
     service.description,
     engineId(service) === 'llama_cpp'
-      ? 'Install prepares the runtime without loading a model. Start loads the selected model.'
+      ? t`Install prepares the runtime without loading a model. Start loads the selected model.`
       : '',
     native
-      ? 'Install prepares the pinned environment. Start loads the model. Removal retains models and evidence.'
+      ? t`Install prepares the pinned environment. Start loads the model. Removal retains models and evidence.`
       : '',
   ]
     .filter(Boolean)

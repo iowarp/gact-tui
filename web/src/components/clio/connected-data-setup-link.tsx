@@ -10,6 +10,7 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { PresentationNavigation } from './presentation-navigation';
 import { ConnectedSourcePicker } from './connected-source-picker';
 import { InfoTip } from './info-tip';
+import { t, ph } from '@lingui/core/macro';
 
 /** A tool may offer setup; only a user opens this private, owner-checked surface. */
 export function ConnectedDataSetupLink({ block }: { block: ToolPresentationBlock }) {
@@ -42,29 +43,27 @@ export function ConnectedDataSetupLink({ block }: { block: ToolPresentationBlock
           }}
         >
           <DatabaseIcon aria-hidden="true" className="size-4" />
-          Connect data
+          {t`Connect data`}
         </Button>
-        <InfoTip label="About private data setup">
-          Sign-in runs privately in your browser, outside the agent conversation. The agent receives
-          only status and the data references you approve. Paths belong to the connected{' '}
-          {vocab.agent}.
+        <InfoTip label={t`About private data setup`}>
+          {t`Sign-in runs privately in your browser, outside the agent conversation. The agent receives only status and the data references you approve. Paths belong to the connected ${ph({ agent: vocab.agent })}.`}
         </InfoTip>
       </div>
       {!sameWorkspace && (
         <p className="text-xs text-muted-foreground">
-          Open the original workspace to connect its data.
+          {t`Open the original workspace to connect its data.`}
         </p>
       )}
       {open && owner.isFetching && (
         <p role="status" className="text-xs">
-          Checking the connected {vocab.agent}…
+          {t`Checking the connected ${ph({ agent: vocab.agent })}…`}
         </p>
       )}
       {open && !owner.isFetching && (owner.error || !matches) && (
         <p role="alert" className="text-sm text-destructive">
           {owner.error
-            ? 'Could not check this connection. Retry Connect data.'
-            : `This setup belongs to a different ${vocab.agent}. Reconnect to the original host.`}
+            ? t`Could not check this connection. Retry Connect data.`
+            : t`This setup belongs to a different ${ph({ agent: vocab.agent })}. Reconnect to the original host.`}
         </p>
       )}
       {open && matches && !owner.isFetching && workspaceId && (

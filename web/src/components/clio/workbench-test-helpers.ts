@@ -30,6 +30,7 @@ export function renderWorkbench() {
       onOpenSubagent: vi.fn(),
       onUndoDiff: vi.fn(),
       sessionId: 'session_parent',
+      // i18n-ignore: test fixture text
       sessionView: createElement('p', null, 'Session intelligence'),
       workspaceId: 'workspace_1',
     }),
@@ -38,6 +39,7 @@ export function renderWorkbench() {
 
 /** The strip of list and tab openers on the panel's outer edge. */
 export function strip() {
+  // i18n-ignore: test query for the toolbar's English name
   return within(screen.getByRole('toolbar', { name: 'Workbench lists' }));
 }
 

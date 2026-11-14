@@ -10,6 +10,7 @@ import { DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { deployNameError, type KnownServiceName } from './deploy-name';
 import { CONNECTION_FIELD, endpointError } from './settings-connection-runtime';
+import { ph, t } from '@lingui/core/macro';
 
 /** Save another agent to switch to later; it is not connected to yet. */
 export function AddAgentDialog({
@@ -31,7 +32,7 @@ export function AddAgentDialog({
   const addressError =
     endpointError(address) ??
     (known.some((service) => service.endpoint === normalized)
-      ? 'This agent is already saved.'
+      ? t`This agent is already saved.`
       : undefined);
   const close = (next: boolean) => {
     if (!next) {
@@ -52,20 +53,20 @@ export function AddAgentDialog({
       open={open}
       onOpenChange={close}
       icon={<ServerIcon className="size-4" />}
-      title="Add an agent"
-      description="Save another agent to switch to. Nothing changes until you switch."
+      title={t`Add an agent`}
+      description={t`Save another agent to switch to. Nothing changes until you switch.`}
       confirm={{
-        label: 'Add',
+        label: t`Add`,
         onConfirm: add,
         disabled: touched && Boolean(nameError || addressError),
       }}
       secondary={
         <Button asChild className="mr-auto px-1.5" variant="link">
-          <Link to="/?intent=connect">More ways to connect…</Link>
+          <Link to="/?intent=connect">{t`More ways to connect…`}</Link>
         </Button>
       }
     >
-      <SettingsRow title="Name" htmlFor="add-agent-name" error={touched ? nameError : undefined}>
+      <SettingsRow title={t`Name`} htmlFor="add-agent-name" error={touched ? nameError : undefined}>
         <Input
           className={CONNECTION_FIELD}
           data-initial-focus=""
@@ -76,9 +77,9 @@ export function AddAgentDialog({
         />
       </SettingsRow>
       <SettingsRow
-        title="Address"
+        title={t`Address`}
         htmlFor="add-agent-address"
-        info="The agent’s full address, including http or https."
+        info={t`The agent’s full address, including http or https.`}
         error={touched ? addressError : undefined}
       >
         <Input
@@ -123,10 +124,10 @@ export function RenameAgentDialog({
       open={Boolean(connection)}
       onOpenChange={close}
       icon={<EditIcon className="size-4" />}
-      title="Rename agent"
+      title={t`Rename agent`}
       description={connection?.endpoint}
       confirm={{
-        label: 'Rename',
+        label: t`Rename`,
         disabled: Boolean(error),
         onConfirm: () => {
           if (error) return;
@@ -136,7 +137,7 @@ export function RenameAgentDialog({
       }}
     >
       <SettingsRow
-        title="Name"
+        title={t`Name`}
         htmlFor="rename-agent-name"
         error={draft === undefined ? undefined : error}
       >
@@ -167,10 +168,10 @@ export function RemoveAgentDialog({
       open={Boolean(connection)}
       onOpenChange={onOpenChange}
       icon={<DeleteIcon className="size-4" />}
-      title={`Remove ${connection?.name ?? 'agent'}?`}
-      description="Forgets its address and saved access on this computer. The agent keeps running."
+      title={connection?.name ? t`Remove ${ph({ name: connection.name })}?` : t`Remove agent?`}
+      description={t`Forgets its address and saved access on this computer. The agent keeps running.`}
       confirm={{
-        label: 'Remove',
+        label: t`Remove`,
         tone: 'destructive',
         onConfirm: () => {
           onRemove();

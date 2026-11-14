@@ -9,6 +9,7 @@ import { connectionScope } from '@/lib/connection-scope';
 import { FollowupSend } from '@/lib/followup-send';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { InfoTip } from './info-tip';
+import { t } from '@lingui/core/macro';
 
 interface Props {
   sessionId: string;
@@ -82,14 +83,14 @@ function FollowupForm({
       draft.onValueChange('');
       setStatus(
         result.state === 'started'
-          ? 'Follow-up sent'
+          ? t`Follow-up sent`
           : result.state === 'pending_steer'
-            ? 'Follow-up will join the running conversation'
-            : 'Follow-up queued',
+            ? t`Follow-up will join the running conversation`
+            : t`Follow-up queued`,
       );
     } catch (cause) {
       if (!controller.signal.aborted)
-        setError(cause instanceof Error ? cause.message : 'Could not send the follow-up.');
+        setError(cause instanceof Error ? cause.message : t`Could not send the follow-up.`);
     } finally {
       busy.current = false;
       if (!controller.signal.aborted) setPending(false);
@@ -105,11 +106,11 @@ function FollowupForm({
       }}
     >
       <Textarea
-        aria-label="Message this agent"
+        aria-label={t`Message this agent`}
         className="max-h-40 min-h-16 resize-none overflow-y-auto text-sm"
         disabled={pending}
         value={value}
-        placeholder="Ask about a finding or give a follow-up…"
+        placeholder={t`Ask about a finding or give a follow-up…`}
         onChange={(event) => {
           draft.onValueChange(event.target.value);
           setStatus('');
@@ -128,16 +129,14 @@ function FollowupForm({
       ) : null}
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <span role="status">{status || 'This conversation'}</span>
-          <InfoTip label="About agent follow-ups">
-            Sends to this existing agent using its configured model and permissions. A running agent
-            receives the follow-up at its next supported boundary. Closing the panel keeps the
-            draft.
+          <span role="status">{status || t`This conversation`}</span>
+          <InfoTip label={t`About agent follow-ups`}>
+            {t`Sends to this existing agent using its configured model and permissions. A running agent receives the follow-up at its next supported boundary. Closing the panel keeps the draft.`}
           </InfoTip>
         </div>
         <Button disabled={pending || !value.trim()} size="sm" type="submit">
           {pending ? <Spinner aria-hidden="true" /> : <SendIcon aria-hidden="true" />}
-          {pending ? 'Sending…' : error ? 'Retry' : 'Send'}
+          {pending ? t`Sending…` : error ? t`Retry` : t`Send`}
         </Button>
       </div>
     </form>

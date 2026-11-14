@@ -8,6 +8,7 @@ import { QuestionResponse } from './pending-interaction-question-response';
 import { useQuestionAnswer } from './question-answer-context';
 import { Button } from '@/components/ui/button';
 import { bundleQuestions } from './question-bundle';
+import { t, ph } from '@lingui/core/macro';
 
 export function AgentQuestionDialog({
   interaction,
@@ -42,7 +43,7 @@ export function AgentQuestionDialog({
         )}
       >
         <DialogTitle className={compact ? 'sr-only' : undefined}>
-          {vocab.agent} asked a question
+          {t`${ph({ agent: vocab.agent })} asked a question`}
         </DialogTitle>
         {interaction &&
         answer &&
@@ -56,7 +57,7 @@ export function AgentQuestionDialog({
               onClose();
             }}
           >
-            Answer in message box
+            {t`Answer in message box`}
           </Button>
         ) : null}
         {interaction ? (
@@ -87,10 +88,10 @@ function QuestionDialogBody({
     <div className="min-w-0">
       <p className="mb-3 text-xs text-muted-foreground">
         {interaction.payload?.task_handle
-          ? `Answer when ready. ${vocab.agent} can continue working and will receive your answer automatically.`
+          ? t`Answer when ready. ${ph({ agent: vocab.agent })} can continue working and will receive your answer automatically.`
           : interaction.payload?.response_mode === 'async'
-            ? `Answer when ready. ${vocab.agent} can continue working; your answer enters the message queue.`
-            : `${vocab.agent} needs your answer to continue.`}
+            ? t`Answer when ready. ${ph({ agent: vocab.agent })} can continue working; your answer enters the message queue.`
+            : t`${ph({ agent: vocab.agent })} needs your answer to continue.`}
       </p>
       <QuestionResponse
         interaction={interaction}

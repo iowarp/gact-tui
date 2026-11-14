@@ -1,5 +1,6 @@
 import type { CommonSchemas } from '@a2ui/web_core/v0_9';
 import type { z } from 'zod';
+import { t } from '@lingui/core/macro';
 
 /**
  * Split out of `kernel-catalog.tsx` (not inlined there, and not exported
@@ -64,7 +65,7 @@ export function resolvedCardAction(
   return () => {
     void context.dataContext.surface.dispatchError({
       code: 'ACTION_UNAVAILABLE',
-      message: 'This action is not available right now.',
+      message: t`This action is not available right now.`,
     });
   };
 }

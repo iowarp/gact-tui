@@ -5,6 +5,7 @@
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -69,20 +70,20 @@ const CATEGORY_COLORS: Record<FileTypeCategory, string> = {
 };
 
 const CATEGORY_NAMES: Record<FileTypeCategory, string> = {
-  archive: 'Archive',
-  audio: 'Audio file',
-  code: 'Code file',
-  design: 'Design file',
-  document: 'Document',
-  empty: 'File',
-  executable: 'Application',
-  file: 'File',
-  folder: 'Folder',
-  font: 'Font file',
-  image: 'Image',
-  presentation: 'Presentation',
-  spreadsheet: 'Spreadsheet',
-  video: 'Video',
+  archive: t`Archive`,
+  audio: t`Audio file`,
+  code: t`Code file`,
+  design: t`Design file`,
+  document: t`Document`,
+  empty: t`File`,
+  executable: t`Application`,
+  file: t`File`,
+  folder: t`Folder`,
+  font: t`Font file`,
+  image: t`Image`,
+  presentation: t`Presentation`,
+  spreadsheet: t`Spreadsheet`,
+  video: t`Video`,
 };
 
 /**
@@ -888,7 +889,7 @@ function FileType({
   const hasText = text !== undefined && text !== null && text !== '';
   // The name spells out a key its label shortens (DOCKERFILE, not DOCK).
   const spelled = resolved.label ? resolved.type.toUpperCase() : undefined;
-  const typeName = spelled ? `${spelled} file` : CATEGORY_NAMES[resolved.category];
+  const typeName = spelled ? t`${spelled} file` : CATEGORY_NAMES[resolved.category];
   // A custom string label is part of what the icon says ("V3, DOCX file").
   const custom = typeof label === 'string' ? label.toUpperCase() : '';
   const name =

@@ -23,11 +23,13 @@ import {
   type ExtensionType,
 } from '@/lib/extension-library-entries';
 import { AddIcon, CloseIcon, MoreIcon } from '@/lib/icon-vocabulary';
+import { cn } from '@/lib/utils';
 import type { ExtensionAdd } from './extension-add-dialog';
 import { InfoTip } from './info-tip';
 import { IconButton } from './primitives/icon-button';
 import { SegmentedControl } from './primitives/segmented-control';
 import { SplitButton } from './primitives/split-button';
+import { t } from '@lingui/core/macro';
 
 export type ExtensionView = 'yours' | 'discover';
 
@@ -47,11 +49,11 @@ const TYPES = (Object.keys(EXTENSION_TYPE_LABELS) as ExtensionType[]).map((value
 
 const ADD_CHOICES: { kind: ExtensionAdd['kind']; label: string }[] = [
   // The raw connection form, for a server with no connector entry (CN12).
-  { kind: 'remote', label: 'Add by URL or command' },
-  { kind: 'import', label: 'Repository or host folder' },
-  { kind: 'upload', label: 'Upload ZIP' },
-  { kind: 'skill', label: 'Create a skill' },
-  { kind: 'plugin', label: 'Compose a plugin' },
+  { kind: 'remote', label: t`Add by URL or command` },
+  { kind: 'import', label: t`Repository or host folder` },
+  { kind: 'upload', label: t`Upload ZIP` },
+  { kind: 'skill', label: t`Create a skill` },
+  { kind: 'plugin', label: t`Compose a plugin` },
 ];
 
 /** Type tabs, Yours | Discover, search and Add, on one line that folds with the list's width. */
@@ -92,55 +94,62 @@ export function ExtensionToolbar({
   useEffect(() => {
     if (searching || !refocus.current) return;
     refocus.current = false;
-    toolbar.current
-      ?.querySelector<HTMLButtonElement>('button[aria-label="Search extensions"]')
-      ?.focus();
+    toolbar.current?.querySelector<HTMLButtonElement>('button[data-extension-search]')?.focus();
   }, [searching]);
   return (
     <div
-      className="flex h-[2.125rem] min-w-0 items-center gap-2"
+      // What doesn't fit (search, Add) drops to a right-aligned second line.
+      className="flex min-h-[2.125rem] min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-1"
       ref={toolbar}
       role="toolbar"
-      aria-label="Extensions"
+      aria-label={t`Extensions`}
     >
-      <TypeTabs onValueChange={onTypeChange} value={type} />
-      <SegmentedControl
-        label="Show"
-        onValueChange={onViewChange}
-        options={[
-          { value: 'yours', label: 'Yours' },
-          { value: 'discover', label: 'Discover' },
-        ]}
-        value={view}
-      />
-      <span className="min-w-0 flex-1" />
+      {/* Where the types fold, an open search takes the row; the filters still apply. */}
+      <div
+        className={cn(
+          'flex max-w-full min-w-0 flex-wrap items-center gap-2',
+          searching && '@max-[35rem]/ext:hidden',
+        )}
+      >
+        <TypeTabs onValueChange={onTypeChange} value={type} />
+        <SegmentedControl
+          label={t`Show`}
+          onValueChange={onViewChange}
+          options={[
+            { value: 'yours', label: t`Yours` },
+            { value: 'discover', label: t`Discover` },
+          ]}
+          value={view}
+        />
+      </div>
+      <span className={cn('min-w-0 flex-1', searching && '@max-[35rem]/ext:hidden')} />
       {searching ? (
         <ExtensionSearchField
           onClose={closeSearch}
           onSearchChange={onSearchChange}
           onSearchSubmit={onSearchSubmit}
-          placeholder={view === 'discover' ? 'Search, Enter for the registry' : 'Search'}
+          placeholder={view === 'discover' ? t`Search, Enter for the registry` : t`Search`}
           search={search}
         />
       ) : (
         <IconButton
+          data-extension-search=""
           icon={<SearchIcon />}
-          label="Search extensions"
+          label={t`Search extensions`}
           onClick={() => setSearching(true)}
         />
       )}
       {supported === false ? (
-        <InfoTip label="Why Add is unavailable">
-          Adding or composing extensions needs a newer agent service. Existing sources can still be
-          inspected.
+        <InfoTip label={t`Why Add is unavailable`}>
+          {t`Adding or composing extensions needs a newer agent service. Existing sources can still be inspected.`}
         </InfoTip>
       ) : null}
       <span className="inline-flex shrink-0">
         <SplitButton
           disabled={supported !== true}
           icon={<AddIcon aria-hidden="true" />}
-          label="Add"
-          menuLabel="Add options"
+          label={t`Add`}
+          menuLabel={t`Add options`}
           onClick={() => (type === 'marketplaces' ? onAddMarketplace() : onAdd(defaultAdd(type)))}
           // Disabled keeps readable words; the ⓘ beside it says why.
           className="[&_button:disabled]:text-muted-foreground [&_button:disabled]:opacity-100!"
@@ -149,7 +158,7 @@ export function ExtensionToolbar({
         >
           <DropdownMenuItem onSelect={onAddMarketplace}>
             <BoxIcon aria-hidden="true" />
-            Marketplace…
+            {t`Marketplace…`}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {ADD_CHOICES.map((choice) => (
@@ -191,7 +200,7 @@ function ExtensionSearchField({
   const [draft, setDraft] = useState(search);
   return (
     <form
-      className="flex min-w-0 basis-[30%] items-center"
+      className="flex min-w-0 basis-[30%] items-center @max-[35rem]/ext:grow"
       // Esc closes the search first; the window closes only on the next Esc.
       data-escape-scope=""
       onSubmit={(event) => {
@@ -201,7 +210,7 @@ function ExtensionSearchField({
       role="search"
     >
       <Input
-        aria-label="Search extensions"
+        aria-label={t`Search extensions`}
         autoFocus
         className="h-7 min-w-0 text-xs"
         onChange={(event) => {
@@ -217,7 +226,7 @@ function ExtensionSearchField({
         placeholder={placeholder}
         value={draft}
       />
-      <IconButton icon={<CloseIcon />} label="Close search" onClick={onClose} />
+      <IconButton icon={<CloseIcon />} label={t`Close search`} onClick={onClose} />
     </form>
   );
 }
@@ -246,7 +255,7 @@ function TypeTabs({
     <>
       <div className="hidden min-w-0 @[46.25rem]/ext:flex" data-fold="full">
         <SegmentedControl
-          label="Extension type"
+          label={t`Extension type`}
           onValueChange={onValueChange}
           options={TYPES}
           value={value}
@@ -255,7 +264,7 @@ function TypeTabs({
       <div className="hidden min-w-0 @[35rem]/ext:flex @[46.25rem]/ext:hidden" data-fold="icons">
         <SegmentedControl
           iconOnly="others"
-          label="Extension type"
+          label={t`Extension type`}
           onValueChange={onValueChange}
           options={TYPES}
           value={value}
@@ -267,14 +276,14 @@ function TypeTabs({
         onKeyDown={step}
       >
         <SegmentedControl
-          label="Extension type"
+          label={t`Extension type`}
           onValueChange={onValueChange}
           options={[current]}
           value={value}
         />
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <IconButton icon={<MoreIcon />} label="More types" />
+            <IconButton icon={<MoreIcon />} label={t`More types`} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-44">
             <DropdownMenuRadioGroup

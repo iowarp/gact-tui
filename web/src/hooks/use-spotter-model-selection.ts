@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { t } from '@lingui/core/macro';
 
 /**
  * The person's SPOTTER model pick in this mount, until the session reports a different
@@ -17,8 +18,8 @@ export function useSpotterModelSelection(
     if (!onChange) return;
     void onChange(next).catch((error: unknown) => {
       setSelection({ value, authoritative: stored });
-      toast.error('SPOTTER model was not changed', {
-        description: error instanceof Error ? error.message : 'The service rejected the change.',
+      toast.error(t`SPOTTER model was not changed`, {
+        description: error instanceof Error ? error.message : t`The service rejected the change.`,
       });
     });
   };

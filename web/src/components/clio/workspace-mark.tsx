@@ -1,49 +1,23 @@
-import {
-  AtomIcon,
-  BookOpenIcon,
-  DatabaseIcon,
-  FlaskConicalIcon,
-  FolderGit2Icon,
-  LeafIcon,
-  MessageSquareIcon,
-  ServerIcon,
-  TelescopeIcon,
-  type LucideIcon,
-} from 'lucide-react';
+import { MessageSquareIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DEFAULT_WORKSPACE_ID } from '@/lib/workspace-labels';
-
-const MARKS: readonly LucideIcon[] = [
-  FlaskConicalIcon,
-  BookOpenIcon,
-  AtomIcon,
-  ServerIcon,
-  DatabaseIcon,
-  TelescopeIcon,
-  LeafIcon,
-  FolderGit2Icon,
-];
-
-const TONES = ['text-chart-1', 'text-chart-2', 'text-chart-3', 'text-chart-4', 'text-chart-5'];
-
-function hash(value: string): number {
-  let result = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    result ^= value.charCodeAt(index);
-    result = Math.imul(result, 16777619);
-  }
-  return result >>> 0;
-}
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { useWorkspaceAppearance, workspaceColour, workspaceIcon } from './settings-folders-model';
 
 /**
- * A workspace's mark in the left bar: an icon and a chart color picked from
- * its id, so the same workspace always looks the same and neighbors differ.
+ * A workspace's mark: the icon and colour chosen on its Folders page, or the
+ * ones derived from its id until someone picks them.
  */
 export function WorkspaceMark({ id, className }: { id: string; className?: string }) {
-  const value = hash(id);
-  const Icon = MARKS[value % MARKS.length]!;
-  const tone = TONES[Math.floor(value / MARKS.length) % TONES.length]!;
-  return <Icon aria-hidden="true" className={cn('size-4 shrink-0', tone, className)} />;
+  const { settings } = useConnectionSettings();
+  const { appearance } = useWorkspaceAppearance(settings.endpoint, id);
+  const { Icon } = workspaceIcon(appearance.icon);
+  return (
+    <Icon
+      aria-hidden="true"
+      className={cn('size-4 shrink-0', workspaceColour(appearance.colour).text, className)}
+    />
+  );
 }
 
 /** The top bar's crumb icon: a chat bubble for Conversations, otherwise the workspace's mark. */

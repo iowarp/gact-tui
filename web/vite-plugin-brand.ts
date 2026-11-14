@@ -42,6 +42,23 @@ interface RawBrand {
   workspace?: {
     greeting?: string;
   };
+  /**
+   * Product copy in other interface languages, keyed by locale (`es`, `ja`).
+   * Each entry may set any of the copy fields; the rest stay as above.
+   */
+  locales?: Record<string, BrandCopy>;
+}
+
+/** The brand fields that are words a person reads, which may differ by language. */
+export interface BrandCopy {
+  /** Only for a generic-noun wordmark; a product name stays as it is. */
+  wordmark?: string;
+  tagline?: string;
+  taglineAccent?: string;
+  agentName?: string;
+  workspaceNoun?: string;
+  landing?: { eyebrow?: string; headline?: string; description?: string };
+  workspace?: { greeting?: string };
 }
 
 export interface ResolvedBrand {
@@ -69,6 +86,8 @@ export interface ResolvedBrand {
   workspace: {
     greeting: string;
   };
+  /** Copy for other interface languages; applied by the `@brand` module at load. */
+  locales: Record<string, BrandCopy>;
   logoSvg: string | null;
   logoImage: string | null;
   iconSvg: string | null;
@@ -118,6 +137,73 @@ export function resolveAgentPort(backend: RawBrand['backend']): number {
   return port;
 }
 
+function trimmed(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+/** Keep only the copy fields a brand may translate, dropping empty values. */
+export function resolveBrandLocales(
+  locales: RawBrand['locales'],
+  brandPath = 'brand.json',
+): Record<string, BrandCopy> {
+  if (locales === undefined) return {};
+  if (!locales || typeof locales !== 'object' || Array.isArray(locales)) {
+    throw new Error(`[brand] ${brandPath}: locales must map a locale to its copy`);
+  }
+  const resolved: Record<string, BrandCopy> = {};
+  for (const [locale, copy] of Object.entries(locales)) {
+    if (!/^[a-z]{2,3}(?:-[A-Za-z0-9]+)*$/u.test(locale)) {
+      throw new Error(`[brand] ${brandPath}: locales.${locale} is not a language tag`);
+    }
+    const entry: BrandCopy = {};
+    for (const key of [
+      'wordmark',
+      'tagline',
+      'taglineAccent',
+      'agentName',
+      'workspaceNoun',
+    ] as const) {
+      const value = trimmed(copy?.[key]);
+      if (value) entry[key] = value;
+    }
+    const landing = {
+      eyebrow: trimmed(copy?.landing?.eyebrow),
+      headline: trimmed(copy?.landing?.headline),
+      description: trimmed(copy?.landing?.description),
+    };
+    if (Object.values(landing).some(Boolean)) {
+      entry.landing = Object.fromEntries(Object.entries(landing).filter(([, value]) => value));
+    }
+    const greeting = trimmed(copy?.workspace?.greeting);
+    if (greeting) entry.workspace = { greeting };
+    resolved[locale] = entry;
+  }
+  return resolved;
+}
+
+/**
+ * The `@brand` module source: the resolved brand with the active interface
+ * language's copy laid over it. The language is active before any application
+ * module loads (web/src/main.tsx), so every reader sees its own language.
+ */
+export function brandModuleSource(brand: ResolvedBrand, assets: readonly string[] = []): string {
+  const { locales, ...base } = brand;
+  return [
+    `import { i18n } from '@/i18n/instance';`,
+    `const base = ${JSON.stringify(base)};`,
+    `const locales = ${JSON.stringify(locales)};`,
+    `const copy = locales[i18n.locale] ?? {};`,
+    `export const brand = {`,
+    `  ...base,`,
+    `  ...copy,`,
+    `  landing: { ...base.landing, ...copy.landing },`,
+    `  workspace: { ...base.workspace, ...copy.workspace },`,
+    `};`,
+    ...assets,
+    `export default brand;`,
+  ].join('\n');
+}
+
 export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand {
   const profileDirectory = resolve(brandingRoot, profile);
   const brandPath = resolve(profileDirectory, 'brand.json');
@@ -152,6 +238,7 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
     workspace: {
       greeting: raw.workspace?.greeting?.trim() || 'What can I help you with?',
     },
+    locales: resolveBrandLocales(raw.locales, brandPath),
     logoSvg: readAsset(profileDirectory, raw.logoSvg, true),
     logoImage: readAsset(profileDirectory, raw.logoImage, false),
     iconSvg: readAsset(profileDirectory, raw.iconSvg, true),
@@ -204,7 +291,7 @@ export function brandPlugin(brandingRoot: string, profile: string, inlineAssets 
           assets.push(`brand.${key} = import.meta.ROLLUP_FILE_URL_${ref};`);
         }
       }
-      return `export const brand = ${JSON.stringify(brand)}; ${assets.join('\n')} export default brand;`;
+      return brandModuleSource(brand, assets);
     },
     // Brand-drives the document <title> and favicon so a reload never falls
     // back to the tracked-default HTML's own hardcoded values (previously

@@ -66,7 +66,11 @@ describe('DetailPane', () => {
   it('hides the list under 40rem of container width only while a pane is open', () => {
     const { rerender, container } = render(<ListDetailLayout list={<p>List</p>} detail={null} />);
     const list = () => container.querySelector('[data-slot="list-detail"] > div')!;
-    expect(list().className).not.toContain('@max-[40rem]:hidden');
+    // The query reads the layout's own named container, not whichever ancestor is nearest.
+    expect(container.querySelector('[data-slot="list-detail"]')!.className).toContain(
+      '@container/list-detail',
+    );
+    expect(list().className).not.toContain('@max-[40rem]/list-detail:hidden');
     rerender(
       <TooltipProvider>
         <ListDetailLayout
@@ -79,6 +83,6 @@ describe('DetailPane', () => {
         />
       </TooltipProvider>,
     );
-    expect(list().className).toContain('@max-[40rem]:hidden');
+    expect(list().className).toContain('@max-[40rem]/list-detail:hidden');
   });
 });

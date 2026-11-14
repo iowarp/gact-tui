@@ -1,5 +1,6 @@
 import type { SubagentRun, ToolInvocation } from '@clio/core/v3';
 import { getToolStatus } from './tool-presentation';
+import { select } from '@lingui/core/macro';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -48,6 +49,21 @@ export function sentAgentMessage(
   };
 }
 
+function messageAction(state: 'sent' | 'sending' | 'send', recipient: string | undefined): string {
+  if (recipient) {
+    return select(state, {
+      sent: `Sent message to ${recipient}`,
+      sending: `Sending message to ${recipient}`,
+      other: `Send message to ${recipient}`,
+    });
+  }
+  return select(state, {
+    sent: 'Sent message to an agent',
+    sending: 'Sending message to an agent',
+    other: 'Send message to an agent',
+  });
+}
+
 /** Give an accepted send a readable, expandable message while retaining exact tool evidence. */
 export function withAgentMessagePresentation(
   tool: ToolInvocation,
@@ -62,7 +78,7 @@ export function withAgentMessagePresentation(
     ...tool,
     presentation: {
       ...tool.presentation,
-      action: `${sent ? 'Sent message to' : sending ? 'Sending message to' : 'Send message to'} ${recipient || 'an agent'}`,
+      action: messageAction(sent ? 'sent' : sending ? 'sending' : 'send', recipient),
       subject: undefined,
       summary: '',
       blocks: [

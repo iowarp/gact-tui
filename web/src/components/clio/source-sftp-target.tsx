@@ -21,6 +21,7 @@ import { RingSpinner } from './primitives/ring-spinner';
 import { SourceField, SourceStatusLine } from './source-form-parts';
 import { SshHostDialog } from './ssh-host-dialog';
 import { sshTargetDefinition, targetMatchesHost } from './managed-service-target-utils';
+import { t, ph } from '@lingui/core/macro';
 
 /** Basic browser SFTP reuses the host editor, target records and fsspec backend. */
 export function SourceSftpTarget({
@@ -73,13 +74,12 @@ export function SourceSftpTarget({
   };
   return (
     <SourceField
-      label="SSH host"
+      label={t`SSH host`}
       aside={
         <>
-          From {hostLabel}
-          <InfoTip label="About this SFTP connection">
-            Uses SFTP from {hostLabel}. Choose browses the selected remote host. Basic key and
-            password login are supported; interactive authentication requires {vocab.product}.
+          {t`From ${hostLabel}`}
+          <InfoTip label={t`About this SFTP connection`}>
+            {t`Uses SFTP from ${hostLabel}. Choose browses the selected remote host. Basic key and password login are supported; interactive authentication requires ${ph({ product: vocab.product })}.`}
           </InfoTip>
         </>
       }
@@ -94,10 +94,10 @@ export function SourceSftpTarget({
           }}
         >
           <SelectTrigger
-            aria-label="SSH connection"
-            className="h-[30px] min-w-0 flex-1 rounded-[7px] text-[12.5px] data-[size=default]:h-[30px]"
+            aria-label={t`SSH connection`}
+            className="h-[30px] min-w-0 flex-1 rounded-[7px] text-menu data-[size=default]:h-[30px]"
           >
-            <SelectValue placeholder="Choose a connection" />
+            <SelectValue placeholder={t`Choose a connection`} />
           </SelectTrigger>
           <SelectContent>
             {targets.data
@@ -111,7 +111,7 @@ export function SourceSftpTarget({
         </Select>
         {selected && (
           <IconButton
-            label="Configure this connection"
+            label={t`Configure this connection`}
             icon={<ConfigureIcon />}
             onClick={() => {
               setEditing(selected);
@@ -128,7 +128,7 @@ export function SourceSftpTarget({
             setOpen(true);
           }}
         >
-          Add connection
+          {t`Add connection`}
         </Button>
       </div>
       {open && (
@@ -181,7 +181,7 @@ export function SourceSftpTarget({
       )}
       {busy && (
         <SourceStatusLine role="status" icon={<RingSpinner />}>
-          Connecting?
+          {t`Connecting?`}
         </SourceStatusLine>
       )}
       {(error || targets.error) && (

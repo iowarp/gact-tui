@@ -3,6 +3,7 @@ import { CircleAlertIcon, TriangleAlertIcon } from 'lucide-react';
 import type { LatexOutlineNode } from '@clio/core/v3';
 import type { LatexOutlineRow, LatexPlace, LatexProblem } from './latex-model';
 import { ListGroupLabel, ListRow } from './primitives/list-row';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * Where a problem is: its line in the entry file, or its file and line elsewhere.
@@ -10,11 +11,11 @@ import { ListGroupLabel, ListRow } from './primitives/list-row';
  */
 function ProblemPlace({ problem, entry }: { problem: LatexProblem; entry: string }) {
   const file = problem.file && problem.file !== entry ? problem.file : '';
-  const line = problem.line ? `line ${problem.line}` : '';
+  const line = problem.line ? t`line ${ph({ line: problem.line })}` : '';
   if (!file && !line) return null;
   return (
     <span
-      className="flex items-baseline text-[12px] text-muted-foreground"
+      className="flex items-baseline text-meta text-muted-foreground"
       data-slot="latex-problem-place"
     >
       {file ? (
@@ -30,7 +31,7 @@ function ProblemPlace({ problem, entry }: { problem: LatexProblem; entry: string
 
 function problemPlace(problem: LatexProblem, entry: string): string {
   const file = problem.file && problem.file !== entry ? problem.file : '';
-  const line = problem.line ? `line ${problem.line}` : '';
+  const line = problem.line ? t`line ${ph({ line: problem.line })}` : '';
   return [file, line].filter(Boolean).join(', ');
 }
 
@@ -86,7 +87,7 @@ export function LatexListSections({
   const current = currentSection(rows, place);
   return (
     <div className="flex flex-col p-1" data-slot="latex-list">
-      <nav aria-label="Paper outline">
+      <nav aria-label={t`Paper outline`}>
         {rows.length ? (
           <div role="list">
             {rows.map((row) => {
@@ -109,15 +110,15 @@ export function LatexListSections({
             })}
           </div>
         ) : (
-          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">
-            {filtered ? 'No matching sections.' : 'No sections yet.'}
+          <p className="px-1.5 py-1.5 text-menu text-muted-foreground">
+            {filtered ? t`No matching sections.` : t`No sections yet.`}
           </p>
         )}
       </nav>
-      <section aria-label="Problems" className="scroll-mt-1" ref={problemsRef}>
-        <ListGroupLabel className="mt-1.5">Problems</ListGroupLabel>
+      <section aria-label={t`Problems`} className="scroll-mt-1" ref={problemsRef}>
+        <ListGroupLabel className="mt-1.5">{t`Problems`}</ListGroupLabel>
         {problems.length ? (
-          <div aria-label="Build problems" role="list">
+          <div aria-label={t`Build problems`} role="list">
             {problems.map((problem, index) => {
               const where = problemPlace(problem, entry);
               const severity = problem.severity === 'error' ? 'Error' : 'Warning';
@@ -150,8 +151,8 @@ export function LatexListSections({
             })}
           </div>
         ) : (
-          <p className="px-1.5 py-1.5 text-[12.5px] text-muted-foreground">
-            {filtered ? 'No matching problems.' : 'No problems.'}
+          <p className="px-1.5 py-1.5 text-menu text-muted-foreground">
+            {filtered ? t`No matching problems.` : t`No problems.`}
           </p>
         )}
       </section>

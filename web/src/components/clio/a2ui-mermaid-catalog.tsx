@@ -2,13 +2,11 @@ import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { CommonSchemas } from '@a2ui/web_core/v0_9';
 import { z } from 'zod';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-  a2uiAccessibilityDescription,
-  a2uiAccessibilityLabel,
-} from './a2ui-accessibility';
+import { a2uiAccessibilityDescription, a2uiAccessibilityLabel } from './a2ui-accessibility';
 import { refinedStrictObject } from './a2ui-refined-schema';
 import { useArtifactText } from './artifact-text-query';
 import { ClioMermaidDiagram } from './mermaid-diagram';
+import { t } from '@lingui/core/macro';
 
 interface ClioMermaidArtifactSourceProps {
   accessibilityDescription?: string;
@@ -29,7 +27,7 @@ function ClioMermaidArtifactSource({
   if (error) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Diagram unavailable</AlertTitle>
+        <AlertTitle>{t`Diagram unavailable`}</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
@@ -37,7 +35,7 @@ function ClioMermaidArtifactSource({
   if (loading || text === undefined) {
     return (
       <div
-        aria-label={`Loading ${title || 'diagram'}`}
+        aria-label={title ? t`Loading ${title}` : t`Loading diagram`}
         className="h-48 motion-safe:animate-pulse rounded-lg bg-muted"
       />
     );
@@ -55,7 +53,10 @@ function ClioMermaidArtifactSource({
 
 const mermaidDataProperties = {
   source: CommonSchemas.DynamicString.optional(),
-  dataUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
+  dataUri: z
+    .string()
+    .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)
+    .optional(),
   title: CommonSchemas.DynamicString.optional(),
   accessibility: CommonSchemas.AccessibilityAttributes.optional(),
   weight: z.number().optional(),
@@ -71,6 +72,7 @@ type MermaidShape = z.infer<z.ZodObject<typeof mermaidDataProperties>>;
  */
 function checkMermaidComponent(value: MermaidShape, context: z.RefinementCtx): void {
   if ((value.source !== undefined) === (value.dataUri !== undefined)) {
+    // i18n-ignore: validation message returned to the agent
     context.addIssue({ code: 'custom', message: 'Provide exactly one of source or dataUri' });
   }
 }

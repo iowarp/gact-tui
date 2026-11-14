@@ -1,38 +1,42 @@
-import type { ProviderActionStage } from './provider-actions';
+import { providerActionStageLabel, type ProviderActionStage } from './provider-actions';
+import { t } from '@lingui/core/macro';
 
 /** Which flow a running action belongs to; each has its own steps. */
 export type ProviderActionFlow = 'api_key' | 'sign_in' | 'install' | 'check';
 
 interface FlowStep {
   title: string;
+  /** The step as one short running word for a provider row ("Verifying…"). */
+  word: string;
   /** The action stages that mean this step is the one running. */
   stages: readonly ProviderActionStage[];
-  /** A stage that names its provider ("Verifying GitHub Copilot…") matches by its start. */
+  /** A stage that names its provider (`verifying:GitHub Copilot`) matches by its start. */
   prefix?: string;
 }
 
 export const FLOW_STEPS: Record<ProviderActionFlow, readonly FlowStep[]> = {
   api_key: [
-    { title: 'Saving your key', stages: ['Saving your key…'] },
-    { title: 'Checking your key', stages: ['Checking…'] },
-    { title: 'Finding models', stages: ['Finding models…'] },
+    { title: t`Saving your key`, word: t`Saving your key…`, stages: ['key-saving'] },
+    { title: t`Checking your key`, word: t`Checking your key…`, stages: ['checking'] },
+    { title: t`Finding models`, word: t`Finding models…`, stages: ['finding-models'] },
   ],
   sign_in: [
     {
-      title: 'Logging in',
-      stages: ['Opening sign-in…', 'Waiting for you to log in…', 'Logging in…'],
+      title: t`Logging in`,
+      word: t`Logging in…`,
+      stages: ['sign-in-opening', 'sign-in-waiting', 'logging-in'],
     },
-    { title: 'Verifying', stages: [], prefix: 'Verifying ' },
-    { title: 'Loading models', stages: ['Loading models…'] },
+    { title: t`Verifying`, word: t`Verifying…`, stages: [], prefix: 'verifying:' },
+    { title: t`Loading models`, word: t`Loading models…`, stages: ['loading-models'] },
   ],
   install: [
-    { title: 'Installing', stages: ['Waiting to install…', 'Installing…'] },
-    { title: 'Checking', stages: ['Checking…'] },
-    { title: 'Finding models', stages: ['Finding models…'] },
+    { title: t`Installing`, word: t`Installing…`, stages: ['install-waiting', 'installing'] },
+    { title: t`Checking`, word: t`Checking…`, stages: ['checking'] },
+    { title: t`Finding models`, word: t`Finding models…`, stages: ['finding-models'] },
   ],
   check: [
-    { title: 'Checking', stages: ['Checking…'] },
-    { title: 'Finding models', stages: ['Finding models…'] },
+    { title: t`Checking`, word: t`Checking…`, stages: ['checking'] },
+    { title: t`Finding models`, word: t`Finding models…`, stages: ['finding-models'] },
   ],
 };
 
@@ -68,10 +72,10 @@ export function providerActionStageFlow(
  * its own word: it has not started installing yet.
  */
 export function providerActionStageWord(stage: string): string {
-  if (stage === 'Waiting to install…') return stage;
+  if (stage === 'install-waiting') return providerActionStageLabel(stage);
   for (const flow of ['check', 'sign_in', 'install', 'api_key'] as const) {
     const step = providerActionStep(flow, stage as ProviderActionStage);
-    if (step) return `${FLOW_STEPS[flow][step - 1].title}…`;
+    if (step) return FLOW_STEPS[flow][step - 1].word;
   }
-  return stage;
+  return providerActionStageLabel(stage);
 }

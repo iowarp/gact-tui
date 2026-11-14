@@ -2,6 +2,7 @@ import type { PromptBasis } from '@clio/core/v3';
 import { SyringeIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { t } from '@lingui/core/macro';
 
 /**
  * A plugin change applied as an injection: the agent was told, but its system
@@ -19,24 +20,23 @@ export function PluginChangePendingNotice({
   onCompact?: () => void;
 }) {
   return (
-    <Alert aria-label="Plugin changes waiting for compaction" role="region">
+    <Alert aria-label={t`Plugin changes waiting for compaction`} role="region">
       <SyringeIcon aria-hidden="true" />
-      <AlertTitle>Sent to the agent as an injection</AlertTitle>
+      <AlertTitle>{t`Sent to the agent as an injection`}</AlertTitle>
       <AlertDescription className="grid gap-1.5">
         <p className="mb-0!">
-          These changes were sent as an injection. They join the system prompt at the next
-          compaction.
+          {t`These changes were sent as an injection. They join the system prompt at the next compaction.`}
         </p>
         <dl className="grid gap-0.5 text-xs">
           {basis.added.length ? (
             <div className="flex flex-wrap gap-x-1.5">
-              <dt className="font-medium text-foreground">Added</dt>
+              <dt className="font-medium text-foreground">{t`Added`}</dt>
               <dd>{basis.added.join(', ')}</dd>
             </div>
           ) : null}
           {basis.removed.length ? (
             <div className="flex flex-wrap gap-x-1.5">
-              <dt className="font-medium text-foreground">Removed</dt>
+              <dt className="font-medium text-foreground">{t`Removed`}</dt>
               <dd>{basis.removed.join(', ')}</dd>
             </div>
           ) : null}
@@ -44,7 +44,7 @@ export function PluginChangePendingNotice({
         {onCompact ? (
           <div>
             <Button disabled={compacting} onClick={onCompact} size="xs" variant="outline">
-              {compacting ? 'Compacting…' : 'Compact now'}
+              {compacting ? t`Compacting…` : t`Compact now`}
             </Button>
           </div>
         ) : null}

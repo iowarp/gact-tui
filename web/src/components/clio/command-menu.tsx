@@ -59,6 +59,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { plural, t, ph } from '@lingui/core/macro';
 
 // The assistant renders a whole conversation: it loads when the palette opens, not at boot.
 const loadSearchAssistant = () => import('./search-assistant');
@@ -124,16 +125,25 @@ export function ClioCommandMenu({
           handOffFocus.current = false;
         }}
         onEscapeKeyDown={(event) => {
+          // Back one step, then close: the assistant returns to the list, and a
+          // chosen type, picked or typed as a prefix (#pipe), returns to All.
           if (aiMode) {
             event.preventDefault();
             setAiMode(false);
+          } else if (parseCommandMenuQuery(query).prefixScope) {
+            event.preventDefault();
+            setQuery(withoutCommandMenuPrefix(query));
+            setScope('all');
+          } else if (scope !== 'all') {
+            event.preventDefault();
+            setScope('all');
           }
         }}
       >
         <DialogHeader className="sr-only">
-          <DialogTitle>{brand.name} search</DialogTitle>
+          <DialogTitle>{t`${ph({ name: brand.name })} search`}</DialogTitle>
           <DialogDescription>
-            Search conversations, matching passages, files, settings, or ask the search assistant.
+            {t`Search conversations, matching passages, files, settings, or ask the search assistant.`}
           </DialogDescription>
         </DialogHeader>
         {/* Mounted only while the dialog is present, so its route, query and
@@ -258,7 +268,7 @@ function CommandMenuBody({
           ? `/workspaces/${encodeURIComponent(target.workspace_id)}/sessions/${encodeURIComponent(target.id)}`
           : undefined;
     if (!targetRoute) {
-      toast.error('Open a conversation in this workspace to view this file.');
+      toast.error(t`Open a conversation in this workspace to view this file.`);
       return;
     }
     const snapshot =
@@ -326,6 +336,19 @@ function CommandMenuBody({
       setScope('all');
       return;
     }
+    if ((event.key === 'PageDown' || event.key === 'PageUp') && !modified) {
+      // The list's own group jump, which it binds to Alt and an arrow.
+      event.preventDefault();
+      event.currentTarget.dispatchEvent(
+        new window.KeyboardEvent('keydown', {
+          altKey: true,
+          bubbles: true,
+          cancelable: true,
+          key: event.key === 'PageDown' ? 'ArrowDown' : 'ArrowUp',
+        }),
+      );
+      return;
+    }
     if (modified || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
     const input = event.currentTarget;
     const edge = event.key === 'ArrowRight' ? input.value.length : 0;
@@ -335,27 +358,28 @@ function CommandMenuBody({
     event.preventDefault();
     pickScope(next);
   };
-  const scopeLabel = COMMAND_MENU_SCOPES.find((item) => item.value === activeScope)?.label ?? '';
   const { fetching } = results;
   const emptyText = memory.isFetching
-    ? 'Searching conversations…'
+    ? t`Searching conversations…`
     : results.sessions.isLoading || results.workspaces.isLoading
-      ? 'Loading conversations…'
+      ? t`Loading conversations…`
       : !searching && (activeScope === 'files' || activeScope === 'artifacts')
-        ? `Type to find ${activeScope === 'files' ? 'a workspace file' : 'a session artifact'}.`
-        : 'Nothing here yet.';
+        ? activeScope === 'files'
+          ? t`Type to find a workspace file.`
+          : t`Type to find a session artifact.`
+        : t`Nothing here yet.`;
   // A list the search reads failed: say which, with Retry, above whatever did load.
   const failure = (
     [
-      [results.sessions, 'Conversations could not be listed'],
-      [results.workspaces, 'Workspaces could not be listed'],
-      [memory, 'Conversations could not be searched'],
+      [results.sessions, t`Conversations could not be listed`],
+      [results.workspaces, t`Workspaces could not be listed`],
+      [memory, t`Conversations could not be searched`],
     ] as const
   ).filter(([query]) => query.isError && query.data === undefined);
   const canAsk = credentialsReady && Boolean(searchWorkspaceId);
 
   return aiMode && searchWorkspaceId ? (
-    <Suspense fallback={<StateView kind="loading" title="Opening the search assistant" />}>
+    <Suspense fallback={<StateView kind="loading" title={t`Opening the search assistant`} />}>
       <ClioSearchAssistant
         key={connectionScope(settings)}
         workspaceId={searchWorkspaceId}
@@ -379,15 +403,19 @@ function CommandMenuBody({
           const settingsRoute = settingsResultsRoute(global, counts);
           const openAllResults = allResultsAction(counts, settingsRoute);
           const hints: PickerHint[] = [
-            { label: 'Close', shortcut: 'menu-close', optional: true },
+            {
+              label: activeScope === 'all' ? t`Close` : t`Back`,
+              shortcut: 'menu-close',
+              optional: true,
+            },
             activeScope !== 'all' && !searchText
-              ? { label: 'All types', shortcut: 'menu-all-types', optional: true }
-              : { label: 'Change type', shortcut: 'menu-type', optional: true },
-            { label: 'Open', shortcut: 'menu-pick' },
+              ? { label: t`All types`, shortcut: 'menu-all-types', optional: true }
+              : { label: t`Change type`, shortcut: 'menu-type', optional: true },
+            { label: t`Open`, shortcut: 'menu-pick' },
             ...(settingsRoute
               ? [
                   {
-                    label: 'All in Settings',
+                    label: t`All in Settings`,
                     shortcut: 'menu-all-results',
                     accent: true,
                     onSelect: () => openRoute(settingsRoute),
@@ -397,14 +425,14 @@ function CommandMenuBody({
             ...(openAllResults
               ? [
                   {
-                    label: 'All results',
+                    label: t`All results`,
                     shortcut: 'menu-all-results' as const,
                     onSelect: openAllResults,
                   },
                 ]
               : []),
             {
-              label: `Ask ${vocab.agent}`,
+              label: t`Ask ${ph({ agent: vocab.agent })}`,
               shortcut: 'menu-ask',
               onSelect: () => setAiMode(true),
               disabled: !canAsk,
@@ -420,21 +448,21 @@ function CommandMenuBody({
                 flush
                 className="min-w-0"
                 onValueChange={setQuery}
-                placeholder="Search work, files, artifacts, or actions…"
+                placeholder={t`Search work, files, artifacts, or actions…`}
                 value={query}
                 trailing={
                   searching ? (
                     <span
                       aria-live="polite"
-                      className="flex shrink-0 items-center gap-1.5 pr-1 font-mono text-[11px] whitespace-nowrap text-muted-foreground tabular-nums"
+                      className="flex shrink-0 items-center gap-1.5 pr-1 font-mono text-caption whitespace-nowrap text-muted-foreground tabular-nums"
                     >
                       {fetching && !counts.all ? (
                         <LoaderCircleIcon
-                          aria-label="Searching"
+                          aria-label={t`Searching`}
                           className="size-3.5 motion-safe:animate-spin"
                         />
                       ) : (
-                        `${counts.all} ${counts.all === 1 ? 'result' : 'results'}`
+                        plural(counts.all, { one: '# result', other: '# results' })
                       )}
                     </span>
                   ) : null
@@ -445,7 +473,7 @@ function CommandMenuBody({
                 <TextTabs
                   keepFocus
                   compact={compactTabs}
-                  label="Result type"
+                  label={t`Result type`}
                   onValueChange={pickScope}
                   tabs={COMMAND_MENU_SCOPES.map((tab) => ({
                     ...tab,
@@ -458,7 +486,7 @@ function CommandMenuBody({
               </div>
               {!credentialsReady && !credentialError ? (
                 <p role="status" className="px-3 py-2 text-xs text-muted-foreground">
-                  Waiting for the default backend…
+                  {t`Waiting for the default backend…`}
                 </p>
               ) : null}
               {credentialError ? (
@@ -466,11 +494,11 @@ function CommandMenuBody({
                   {credentialError}
                 </p>
               ) : null}
-              <CommandList className="max-h-[min(60dvh,34rem)] **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5 **:data-[slot=command-item]:text-[12.5px]">
+              <CommandList className="max-h-[min(60dvh,34rem)] **:data-[slot=command-item]:min-h-[30px] **:data-[slot=command-item]:py-0.5 **:data-[slot=command-item]:text-menu">
                 {failure.length ? (
                   <StateView
                     action={{
-                      label: 'Retry',
+                      label: t`Retry`,
                       onClick: () => {
                         for (const [query] of failure) void query.refetch();
                       },
@@ -484,11 +512,9 @@ function CommandMenuBody({
                 ) : null}
                 {noMatch ? (
                   <CommandMenuNoMatch
-                    canAsk={canAsk}
                     onAllTypes={activeScope === 'all' ? undefined : () => pickScope('all')}
-                    onAsk={() => setAiMode(true)}
                     query={searchText.trim()}
-                    scope={activeScope === 'all' ? undefined : scopeLabel}
+                    scope={activeScope === 'all' ? undefined : activeScope}
                     total={counts.all}
                   />
                 ) : (

@@ -18,6 +18,7 @@ import { KeyValueGrid } from './primitives/key-value-grid';
 import { StatusIndicator } from './primitives/status-indicator';
 import { SettingsGroupLabel } from './settings-row';
 import { marketplaceSlot, type MarketplaceManager } from './marketplace-manager';
+import { plural, t } from '@lingui/core/macro';
 
 /** Where a marketplace comes from and what it holds, beside the list. */
 export function MarketplaceDetailPane({
@@ -67,7 +68,7 @@ export function MarketplaceDetailPane({
             <IconButton
               disabled={manager.busy}
               icon={<RefreshIcon />}
-              label={manager.updating(name) ? 'Updating…' : 'Update'}
+              label={manager.updating(name) ? t`Updating…` : t`Update`}
               onClick={() => manager.update(name)}
             />
           ) : null}
@@ -75,7 +76,7 @@ export function MarketplaceDetailPane({
             <IconButton
               disabled={manager.busy}
               icon={<DeleteIcon />}
-              label="Uninstall"
+              label={t`Uninstall`}
               onClick={() => manager.requestUninstall(marketplace)}
             />
           ) : null}
@@ -93,16 +94,16 @@ export function MarketplaceDetailPane({
         </>
       }
     >
-      <MetaLine className="block truncate text-xs text-faint" parts={entry.meta.slice(1)} />
+      <MetaLine className="block truncate text-xs text-muted-foreground" parts={entry.meta.slice(1)} />
       <div className="mt-3">
         {!marketplace.trusted || pendingUpdates ? (
           <TrustBanner
             action={marketplaceSlot(marketplace, pendingUpdates, manager)}
-            detail="Its plugins can run commands, start servers and run hooks on this service."
+            detail={t`Its plugins can run commands, start servers and run hooks on this service.`}
             message={
               marketplace.trusted
-                ? 'An update changes parts that run here. The installed version keeps running until you trust it.'
-                : 'Its plugins can run commands and hooks. Trust only sources you know.'
+                ? t`An update changes parts that run here. The installed version keeps running until you trust it.`
+                : t`Its plugins can run commands and hooks. Trust only sources you know.`
             }
           />
         ) : null}
@@ -111,37 +112,37 @@ export function MarketplaceDetailPane({
             ...(local
               ? []
               : [
-                  { label: 'Source', value: marketplace.source || 'Unknown', mono: true },
-                  { label: 'Format', value: formatName(marketplace.format) },
+                  { label: t`Source`, value: marketplace.source || t`Unknown`, mono: true },
+                  { label: t`Format`, value: formatName(marketplace.format) },
                 ]),
             ...(marketplace.commit
-              ? [{ label: 'Commit', value: marketplace.commit.slice(0, 12), mono: true }]
+              ? [{ label: t`Commit`, value: marketplace.commit.slice(0, 12), mono: true }]
               : []),
             {
-              label: 'Trust',
+              label: t`Trust`,
               value: (
                 <StatusIndicator
                   className="justify-end"
                   label={
                     !marketplace.trusted
-                      ? 'Not trusted'
+                      ? t`Not trusted`
                       : marketplaceShipped(marketplace)
-                        ? 'Shipped with the service'
+                        ? t`Shipped with the service`
                         : local
-                          ? 'On this host'
-                          : 'Trusted by you'
+                          ? t`On this host`
+                          : t`Trusted by you`
                   }
                   tone={marketplace.trusted ? 'success' : 'warning'}
                 />
               ),
             },
-            ...(marketplace.parent ? [{ label: 'Added by', value: marketplace.parent }] : []),
+            ...(marketplace.parent ? [{ label: t`Added by`, value: marketplace.parent }] : []),
           ]}
         />
         {marketplace.diagnostics.length ? (
           <>
             <SettingsGroupLabel>
-              {errors ? `${errors} ${errors === 1 ? 'problem' : 'problems'}` : 'Notes'}
+              {errors ? plural(errors, { one: '# problem', other: '# problems' }) : t`Notes`}
             </SettingsGroupLabel>
             <ul className="grid gap-1 text-xs">
               {marketplace.diagnostics.map((row, index) => (
@@ -151,7 +152,7 @@ export function MarketplaceDetailPane({
                   }
                   key={`${row.code}:${index}`}
                 >
-                  {row.message} <span className="font-mono text-faint">{row.code}</span>
+                  {row.message} <span className="font-mono text-muted-foreground">{row.code}</span>
                 </li>
               ))}
             </ul>
@@ -159,9 +160,9 @@ export function MarketplaceDetailPane({
         ) : null}
         {localCollection ?? (
           <>
-            <SettingsGroupLabel>Plugins</SettingsGroupLabel>
+            <SettingsGroupLabel>{t`Plugins`}</SettingsGroupLabel>
             <InstalledPluginList
-              label={`Plugins from ${name}`}
+              label={t`Plugins from ${name}`}
               onExplore={onExplorePlugin}
               pending={false}
               plugins={own}

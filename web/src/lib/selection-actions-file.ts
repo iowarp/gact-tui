@@ -22,9 +22,9 @@ function lineOf(node: Node): number | undefined {
 /** "lines 12–18", "line 4", or nothing when the viewer has no numbered rows. */
 export function lineRangeLabel(startLine?: number, endLine?: number): string {
   if (startLine === undefined) return '';
-  return endLine !== undefined && endLine !== startLine
-    ? `lines ${startLine}–${endLine}`
-    : `line ${startLine}`;
+  // Anchor metadata recorded with the comment and sent to the agent: not interface copy.
+  if (endLine !== undefined && endLine !== startLine) return `lines ${startLine}–${endLine}`; // i18n-ignore: anchor metadata for the agent
+  return `line ${startLine}`; // i18n-ignore: anchor metadata for the agent
 }
 
 /**

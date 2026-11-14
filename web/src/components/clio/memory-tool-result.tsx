@@ -12,6 +12,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { BoundedResult } from './bounded-result';
 import { MemoryFactChanges } from './memory-fact-changes';
 import { asRecord, toolResultRecord } from './tool-result-shared';
+import { t } from '@lingui/core/macro';
 
 /** Recorded facts and corrections are visible without opening a disclosure or Settings. */
 export function MemoryToolResult({ tool }: { tool: ToolInvocation }) {
@@ -70,7 +71,7 @@ export function MemoryToolResult({ tool }: { tool: ToolInvocation }) {
     return (
       <>
         {tool.name === 'update_memory' && typeof previous?.text !== 'string' ? (
-          <p className="ml-7 text-sm text-muted-foreground">The earlier value was not retained.</p>
+          <p className="ml-7 text-sm text-muted-foreground">{t`The earlier value was not retained.`}</p>
         ) : null}
         <Facts changes={changes} />
       </>
@@ -96,7 +97,7 @@ export function MemoryToolResult({ tool }: { tool: ToolInvocation }) {
 function Facts({ changes }: { changes: MemoryFactChange[] }) {
   return (
     <div className="ml-7 min-w-0 py-1" data-slot="memory-tool-facts">
-      <BoundedResult lines={3} unit="items" title="Memory facts">
+      <BoundedResult lines={3} unit="items" title={t`Memory facts`}>
         <MemoryFactChanges changes={changes} />
       </BoundedResult>
     </div>
@@ -106,7 +107,7 @@ function Facts({ changes }: { changes: MemoryFactChange[] }) {
 function Unavailable() {
   return (
     <p className="ml-7 text-sm text-muted-foreground">
-      The facts were not retained with this result.
+      {t`The facts were not retained with this result.`}
     </p>
   );
 }
@@ -122,7 +123,7 @@ function RetainedProposal({ id }: { id: string }) {
   if (proposals.isPending)
     return (
       <p role="status" className="ml-7 text-sm text-muted-foreground">
-        Loading recorded changes…
+        {t`Loading recorded changes…`}
       </p>
     );
   const proposal = proposals.data?.find((p: MemoryProposal) => p.id === id);

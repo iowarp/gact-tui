@@ -12,20 +12,21 @@ import { useUpdateChannel } from '@/lib/update-channel';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { normalizeEndpoint } from '@/lib/connection';
 import { agentCheckIssue } from './version-check-issue';
+import { t } from '@lingui/core/macro';
 
 export const CONNECTION_FIELD =
-  'h-[1.875rem] w-full rounded-md px-[9px] text-[0.78125rem] placeholder:text-faint md:text-[0.78125rem]';
+  'h-[1.875rem] w-full rounded-md px-[9px] text-menu placeholder:text-faint md:text-menu';
 
 /** The address error in words, or undefined when it can be used. */
 export function endpointError(value: string): string | undefined {
-  if (!value.trim()) return 'Enter the agent’s address.';
+  if (!value.trim()) return t`Enter the agent’s address.`;
   try {
     normalizeEndpoint(value.trim());
     return undefined;
   } catch (error) {
     return error instanceof Error && !(error instanceof TypeError)
       ? error.message
-      : 'Enter a full address, such as https://agent.example.org.';
+      : t`Enter a full address, such as https://agent.example.org.`;
   }
 }
 
@@ -44,38 +45,38 @@ export interface ConnectionRuntime {
 
 /** Product names for the capability flags an agent can report as missing. */
 const FEATURE_NAMES: Record<string, string> = {
-  a2ui: 'Rich results',
-  agent_routing: 'Agent routing',
-  agent_write: 'Creating and editing agents',
-  attachments_upload: 'Attachment upload',
-  commands: 'Commands',
-  cost_tracking: 'Cost tracking',
-  diffs: 'Change review',
-  edit_modes: 'Edit modes',
-  files: 'Files',
-  hooks: 'Hooks',
-  integration_health: 'Integration health',
-  lsp: 'Code intelligence',
-  mcp: 'MCP servers',
-  memory: 'Memory',
-  metrics: 'Usage',
-  multimodal_image_parts: 'Images in messages',
-  permissions: 'Permissions',
-  plan_mode: 'Plan mode',
-  providers: 'Providers',
-  scheduled_sessions: 'Scheduled work',
-  search_messages: 'Message search',
-  session_branching: 'Branching conversations',
-  session_export: 'Conversation export',
-  session_sharing: 'Conversation sharing',
-  session_summary: 'Conversation summaries',
-  session_tasks: 'Tasks',
-  sessions: 'Conversations',
-  skills_extraction: 'Skill extraction',
-  subagents: 'Subagents',
-  thinking_blocks: 'Thinking',
-  voice: 'Voice input',
-  workspaces: 'Workspaces',
+  a2ui: t`Rich results`,
+  agent_routing: t`Agent routing`,
+  agent_write: t`Creating and editing agents`,
+  attachments_upload: t`Attachment upload`,
+  commands: t`Commands`,
+  cost_tracking: t`Cost tracking`,
+  diffs: t`Change review`,
+  edit_modes: t`Edit modes`,
+  files: t`Files`,
+  hooks: t`Hooks`,
+  integration_health: t`Integration health`,
+  lsp: t`Code intelligence`,
+  mcp: t`MCP servers`,
+  memory: t`Memory`,
+  metrics: t`Usage`,
+  multimodal_image_parts: t`Images in messages`,
+  permissions: t`Permissions`,
+  plan_mode: t`Plan mode`,
+  providers: t`Providers`,
+  scheduled_sessions: t`Scheduled work`,
+  search_messages: t`Message search`,
+  session_branching: t`Branching conversations`,
+  session_export: t`Conversation export`,
+  session_sharing: t`Conversation sharing`,
+  session_summary: t`Conversation summaries`,
+  session_tasks: t`Tasks`,
+  sessions: t`Conversations`,
+  skills_extraction: t`Skill extraction`,
+  subagents: t`Subagents`,
+  thinking_blocks: t`Thinking`,
+  voice: t`Voice input`,
+  workspaces: t`Workspaces`,
 };
 
 /**
@@ -153,27 +154,27 @@ export function useConnectionRuntime(): ConnectionRuntime {
     if (capabilities.isError) {
       return {
         tone: 'error',
-        label: 'Not reachable',
-        detail: 'The agent did not answer. Check that it is running, then retry.',
+        label: t`Not reachable`,
+        detail: t`The agent did not answer. Check that it is running, then retry.`,
       };
     }
     if (capabilities.isPending || latest.isPending) {
-      return { tone: 'running', label: 'Checking', detail: 'Checking for a newer release.' };
+      return { tone: 'running', label: t`Checking`, detail: t`Checking for a newer release.` };
     }
     if (version && latestVersion && compareReleaseVersions(version, latestVersion) < 0) {
       return {
         tone: 'info',
-        label: 'Update available',
-        detail: `${latestVersion} is available.`,
+        label: t`Update available`,
+        detail: t`${latestVersion} is available.`,
       };
     }
     if (version && latestVersion) {
-      return { tone: 'success', label: 'Up to date', detail: `${latestVersion} is the latest.` };
+      return { tone: 'success', label: t`Up to date`, detail: t`${latestVersion} is the latest.` };
     }
     return {
       tone: 'idle',
-      label: 'Not checked',
-      detail: issue?.text ?? 'No release to compare with.',
+      label: t`Not checked`,
+      detail: issue?.text ?? t`No release to compare with.`,
     };
   })();
   return {

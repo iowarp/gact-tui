@@ -2,6 +2,7 @@ import { workspaceName } from '@/lib/workspace-labels';
 import type { PermissionPolicy, Workspace } from '@clio/core/v3';
 import type { StatusTone } from './primitives/status-indicator';
 import { vocab } from '@/lib/brand-vocabulary';
+import { plural, t, ph } from '@lingui/core/macro';
 
 export type PolicyKind = NonNullable<PermissionPolicy['kind']>;
 
@@ -31,20 +32,20 @@ export const emptyDraft: PolicyDraft = {
 
 /** Decisions as offered in the dialog. */
 export const actionLabels: Record<string, string> = {
-  ask: 'Ask every time',
-  allow: 'Allow',
-  allow_session: 'Allow for session',
-  allow_workspace: `Allow for ${vocab.workspace}`,
-  deny: 'Block',
+  ask: t`Ask every time`,
+  allow: t`Allow`,
+  allow_session: t`Allow for session`,
+  allow_workspace: t`Allow for ${ph({ workspace: vocab.workspace })}`,
+  deny: t`Block`,
 };
 
 /** Decisions as a rule's status word. */
 const actionStatus: Record<string, { label: string; tone: StatusTone }> = {
-  ask: { label: 'Ask every time', tone: 'warning' },
-  allow: { label: 'Allowed', tone: 'success' },
-  allow_session: { label: 'Allowed for session', tone: 'success' },
-  allow_workspace: { label: `Allowed for ${vocab.workspace}`, tone: 'success' },
-  deny: { label: 'Blocked', tone: 'error' },
+  ask: { label: t`Ask every time`, tone: 'warning' },
+  allow: { label: t`Allowed`, tone: 'success' },
+  allow_session: { label: t`Allowed for session`, tone: 'success' },
+  allow_workspace: { label: t`Allowed for ${ph({ workspace: vocab.workspace })}`, tone: 'success' },
+  deny: { label: t`Blocked`, tone: 'error' },
 };
 
 export function ruleStatus(action: string): { label: string; tone: StatusTone } {
@@ -52,13 +53,13 @@ export function ruleStatus(action: string): { label: string; tone: StatusTone } 
 }
 
 export const kindLabels: Record<PolicyKind, string> = {
-  tool: 'Tool action',
-  domain: 'Internet domain',
-  fs_root: 'File location',
-  plan_acl: 'Planning mode action',
-  hook: 'Tool lifecycle event',
-  browser_host: 'Website in the shared browser',
-  browser_certificate: 'Trusted certificate',
+  tool: t`Tool action`,
+  domain: t`Internet domain`,
+  fs_root: t`File location`,
+  plan_acl: t`Planning mode action`,
+  hook: t`Tool lifecycle event`,
+  browser_host: t`Website in the shared browser`,
+  browser_certificate: t`Trusted certificate`,
 };
 
 /** Rules the person makes from the shared browser itself: they can be removed, not edited. */
@@ -98,33 +99,42 @@ export interface RuleScope {
 
 export function ruleScope(policy: PermissionPolicy, workspaces?: readonly Workspace[]): RuleScope {
   if (policy.scope === 'session') {
-    return { label: policy.scope_id ? 'One conversation' : 'Any conversation' };
+    return { label: policy.scope_id ? t`One conversation` : t`Any conversation` };
   }
-  if (!policy.scope_id) return { label: `Any ${policy.scope || vocab.workspace}` };
+  if (!policy.scope_id) return { label: t`Any ${ph({ scope: policy.scope || vocab.workspace })}` };
   const workspace = workspaces?.find((entry) => entry.id === policy.scope_id);
   return workspace
     ? { label: workspaceName(workspace) }
-    : { label: `Unregistered ${vocab.workspace}`, missingId: policy.scope_id };
+    : { label: t`Unregistered ${ph({ workspace: vocab.workspace })}`, missingId: policy.scope_id };
 }
 
 function isWildcard(value?: string): boolean {
   return !value || value === '*' || value === '**';
 }
 
+/** One fact on a rule's meta line; a `long` one (a path or key) goes last. */
+export interface RuleDetail {
+  text: string;
+  long: boolean;
+}
+
 /** Facts after the kind on the meta line: modes, events, path limit, certificate key. */
-export function ruleDetails(policy: PermissionPolicy): string[] {
+export function ruleDetails(policy: PermissionPolicy): RuleDetail[] {
   const kind = inferredKind(policy);
-  const details: string[] = [];
-  if (policy.modes?.length) details.push(policy.modes.join(', '));
-  if (policy.on?.length) details.push(policy.on.join(', '));
+  const details: RuleDetail[] = [];
+  if (policy.modes?.length) details.push({ text: policy.modes.join(', '), long: false });
+  if (policy.on?.length) details.push({ text: policy.on.join(', '), long: false });
   if (
     (kind === 'tool' || kind === 'plan_acl' || kind === 'hook') &&
     !isWildcard(policy.path_pattern)
   ) {
-    details.push(`in ${policy.path_pattern}`);
+    details.push({ text: t`in ${ph({ path: policy.path_pattern ?? '' })}`, long: true });
   }
   if (kind === 'browser_certificate' && policy.fingerprint) {
-    details.push(`key sha256/${policy.fingerprint}`);
+    details.push({
+      text: t`key sha256/${ph({ fingerprint: policy.fingerprint })}`,
+      long: true,
+    });
   }
   return details;
 }
@@ -183,19 +193,19 @@ export const subjectField: Record<
   { label: string; placeholder: string; error: string }
 > = {
   tool: {
-    label: 'Tool name',
-    placeholder: 'Tool name or pattern',
-    error: 'Enter a tool name or pattern.',
+    label: t`Tool name`,
+    placeholder: t`Tool name or pattern`,
+    error: t`Enter a tool name or pattern.`,
   },
   domain: {
-    label: 'Domain',
-    placeholder: 'Domain or pattern, like *.earthscope.org',
-    error: 'Enter a domain or pattern.',
+    label: t`Domain`,
+    placeholder: t`Domain or pattern, like *.earthscope.org`,
+    error: t`Enter a domain or pattern.`,
   },
   fs_root: {
-    label: 'File location',
-    placeholder: 'Path or pattern, like D:/science/**',
-    error: 'Enter a path or pattern.',
+    label: t`File location`,
+    placeholder: t`Path or pattern, like D:/science/**`,
+    error: t`Enter a path or pattern.`,
   },
 };
 
@@ -204,7 +214,7 @@ export function subjectFor(kind: PolicyKind) {
 }
 
 export function priorityError(priority: string): string | undefined {
-  return priority !== '' && !/^-?\d+$/.test(priority.trim()) ? 'Use a whole number.' : undefined;
+  return priority !== '' && !/^-?\d+$/.test(priority.trim()) ? t`Use a whole number.` : undefined;
 }
 
 /**
@@ -251,36 +261,35 @@ export function priorityChoices(
   const highest = levels.at(-1);
   const choices: PriorityChoice[] = [];
   if (own === undefined) {
-    choices.push({ value: '', label: 'After existing rules', hint: 'The agent places it' });
+    choices.push({ value: '', label: t`After existing rules`, hint: t`The agent places it` });
   } else if (lowest !== undefined && !alone(lowest)) {
-    choices.push({ value: String(lowest - 1), label: 'Below every rule' });
+    choices.push({ value: String(lowest - 1), label: t`Below every rule` });
   }
   levels.forEach((level, index) => {
     const others = policies.filter((policy, at) => at !== editing && policy.priority === level);
     const names = others.map(ruleTarget);
     choices.push({
       value: String(level),
-      label: `Priority ${index + 1}`,
+      label: t`Priority ${ph({ priority: index + 1 })}`,
       hint: names.length
         ? names.length > 2
-          ? `Same as ${names.slice(0, 2).join(', ')} +${names.length - 2}`
-          : `Same as ${names.join(', ')}`
-        : 'This rule',
+          ? t`Same as ${ph({ names: names.slice(0, 2).join(', ') })} +${ph({ more: names.length - 2 })}`
+          : t`Same as ${ph({ names: names.join(', ') })}`
+        : t`This rule`,
     });
   });
   if (!alone(highest)) {
-    choices.push({ value: String((highest ?? 0) + 1), label: 'Above every rule' });
+    choices.push({ value: String((highest ?? 0) + 1), label: t`Above every rule` });
   }
   return choices;
 }
 
 /** "1 rule added, 2 rules removed" */
 export function changeSummary(added: number, changed: number, removed: number): string {
-  const rules = (count: number) => `${count} ${count === 1 ? 'rule' : 'rules'}`;
   return [
-    added ? `${rules(added)} added` : '',
-    changed ? `${rules(changed)} changed` : '',
-    removed ? `${rules(removed)} removed` : '',
+    added ? plural(added, { one: '# rule added', other: '# rules added' }) : '',
+    changed ? plural(changed, { one: '# rule changed', other: '# rules changed' }) : '',
+    removed ? plural(removed, { one: '# rule removed', other: '# rules removed' }) : '',
   ]
     .filter(Boolean)
     .join(', ');

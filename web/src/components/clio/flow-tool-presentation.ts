@@ -1,4 +1,5 @@
 import type { ToolInvocation } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 /** The tools that start a flow as owned work and return its task handle at acceptance. */
 const FLOW_TOOLS = new Set(['run_flow', 'run_workflow']);
@@ -44,7 +45,7 @@ export function flowToolDescriptor(
     result && result.accepted === false
       ? {
           reason: typeof result.reason === 'string' ? result.reason : 'not_accepted',
-          message: typeof result.error === 'string' ? result.error : 'The flow did not start.',
+          message: typeof result.error === 'string' ? result.error : t`The flow did not start.`,
           ...(typeof result.step === 'string' && result.step ? { step: result.step } : {}),
         }
       : undefined;
@@ -53,7 +54,7 @@ export function flowToolDescriptor(
 
 /** A person-facing name for a flow id. */
 export function flowLabel(flow: string): string {
-  if (!flow) return 'Flow';
+  if (!flow) return t`Flow`;
   return flow.charAt(0).toUpperCase() + flow.slice(1).replaceAll(/[-_]/gu, ' ');
 }
 

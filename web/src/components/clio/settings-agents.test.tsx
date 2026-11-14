@@ -183,8 +183,16 @@ describe('AgentSettings', () => {
     // The spec's group + is the one way to start an agent; the empty row adds no second button.
     expect(screen.getAllByRole('button', { name: 'New agent' })).toHaveLength(1);
     await user.click(screen.getByRole('button', { name: 'New agent' }));
+    // New agent starts from the installed agent and asks for the new agent's name straight away.
+    const naming = await screen.findByRole('dialog', { name: 'Save as agent' });
+    expect(within(naming).getByRole('textbox', { name: 'Agent name' })).toBeVisible();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     const pane = await screen.findByRole('complementary', { name: 'CLIO' });
     expect(await within(pane).findByRole('button', { name: 'Save local variation' })).toBeEnabled();
+    // Every New agent asks again, even with the starter's pane already open.
+    await user.click(screen.getByRole('button', { name: 'New agent' }));
+    expect(await screen.findByRole('dialog', { name: 'Save as agent' })).toBeVisible();
   });
 
   it('shows the saved file of your agent from its more menu', async () => {

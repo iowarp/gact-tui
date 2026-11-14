@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { copyText } from '@/lib/clipboard';
 import { useFileViewerContentsRegistry } from './file-viewer-action-context';
 import { ToolbarAction } from './viewer-toolbar';
+import { t } from '@lingui/core/macro';
 
 /**
  * Copy the active text representation without tying the action to its source panel.
@@ -58,21 +59,21 @@ function StandaloneCopy({
       await copyText(text);
       setCopied(true);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not copy the file text.');
+      toast.error(error instanceof Error ? error.message : t`Could not copy the file text.`);
     } finally {
       setPending(false);
     }
   };
   return (
     <ToolbarAction
-      label={`Copy ${name}`}
+      label={t`Copy ${name}`}
       disabled={disabled || pending}
       aria-busy={pending}
       onClick={() => void copy()}
     >
       {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
       <span className="sr-only" aria-live="polite">
-        {copied ? 'Copied' : ''}
+        {copied ? t`Copied` : ''}
       </span>
     </ToolbarAction>
   );

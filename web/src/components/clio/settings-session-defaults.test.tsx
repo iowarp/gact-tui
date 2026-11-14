@@ -185,9 +185,10 @@ describe('new session defaults settings', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Change default model' }));
     const picker = await screen.findByRole('dialog', { name: 'Choose a model for new sessions' });
-    expect(within(picker).getByRole('button', { name: 'Hidden 0' })).toBeVisible();
+    expect(within(picker).getByRole('button', { name: 'Hide providers' })).toBeVisible();
     await user.type(within(picker).getByPlaceholderText('Search providers and models'), 'luna');
-    await user.click(within(picker).getByText('gpt-5.6-luna', { exact: true }));
+    // Rows show the same short name as the trigger: gpt-5.6-luna reads "luna 5.6".
+    await user.click(within(picker).getByText('luna 5.6', { exact: true }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Use model from Models settings' })).toBeVisible();
@@ -250,7 +251,7 @@ describe('new session defaults settings', () => {
     });
     await user.click(await screen.findByRole('button', { name: 'Change default model' }));
     await user.type(screen.getByPlaceholderText('Search providers and models'), 'gpt-5.6-sol');
-    await user.click(await screen.findByText('gpt-5.6-sol', { exact: true }));
+    await user.click(await screen.findByText('sol 5.6', { exact: true }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     const effort = screen.getByRole('radiogroup', { name: 'Reasoning effort' });
     expect(within(effort).getAllByRole('radio').map((level) => level.textContent)).toEqual([
@@ -270,7 +271,8 @@ describe('new session defaults settings', () => {
     renderSettings(catalog, { ...initialDefaults, effort: 'unknown' });
     await user.click(await screen.findByRole('button', { name: 'Change default model' }));
     await user.type(screen.getByPlaceholderText('Search providers and models'), 'luna');
-    await user.click(await screen.findByText('gpt-5.6-luna', { exact: true }));
+    const picker = screen.getByRole('dialog', { name: 'Choose a model for new sessions' });
+    await user.click(await within(picker).findByText('luna 5.6', { exact: true }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('radio', { name: 'Default' })).toBeChecked();
     await waitFor(() =>

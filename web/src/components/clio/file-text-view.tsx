@@ -33,6 +33,7 @@ import { useFileViewerFacts } from './file-viewer-facts';
 import { FileModeControls, type FileMode } from './file-mode-controls';
 import { FrameContentsCopyButton } from './file-viewer-take';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
+import { useRememberedView } from './remembered-view';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
 import { TextFileCopyAction } from './text-file-copy-action';
@@ -44,6 +45,8 @@ import { tabularJsonDataset } from './json-resource-data';
 import { ResourceLoading } from './resource-states';
 import { DiffLines } from './diff-lines';
 import { patchSummary } from './diff-rows';
+import { ph, plural, t } from '@lingui/core/macro';
+import { formatNumber } from '@/lib/locale-format';
 
 // Mermaid loads with the first diagram file opened.
 const ClioMermaidDiagram = lazy(() =>
@@ -90,7 +93,8 @@ export function FileTextView({
 }) {
   const shared = useContext(FileViewerInformationHost) !== undefined;
   const inherited = useContext(FileSourceOptions);
-  const [wrap, setWrap] = useState(false);
+  // Long source lines wrap by default; the reader can turn wrapping off.
+  const [wrap, setWrap] = useState(true);
   const localOptions = useMemo(() => ({ wrap, setWrap }), [wrap]);
   const options = inherited ?? localOptions;
   const format = explicitFormat ?? textFileFormat(name, mediaType);
@@ -118,7 +122,7 @@ export function FileTextView({
   useFileViewerFacts(
     notebook?.ok
       ? [
-          `${notebook.notebook.cells.length.toLocaleString()} ${notebook.notebook.cells.length === 1 ? 'cell' : 'cells'}`,
+          plural(notebook.notebook.cells.length, { one: '# cell', other: '# cells' }),
           ...(notebook.notebook.kernel ? [notebook.notebook.kernel] : []),
         ]
       : format === 'csv' || dataset
@@ -128,21 +132,21 @@ export function FileTextView({
           : language
             ? [language]
             : steps
-              ? [`${steps.toLocaleString()} ${steps === 1 ? 'step' : 'steps'}`]
-              : [`${lines.toLocaleString()} lines`],
+              ? [plural(steps, { one: '# step', other: '# steps' })]
+              : [plural(lines, { one: '# line', other: '# lines' })],
   );
   const modes: FileMode[] = [
-    ...(notebook ? [{ value: 'notebook', label: 'Notebook', icon: NotebookTextIcon }] : []),
+    ...(notebook ? [{ value: 'notebook', label: t`Notebook`, icon: NotebookTextIcon }] : []),
     // The branch icon is Lineage's; a diagram renders as a flow.
-    ...(diagram ? [{ value: 'diagram', label: 'Diagram', icon: WorkflowIcon }] : []),
-    ...(changes ? [{ value: 'changes', label: 'Changes', icon: FileDiffIcon }] : []),
+    ...(diagram ? [{ value: 'diagram', label: t`Diagram`, icon: WorkflowIcon }] : []),
+    ...(changes ? [{ value: 'changes', label: t`Changes`, icon: FileDiffIcon }] : []),
     ...(format === 'markdown'
-      ? [{ value: 'read', label: 'Read document', icon: BookOpenIcon }]
+      ? [{ value: 'read', label: t`Read document`, icon: BookOpenIcon }]
       : []),
-    ...(format === 'csv' || dataset ? [{ value: 'data', label: 'Data', icon: Table2Icon }] : []),
-    { value: 'source', label: 'Source', icon: FileCode2Icon, shortcut: 'render-source' },
+    ...(format === 'csv' || dataset ? [{ value: 'data', label: t`Data`, icon: Table2Icon }] : []),
+    { value: 'source', label: t`Source`, icon: FileCode2Icon, shortcut: 'render-source' },
   ];
-  const [chosen, setChosen] = useState(modes[0].value);
+  const [chosen, setChosen] = useRememberedView(`modes:${name}`, modes[0].value);
   const selected = view
     ? view === 'source'
       ? 'source'
@@ -176,7 +180,7 @@ export function FileTextView({
         ) : (
           <TooltipProvider delayDuration={200}>
             <FrameBar
-              label="File"
+              label={t`File`}
               where={<FrameCrumbs parts={[{ label: name }]} />}
               format={modeControls}
               actions={
@@ -185,7 +189,7 @@ export function FileTextView({
                   {selected === 'source' ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <ToolbarAction label="File actions">
+                        <ToolbarAction label={t`File actions`}>
                           <MoreIcon aria-hidden="true" />
                         </ToolbarAction>
                       </DropdownMenuTrigger>
@@ -195,7 +199,7 @@ export function FileTextView({
                           onSelect={() => options.setWrap(!options.wrap)}
                         >
                           <WrapTextIcon aria-hidden="true" />
-                          Wrap long lines
+                          {t`Wrap long lines`}
                         </DropdownMenuCheckboxItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -207,7 +211,7 @@ export function FileTextView({
         )}
         {notebook ? (
           <TabsContent value="notebook" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
-            <Suspense fallback={<ResourceLoading label={`Loading ${name}`} />}>
+            <Suspense fallback={<ResourceLoading label={t`Loading ${name}`} />}>
               <NotebookView
                 name={name}
                 onShowSource={view ? undefined : () => setChosen('source')}
@@ -224,7 +228,7 @@ export function FileTextView({
         ) : null}
         {diagram ? (
           <TabsContent value="diagram" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
-            <Suspense fallback={<ResourceLoading label={`Loading ${name}`} />}>
+            <Suspense fallback={<ResourceLoading label={t`Loading ${name}`} />}>
               <ClioMermaidDiagram framed source={content} title={name} />
             </Suspense>
           </TabsContent>
@@ -241,21 +245,19 @@ export function FileTextView({
           <TabsContent value="data" className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden">
             <div className="h-full min-h-0 min-w-0" ref={reading}>
               {format === 'csv' ? (
-                <Suspense fallback={<ResourceLoading label={`Loading ${name}`} />}>
+                <Suspense fallback={<ResourceLoading label={t`Loading ${name}`} />}>
                   <ClioCsvView content={content} title={name} />
                 </Suspense>
               ) : dataset ? (
                 <FileDataGrid
                   columns={dataset.columns}
-                  fact={`${dataset.totalRows.toLocaleString()} records`}
+                  fact={plural(dataset.totalRows, { one: '# record', other: '# records' })}
                   label={dataset.label}
                   rows={dataset.rows}
                   status={
                     dataset.rows.length < dataset.totalRows ? (
                       <span className="min-w-0 truncate">
-                        Showing {dataset.rows.length.toLocaleString()} of{' '}
-                        {dataset.totalRows.toLocaleString()} records. Source retains the complete
-                        file.
+                        {t`Showing ${ph({ shown: formatNumber(dataset.rows.length) })} of ${ph({ total: formatNumber(dataset.totalRows) })} records. Source retains the complete file.`}
                       </span>
                     ) : undefined
                   }
@@ -266,7 +268,7 @@ export function FileTextView({
         ) : null}
         <TabsContent
           value="source"
-          aria-label="Source"
+          aria-label={t`Source`}
           aria-labelledby={undefined}
           className="m-0 min-h-0 min-w-0 flex-1 overflow-hidden"
         >
@@ -311,7 +313,7 @@ export function FileReadView({
       <article className="mx-auto min-w-0 w-full max-w-[80ch] px-5 py-4">
         {frontmatter ? (
           <details className="mb-3 text-sm">
-            <summary className="cursor-pointer text-muted-foreground">Document metadata</summary>
+            <summary className="cursor-pointer text-muted-foreground">{t`Document metadata`}</summary>
             <CodeBlock code={frontmatter[1]} language="yaml" />
           </details>
         ) : null}

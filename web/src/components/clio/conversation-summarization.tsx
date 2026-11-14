@@ -11,13 +11,15 @@ import { useTranscriptDisclosure } from './transcript-disclosure-context';
 import { TranscriptDivider } from './transcript-divider';
 import { TranscriptMessagePreview } from './transcript-message-preview';
 import { useTranscriptMessages } from './transcript-messages-context';
+import { plural, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 type SummarizationBlock = Extract<MessageBlock, { type: 'injection' }>;
 type NoticeBlock = Extract<MessageBlock, { type: 'notice' }>;
 
 /** Who started a compaction, as the hover name of its line. */
 function compactionTriggerHint(trigger: CompactionTrigger | undefined) {
-  return trigger === 'auto' ? 'Started automatically' : trigger ? 'Requested' : undefined;
+  return trigger === 'auto' ? t`Started automatically` : trigger ? t`Requested` : undefined;
 }
 
 /**
@@ -62,8 +64,11 @@ export function SummarizationInjection({
   }, [expanded]);
   const compacted = stringList(block.metadata?.compacted_message_ids);
   const line = compacted.length
-    ? `Compacted here, ${countLabel(compacted.length)} summarized`
-    : 'Compacted here, earlier messages summarized';
+    ? plural(compacted.length, {
+        one: 'Compacted here, # message summarized',
+        other: 'Compacted here, # messages summarized',
+      })
+    : t`Compacted here, earlier messages summarized`;
   return (
     <section
       className="my-px min-w-0 max-w-full"
@@ -115,7 +120,7 @@ function stringList(value: unknown): string[] {
 }
 
 function countLabel(count: number) {
-  return `${count} ${count === 1 ? 'message' : 'messages'}`;
+  return plural(count, { one: '# message', other: '# messages' });
 }
 
 function CompactionRecord({ block }: { block: SummarizationBlock }) {
@@ -124,16 +129,16 @@ function CompactionRecord({ block }: { block: SummarizationBlock }) {
   const keptSent = Array.isArray(block.metadata?.kept_message_ids);
   const keptIds = stringList(block.metadata?.kept_message_ids);
   return (
-    <ActivityNest label="What the agent kept">
+    <ActivityNest label={t`What the agent kept`}>
       <CompactionSection
         id={`${block.id}:system`}
         icon={<ScrollTextIcon aria-hidden="true" />}
         name="System prompt"
-        absent="Not recorded"
-        absentTitle="The agent had not recorded its system prompt when this compaction ran"
+        absent={t`Not recorded`}
+        absentTitle={t`The agent had not recorded its system prompt when this compaction ran`}
       >
         {systemPrompt ? (
-          <pre className="max-h-80 overflow-auto p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap">
+          <pre className="max-h-80 overflow-auto p-3 font-mono text-meta leading-5 whitespace-pre-wrap">
             {systemPrompt}
           </pre>
         ) : null}
@@ -154,11 +159,11 @@ function CompactionRecord({ block }: { block: SummarizationBlock }) {
         icon={<MessagesSquareIcon aria-hidden="true" />}
         name="Recent turns kept verbatim"
         meta={keptIds.length ? countLabel(keptIds.length) : undefined}
-        absent={keptSent ? 'None' : 'Not recorded'}
+        absent={keptSent ? t({ message: 'None', context: 'nothing kept' }) : t`Not recorded`}
         absentTitle={
           keptSent
-            ? 'The summary replaced every earlier message'
-            : 'This agent does not record which turns it kept'
+            ? t`The summary replaced every earlier message`
+            : t`This agent does not record which turns it kept`
         }
       >
         {keptIds.length ? <KeptTurns ids={keptIds} /> : null}
@@ -232,7 +237,7 @@ function KeptTurns({ ids }: { ids: readonly string[] }) {
             {preview ? (
               <TranscriptMessagePreview marked={false} preview={preview} />
             ) : (
-              <span className="text-xs text-muted-foreground">Not in this view</span>
+              <span className="text-xs text-muted-foreground">{t`Not in this view`}</span>
             )}
           </li>
         );
@@ -255,10 +260,11 @@ function CompactionFailure({
   trigger?: CompactionTrigger;
 }) {
   const facts = [
-    message || 'The service did not report why.',
+    message || t`The service did not report why.`,
     code ? humanizeProtocolValue(code) : undefined,
     compactionTriggerHint(trigger),
   ].filter(Boolean);
+  const factList = facts.join('. ');
   return (
     <div
       className="my-px w-fit min-w-0 max-w-full"
@@ -269,10 +275,10 @@ function CompactionFailure({
         kind="error"
         size="row"
         title={
-          <>
+          <Trans>
             Earlier messages weren’t summarized
-            <span className="sr-only">: {facts.join('. ')}</span>
-          </>
+            <span className="sr-only">: {factList}</span>
+          </Trans>
         }
       />
     </div>
@@ -324,7 +330,7 @@ export function ClioCompactionProgress({ compaction }: { compaction: PendingComp
       data-slot="compaction-progress"
       title={compactionTriggerHint(compaction.trigger)}
     >
-      <StateView kind="loading" size="row" title="Summarizing earlier messages…" />
+      <StateView kind="loading" size="row" title={t`Summarizing earlier messages…`} />
     </div>
   );
 }

@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentType,
-  type ReactNode,
-} from 'react';
+import { useCallback, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { GitBranchIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -44,7 +37,9 @@ import { useAddToMessage, useFileViewerCrumbs } from './file-viewer-take-hooks';
 import { useElementFullscreen } from './use-element-fullscreen';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { useFrameModes } from './primitives/frame-modes';
+import { useRememberedView } from './remembered-view';
 import { ViewerToolbarHost } from './viewer-toolbar-context';
+import { t } from '@lingui/core/macro';
 
 export interface FileViewerTab {
   value: string;
@@ -111,7 +106,7 @@ function useCommentsSlot() {
 export function FileViewerShell({
   source,
   tabs,
-  label = 'File views',
+  label = t`File views`,
   value,
   onValueChange,
   hasDocumentActions = false,
@@ -133,23 +128,30 @@ export function FileViewerShell({
   lineage?: ReactNode;
 }) {
   const [toolbarHost, setToolbarHost] = useState<HTMLDivElement | null>(null);
-  const [wrap, setWrap] = useState(false);
+  // Long source lines wrap by default; the reader can turn wrapping off.
+  const [wrap, setWrap] = useState(true);
   const sourceOptions = useMemo(() => ({ wrap, setWrap }), [wrap]);
-  const [internalValue, setInternalValue] = useState('preview');
+  const identity = fileViewerIdentity(source);
+  // The selection menu quotes a passage with its file: the workspace path, else the name.
+  const selectionPath =
+    source.kind === 'workspace'
+      ? source.path
+      : (source.kind === 'artifact' && source.verifiedWorkspacePath) || identity.name;
+  const [internalValue, setInternalValue] = useRememberedView(`frame:${selectionPath}`, 'preview');
   const requested = value ?? internalValue;
   const selectValue = useCallback(
     (next: string) => {
       setInternalValue(next);
       onValueChange?.(next);
     },
-    [onValueChange],
+    [onValueChange, setInternalValue],
   );
   const allTabs: readonly FileViewerTab[] = lineage
     ? [
         ...tabs,
         {
           value: LINEAGE_VIEW,
-          label: 'Lineage',
+          label: t`Lineage`,
           icon: GitBranchIcon,
           shortcut: 'lineage',
           content: lineage,
@@ -161,12 +163,6 @@ export function FileViewerShell({
     ? requested
     : (primaryTabs[0]?.value ?? requested);
   const hostTab = primaryTabs[0];
-  const identity = fileViewerIdentity(source);
-  // The selection menu quotes a passage with its file: the workspace path, else the name.
-  const selectionPath =
-    source.kind === 'workspace'
-      ? source.path
-      : (source.kind === 'artifact' && source.verifiedWorkspacePath) || identity.name;
   const selectionSurface = {
     'data-selection-surface': 'file',
     'data-file-path': selectionPath,
@@ -314,7 +310,7 @@ export function FileViewerShell({
                               onValueChange={selectValue}
                             >
                               <FrameBar
-                                label="File"
+                                label={t`File`}
                                 className="bg-background"
                                 where={
                                   showIdentity ? (
@@ -399,7 +395,9 @@ export function FileViewerShell({
                                           data-slot="frame-comments"
                                         />
                                         {commentsClaimed ? null : (
-                                          <FrameCommentsUnavailable reason="Not available for this format" />
+                                          <FrameCommentsUnavailable
+                                            reason={t`Not available for this format`}
+                                          />
                                         )}
                                       </>
                                     }

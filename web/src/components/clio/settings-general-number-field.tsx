@@ -45,7 +45,7 @@ export function SettingsNumberField({
       {unit ? (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-[0.71875rem] text-faint"
+          className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-label text-muted-foreground"
         >
           {unit}
         </span>

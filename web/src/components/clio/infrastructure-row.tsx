@@ -4,14 +4,18 @@ import {
   memo,
   useContext,
   useId,
+  useLayoutEffect,
   useMemo,
+  useRef,
   type ComponentPropsWithoutRef,
   type KeyboardEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
 import { statusWordClass } from '@/components/clio/primitives/status-word-tone';
+import { withAddressBreaks } from '@/lib/address-breaks';
 import { isRowMenuKey } from '@/lib/settings-row-keys';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +35,59 @@ interface InfraColumns {
   hover: number;
   /** Whether rows reserve the 26px pinned action column. */
   pinned: boolean;
+}
+
+/** The widest a status column grows for a long word: 200px, or 30% of a narrower list. */
+const STATUS_MAX = 200;
+const STATUS_MAX_SHARE = 0.3;
+
+/**
+ * Grows a list's status column to its widest status word, so a long word in a
+ * wide locale ("Κανένα συνδεδεμένο") is read whole and every row still lines up.
+ * The configured width stays the minimum. The width lives in `--infra-status`
+ * on the list, so a change re-renders no row.
+ */
+function useStatusColumnFit(list: RefObject<HTMLDivElement | null>, minimum: number) {
+  useLayoutEffect(() => {
+    const element = list.current;
+    if (!element) return;
+    let frame = 0;
+    const fit = () => {
+      frame = 0;
+      let widest = 0;
+      for (const cell of element.querySelectorAll<HTMLElement>('[data-slot="infra-status"]')) {
+        const indicator = cell.firstElementChild as HTMLElement | null;
+        const word = indicator?.lastElementChild as HTMLElement | null;
+        // A narrow row shows only the mark here; its word is on the sub-line.
+        if (!indicator || !word || word.clientWidth <= 1) continue;
+        widest = Math.max(
+          widest,
+          indicator.getBoundingClientRect().width - word.clientWidth + word.scrollWidth,
+        );
+      }
+      const cap = Math.max(minimum, Math.min(STATUS_MAX, element.clientWidth * STATUS_MAX_SHARE));
+      const width = Math.min(cap, Math.max(minimum, Math.ceil(widest)));
+      if (element.style.getPropertyValue('--infra-status') !== `${width}px`) {
+        element.style.setProperty('--infra-status', `${width}px`);
+      }
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(fit);
+    };
+    fit();
+    const mutations = new MutationObserver(schedule);
+    mutations.observe(element, { subtree: true, childList: true, characterData: true });
+    const resizes =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(schedule);
+    resizes?.observe(element);
+    void document.fonts?.ready.then(schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      frame = -1;
+      mutations.disconnect();
+      resizes?.disconnect();
+    };
+  }, [list, minimum]);
 }
 
 const InfraColumnsContext = createContext<InfraColumns>({
@@ -69,14 +126,17 @@ export function InfraList({
 }) {
   const columns = useMemo(() => ({ status, meta, hover, pinned }), [status, meta, hover, pinned]);
   const headingId = useId();
+  const list = useRef<HTMLDivElement>(null);
+  useStatusColumnFit(list, status);
   return (
     <InfraColumnsContext.Provider value={columns}>
       <div
+        ref={list}
         className={cn('@container/infra flex min-w-0 flex-col', className)}
         data-slot="infra-list"
       >
         {heading ? (
-          <ListGroupLabel action={headingAction} id={headingId}>
+          <ListGroupLabel action={headingAction} id={headingId} wrap>
             {heading}
           </ListGroupLabel>
         ) : null}
@@ -124,6 +184,21 @@ const NARROW_STATUS =
   'flex shrink-0 overflow-hidden @max-[480px]/infra:w-4! @max-[480px]/infra:[&_[data-slot=status-indicator]>:last-child]:sr-only';
 const NARROW_ACTIONS =
   '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:w-[26px]! @max-[480px]/infra:[&>[data-slot=list-row-actions]]:opacity-100';
+/**
+ * Under 480px the name and sub-line wrap whole rather than cut ("セッションと…"), and
+ * Japanese wraps between phrases ("ツールゲートウ / ェイ" no longer).
+ */
+const NARROW_TEXT =
+  '@max-[480px]/infra:[&_[data-slot=list-row-text]>span]:whitespace-normal @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:break-words @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:[word-break:auto-phrase] @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:[line-break:strict]';
+/**
+ * Under 13rem (a 260px or 300px window at interface size 150, or 260px at 125) the
+ * text column would be narrower than a word ("Εγκατάσταση"), so the row gives the text
+ * its other room: the decorative icon goes, the gaps tighten, and the status mark leaves
+ * its column. The status word is already at the start of the sub-line, and the column's
+ * label is still read. A 390px window at 150% zoom keeps its icons and marks.
+ */
+const NARROW_ROOM =
+  '@max-[13rem]/infra:gap-1.5 @max-[13rem]/infra:[&>[data-slot=list-row-icon]]:hidden @max-[13rem]/infra:[&>[data-slot=infra-status]]:sr-only!';
 
 /** Shift+F10 (or the menu key) anywhere in a row opens its ⋯, as the keyboard opens a menu. */
 function openInfraRowMenu(event: KeyboardEvent<HTMLDivElement>) {
@@ -160,6 +235,7 @@ export const InfraRow = memo(
   ) {
     const columns = useContext(InfraColumnsContext);
     const metaTitle = typeof meta === 'string' ? meta : undefined;
+    const text = typeof description === 'string' ? withAddressBreaks(description) : description;
     // The word is read once, from the status column. A narrow row shows it again here as
     // generated content, so it is neither announced nor found twice.
     const subLine = status ? (
@@ -172,10 +248,12 @@ export const InfraRow = memo(
             statusWordClass(status.tone),
           )}
         />
-        {description}
+        {/* A line may break after the status word, not inside the next one. */}
+        <wbr />
+        {text}
       </>
     ) : (
-      description
+      text
     );
     return (
       <div className="min-w-0" role="listitem">
@@ -183,14 +261,18 @@ export const InfraRow = memo(
           ref={ref}
           layout="stacked"
           icon={icon}
-          title={title}
+          title={typeof title === 'string' ? withAddressBreaks(title) : title}
           description={subLine}
           columns={
             <>
-              <span className={NARROW_STATUS} style={{ width: columns.status }}>
+              <span
+                className={NARROW_STATUS}
+                data-slot="infra-status"
+                style={{ width: `var(--infra-status, ${columns.status}px)` }}
+              >
                 {status ? (
                   <StatusIndicator
-                    className="text-[11px]"
+                    className="text-caption"
                     label={status.label}
                     tone={status.tone}
                   />
@@ -198,7 +280,7 @@ export const InfraRow = memo(
               </span>
               {columns.meta ? (
                 <span
-                  className="hidden shrink-0 items-center justify-end gap-1.5 overflow-hidden text-[11px] text-muted-foreground @lg/infra:flex"
+                  className="hidden shrink-0 items-center justify-end gap-1.5 overflow-hidden text-caption text-muted-foreground @lg/infra:flex"
                   style={{ width: columns.meta }}
                   title={metaTitle}
                 >
@@ -210,7 +292,7 @@ export const InfraRow = memo(
           actions={columns.hover ? (actions ?? null) : undefined}
           actionsWidth={columns.hover}
           primaryAction={columns.pinned ? (primaryAction ?? null) : undefined}
-          className={cn(columns.hover && NARROW_ACTIONS, className)}
+          className={cn(NARROW_TEXT, NARROW_ROOM, columns.hover && NARROW_ACTIONS, className)}
           onKeyDown={(event) => {
             onKeyDown?.(event);
             if (!event.defaultPrevented) openInfraRowMenu(event);

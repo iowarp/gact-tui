@@ -3,6 +3,7 @@ import { SettingsScopeContext } from '@/lib/settings-scope-context';
 import { NARROW_HIDDEN } from '@/lib/settings-fold';
 import { InfoTip } from './info-tip';
 import { SettingsScopeIcon } from './settings-scope-icon';
+import { t } from '@lingui/core/macro';
 
 export interface SettingsSectionHeadingProps {
   title: string;
@@ -32,42 +33,49 @@ export function SettingsSectionHeading({
   // Pages show labels and state; explanation sits behind the ⓘ beside the title.
   const hint = info && description ? `${description} ${info}` : (info ?? description);
   return (
-    <header className={level === 1 ? 'mb-2' : undefined}>
+    // A div, not <header>: outside a <main> that is a banner landmark, and the
+    // window's content region already holds it.
+    <div className={level === 1 ? 'mb-2' : undefined}>
       {eyebrow ? <p className="mb-2 text-xs font-medium text-muted-foreground">{eyebrow}</p> : null}
-      <div className="flex h-[1.875rem] min-w-0 items-center gap-2 whitespace-nowrap">
-        {/* The info control sits beside the heading so the heading's name is the title alone. */}
-        <Heading
-          className={
-            level === 1
-              ? 'min-w-0 truncate font-heading text-[1.0625rem] font-semibold'
-              : 'min-w-0 truncate font-heading text-[0.9375rem] font-semibold'
-          }
-        >
-          {title}
-        </Heading>
-        {hint ? (
-          <InfoTip className={NARROW_HIDDEN} label={`About ${title}`}>
-            {hint}
-          </InfoTip>
-        ) : null}
+      {/* Title and ⓘ stay together; the actions drop under them when both don't fit, and a
+          title longer than the line wraps, so a narrow window never cuts the page's name. */}
+      <div className="flex min-h-[1.875rem] min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="flex min-w-0 flex-[1_1_auto] items-center gap-2">
+          {/* The info control sits beside the heading so the heading's name is the title alone. */}
+          <Heading
+            className={
+              level === 1
+                ? 'min-w-0 font-heading text-title font-semibold text-balance [overflow-wrap:anywhere]'
+                : 'min-w-0 font-heading text-h3 font-semibold text-balance [overflow-wrap:anywhere]'
+            }
+          >
+            {title}
+          </Heading>
+          {hint ? (
+            <InfoTip className={NARROW_HIDDEN} label={t`About ${title}`}>
+              {hint}
+            </InfoTip>
+          ) : null}
+        </div>
         {actions ? (
-          <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2 font-sans">
+          <div className="ml-auto flex max-w-full min-w-0 shrink-0 items-center gap-2 font-sans whitespace-nowrap">
             {actions}
           </div>
         ) : null}
       </div>
+      {/* The scope caption wraps whole under the title (translations and large type run
+          long); its icon stays centred on the first line. */}
       {scope ? (
         <p
-          className="mt-0.5 flex min-w-0 items-center gap-[0.3125rem] text-xs whitespace-nowrap text-muted-foreground max-[599px]:items-start max-[599px]:whitespace-normal"
+          className="mt-0.5 flex min-w-0 items-start gap-[0.3125rem] text-xs text-muted-foreground"
           data-slot="settings-scope"
         >
-          <SettingsScopeIcon
-            className="size-[0.8125rem] shrink-0 max-[599px]:mt-px"
-            group={scope.group}
-          />
-          <span className="min-w-0 truncate max-[599px]:whitespace-normal">{scope.line}</span>
+          <span aria-hidden="true" className="flex h-[1lh] shrink-0 items-center">
+            <SettingsScopeIcon className="size-[0.8125rem]" group={scope.group} />
+          </span>
+          <span className="min-w-0 text-pretty [overflow-wrap:anywhere]">{scope.line}</span>
         </p>
       ) : null}
-    </header>
+    </div>
   );
 }

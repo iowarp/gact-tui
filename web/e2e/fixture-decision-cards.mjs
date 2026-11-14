@@ -3,7 +3,14 @@
 // "Rest of this script", the Runs on / Asked by / Folders facts, a question
 // that can be dismissed). POST /__test/decision-cards {card} turns one on.
 
-export const DECISION_CARDS = ['script', 'facts', 'plan', 'question'];
+export const DECISION_CARDS = [
+  'script',
+  'facts',
+  'plan',
+  'question',
+  'question-long',
+  'question-multi',
+];
 
 const COMMAND = 'python qc_stations.py --strict --out results/qc';
 const EXECUTION = { computer: 'ares Slurm login node', cwd: '~/flat-NDP' };
@@ -190,8 +197,77 @@ export function decisionCardInteractions(card, context) {
       ],
     },
   });
+  // A long question and a multi-choice one with long details: at a large interface size they
+  // pass the dock's cap, so their options scroll inside the card.
+  const longQuestion = make('question:decision-long', {
+    kind: 'question',
+    title:
+      'Which years of the flat-NDP displacement series should the review compare against the station quality flags before the outliers are written back to the shared scratch folder?',
+    prompt:
+      'Which years of the flat-NDP displacement series should the review compare against the station quality flags before the outliers are written back to the shared scratch folder?',
+    source: { protocol: 'native', tool_name: 'ask_user' },
+    actions: ['answer', 'cancel'],
+    payload: {
+      question_id: 'decision-long',
+      question_kind: 'choice',
+      allow_freeform: true,
+      options: [
+        {
+          label: '2020–2023',
+          value: '2020-2023',
+          description: 'the series you fetched, with the current quality flags for all 14 stations',
+        },
+        {
+          label: '2015–2023',
+          value: '2015-2023',
+          description:
+            'adds the older campaign data, whose flags use the previous scheme and need mapping first',
+        },
+        {
+          label: 'Only 2023',
+          value: '2023',
+          description: 'the latest year, enough to check the station bounds quickly',
+        },
+      ],
+    },
+  });
+  const multi = make('question:decision-multi', {
+    kind: 'question',
+    title: 'Which stations should the review include?',
+    prompt: 'Which stations should the review include?',
+    source: { protocol: 'native', tool_name: 'ask_user' },
+    actions: ['answer', 'cancel'],
+    payload: {
+      question_id: 'decision-multi',
+      question_kind: 'multi_choice',
+      options: [
+        {
+          label: 'PBO stations',
+          value: 'pbo',
+          description: 'the nine Plate Boundary Observatory stations along the network edge',
+        },
+        {
+          label: 'NOTA stations',
+          value: 'nota',
+          description: 'the five NOTA stations, whose 2020 series use the older quality flags',
+        },
+        {
+          label: 'Campaign sites',
+          value: 'campaign',
+          description: 'the occupied campaign sites, measured once a year with gaps between visits',
+        },
+      ],
+    },
+  });
   // The script ask pages with a second request, so the ‹ 1/2 › pager shows.
   return (
-    { script: [script, facts], facts: [facts], plan: [plan], question: [question] }[card] ?? []
+    {
+      script: [script, facts],
+      facts: [facts],
+      plan: [plan],
+      question: [question],
+      'question-long': [longQuestion],
+      'question-multi': [multi],
+    }[card] ?? []
   );
 }

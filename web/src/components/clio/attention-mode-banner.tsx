@@ -1,5 +1,5 @@
 import { attentionDomainLabel, type AttentionAvailable } from '@clio/core/v3';
-import { RadarIcon } from 'lucide-react';
+import { RadarIcon, TriangleAlertIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { AttentionModeState } from '@/hooks/use-attention-mode';
@@ -15,12 +15,12 @@ import { FrameBar } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
 import { RingSpinner } from './primitives/ring-spinner';
 import type { AttentionProfile } from '@clio/core/v3';
+import { plural, t, ph } from '@lingui/core/macro';
 
 const QUOTE_TRUNCATE_CHARS = 160;
 
 /** `residual` is real attention, just spread thinly outside the capture's top-10%-per-segment cut. */
-const SPREAD_THIN_TOOLTIP =
-  'Attention spread across the parts of the conversation outside the top 10% the capture keeps.';
+const SPREAD_THIN_TOOLTIP = t`Attention spread across the parts of the conversation outside the top 10% the capture keeps.`;
 
 /**
  * Attention mode's one bar, the same frame bar as a tab (runs-attention 08): radar and
@@ -52,29 +52,27 @@ export function AttentionModeBanner({
       data-slot="attention-mode-banner"
     >
       <FrameBar
-        label="Attention mode"
+        label={t`Attention mode`}
         where={
           <span
-            className="flex min-w-0 shrink-0 items-center gap-1.5 text-[12.5px]"
-            title={`Attention mode: ${quote}`}
+            className="flex min-w-0 shrink-0 items-center gap-1.5 text-menu"
+            title={t`Attention mode: ${quote}`}
           >
             <RadarIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
             {/* A phone keeps the radar (its name on hover) so the heat segments fit whole. */}
             <b className="font-medium whitespace-nowrap text-foreground @max-[460px]/attention:sr-only">
-              Attention mode
+              {t`Attention mode`}
             </b>
             {state.status === 'loading' ? <RingSpinner /> : null}
           </span>
         }
         what={
           state.status === 'loading' ? (
-            <span role="status">Loading</span>
+            <span role="status">{t`Loading`}</span>
           ) : state.status === 'unavailable' ? (
-            <span data-slot="attention-unavailable-message" title={state.message}>
-              {state.message}
-            </span>
+            <span title={state.message}>{t`No heat`}</span>
           ) : dominant ? (
-            <span title="Tool results lead captured content">tool results first</span>
+            <span title={t`Tool results lead captured content`}>{t`tool results first`}</span>
           ) : (
             <span className="truncate" title={state.selection.text}>
               {quote}
@@ -95,7 +93,7 @@ export function AttentionModeBanner({
             {shown?.profile && onProfileChange ? (
               <AttentionProfileEditor iconOnly onApply={onProfileChange} profile={shown.profile} />
             ) : null}
-            <IconButton icon={<CloseIcon />} label="Exit attention mode" onClick={onDismiss} />
+            <IconButton icon={<CloseIcon />} label={t`Exit attention mode`} onClick={onDismiss} />
           </>
         }
       />
@@ -104,9 +102,46 @@ export function AttentionModeBanner({
           <AttentionBreakdown data={shown} hideFlags={dominant} />
         </div>
       ) : null}
+      {state.status === 'unavailable' ? <AttentionUnavailableNotice state={state} /> : null}
     </div>
   );
 }
+/** Reasons meaning the canonical tokenizer did not reproduce the capture: a warning, not a gap. */
+const ALIGNMENT_REASONS = new Set(['output_alignment_mismatch', 'range_alignment_mismatch']);
+
+/**
+ * Why no heat is shown, under the bar where it never folds away: the server's message and
+ * its explanation (for a tokenizer that does not line up with the capture, the likely
+ * cause). An alignment failure is a warning; any other reason reads as plain information.
+ */
+function AttentionUnavailableNotice({
+  state,
+}: {
+  state: Extract<AttentionModeState, { status: 'unavailable' }>;
+}) {
+  const warning = state.reason !== undefined && ALIGNMENT_REASONS.has(state.reason);
+  return (
+    <div
+      className={
+        warning
+          ? 'flex items-start gap-1.5 border-b border-warning/30 bg-warning/5 px-2 py-1.5 text-xs text-foreground'
+          : 'flex items-start gap-1.5 border-b border-border px-2 py-1.5 text-xs text-muted-foreground'
+      }
+      data-reason={state.reason}
+      data-slot="attention-unavailable-message"
+      role={warning ? 'alert' : 'status'}
+    >
+      {warning ? (
+        <TriangleAlertIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-warning" />
+      ) : null}
+      <span className="min-w-0 break-words">
+        {state.message}
+        {state.detail ? <span className="text-muted-foreground"> {state.detail}</span> : null}
+      </span>
+    </div>
+  );
+}
+
 /** Every prompt section the capture scored (system, tool definitions, tool calls/results, user, …) plus the spread-thin residual. */
 export function AttentionBreakdown({
   data,
@@ -147,7 +182,7 @@ export function AttentionBreakdown({
             <span className="bg-muted-foreground/30" style={{ width: `${data.residual * 100}%` }} />
           </TooltipTrigger>
           <TooltipContent>
-            Spread thin: {pct(data.residual)}. {SPREAD_THIN_TOOLTIP}
+            {t`Spread thin: ${ph({ share: pct(data.residual) })}. ${SPREAD_THIN_TOOLTIP}`}
           </TooltipContent>
         </Tooltip>
       </div>
@@ -169,23 +204,24 @@ export function AttentionBreakdown({
                 aria-hidden="true"
                 className="size-2 shrink-0 rounded-full bg-muted-foreground/30"
               />
-              Spread thin {pct(data.residual)}
+              {t`Spread thin ${ph({ share: pct(data.residual) })}`}
             </span>
           </TooltipTrigger>
           <TooltipContent>{SPREAD_THIN_TOOLTIP}</TooltipContent>
         </Tooltip>
         {dominant ? (
           <Badge className="border-chart-5/40 text-chart-5" variant="outline">
-            Tool results lead captured content
+            {t`Tool results lead captured content`}
           </Badge>
         ) : null}
         {data.unmapped_content?.length ? (
           <span className="inline-flex items-center gap-1.5">
-            {data.unmapped_content.length} unmapped{' '}
-            {data.unmapped_content.length === 1 ? 'block' : 'blocks'}
-            <InfoTip label="About unmapped attention content">
-              These blocks have no unique compatible passage in the captured prompt. Their content
-              may be absent, transformed, or repeated. No transcript heat is inferred.
+            {plural(data.unmapped_content.length, {
+              one: '# unmapped block',
+              other: '# unmapped blocks',
+            })}
+            <InfoTip label={t`About unmapped attention content`}>
+              {t`These blocks have no unique compatible passage in the captured prompt. Their content may be absent, transformed, or repeated. No transcript heat is inferred.`}
             </InfoTip>
           </span>
         ) : null}

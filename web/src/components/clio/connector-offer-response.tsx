@@ -12,6 +12,8 @@ import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { StatusIndicator } from './primitives/status-indicator';
+import { ph, t } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
 
 const PluginExplorer = lazy(() =>
   import('./plugin-explorer').then((module) => ({ default: module.PluginExplorer })),
@@ -95,24 +97,24 @@ export function ConnectorOfferResponse({
       setSaveAsDefault((current) => ({ ...current, [key]: save })),
     onSubmit: add,
     saveAsDefault,
-    submitLabel: `Add ${name}`,
+    submitLabel: t`Add ${name}`,
   };
   const marketplace = payload?.plugin_ref?.split('/')[0];
   const state = plugin
     ? marketplace
-      ? `Plugin from ${marketplace}`
-      : 'Plugin'
+      ? t`Plugin from ${marketplace}`
+      : t`Plugin`
     : on
-      ? 'Enabled'
-      : 'Not enabled (Add turns it on)';
+      ? t`Enabled`
+      : t`Not enabled (Add turns it on)`;
   const addTip = [
-    plugin || on ? '' : `Adding turns ${name} on.`,
-    payload?.asks_sign_in ? 'It asks for a sign-in the first time the agent uses it.' : '',
-    unfilled.length ? 'Fill the required rows first.' : '',
+    plugin || on ? '' : t`Adding turns ${name} on.`,
+    payload?.asks_sign_in ? t`It asks for a sign-in the first time the agent uses it.` : '',
+    unfilled.length ? t`Fill the required rows first.` : '',
   ]
     .filter(Boolean)
-    .join(' ');
-  const title = `Add ${name} to this conversation?`;
+    .join(sentenceGap());
+  const title = t`Add ${name} to this conversation?`;
   return (
     <>
       <AskCard
@@ -129,13 +131,13 @@ export function ConnectorOfferResponse({
               state
             ) : (
               <StatusIndicator
-                label={on ? 'Enabled' : 'Not enabled'}
+                label={on ? t`Enabled` : t`Not enabled`}
                 tone={on ? 'success' : 'inactive'}
               />
             )}
             {/* In a narrow card the title keeps the room; Add's tooltip says it too. */}
             {!plugin && !on ? (
-              <span className="@max-[420px]/ask:hidden">(Add turns it on)</span>
+              <span className="@max-[420px]/ask:hidden">{t`(Add turns it on)`}</span>
             ) : null}
           </span>
         }
@@ -167,18 +169,18 @@ export function ConnectorOfferResponse({
               ) : null}
               {payload?.reason ? (
                 <div className="flex min-w-0 items-baseline gap-1.5">
-                  <span className="shrink-0 text-xs text-muted-foreground">Why</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{t`Why`}</span>
                   <OneLine slot="connector-offer-reason" text={payload.reason} />
                 </div>
               ) : null}
-              {!payload ? <p role="alert">This offer can’t be read by this version.</p> : null}
+              {!payload ? <p role="alert">{t`This offer can’t be read by this version.`}</p> : null}
               {required.length ? <ConnectorNeedRows {...needProps} needs={required} /> : null}
             </AskSection>
           </AskBody>
         ) : null}
         <AskError error={responseError} />
         <AskOptions
-          aria-label="Decision"
+          aria-label={t`Decision`}
           // In a narrow card the options are a column; one line, so the row of what it
           // brings is as wide as the card and truncates instead of widening every button.
           className="mt-2 @max-[420px]/ask:flex-nowrap"
@@ -186,22 +188,24 @@ export function ConnectorOfferResponse({
           {offered('submit') ? (
             <AskButton
               disabled={disabled || !payload || unfilled.length > 0}
+              // i18n-ignore: key name
               hint={unfilled.length ? undefined : 'Enter'}
               number={1}
               onClick={add}
               primary
               title={addTip || undefined}
             >
-              Add
+              {t({ message: 'Add', context: 'verb' })}
             </AskButton>
           ) : null}
           {offered('decline') ? (
             <AskButton
               disabled={disabled}
+              // i18n-ignore: key name
               hint="Escape"
               onClick={() => respondFromControl(onResponse(interaction, { action: 'decline' }))}
             >
-              Not now
+              {t`Not now`}
             </AskButton>
           ) : null}
           <div
@@ -223,7 +227,7 @@ export function ConnectorOfferResponse({
                 onClick={() => setExploring(true)}
                 type="button"
               >
-                View plugin
+                {t`View plugin`}
               </button>
             ) : null}
             {optional.length ? (
@@ -239,7 +243,7 @@ export function ConnectorOfferResponse({
                   aria-hidden="true"
                   className={cn('size-3.5 transition-transform', showSettings && 'rotate-90')}
                 />
-                Settings ({optional.length})
+                {t`Settings (${ph({ count: optional.length })})`}
               </button>
             ) : null}
           </div>

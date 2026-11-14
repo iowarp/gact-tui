@@ -14,6 +14,7 @@ import { CommentRegionLayer, type Rect } from './comment-region-layer';
 import { appViewImages, type Capture } from './mcp-app-comment-images';
 import { CommentSessionProvider, useCommentSession } from './comment-session';
 import { FrameCommentsIcon } from './frame-comments';
+import { t } from '@lingui/core/macro';
 
 /**
  * Comments on an MCP App view (CM3): regions dragged, or points clicked, over the view.
@@ -145,9 +146,11 @@ export function McpAppRegionLayer() {
     const refuse = (reason: string, message: string) =>
       session.updateMark(label, {
         anchor: { ...anchor, source: { ...anchor.source, snapshot_refused: { reason, message } } },
+        // i18n-ignore: travels with the comment to the agent, kept in English
         note: `No picture of this mark: ${message}`,
       });
     if (!take) {
+      // i18n-ignore: the refusal travels with the comment to the agent, kept in English
       refuse('view_not_ready', 'The view has not finished loading.');
       return;
     }
@@ -171,7 +174,7 @@ export function McpAppRegionLayer() {
     <div className="absolute inset-0" ref={host} style={{ pointerEvents: 'none' }}>
       <CommentRegionLayer
         capturing={capturing}
-        label="Drag over the view to mark a region, or click a point"
+        label={t`Drag over the view to mark a region, or click a point`}
         marks={session.marks.flatMap((mark) =>
           mark.anchor.rect?.length === 4
             ? [{ label: mark.label, rect: mark.anchor.rect as Rect }]

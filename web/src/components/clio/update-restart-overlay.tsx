@@ -15,6 +15,7 @@ import { DialogFrame } from './primitives/dialog-frame';
 import { StateView } from './primitives/state-view';
 import { StepList, type StepListStep } from './primitives/step-list';
 import { updatePageShown, useUpdatePaneHosted } from './update-page-host';
+import { t, ph } from '@lingui/core/macro';
 
 type PageStep = 'checking' | 'downloading' | 'installing' | 'restart' | 'verifying';
 
@@ -28,11 +29,11 @@ const STEP_OF: Partial<Record<UpdateStep, PageStep>> = {
 };
 
 const LABEL: Record<PageStep, string> = {
-  checking: 'Checking for updates',
-  downloading: 'Downloading',
-  installing: 'Installing',
-  restart: 'Restarting and reconnecting',
-  verifying: 'Verifying the update',
+  checking: t`Checking for updates`,
+  downloading: t`Downloading`,
+  installing: t`Installing`,
+  restart: t`Restarting and reconnecting`,
+  verifying: t`Verifying the update`,
 };
 
 const MEBIBYTE = 1024 * 1024;
@@ -41,8 +42,11 @@ function downloadLabel(progress?: UpdateDownloadProgress): string {
   if (!progress) return LABEL.downloading;
   const { downloadedBytes, totalBytes } = progress;
   if (totalBytes && totalBytes >= MEBIBYTE)
-    return `Downloading, ${Math.round(downloadedBytes / MEBIBYTE)} of ${Math.round(totalBytes / MEBIBYTE)} MB`;
-  return `Downloading, ${formatBytes(downloadedBytes)}${totalBytes ? ` of ${formatBytes(totalBytes)}` : ''}`;
+    return t`Downloading, ${ph({ downloaded: Math.round(downloadedBytes / MEBIBYTE) })} of ${ph({ total: Math.round(totalBytes / MEBIBYTE) })} MB`;
+  const downloaded = formatBytes(downloadedBytes);
+  return totalBytes
+    ? t`Downloading, ${downloaded} of ${ph({ total: formatBytes(totalBytes) })}`
+    : t`Downloading, ${downloaded}`;
 }
 
 function stepStart(times: Partial<Record<UpdateStep, number>>, step: PageStep): number | undefined {
@@ -107,6 +111,8 @@ export function UpdatePage() {
   const reason = useUpdateFlowStore((state) => state.reason);
   const reset = useUpdateFlowStore((state) => state.reset);
   const [details, setDetails] = useState(false);
+  const { wordmark } = brand;
+  const { agent } = vocab;
 
   if (!updatePageShown(step)) return null;
 
@@ -120,35 +126,35 @@ export function UpdatePage() {
         <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-6 py-16">
           <BrandStatusHeader
             tone="error"
-            status={version ? `Not updated to ${version}` : 'Not updated'}
+            status={version ? t`Not updated to ${version}` : t`Not updated`}
           />
           <StateView
             kind="error"
-            title="Update did not finish"
+            title={t`Update did not finish`}
             className="min-h-0 py-0"
             action={{
-              label: 'Dismiss',
+              label: t`Dismiss`,
               icon: null,
               onClick: () => {
                 clearPendingUpdateMarker();
                 reset();
               },
             }}
-            link={{ label: 'Details', onClick: () => setDetails(true) }}
+            link={{ label: t`Details`, onClick: () => setDetails(true) }}
           />
         </section>
         <DialogFrame
           open={details}
           onOpenChange={setDetails}
           icon={<CircleAlertIcon />}
-          title="Update details"
-          description={version ? `Updating ${brand.wordmark} to ${version}` : undefined}
+          title={t`Update details`}
+          description={version ? t`Updating ${wordmark} to ${version}` : undefined}
         >
-          <p className="text-[13px] leading-5 break-words">
-            {reason || `${vocab.agent} could not be reached after the update.`}
+          <p className="text-ui leading-5 break-words">
+            {reason || t`${agent} could not be reached after the update.`}
           </p>
           {lines.length ? (
-            <pre className="clio-scrollbar mt-3 max-h-48 overflow-auto rounded-md bg-muted px-2.5 py-2 font-mono text-[11.5px] whitespace-pre-wrap break-words text-muted-foreground">
+            <pre className="clio-scrollbar mt-3 max-h-48 overflow-auto rounded-md bg-muted px-2.5 py-2 font-mono text-label whitespace-pre-wrap break-words text-muted-foreground">
               {lines.slice(-40).join('\n')}
             </pre>
           ) : null}
@@ -158,7 +164,7 @@ export function UpdatePage() {
   }
 
   // One name on the page: the header's wordmark ("Updating CLIO to 0.11.4" under "CLIO").
-  const title = version ? `Updating ${brand.wordmark} to ${version}` : `Updating ${brand.wordmark}`;
+  const title = version ? t`Updating ${wordmark} to ${version}` : t`Updating ${wordmark}`;
   return (
     <div
       data-slot="update-page"
@@ -166,7 +172,7 @@ export function UpdatePage() {
     >
       {/* The local startup page's column, so both step lists read alike. */}
       <section className="mx-auto flex w-full max-w-[420px] flex-col justify-center px-6 py-16">
-        <BrandStatusHeader status={version ? `Updating to ${version}` : 'Updating'} />
+        <BrandStatusHeader status={version ? t`Updating to ${version}` : t`Updating`} />
         <StateView kind="loading" title={title} className="min-h-0 py-0 pb-3" />
         <StepList
           label={title}

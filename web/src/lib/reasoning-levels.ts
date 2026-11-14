@@ -1,4 +1,5 @@
 import { REASONING_EFFORTS, type ReasoningEffort } from '@clio/core/v3';
+import { ph, t } from '@lingui/core/macro';
 
 /** The thinking levels one model offers, as the provider catalog reports them. */
 export interface ModelReasoningLevels {
@@ -39,9 +40,9 @@ export function modelReasoningLevels(
  * model's own default; CLIO's shipped level reads "Default (X)".
  */
 export function modelDefaultLabel(reasoning: ModelReasoningLevels | undefined): string {
-  if (!reasoning?.default) return 'Model default';
+  if (!reasoning?.default) return t`Model default`;
   const name = REASONING_EFFORT_LABELS[reasoning.default];
-  return reasoning.defaultIsShipped ? `Default (${name})` : `Model default (${name})`;
+  return reasoning.defaultIsShipped ? t`Default (${name})` : t`Model default (${name})`;
 }
 
 /**
@@ -67,19 +68,19 @@ export function defaultReasoningLabel(
 ): string {
   const level = knownReasoningEffort(configured);
   if (level && reasoning?.levels.includes(level)) {
-    return `Default (${REASONING_EFFORT_LABELS[level]})`;
+    return t`Default (${ph({ level: REASONING_EFFORT_LABELS[level] })})`;
   }
   return modelDefaultLabel(reasoning);
 }
 
 /** Product names for every level the message contract defines. */
 export const REASONING_EFFORT_LABELS: Record<ReasoningEffort, string> = {
-  off: 'Off',
-  minimal: 'Minimal',
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  xhigh: 'Extra high',
-  max: 'Max',
-  ultra: 'Ultra',
+  off: t`Off`,
+  minimal: t`Minimal`,
+  low: t`Low`,
+  medium: t`Medium`,
+  high: t`High`,
+  xhigh: t`Extra high`,
+  max: t`Max`,
+  ultra: t`Ultra`,
 };

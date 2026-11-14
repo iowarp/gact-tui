@@ -15,6 +15,16 @@ import { formatNumber } from '@/lib/locale-format';
 import { providerDisplayName, providerLogoId } from '@/lib/provider-presentation';
 import type { KeyValueItem } from './primitives/key-value-grid';
 import { SESSION_APPROVAL_OPTIONS, SESSION_MODE_OPTIONS } from './session-behavior-options';
+import { plural, t } from '@lingui/core/macro';
+/** Reasoning effort levels as words; an unknown level shows its identifier. */
+const REASONING_LABELS: Record<string, string> = {
+  minimal: t`Minimal`,
+  low: t`Low`,
+  medium: t`Medium`,
+  high: t`High`,
+  xhigh: t`Extra high`,
+};
+
 export interface ReplyToolCounts {
   toolCount: number;
   failedToolCount?: number;
@@ -39,7 +49,9 @@ export function compactTokens(value: number): string {
 export function replyTokens(message: Message): string | undefined {
   const usage = message.usage;
   if (!usage || (usage.input <= 0 && usage.output <= 0)) return undefined;
-  return `${compactTokens(usage.input)} in, ${compactTokens(usage.output)} out`;
+  const input = compactTokens(usage.input);
+  const output = compactTokens(usage.output);
+  return t`${input} in, ${output} out`;
 }
 
 /** Wall time from the message's start to its recorded completion. */
@@ -93,32 +105,31 @@ export function replyUsedRows(
     (option) => option.value === behavior.confirmation_policy,
   );
   const setup: KeyValueItem[] = [
-    { label: 'Agent', icon: icon(BotIcon), value: agentDisplayName(agentName) },
+    { label: t`Agent`, icon: icon(BotIcon), value: agentDisplayName(agentName) },
   ];
   if (message.model)
     setup.push({
-      label: 'Model',
+      label: t`Model`,
       icon: replyModelIcon(message.model.provider_id),
       value: `${providerDisplayName(undefined, message.model.provider_id)} / ${message.model.model_id}`,
     });
-  if (mode) setup.push({ label: 'Mode', icon: icon(mode.icon), value: mode.label });
+  if (mode) setup.push({ label: t`Mode`, icon: icon(mode.icon), value: mode.label });
   if (behavior.reasoning_effort)
     setup.push({
-      label: 'Reasoning',
+      label: t`Reasoning`,
       icon: icon(AdjustIcon),
       value:
-        behavior.reasoning_effort === 'xhigh'
-          ? 'Extra high'
-          : `${behavior.reasoning_effort.charAt(0).toUpperCase()}${behavior.reasoning_effort.slice(1)}`,
+        REASONING_LABELS[behavior.reasoning_effort] ??
+        `${behavior.reasoning_effort.charAt(0).toUpperCase()}${behavior.reasoning_effort.slice(1)}`,
     });
   if (approval)
-    setup.push({ label: 'Permissions', icon: icon(approval.icon), value: approval.label });
+    setup.push({ label: t`Permissions`, icon: icon(approval.icon), value: approval.label });
 
   const usage: KeyValueItem[] = [];
   const tokens = replyTokens(message);
   if (tokens)
     usage.push({
-      label: 'Tokens',
+      label: t`Tokens`,
       icon: icon(TextIcon),
       value: message.usage?.cache_read
         ? `${tokens}, ${compactTokens(message.usage.cache_read)} cached`
@@ -126,17 +137,23 @@ export function replyUsedRows(
     });
   if (message.cost_usd !== undefined)
     usage.push({
-      label: 'Cost',
+      label: t`Cost`,
       icon: icon(CoinsIcon),
       value: `$${formatNumber(message.cost_usd, 4)}`,
     });
   if (toolCount > 0)
     usage.push({
-      label: 'Tools',
+      label: t`Tools`,
       icon: icon(WrenchIcon),
-      value: `${toolCount} ${toolCount === 1 ? 'tool call' : 'tool calls'}${failedToolCount > 0 ? `, ${failedToolCount} failed` : ''}`,
+      value:
+        failedToolCount > 0
+          ? plural(toolCount, {
+              one: `# tool call, ${failedToolCount} failed`,
+              other: `# tool calls, ${failedToolCount} failed`,
+            })
+          : plural(toolCount, { one: '# tool call', other: '# tool calls' }),
     });
   const duration = replyDuration(message);
-  if (duration) usage.push({ label: 'Time', icon: icon(Clock3Icon), value: duration });
+  if (duration) usage.push({ label: t`Time`, icon: icon(Clock3Icon), value: duration });
   return { setup, usage };
 }

@@ -48,6 +48,9 @@ import { SegmentedControl } from './primitives/segmented-control';
 import { StateView } from './primitives/state-view';
 import { ScopedDocumentNavigation } from './scoped-document-navigation';
 import { SettingsGroupLabel } from './settings-row';
+import { ph, plural, t } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
+import { Trans } from '@lingui/react/macro';
 
 const FileReader = lazy(async () => ({ default: (await import('./file-text-view')).FileTextView }));
 type SourceFile = PluginInspection['files'][number];
@@ -173,7 +176,7 @@ export function PluginDetailPane({
       );
       await inspection.refetch();
     } catch (reason) {
-      setTrustError(reason instanceof Error ? reason.message : 'Could not trust source');
+      setTrustError(reason instanceof Error ? reason.message : t`Could not trust source`);
     } finally {
       setTrusting(false);
     }
@@ -197,9 +200,9 @@ export function PluginDetailPane({
       setSavedCopy(ref);
       setSelected({ reference: ref, pending: false, skill: selected.skill });
       setPath('');
-      toast.success('Saved to Private local marketplace');
+      toast.success(t`Saved to Private local marketplace`);
     } catch (reason) {
-      setSaveError(reason instanceof Error ? reason.message : 'Could not save variation');
+      setSaveError(reason instanceof Error ? reason.message : t`Could not save variation`);
     } finally {
       setSaving(false);
     }
@@ -227,9 +230,9 @@ export function PluginDetailPane({
     selected.reference.slice(selected.reference.lastIndexOf('/') + 1) ||
     selected.reference;
   const tabs: { value: Tab; label: string }[] = [
-    { value: 'capabilities', label: 'Capabilities' },
-    ...(hasTools ? [{ value: 'tools' as const, label: 'Tools' }] : []),
-    { value: 'files', label: files.length ? `Files (${files.length})` : 'Files' },
+    { value: 'capabilities', label: t`Capabilities` },
+    ...(hasTools ? [{ value: 'tools' as const, label: t`Tools` }] : []),
+    { value: 'files', label: files.length ? t`Files (${ph({ count: files.length })})` : t`Files` },
   ];
   const current = tabs.some((row) => row.value === tab) ? tab : 'capabilities';
   return (
@@ -245,7 +248,7 @@ export function PluginDetailPane({
           {selected.skill ? (
             <IconButton
               icon={<ArrowLeftIcon />}
-              label="Back to plugin"
+              label={t`Back to plugin`}
               onClick={() => {
                 reset();
                 setSelected({ ...selected, skill: undefined });
@@ -257,25 +260,25 @@ export function PluginDetailPane({
             <IconButton
               disabled={updating}
               icon={<RefreshIcon />}
-              label={updating ? 'Updating…' : 'Update'}
+              label={updating ? t`Updating…` : t`Update`}
               onClick={onUpdate}
             />
           ) : null}
           {plugin ? (
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <IconButton icon={<MoreIcon />} label={`More actions for ${title}`} />
+                <IconButton icon={<MoreIcon />} label={t`More actions for ${title}`} />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-52">
                 <DropdownMenuItem disabled={!editable || editing} onSelect={startEditing}>
                   <EditIcon />
-                  Edit a local copy
+                  {t`Edit a local copy`}
                 </DropdownMenuItem>
                 {onCheck ? (
-                  <DropdownMenuItem onSelect={onCheck}>Check plugins</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onCheck}>{t`Check plugins`}</DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem onSelect={() => copyReference(plugin.ref)}>
-                  Copy reference
+                  {t`Copy reference`}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -285,12 +288,16 @@ export function PluginDetailPane({
     >
       {plugin ? (
         <MetaLine
-          className="block truncate text-xs text-faint"
+          className="block truncate text-xs text-muted-foreground"
           parts={[
-            selected.skill ? `Skill of ${plugin.id}` : plugin.kind === 'pack' ? 'Pack' : 'Plugin',
+            selected.skill
+              ? t`Skill of ${ph({ id: plugin.id })}`
+              : plugin.kind === 'pack'
+                ? t`Pack`
+                : t`Plugin`,
             sourceName(plugin.marketplace),
             formatName(plugin.format),
-            plugin.version ? `Version ${plugin.version}` : '',
+            plugin.version ? t`Version ${ph({ version: plugin.version })}` : '',
           ]}
         />
       ) : null}
@@ -302,61 +309,59 @@ export function PluginDetailPane({
                 disabled={trusting}
                 label={
                   plugin.pending_trust
-                    ? `Trust the update from ${plugin.marketplace}`
-                    : `Trust ${plugin.marketplace}`
+                    ? t`Trust the update from ${ph({ marketplace: plugin.marketplace })}`
+                    : t`Trust ${ph({ marketplace: plugin.marketplace })}`
                 }
                 onClick={() => void trustSource()}
               >
-                {trusting ? 'Trusting…' : 'Trust'}
+                {trusting ? t`Trusting…` : t`Trust`}
               </SlotButton>
             }
-            detail={`Trusting ${plugin.marketplace} lets its plugins run commands, start servers and run hooks on this service.`}
+            detail={t`Trusting ${ph({ marketplace: plugin.marketplace })} lets its plugins run commands, start servers and run hooks on this service.`}
             error={trustError}
             message={
               plugin.pending_trust
-                ? 'Its update can run commands and hooks. Trust only sources you know.'
-                : 'Its plugins can run commands and hooks. Trust only sources you know.'
+                ? t`Its update can run commands and hooks. Trust only sources you know.`
+                : t`Its plugins can run commands and hooks. Trust only sources you know.`
             }
           />
         ) : null}
         {savedCopy ? (
-          <div className="mb-3 border-b border-border pb-2.5 text-[0.8125rem]" role="status">
+          <div className="mb-3 border-b border-border pb-2.5 text-ui" role="status">
             <p>
-              Saved <span className="font-medium break-all">{savedCopy}</span> in your Private local
-              marketplace. Your repository and current conversation are unchanged.
+              <Trans>
+                Saved <span className="font-medium break-all">{savedCopy}</span> in your Private
+                local marketplace. Your repository and current conversation are unchanged.
+              </Trans>
             </p>
             <details className="mt-1.5">
               <summary className="cursor-pointer text-muted-foreground">
-                Use this copy in an agent
+                {t`Use this copy in an agent`}
               </summary>
               <p className="mt-1.5">
-                In the conversation, open Customize → Add plugin and choose {savedCopy}. If it needs
-                trust, use Trust first. Save the agent as a local variation to reuse that setup in
-                new conversations.
+                {t`In the conversation, open Customize → Add plugin and choose ${savedCopy}. If it needs trust, use Trust first. Save the agent as a local variation to reuse that setup in new conversations.`}
               </p>
               <p className="mt-1.5 text-muted-foreground">
-                The copy keeps the skill names declared in its files. Duplicate skill names are
-                rejected. Replacing an individual built-in skill, such as update-models, is not
-                currently supported; adding this copy does not override it.
+                {t`The copy keeps the skill names declared in its files. Duplicate skill names are rejected. Replacing an individual built-in skill, such as update-models, is not currently supported; adding this copy does not override it.`}
               </p>
             </details>
           </div>
         ) : null}
         {inspection.isPending ? (
-          <StateView kind="loading" size="row" title="Reading plugin…" />
+          <StateView kind="loading" size="row" title={t`Reading plugin…`} />
         ) : null}
         {inspection.error ? (
           <StateView
-            action={{ label: 'Retry', onClick: () => void inspection.refetch() }}
+            action={{ label: t`Retry`, onClick: () => void inspection.refetch() }}
             kind="error"
             size="row"
-            title={`Plugin details could not be loaded: ${inspection.error.message}`}
+            title={t`Plugin details could not be loaded: ${ph({ message: inspection.error.message })}`}
           />
         ) : null}
         {plugin ? (
           <>
             <SegmentedControl
-              label="Plugin details"
+              label={t`Plugin details`}
               onValueChange={setTab}
               options={tabs}
               value={current}
@@ -376,7 +381,7 @@ export function PluginDetailPane({
               <div className="mt-3">
                 {selected.pending ? (
                   <p className="text-muted-foreground">
-                    Tool settings are available once this plugin is installed and trusted.
+                    {t`Tool settings are available once this plugin is installed and trusted.`}
                   </p>
                 ) : (
                   <PluginToolSettings reference={selected.reference} />
@@ -387,13 +392,13 @@ export function PluginDetailPane({
               <div className="mt-3 grid gap-2.5">
                 {inspection.data?.incomplete ? (
                   <p className="text-xs text-muted-foreground">
-                    {inspection.data.reason || 'Some source files could not be fully included.'} A
-                    complete source is required to save a variation.
+                    {inspection.data.reason || t`Some source files could not be fully included.`}{sentenceGap()}
+                    {t`A complete source is required to save a variation.`}
                   </p>
                 ) : null}
                 <div className="clio-scrollbar max-h-40 min-w-0 overflow-auto rounded-md border border-border">
                   <FileTree
-                    aria-label="Plugin files"
+                    aria-label={t`Plugin files`}
                     className="border-0 bg-transparent font-sans"
                     defaultExpanded={
                       new Set(
@@ -419,7 +424,7 @@ export function PluginDetailPane({
                     </p>
                   ) : file ? (
                     <Suspense
-                      fallback={<StateView kind="loading" size="row" title="Loading file…" />}
+                      fallback={<StateView kind="loading" size="row" title={t`Loading file…`} />}
                     >
                       <ScopedDocumentNavigation.Provider
                         value={{
@@ -434,7 +439,7 @@ export function PluginDetailPane({
                             name: file.path,
                             mediaType: 'text/plain',
                             ...(!editing ? { size: file.bytes } : {}),
-                            origin: editing ? 'Unsaved local copy' : 'Plugin source',
+                            origin: editing ? t`Unsaved local copy` : t`Plugin source`,
                             readBytes: async () =>
                               new TextEncoder().encode(
                                 editing ? (changes[file.path] ?? file.text) : file.text,
@@ -478,13 +483,15 @@ export function PluginDetailPane({
                     <StateView
                       kind="empty"
                       size="row"
-                      title="No readable source files were found."
+                      title={t`No readable source files were found.`}
                     />
                   )}
                   {file?.truncated ? (
                     <p className="shrink-0 border-t border-border px-3 py-2 text-xs text-muted-foreground">
-                      Showing the beginning of this file ({file.bytes.toLocaleString()} bytes in
-                      full).
+                      {plural(file.bytes, {
+                        one: 'Showing the beginning of this file (# byte in full).',
+                        other: 'Showing the beginning of this file (# bytes in full).',
+                      })}
                     </p>
                   ) : null}
                 </div>
@@ -496,7 +503,7 @@ export function PluginDetailPane({
                     size="sm"
                     variant="outline"
                   >
-                    Edit a local copy
+                    {t`Edit a local copy`}
                   </Button>
                 ) : null}
               </div>
@@ -509,12 +516,12 @@ export function PluginDetailPane({
 }
 
 const OTHER_PARTS: [keyof PluginEntry, string, ReactNode][] = [
-  ['tools', 'Tools', <WorkflowIcon key="tools" />],
-  ['subagents', 'Subagents', <BotIcon key="subagents" />],
-  ['flows', 'Flows', <WorkflowIcon key="flows" />],
-  ['fragments', 'Prompt fragments', <FileIcon key="fragments" />],
-  ['hooks', 'Hooks', <TerminalIcon key="hooks" />],
-  ['catalogs', 'UI catalogs', <LayersIcon key="catalogs" />],
+  ['tools', t`Tools`, <WorkflowIcon key="tools" />],
+  ['subagents', t`Subagents`, <BotIcon key="subagents" />],
+  ['flows', t`Flows`, <WorkflowIcon key="flows" />],
+  ['fragments', t`Prompt fragments`, <FileIcon key="fragments" />],
+  ['hooks', t`Hooks`, <TerminalIcon key="hooks" />],
+  ['catalogs', t`UI catalogs`, <LayersIcon key="catalogs" />],
 ];
 
 function Capabilities({
@@ -547,15 +554,15 @@ function Capabilities({
       ) : null}
       {plugin.members.length ? (
         <>
-          <SettingsGroupLabel>Plugins in this pack</SettingsGroupLabel>
-          <ItemList label="Pack members">
+          <SettingsGroupLabel>{t`Plugins in this pack`}</SettingsGroupLabel>
+          <ItemList label={t`Pack members`}>
             {plugin.members.map((ref) => {
               const member = catalogMember(catalog, plugin, ref);
               return (
                 <ExtensionRow
                   icon={<LayersIcon />}
                   key={ref}
-                  meta={member ? [member.description || member.ref] : ['Not installed']}
+                  meta={member ? [member.description || member.ref] : [t`Not installed`]}
                   name={member?.id ?? ref}
                   onExplore={member ? () => onMember(member) : undefined}
                   size="sm"
@@ -568,11 +575,11 @@ function Capabilities({
       ) : null}
       {plugin.skills.length && !skillView ? (
         <>
-          <SettingsGroupLabel>Skills</SettingsGroupLabel>
-          <ItemList label="Skills">
+          <SettingsGroupLabel>{t`Skills`}</SettingsGroupLabel>
+          <ItemList label={t`Skills`}>
             {plugin.skills.map((skill) => (
               <ExtensionRow
-                exploreLabel={`Open ${skill}`}
+                exploreLabel={t`Open ${skill}`}
                 icon={<SparklesIcon />}
                 key={skill}
                 meta={[markdownSummary(partFile(files, 'skills', skill)?.text)]}
@@ -586,8 +593,8 @@ function Capabilities({
       ) : null}
       {plugin.mcp_servers.length ? (
         <>
-          <SettingsGroupLabel>MCP servers</SettingsGroupLabel>
-          <ItemList label="MCP servers">
+          <SettingsGroupLabel>{t`MCP servers`}</SettingsGroupLabel>
+          <ItemList label={t`MCP servers`}>
             {plugin.mcp_servers.map((name) => {
               const server = servers.find(
                 (row) => row.name === name && (!row.plugin || row.plugin === plugin.ref),
@@ -609,8 +616,8 @@ function Capabilities({
       ) : null}
       {plugin.commands.length ? (
         <>
-          <SettingsGroupLabel>Commands</SettingsGroupLabel>
-          <ItemList label="Commands">
+          <SettingsGroupLabel>{t`Commands`}</SettingsGroupLabel>
+          <ItemList label={t`Commands`}>
             {plugin.commands.map((name) => (
               <ExtensionRow
                 icon={<TerminalIcon />}
@@ -637,11 +644,11 @@ function Capabilities({
         ) : null;
       })}
       {plugin.requires.length ? (
-        <p className="mt-3 text-muted-foreground">Requires {plugin.requires.join(', ')}</p>
+        <p className="mt-3 text-muted-foreground">{t`Requires ${ph({ plugins: plugin.requires.join(', ') })}`}</p>
       ) : null}
       {plugin.diagnostics.length ? (
         <>
-          <SettingsGroupLabel>Notes</SettingsGroupLabel>
+          <SettingsGroupLabel>{t`Notes`}</SettingsGroupLabel>
           <ul className="grid gap-1 text-xs">
             {plugin.diagnostics.map((note, index) => (
               <li
@@ -655,7 +662,7 @@ function Capabilities({
         </>
       ) : null}
       {empty && !plugin.description ? (
-        <StateView kind="empty" size="row" title="This plugin declares no capabilities." />
+        <StateView kind="empty" size="row" title={t`This plugin declares no capabilities.`} />
       ) : null}
     </div>
   );
@@ -674,7 +681,7 @@ export function PluginExplorer(props: Omit<PluginDetailPaneProps, 'className'>) 
         className="flex h-[min(48rem,calc(100dvh-2rem))] min-w-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
         showCloseButton={false}
       >
-        <DialogTitle className="sr-only">Plugin details</DialogTitle>
+        <DialogTitle className="sr-only">{t`Plugin details`}</DialogTitle>
         <PluginDetailPane {...props} />
       </DialogContent>
     </Dialog>

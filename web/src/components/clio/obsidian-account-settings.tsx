@@ -8,6 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { ExternalLink } from '@/components/ui/external-link';
 import { vocab } from '@/lib/brand-vocabulary';
+import { t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
+
+const { agent } = vocab;
 
 /** The same managed-client/account owner serves Settings and the vault connection flow. */
 export function ObsidianAccountSettings() {
@@ -55,22 +59,24 @@ function ObsidianAccountForm() {
   });
   const error = status.error || install.error || login.error || logout.error;
   return (
-    <section className="grid gap-4" aria-label="Obsidian Sync account">
+    <section className="grid gap-4" aria-label={t`Obsidian Sync account`}>
       <p className="text-sm text-muted-foreground">
-        Sync is optional. {vocab.agent} installs and manages the official client on this service. An{' '}
-        <ExternalLink href="https://obsidian.md/sync" className="underline">
-          Obsidian Sync subscription
-        </ExternalLink>{' '}
-        is required to use account sync.
+        <Trans>
+          Sync is optional. {agent} installs and manages the official client on this service. An{' '}
+          <ExternalLink href="https://obsidian.md/sync" className="underline">
+            Obsidian Sync subscription
+          </ExternalLink>{' '}
+          is required to use account sync.
+        </Trans>
       </p>
-      {status.isPending ? <p role="status">Checking Obsidian Sync…</p> : null}
+      {status.isPending ? <p role="status">{t`Checking Obsidian Sync…`}</p> : null}
       {status.data &&
       (!status.data.installed ||
         status.data.state === 'installing' ||
         status.data.state === 'failed') ? (
         <div className="grid gap-2">
           <p role="status" className="text-sm">
-            {status.data.message || `The Sync client is not installed in ${vocab.agent} yet.`}
+            {status.data.message || t`The Sync client is not installed in ${agent} yet.`}
           </p>
           <Button
             type="button"
@@ -80,22 +86,22 @@ function ObsidianAccountForm() {
             onClick={() => install.mutate()}
           >
             {status.data.state === 'installing'
-              ? 'Installing client…'
+              ? t`Installing client…`
               : status.data.state === 'failed'
-                ? 'Retry installation'
-                : 'Install Sync client'}
+                ? t`Retry installation`
+                : t`Install Sync client`}
           </Button>
         </div>
       ) : status.data?.authenticated ? (
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm">Signed in to Obsidian, client {status.data.version}</p>
+          <p className="text-sm">{t`Signed in to Obsidian, client ${ph({ version: status.data.version })}`}</p>
           <Button
             type="button"
             variant="outline"
             disabled={logout.isPending}
             onClick={() => logout.mutate()}
           >
-            Sign out
+            {t`Sign out`}
           </Button>
         </div>
       ) : status.data?.installed ? (
@@ -107,10 +113,10 @@ function ObsidianAccountForm() {
           }}
         >
           <p className="text-xs text-muted-foreground">
-            Client {status.data.version} is managed by {vocab.agent}.
+            {t`Client ${ph({ version: status.data.version })} is managed by ${agent}.`}
           </p>
           <Field>
-            <FieldLabel htmlFor={`${id}-email`}>Obsidian account email</FieldLabel>
+            <FieldLabel htmlFor={`${id}-email`}>{t`Obsidian account email`}</FieldLabel>
             <Input
               id={`${id}-email`}
               type="email"
@@ -122,7 +128,7 @@ function ObsidianAccountForm() {
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor={`${id}-password`}>Account password</FieldLabel>
+            <FieldLabel htmlFor={`${id}-password`}>{t`Account password`}</FieldLabel>
             <Input
               id={`${id}-password`}
               type="password"
@@ -135,7 +141,9 @@ function ObsidianAccountForm() {
           </Field>
           <Field>
             <FieldLabel htmlFor={`${id}-mfa`}>
-              Two-factor code <span className="text-muted-foreground">(if enabled)</span>
+              <Trans>
+                Two-factor code <span className="text-muted-foreground">(if enabled)</span>
+              </Trans>
             </FieldLabel>
             <Input
               id={`${id}-mfa`}
@@ -146,7 +154,7 @@ function ObsidianAccountForm() {
             />
           </Field>
           <Button type="submit" className="w-fit" disabled={login.isPending}>
-            {login.isPending ? 'Signing in…' : 'Sign in to Obsidian'}
+            {login.isPending ? t`Signing in…` : t`Sign in to Obsidian`}
           </Button>
         </form>
       ) : null}

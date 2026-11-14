@@ -10,8 +10,23 @@ import { SourceAttachmentCard } from './composer-source-attachments';
 import { useSourceFolderReference } from './use-source-folder-reference';
 import { useSourceFileReference } from './use-source-file-reference';
 import type { SourceDownloadSelection } from './source-download-selection';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /** Follow an explicitly attached storage operation after its picker is closed. */
+/** "Indexing failed", "Download cancelled": a stopped operation in one phrase. */
+function stoppedText(linked: boolean, state: string): string {
+  if (linked) {
+    if (state === 'failed') return t`Indexing failed`;
+    if (state === 'cancelled') return t`Indexing cancelled`;
+    if (state === 'interrupted') return t`Indexing interrupted`;
+    return t`Indexing ${state}`;
+  }
+  if (state === 'failed') return t`Download failed`;
+  if (state === 'cancelled') return t`Download cancelled`;
+  if (state === 'interrupted') return t`Download interrupted`;
+  return t`Download ${state}`;
+}
+
 export function SourceDownloadAttachment({
   workspaceId,
   source,
@@ -70,14 +85,17 @@ export function SourceDownloadAttachment({
   const detail =
     problem ||
     (stopped
-      ? `${linked ? 'Indexing' : 'Download'} ${operation.state}`
+      ? stoppedText(linked, operation.state)
       : operation?.state === 'completed'
-        ? 'Preparing attachment…'
+        ? t`Preparing attachment…`
         : linked
-          ? `Indexing folder… ${entries} entries`
+          ? plural(entries, {
+              one: 'Indexing folder… # entry',
+              other: 'Indexing folder… # entries',
+            })
           : isFile
-            ? 'Downloading file…'
-            : 'Downloading folder…');
+            ? t`Downloading file…`
+            : t`Downloading folder…`);
   return (
     <SourceAttachmentCard
       id={operationId}
@@ -92,12 +110,12 @@ export function SourceDownloadAttachment({
           variant="ghost"
           onClick={() => attach({ source, path, name, draftId: selection?.draftId, linked })}
         >
-          Retry attachment
+          {t`Retry attachment`}
         </Button>
       )}
       {!linked && !problem && !stopped && operation?.bytes_total ? (
         <progress
-          aria-label={`Downloading ${source.label}`}
+          aria-label={t`Downloading ${ph({ label: source.label })}`}
           className="mt-1 h-1 w-full accent-primary"
           value={operation.bytes_done}
           max={operation.bytes_total}

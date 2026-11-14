@@ -1,8 +1,9 @@
 import type { KnowledgeSnapshot } from '@clio/core/v3';
+import { plural } from '@lingui/core/macro';
 
 /** "1 link", "8 links": the count of notes linked to or from a note. */
 export function knowledgeLinkCount(count: number): string {
-  return `${count.toLocaleString()} ${count === 1 ? 'link' : 'links'}`;
+  return plural(count, { one: '# link', other: '# links' });
 }
 
 /** Resolved links per note path, each linked pair counted once. */

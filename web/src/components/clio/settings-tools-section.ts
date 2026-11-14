@@ -12,6 +12,8 @@ export interface ToolTableSection {
   hint?: string;
   /** Names the group's bulk choices ("All read-only tools"). */
   bulkLabel: string;
+  /** The same group in the middle of a sentence ("all hdf5 tools"). */
+  bulkPhrase: string;
   tools: ToolSetting[];
   /** Instead of tools: why there are none yet ("Not loaded yet"). */
   notice?: {

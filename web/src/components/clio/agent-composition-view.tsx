@@ -3,19 +3,18 @@ import {
   pluginReferenceId,
   emptyAgentDelta,
   type AgentDelta,
+  type AgentResolution,
   type SessionAgent,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { useDraftAgentChange, type DraftAgent } from '@/hooks/use-draft-agent-change';
 import { usePluginChange, type PluginChange } from '@/hooks/use-plugin-change';
 import { useInstalledAgents, usePluginCatalog } from '@/hooks/use-session-agent';
 import { offeredPlugins } from '@/lib/connector-presentation';
-import { ScrollTextIcon } from 'lucide-react';
 import { agentDisplayName, resolvedPluginName } from '@/lib/plugin-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -26,12 +25,14 @@ import { AgentPackages, type AgentPackagesView } from './agent-packages';
 import { AgentSwitchMenu } from './agent-switch-menu';
 import { AgentTabHeader, AgentUseRows, SaveAsSetupLink } from './agent-tab-overview';
 import { AgentRunsWith } from './agent-tab-run-settings';
-import { agentUseValues, type AgentUseKind } from './agent-tab-values';
+import { agentUseValues, AGENT_USE_LABELS, type AgentUseKind } from './agent-tab-values';
 import { PluginChangeDialog, type PluginChangeDialogProps } from './plugin-change-dialog';
 import { KeyValueRowButton, type KeyValueItem } from './primitives/key-value-grid';
 import { StateView } from './primitives/state-view';
 import { serviceErrorDetail } from './service-error';
+import { SettingsGroupLabel } from './settings-row';
 import { SaveUserAgentDialog, type SaveUserAgentInput } from './save-user-agent-dialog';
+import { ph, select, t } from '@lingui/core/macro';
 
 // A row's drill-in (plugin explorer, tool tables) is its own chunk, kept off
 // the first load. The panel fetches it on mount so opening a row never waits.
@@ -70,16 +71,16 @@ export function AgentCompositionView({ sessionId }: { sessionId: string }) {
     compact.mutate(undefined, {
       onSuccess: (result) => {
         if (result.compacted)
-          toast.success('Conversation compacted', {
-            description: 'The plugin changes are in the agent’s system prompt now.',
+          toast.success(t`Conversation compacted`, {
+            description: t`The plugin changes are in the agent’s system prompt now.`,
           });
         else
-          toast.info('Conversation was not compacted', {
-            description: result.reason ?? 'The service did not report a reason.',
+          toast.info(t`Conversation was not compacted`, {
+            description: result.reason ?? t`The service did not report a reason.`,
           });
       },
       onError: (error) =>
-        toast.error('Unable to compact this conversation', { description: error.message }),
+        toast.error(t`Unable to compact this conversation`, { description: error.message }),
     });
   return <AgentComposition change={change} onCompact={compactNow} sessionId={sessionId} />;
 }
@@ -93,10 +94,13 @@ export function DraftAgentCompositionView({
   onChange,
   library = false,
   embedded = false,
+  naming = false,
 }: {
   library?: boolean;
   /** Inside a pane that already scrolls, such as the Settings agent preview. */
   embedded?: boolean;
+  /** Open with the save dialog up: a new agent starts as a named variation of this one. */
+  naming?: boolean;
   draft: DraftAgent;
   onChange: (next: DraftAgent) => void;
 }) {
@@ -107,6 +111,7 @@ export function DraftAgentCompositionView({
       draft
       embedded={embedded}
       library={library}
+      naming={naming}
       onCompact={() => undefined}
     />
   );
@@ -117,6 +122,7 @@ function AgentComposition({
   draft = false,
   library = false,
   embedded = false,
+  naming = false,
   sessionId,
   onCompact,
 }: {
@@ -124,6 +130,7 @@ function AgentComposition({
   draft?: boolean;
   library?: boolean;
   embedded?: boolean;
+  naming?: boolean;
   sessionId?: string;
   onCompact: () => void;
 }) {
@@ -136,7 +143,7 @@ function AgentComposition({
   const conversationTitle = useLiveStore((state) =>
     sessionId ? state.entities.sessions[sessionId]?.title : undefined,
   );
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(naming);
   const [view, setView] = useState<AgentUseKind>();
   const [packagesView, setPackagesView] = useState<AgentPackagesView>({ category: 'all' });
   const [item, setItem] = useState<PackageItem>();
@@ -170,8 +177,8 @@ function AgentComposition({
     onSuccess: async (saved) => {
       setSaving(false);
       await queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) });
-      toast.success(`Saved ${saved.name || saved.ref}`, {
-        description: 'Choose it when you start a conversation.',
+      toast.success(t`Saved ${ph({ name: saved.name || saved.ref })}`, {
+        description: t`Choose it when you start a conversation.`,
       });
     },
   });
@@ -188,9 +195,9 @@ function AgentComposition({
   const add = (plugin: string) => {
     const name = pluginName(plugin);
     change(deltaWith(delta, { add: plugin }), {
-      summary: `Adds ${name} to this conversation.`,
-      success: `Added ${name}`,
-      failure: `${name} was not added`,
+      summary: t`Adds ${name} to this conversation.`,
+      success: t`Added ${name}`,
+      failure: t`${name} was not added`,
     });
   };
   const remove = (plugin: string) => {
@@ -198,34 +205,34 @@ function AgentComposition({
     change(deltaWith(delta, { remove: plugin }), {
       removing: plugin,
       removingName: name,
-      summary: `Removes ${name} from this conversation.`,
-      success: `Removed ${name}`,
-      failure: `${name} was not removed`,
+      summary: t`Removes ${name} from this conversation.`,
+      success: t`Removed ${name}`,
+      failure: t`${name} was not removed`,
     });
   };
 
   if (supported === false) {
     return (
       <StateView
-        detail="This service does not compose agents from plugins."
+        detail={t`This service does not compose agents from plugins.`}
         kind="unavailable"
-        title="Agents are not composable here"
+        title={t`Agents are not composable here`}
       />
     );
   }
-  if (agent.isPending) return <StateView kind="loading" title="Loading agent" />;
+  if (agent.isPending) return <StateView kind="loading" title={t`Loading agent`} />;
   if (agent.error || !resolution) {
     return agent.error ? (
       <StateView
         action={
-          agent.refetch ? { label: 'Retry', onClick: () => void agent.refetch?.() } : undefined
+          agent.refetch ? { label: t`Retry`, onClick: () => void agent.refetch?.() } : undefined
         }
         detail={serviceErrorDetail(agent.error.message)}
         kind="error"
-        title="The agent couldn't be loaded"
+        title={t`The agent couldn't be loaded`}
       />
     ) : (
-      <StateView kind="empty" title="This conversation has no resolved agent" />
+      <StateView kind="empty" title={t`This conversation has no resolved agent`} />
     );
   }
   const parentName = agentDisplayName(resolution.agent.ref, agents.data);
@@ -233,17 +240,21 @@ function AgentComposition({
   const values = agentUseValues(resolution, changed ? setup.data : resolution);
   const summary = deltaSummary(delta, draft, library, parentName, pluginName);
   const setupFacts = [
-    `${resolution.agent.ref}${resolution.agent.version ? `, version ${resolution.agent.version}` : ''}`,
+    resolution.agent.version
+      ? t`${ph({ ref: resolution.agent.ref })}, version ${ph({ version: resolution.agent.version })}`
+      : resolution.agent.ref,
     resolution.agent.role,
     resolution.agent.description !== resolution.agent.role ? resolution.agent.description : '',
     resolution.agent.kind === 'user' && resolution.agent.parent
-      ? `${library ? 'Based on' : 'Your agent, starting from'} ${agentDisplayName(resolution.agent.parent, agents.data)}`
+      ? library
+        ? t`Based on ${ph({ parent: agentDisplayName(resolution.agent.parent, agents.data) })}`
+        : t`Your agent, starting from ${ph({ parent: agentDisplayName(resolution.agent.parent, agents.data) })}`
       : '',
   ]
     .filter(Boolean)
     .join('. ');
   const setupItem: KeyValueItem = {
-    label: 'Setup',
+    label: t`Setup`,
     title: setupFacts,
     value:
       library || readOnly ? (
@@ -260,14 +271,14 @@ function AgentComposition({
               ref: next.ref,
               delta: emptyAgentDelta,
               summary: changed
-                ? `Switches this conversation to ${name}, without this conversation’s plugin changes.`
-                : `Switches this conversation to ${name}.`,
-              success: `Switched to ${name}`,
-              failure: `The conversation was not switched to ${name}`,
+                ? t`Switches this conversation to ${name}, without this conversation’s plugin changes.`
+                : t`Switches this conversation to ${name}.`,
+              success: t`Switched to ${name}`,
+              failure: t`The conversation was not switched to ${name}`,
             });
           }}
         >
-          <KeyValueRowButton aria-label={`Setup: ${setupName}`} chevron="down">
+          <KeyValueRowButton aria-label={t`Setup: ${setupName}`} chevron="down">
             {setupName}
           </KeyValueRowButton>
         </AgentSwitchMenu>
@@ -276,8 +287,10 @@ function AgentComposition({
   const title = library
     ? setupName
     : draft
-      ? 'Agent for a new conversation'
-      : `Agent for ${conversationTitle || 'this conversation'}`;
+      ? t`Agent for a new conversation`
+      : conversationTitle
+        ? t`Agent for ${conversationTitle}`
+        : t`Agent for this conversation`;
   const back = () => {
     const from = view;
     setView(undefined);
@@ -296,6 +309,22 @@ function AgentComposition({
         ?.focus(),
     );
   };
+  const packages = (
+    <AgentPackages
+      delta={delta}
+      onAdd={add}
+      onExplore={(plugin) => setExploring({ reference: `${plugin.marketplace}/${plugin.id}` })}
+      onOpenItem={setItem}
+      onRemove={remove}
+      onViewChange={setPackagesView}
+      pending={update.isPending}
+      plugins={offeredPlugins(catalog.data?.plugins)}
+      pluginsError={catalog.error?.message}
+      readOnly={readOnly}
+      resolution={resolution}
+      view={packagesView}
+    />
+  );
   return (
     <div
       className={
@@ -307,35 +336,21 @@ function AgentComposition({
       data-slot="agent-tab"
       ref={rows}
     >
-      {/* In a library pane's sub-views the header would hold only the legend: drop it. */}
-      {library && embedded && (view || item) && !(changed && !readOnly) ? null : (
+      {/* In a library pane the header holds only the legend: it shows once something changed. */}
+      {library && embedded && !(changed && !readOnly) ? null : (
         <AgentTabHeader
-          actions={
-            library && !view && !item ? (
-              <Button
-                className="-my-1 shrink-0"
-                data-agent-use="instructions"
-                onClick={() => setView('instructions')}
-                size="xs"
-                title="The agent’s full prompt, composed from its packages"
-                variant="outline"
-              >
-                <ScrollTextIcon aria-hidden="true" /> Prompt
-              </Button>
-            ) : undefined
-          }
           className={library && !embedded ? 'pr-12' : undefined}
           reset={
             changed && !readOnly
               ? {
-                  label: 'Reset to setup',
+                  label: t`Reset to setup`,
                   description: summary,
                   disabled: update.isPending,
                   onReset: () =>
                     change(emptyAgentDelta, {
-                      summary: `Restores ${parentName}’s plugins in this conversation.`,
-                      success: `Restored ${parentName}`,
-                      failure: `${parentName} was not restored`,
+                      summary: t`Restores ${parentName}’s plugins in this conversation.`,
+                      success: t`Restored ${parentName}`,
+                      failure: t`${parentName} was not restored`,
                     }),
                 }
               : undefined
@@ -345,56 +360,49 @@ function AgentComposition({
           titleShown={!embedded}
         />
       )}
-      {library && !view && !item ? (
-        <AgentPackages
-          delta={delta}
-          onAdd={add}
-          onExplore={(plugin) => setExploring({ reference: `${plugin.marketplace}/${plugin.id}` })}
-          onOpenItem={setItem}
-          onRemove={remove}
-          onViewChange={setPackagesView}
-          pending={update.isPending}
-          plugins={offeredPlugins(catalog.data?.plugins)}
-          pluginsError={catalog.error?.message}
-          readOnly={readOnly}
-          resolution={resolution}
-          view={packagesView}
-        />
-      ) : null}
-      {library && !view && !item ? (
-        <details className="px-3.5 pt-1 pb-2 text-[12px]">
-          <summary className="w-fit cursor-pointer text-muted-foreground">About this agent</summary>
-          <div className="mt-2 grid gap-2 leading-5">
-            {resolution.agent.role ? <p>{resolution.agent.role}</p> : null}
-            {resolution.agent.description &&
-            resolution.agent.description !== resolution.agent.role ? (
-              <p>{resolution.agent.description}</p>
-            ) : null}
-            <p className="break-words text-muted-foreground">{setupFacts}</p>
-          </div>
-        </details>
-      ) : null}
+      {library && !view && !item ? packages : null}
+      {library && !view && !item ? <AgentUseRows onOpen={setView} values={values} /> : null}
       {changed ? (
-        <p className="truncate px-3.5 pb-2 text-[12px] text-muted-foreground" title={summary}>
+        <p className="truncate px-3.5 pb-2 text-meta text-muted-foreground" title={summary}>
           {summary}
         </p>
       ) : null}
       {readOnly ? (
         <p
-          className="truncate px-3.5 pb-2 text-[12px] text-muted-foreground"
-          title="This conversation runs a defined subagent. Its plugins follow the conversation that started it."
+          className="truncate px-3.5 pb-2 text-meta text-muted-foreground"
+          title={t`This conversation runs a defined subagent. Its plugins follow the conversation that started it.`}
         >
-          This conversation runs a defined subagent. Its plugins follow the conversation that
-          started it.
+          {t`This conversation runs a defined subagent. Its plugins follow the conversation that started it.`}
         </p>
       ) : null}
       {update.error ? (
         <Alert className="mx-3.5 mb-2 w-auto" variant="destructive">
-          <AlertTitle>The agent was not changed</AlertTitle>
+          <AlertTitle>{t`The agent was not changed`}</AlertTitle>
           <AlertDescription>{update.error.message}</AlertDescription>
         </Alert>
       ) : null}
-      {view ? (
+      {item ? (
+        <AgentPackageItemDetail
+          backLabel={
+            view
+              ? t`Back to ${ph({ view: AGENT_USE_LABELS[view] })}`
+              : library
+                ? t`Back to packages`
+                : t`Back to the agent`
+          }
+          item={item}
+          onBack={backFromItem}
+          onExplore={(target, skill) => {
+            const plugin = resolution.plugins.find((entry) => entry.id === target.plugin);
+            if (!plugin) return;
+            setExploring({
+              reference: `${plugin.marketplace}/${plugin.id}`,
+              skill: skill ? target.id : undefined,
+            });
+          }}
+          resolution={resolution}
+        />
+      ) : view ? (
         <Suspense fallback={null}>
           <AgentDrillIn
             basis={agent.data?.prompt_basis}
@@ -404,13 +412,14 @@ function AgentComposition({
             onAdd={add}
             onAddBack={(plugin) =>
               change(deltaWith(delta, { add: plugin }), {
-                summary: `Adds ${plugin} back to this conversation.`,
-                success: `Added ${plugin} back`,
-                failure: `${plugin} was not added back`,
+                summary: t`Adds ${plugin} back to this conversation.`,
+                success: t`Added ${plugin} back`,
+                failure: t`${plugin} was not added back`,
               })
             }
             onBack={back}
             onCompact={onCompact}
+            onOpenItem={setItem}
             onRemove={remove}
             pending={update.isPending}
             plugins={offeredPlugins(catalog.data?.plugins)}
@@ -420,19 +429,6 @@ function AgentComposition({
             value={values[view].text}
           />
         </Suspense>
-      ) : item ? (
-        <AgentPackageItemDetail
-          item={item}
-          onBack={backFromItem}
-          onExplore={(target) => {
-            const plugin = resolution.plugins.find((entry) => entry.id === target.plugin);
-            if (!plugin) return;
-            setExploring({
-              reference: `${plugin.marketplace}/${plugin.id}`,
-              skill: target.category === 'skills' ? target.id : undefined,
-            });
-          }}
-        />
       ) : (
         <>
           <AgentRunsWith
@@ -441,11 +437,13 @@ function AgentComposition({
             setup={setupItem}
           />
           {library ? null : <AgentUseRows onOpen={setView} values={values} />}
+          {library ? null : packages}
+          {library ? <AgentAbout facts={setupFacts} resolution={resolution} /> : null}
           {readOnly ? null : (
             <SaveAsSetupLink
               disabled={(!changed && !library) || update.isPending || Boolean(agent.isFetching)}
-              disabledReason="Add or remove a plugin first"
-              label={library ? 'Save local variation' : 'Save as a setup…'}
+              disabledReason={t`Add or remove a plugin first`}
+              label={library ? t`Save local variation` : t`Save as a setup…`}
               onSave={() => setSaving(true)}
             />
           )}
@@ -477,6 +475,21 @@ function AgentComposition({
   );
 }
 
+/** What the agent is for, in its own words, plus where it comes from. */
+function AgentAbout({ resolution, facts }: { resolution: AgentResolution; facts: string }) {
+  const { role, description } = resolution.agent;
+  return (
+    <section aria-label={t`About this agent`} className="grid min-w-0 gap-1.5 px-3.5 pt-1 pb-2">
+      <SettingsGroupLabel className="mt-1">{t`About`}</SettingsGroupLabel>
+      <div className="grid gap-2 text-meta leading-5">
+        {role ? <p>{role}</p> : null}
+        {description && description !== role ? <p>{description}</p> : null}
+        <p className="break-words text-muted-foreground">{facts}</p>
+      </div>
+    </section>
+  );
+}
+
 /** In words, how this agent differs from the setup it starts from. */
 function deltaSummary(
   delta: AgentDelta,
@@ -485,13 +498,33 @@ function deltaSummary(
   parentName: string,
   name: (plugin: string) => string,
 ): string {
-  const lead = library
-    ? 'This local variation changes'
-    : draft
-      ? 'This new conversation will change'
-      : 'This conversation changes';
-  const adds = delta.add.length ? `: adds ${delta.add.map(name).join(', ')}` : '';
-  const joiner = delta.add.length && delta.remove.length ? ';' : delta.remove.length ? ':' : '';
-  const removes = delta.remove.length ? ` removes ${delta.remove.map(name).join(', ')}` : '';
-  return `${lead} ${parentName}${adds}${joiner}${removes}.`;
+  const subject = library ? 'library' : draft ? 'draft' : 'conversation';
+  const adds = delta.add.map(name).join(', ');
+  const removes = delta.remove.map(name).join(', ');
+  if (delta.add.length && delta.remove.length) {
+    return select(subject, {
+      library: `This local variation changes ${parentName}: adds ${adds}; removes ${removes}.`,
+      draft: `This new conversation will change ${parentName}: adds ${adds}; removes ${removes}.`,
+      other: `This conversation changes ${parentName}: adds ${adds}; removes ${removes}.`,
+    });
+  }
+  if (delta.add.length) {
+    return select(subject, {
+      library: `This local variation changes ${parentName}: adds ${adds}.`,
+      draft: `This new conversation will change ${parentName}: adds ${adds}.`,
+      other: `This conversation changes ${parentName}: adds ${adds}.`,
+    });
+  }
+  if (delta.remove.length) {
+    return select(subject, {
+      library: `This local variation changes ${parentName}: removes ${removes}.`,
+      draft: `This new conversation will change ${parentName}: removes ${removes}.`,
+      other: `This conversation changes ${parentName}: removes ${removes}.`,
+    });
+  }
+  return select(subject, {
+    library: `This local variation changes ${parentName}.`,
+    draft: `This new conversation will change ${parentName}.`,
+    other: `This conversation changes ${parentName}.`,
+  });
 }

@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useUpdateFlowStore } from '@/store/update-flow-store';
 import type { ResourceActions } from './resource-dialogs';
 import {
+  WorkspaceActionAlerts,
   WorkspaceHydrating,
   WorkspaceStatusStrip,
   WorkspaceTranscriptAlerts,
@@ -130,25 +131,24 @@ describe('WorkspaceTranscriptAlerts', () => {
   it('shows a stream error under ordinary conditions', () => {
     render(<WorkspaceTranscriptAlerts streamError="The stream disconnected unexpectedly." />);
 
-    expect(screen.getByText('Live stream needs reconciliation')).toBeVisible();
-    expect(screen.getByText('The stream disconnected unexpectedly.')).toBeVisible();
+    expect(screen.getByText('Some updates may be missing')).toBeVisible();
   });
 
-  it('suppresses the stream-error card while an update is in flight', () => {
+  it('suppresses the stream-error row while an update is in flight', () => {
     useUpdateFlowStore.getState().start('agent', '0.9.5.0');
     useUpdateFlowStore.getState().setStep('installing');
 
     render(<WorkspaceTranscriptAlerts streamError="The stream disconnected unexpectedly." />);
 
-    expect(screen.queryByText('Live stream needs reconciliation')).not.toBeInTheDocument();
+    expect(screen.queryByText('Some updates may be missing')).not.toBeInTheDocument();
   });
 
-  it('suppresses the stream-error card while reconnecting after an expected restart', () => {
+  it('suppresses the stream-error row while reconnecting after an expected restart', () => {
     useUpdateFlowStore.getState().resume('both', '0.9.5.0');
 
     render(<WorkspaceTranscriptAlerts streamError="The stream disconnected unexpectedly." />);
 
-    expect(screen.queryByText('Live stream needs reconciliation')).not.toBeInTheDocument();
+    expect(screen.queryByText('Some updates may be missing')).not.toBeInTheDocument();
   });
 
   it('still shows an unrelated transcript-fetch error during an in-flight update', () => {
@@ -162,9 +162,8 @@ describe('WorkspaceTranscriptAlerts', () => {
       />,
     );
 
-    expect(screen.queryByText('Live stream needs reconciliation')).not.toBeInTheDocument();
-    expect(screen.getByText('Conversation unavailable')).toBeVisible();
-    expect(screen.getByText('Could not load older messages.')).toBeVisible();
+    expect(screen.queryByText('Some updates may be missing')).not.toBeInTheDocument();
+    expect(screen.getByText('The latest messages could not be loaded')).toBeVisible();
   });
 
   it('resumes showing stream errors once the update settles back to idle', () => {
@@ -174,7 +173,29 @@ describe('WorkspaceTranscriptAlerts', () => {
 
     render(<WorkspaceTranscriptAlerts streamError="The stream disconnected unexpectedly." />);
 
-    expect(screen.getByText('Live stream needs reconciliation')).toBeVisible();
+    expect(screen.getByText('Some updates may be missing')).toBeVisible();
+  });
+});
+
+describe('WorkspaceActionAlerts', () => {
+  it('states a failure no action caused in its own words, apart from failed actions', () => {
+    render(
+      <WorkspaceActionAlerts notice="Tools could not be prepared in advance: The tool catalog could not be read. You can still send a message." />,
+    );
+
+    expect(
+      screen.getByText(
+        'Tools could not be prepared in advance: The tool catalog could not be read. You can still send a message.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText('That action didn’t run')).not.toBeInTheDocument();
+  });
+
+  it("keeps a failed action's service words in Technical details", () => {
+    render(<WorkspaceActionAlerts actionError="HTTP 500: card rejected" />);
+
+    expect(screen.getByText('That action didn’t run')).toBeVisible();
+    expect(screen.getByText('Technical details')).toBeInTheDocument();
   });
 });
 

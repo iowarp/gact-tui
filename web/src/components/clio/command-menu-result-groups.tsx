@@ -16,6 +16,7 @@ import {
 import { ClioRelativeTime } from './relative-time';
 import { SearchHighlight } from './search-highlight';
 import { isMissingEndpoint, type GlobalSearchMatches } from './use-global-search-matches';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * Every result group for the tab that is open, in the palette's order:
@@ -69,7 +70,7 @@ export function CommandMenuResultGroups({
           heading={
             <ResultsHeading
               count={searching ? visibleSessions.length : undefined}
-              label={searching ? 'Conversations' : 'Recent conversations'}
+              label={searching ? t`Conversations` : t`Recent conversations`}
             />
           }
         >
@@ -85,7 +86,7 @@ export function CommandMenuResultGroups({
               </span>
               <ResultDetail>
                 <SearchHighlight
-                  text={workspaceNames.get(session.workspace_id) ?? 'Workspace unavailable'}
+                  text={workspaceNames.get(session.workspace_id) ?? t`Workspace unavailable`}
                   query={searchText}
                 />
               </ResultDetail>
@@ -106,7 +107,7 @@ export function CommandMenuResultGroups({
       memory.error &&
       !isMissingEndpoint(memory.error) ? (
         <p role="alert" className="px-3 py-2 text-xs text-destructive">
-          Conversation search failed. {memory.error.message}
+          {t`Conversation search failed. ${ph({ message: memory.error.message })}`}
         </p>
       ) : null}
       {inCommandMenuScope(scope, 'conversations') && messageRows.rows.length ? (
@@ -149,7 +150,7 @@ export function CommandMenuResultGroups({
         after={
           inCommandMenuScope(scope, 'more') && workspaceRows.rows.length ? (
             <CommandGroup
-              heading={<ResultsHeading count={matchingWorkspaces.length} label="Workspaces" />}
+              heading={<ResultsHeading count={matchingWorkspaces.length} label={t`Workspaces`} />}
             >
               {workspaceRows.rows.map((item) => (
                 <CommandItem
@@ -161,7 +162,7 @@ export function CommandMenuResultGroups({
                   <span className="min-w-0 flex-[0_1_auto] truncate">
                     <SearchHighlight text={workspaceName(item)} query={searchText} />
                   </span>
-                  <ResultTrail>Workspace</ResultTrail>
+                  <ResultTrail>{t`Workspace`}</ResultTrail>
                 </CommandItem>
               ))}
               <MoreResultsItem

@@ -126,7 +126,16 @@ interface MarkdownNode {
   children?: MarkdownNode[];
 }
 
-/** Preserve supported link schemes before generic Markdown URL sanitization. */
+/** A path-relative link (`notes/plan.md`, `./a.md`), which has no page to open here. */
+function pathRelative(url: string): boolean {
+  return !/^[a-z][a-z\d+.-]*:|^[/\\#?]/iu.test(url) || /^\.\.?\//u.test(url);
+}
+
+/**
+ * Preserve supported link schemes before generic Markdown URL sanitization. A
+ * path-relative link keeps its words as plain text rather than a "[blocked]" mark
+ * or a link to nowhere; explicit references and bundle links are rewritten first.
+ */
 export function remarkContentReferences() {
   return (tree: MarkdownNode) => {
     const visit = (node: MarkdownNode) => {
@@ -138,6 +147,10 @@ export function remarkContentReferences() {
           node.url = CONTENT_REFERENCE_PATH;
         }
       }
+      if (node.children?.some((child) => child.type === 'link' && pathRelative(child.url ?? '')))
+        node.children = node.children.flatMap((child) =>
+          child.type === 'link' && pathRelative(child.url ?? '') ? (child.children ?? []) : [child],
+        );
       node.children?.forEach(visit);
     };
     visit(tree);

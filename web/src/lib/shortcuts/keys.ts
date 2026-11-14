@@ -11,6 +11,8 @@
  * See docs/design/visual-language/workbench-keyboard.html.
  */
 
+import { t } from '@lingui/core/macro';
+
 export type KeyPlatform = 'windows' | 'mac';
 
 export type Modifier = 'ctrl' | 'alt' | 'shift' | 'meta';
@@ -94,6 +96,7 @@ export function parseChord(chord: string, platform: KeyPlatform, handWritten = f
 }
 
 const MODIFIER_LABELS: Record<KeyPlatform, Record<Modifier, string>> = {
+  // i18n-ignore: keyboard key names, printed on the keys
   windows: { ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift', meta: 'Win' },
   mac: { ctrl: '⌃', alt: '⌥', shift: '⇧', meta: '⌘' },
 };
@@ -135,7 +138,10 @@ const KEY_LABELS: Record<KeyPlatform, Record<string, string>> = {
 /** The labels of one chord, one per key cap, in the platform's order. */
 export function chordLabels(parsed: ParsedChord, platform: KeyPlatform): string[] {
   const modifierLabels = MODIFIER_LABELS[platform];
-  if (parsed.hold) return [`hold ${modifierLabels[parsed.key as Modifier] ?? parsed.key}`];
+  if (parsed.hold) {
+    const key = modifierLabels[parsed.key as Modifier] ?? parsed.key;
+    return [t({ message: `hold ${key}`, comment: 'A key cap: keep the key held down' })];
+  }
   const labels = MODIFIER_ORDER.filter((modifier) => parsed.modifiers.has(modifier)).map(
     (modifier) => modifierLabels[modifier],
   );
@@ -168,6 +174,7 @@ export function heldChordText(parsed: ParsedChord, platform: KeyPlatform): strin
   const key = windowsKeyLabel(parsed.key);
   const word = key.length > 1 && !/^\d–\d$/u.test(key);
   const shifted = parsed.modifiers.has('shift') ? `⇧${word ? ' ' : ''}${key}` : key;
+  // i18n-ignore: a key cap; Alt is printed on the key in every language
   return parsed.modifiers.has('alt') ? `Alt ${shifted}` : shifted;
 }
 
@@ -186,9 +193,13 @@ const ARIA_KEYS: Record<string, string> = {
   Right: 'ArrowRight',
 };
 const ARIA_MODIFIERS: Record<Modifier, string> = {
+  // i18n-ignore: aria-keyshortcuts protocol values
   ctrl: 'Control',
+  // i18n-ignore: aria-keyshortcuts protocol values
   alt: 'Alt',
+  // i18n-ignore: aria-keyshortcuts protocol values
   shift: 'Shift',
+  // i18n-ignore: aria-keyshortcuts protocol values
   meta: 'Meta',
 };
 

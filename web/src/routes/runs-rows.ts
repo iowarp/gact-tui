@@ -10,6 +10,7 @@ import {
   workspaceLabelText,
   type WorkspaceDisplayLabel,
 } from '@/lib/workspace-labels';
+import { t, ph } from '@lingui/core/macro';
 
 export type RunSource = 'agent_task' | 'mcp_task' | 'unknown' | 'flow';
 
@@ -45,10 +46,10 @@ export interface RunRow {
 }
 
 export const sourceLabels: Record<RunSource, string> = {
-  agent_task: 'Agent',
-  mcp_task: 'Tool',
-  unknown: 'Unknown source',
-  flow: 'Flow',
+  agent_task: t`Agent`,
+  mcp_task: t`Tool`,
+  unknown: t`Unknown source`,
+  flow: t`Flow`,
 };
 
 /** One readable line from a server-authored failure reason (JSON or text). */
@@ -77,7 +78,7 @@ export function conciseReason(reason: string | undefined): string | undefined {
     }
   }
   if (reason.trimStart().startsWith('{'))
-    return 'The server reported structured failure details for this run.';
+    return t`The server reported structured failure details for this run.`;
   return truncate(reason, RUN_REASON_TRUNCATE_CHARS);
 }
 
@@ -94,10 +95,10 @@ export function buildRows(
     const workspaceId = targetSession?.workspace_id;
     const workspaceLabelFields = workspaceId
       ? (labels.get(workspaceId) ?? {
-          name: `${capitalize(vocab.workspace)} unavailable`,
+          name: t`${ph({ workspace: capitalize(vocab.workspace) })} unavailable`,
           qualifiers: [],
         })
-      : { name: `${capitalize(vocab.workspace)} unavailable`, qualifiers: [] };
+      : { name: t`${ph({ workspace: capitalize(vocab.workspace) })} unavailable`, qualifiers: [] };
     const statusDetail = ['failed', 'task_state_uncertain'].includes(run.status)
       ? run.progress.message || undefined
       : undefined;
@@ -106,13 +107,13 @@ export function buildRows(
       taskKind: run.kind,
       progress: run.progress,
       assignment: run.description_missing
-        ? 'Assignment description unavailable'
+        ? t`Assignment description unavailable`
         : (run.description ?? undefined),
       ownerSessionId: run.owner.session_id,
       cancelRequested: Boolean(run.cancellation_requested_at),
       cancellable: run.supported_actions.includes('cancel'),
       taskId: run.handle,
-      label: run.label || 'Unnamed task',
+      label: run.label || t`Unnamed task`,
       state: taskState(run),
       reportedStatus: run.raw_status || run.status,
       statusReason: conciseReason(statusDetail),
@@ -190,27 +191,30 @@ export function buildFlowRows(
               : 'queued';
       const workspaceLabelFields = workspaceId
         ? (labels.get(workspaceId) ?? {
-            name: `${capitalize(vocab.workspace)} unavailable`,
+            name: t`${ph({ workspace: capitalize(vocab.workspace) })} unavailable`,
             qualifiers: [],
           })
-        : { name: `${capitalize(vocab.workspace)} unavailable`, qualifiers: [] };
+        : {
+            name: t`${ph({ workspace: capitalize(vocab.workspace) })} unavailable`,
+            qualifiers: [],
+          };
       return [
         {
           handleId: flow.handle ?? tool.id,
           taskId: flow.handle ?? tool.id,
           taskKind: task?.kind,
-          label: `${flow.label} run`,
+          label: t`${ph({ flow: flow.label })} run`,
           state,
           reportedStatus: task ? task.raw_status || task.status : (flow.refusal?.reason ?? state),
           statusReason: flow.refusal
             ? conciseReason(flow.refusal.message)
             : flow.handle && !task
-              ? 'The flow task status is not loaded.'
+              ? t`The flow task status is not loaded.`
               : !flow.handle
-                ? 'The flow has not been accepted yet.'
+                ? t`The flow has not been accepted yet.`
                 : undefined,
           source: 'flow',
-          host: 'Flow',
+          host: t`Flow`,
           placement: flow.flow,
           workspaceLabel: workspaceLabelText(workspaceLabelFields),
           workspaceLabelFields,

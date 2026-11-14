@@ -1,4 +1,4 @@
-import { useContext, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -15,16 +15,26 @@ import { SourceSignInContext } from '@/lib/a2ui/source-sign-in-context';
 import { PresentationNavigation } from './presentation-navigation';
 import { ConnectedAccountSignIn } from './connected-source-auth';
 import { vocab } from '@/lib/brand-vocabulary';
+import { t, ph } from '@lingui/core/macro';
 
 /** Keep private authorization mounted while an accepted surface changes hosts. */
 export function A2uiSourceSignInHost({
   workspaceId,
+  scope,
   children,
 }: {
   workspaceId: string;
+  /** A pending sign-in belongs to this conversation; a new scope drops it. */
+  scope?: string;
   children: ReactNode;
 }) {
-  const [intent, setIntent] = useState<DataSourceIntent>();
+  const [pending, setPending] = useState<{ scope?: string; intent?: DataSourceIntent }>({ scope });
+  if (pending.scope !== scope) setPending({ scope });
+  const intent = pending.scope === scope ? pending.intent : undefined;
+  const setIntent = useCallback(
+    (next: DataSourceIntent | undefined) => setPending((current) => ({ ...current, intent: next })),
+    [],
+  );
   return (
     <SourceSignInContext.Provider value={setIntent}>
       {children}
@@ -75,20 +85,26 @@ export function A2uiSourceSignIn({
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Sign in to {provider?.name ?? 'data source'}</DialogTitle>
+          <DialogTitle>
+            {provider?.name
+              ? t`Sign in to ${ph({ provider: provider.name })}`
+              : t`Sign in to data source`}
+          </DialogTitle>
           <DialogDescription>
-            Sign-in stays private. The agent receives status and approved source references.
+            {t`Sign-in stays private. The agent receives status and approved source references.`}
           </DialogDescription>
         </DialogHeader>
-        {!sameWorkspace ? <p role="alert">Open the original workspace to sign in.</p> : null}
-        {sameWorkspace && owner.isFetching ? <p role="status">Checking this connection…</p> : null}
+        {!sameWorkspace ? <p role="alert">{t`Open the original workspace to sign in.`}</p> : null}
+        {sameWorkspace && owner.isFetching ? (
+          <p role="status">{t`Checking this connection…`}</p>
+        ) : null}
         {sameWorkspace && !owner.isFetching && (!matches || owner.error) ? (
           <p role="alert">
-            This sign-in action could not be checked against the connected {vocab.agent}.
+            {t`This sign-in action could not be checked against the connected ${ph({ agent: vocab.agent })}.`}
           </p>
         ) : null}
         {matches && !owner.isFetching && (!provider || !provider.configured) ? (
-          <p role="alert">Sign-in for this provider is unavailable on this {vocab.agent}.</p>
+          <p role="alert">{t`Sign-in for this provider is unavailable on this ${ph({ agent: vocab.agent })}.`}</p>
         ) : null}
         {matches && provider?.configured && !owner.error ? (
           <ConnectedAccountSignIn
