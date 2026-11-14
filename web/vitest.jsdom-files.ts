@@ -24,6 +24,7 @@ export const jsdomTsTests = [
   'src/components/clio/mermaid-export.test.ts',
   'src/components/clio/mermaid-security.test.ts',
   'src/components/clio/mesh-viewport-formats.test.ts',
+  'src/components/clio/cad-formats.test.ts',
   'src/components/clio/provider-model-refresh.test.ts',
   'src/components/clio/stream-lease.test.ts',
   'src/components/clio/surface-export.test.ts',
