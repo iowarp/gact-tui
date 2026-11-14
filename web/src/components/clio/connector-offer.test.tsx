@@ -1,6 +1,6 @@
 import { connectorSchema, type Connector, type PendingInteraction } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,12 +47,12 @@ const offer: PendingInteraction = {
   status: 'pending',
   title: 'Add Fixture viewer to this conversation',
   prompt: 'The agent offers Fixture viewer: Show the dataset in 3D.',
-  source: { protocol: 'mcp', tool_name: 'offer_connector', invocation_id: 'call_1' },
+  source: { protocol: 'mcp', tool_name: 'offer_plugin', invocation_id: 'call_1' },
   created_at: '2026-11-13T00:00:00Z',
   payload: {
     connector_id: 'fixture-viewer',
     connector_name: 'Fixture viewer for very large scientific datasets on another machine',
-    tool_name: 'offer_connector',
+    tool_name: 'offer_plugin',
     intent: 'enable',
     description: 'Open scientific data on this machine or another, and see it in a tab',
     reason: 'You asked to see the dataset in 3D; this connector opens it in a live view.',
@@ -101,32 +101,49 @@ afterEach(() => {
 });
 
 describe('the agent offers to add a connector to this conversation', () => {
-  it('shows what it is, why the agent asks, its needs and its state in words', async () => {
+  it('is three rows: the title with its state, the reason on one line, then the actions', async () => {
     renderDock();
     expect(
-      await screen.findByText(/Add Fixture viewer for very large.* to this conversation/u),
+      await screen.findByText(/Add Fixture viewer for very large.* to this conversation\?/u),
     ).toBeTruthy();
-    expect(screen.getByText(offer.payload!.reason as string)).toBeTruthy();
-    expect(screen.getByText(offer.payload!.description as string)).toBeTruthy();
+    // State in words, with what Add does when it is off.
     expect(screen.getByText('Not enabled')).toBeTruthy();
-    // The optional row waits behind its disclosure.
+    expect(screen.getByText('(Add turns it on)')).toBeTruthy();
+    const reason = screen.getByRole('button', { name: offer.payload!.reason as string });
+    expect(reason.getAttribute('aria-expanded')).toBe('false');
+    expect(reason.className).toContain('truncate');
+    // Dropped: the description, "Why the agent asks", "Nothing is required…", "Its tools join…".
+    expect(screen.queryByText(offer.payload!.description as string)).toBeNull();
+    expect(screen.queryByText('Why the agent asks')).toBeNull();
+    expect(screen.queryByText(/Nothing is required|needs nothing to set up/u)).toBeNull();
+    expect(screen.queryByText(/join this conversation only/u)).toBeNull();
+    // The required row shows; the optional one waits behind a quiet Settings (n).
+    expect(screen.getByLabelText(/Access token/u)).toBeTruthy();
     expect(screen.queryByLabelText(/Where it runs/u)).toBeNull();
-    const more = screen.getByRole('button', { name: 'Optional settings (1)' });
-    expect(more.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.getByText(/asks for the first time the agent uses it/u)).toBeTruthy();
-    expect(
-      screen.getByText(/Adding turns .* on, then its tools join this conversation only/u),
-    ).toBeTruthy();
+    const settings = screen.getByRole('button', { name: 'Settings (1)' });
+    expect(settings.getAttribute('aria-expanded')).toBe('false');
+    expect(settings.closest('[data-slot="ask-options"]')).toBeTruthy();
     expect(screen.queryByRole('switch')).toBeNull();
-    // A required row keeps Add disabled until it is typed.
-    expect(screen.getByRole('button', { name: /^1?\s*Add$/u }).hasAttribute('disabled')).toBe(true);
+    const add = screen.getByRole('button', { name: /^1?\s*Add$/u });
+    expect(add.hasAttribute('disabled')).toBe(true);
+    expect(add.getAttribute('title')).toContain('Adding turns');
+    expect(add.getAttribute('title')).toContain('sign-in the first time');
+  });
+
+  it('opens the whole reason on click', async () => {
+    const user = userEvent.setup();
+    renderDock();
+    const reason = await screen.findByRole('button', { name: offer.payload!.reason as string });
+    await user.click(reason);
+    expect(reason.getAttribute('aria-expanded')).toBe('true');
+    expect(reason.className).not.toContain('truncate');
   });
 
   it('adds it to this conversation with the rows typed, sending no scope', async () => {
     const user = userEvent.setup();
     const onResponse = renderDock();
     await user.type(await screen.findByLabelText(/Access token/u), 'zz-token');
-    await user.click(screen.getByRole('button', { name: 'Optional settings (1)' }));
+    await user.click(screen.getByRole('button', { name: 'Settings (1)' }));
     await user.type(screen.getByLabelText(/Where it runs/u), 'node08');
     await user.click(screen.getByRole('button', { name: /^1?\s*Add$/u }));
     expect(onResponse).toHaveBeenCalledWith(offer, {
@@ -136,11 +153,36 @@ describe('the agent offers to add a connector to this conversation', () => {
     });
   });
 
-  it('says a connector that is on only joins this conversation', async () => {
-    repository.connectors.mockResolvedValue([viewer({ enabled: true })]);
-    renderDock();
-    expect(await screen.findByText('Its tools join this conversation only.')).toBeTruthy();
-    expect(screen.getByText('Enabled')).toBeTruthy();
+  it('reads Enabled for a connector that is on, and shows no needs row when none is required', async () => {
+    repository.connectors.mockResolvedValue([
+      viewer({
+        enabled: true,
+        needs: [{ key: 'address', kind: 'address', label: 'Where it runs', required: false }],
+      }),
+    ]);
+    const optionalOnly = {
+      ...offer,
+      payload: {
+        ...offer.payload,
+        asks_sign_in: false,
+        missing: [{ key: 'address', kind: 'address', label: 'Where it runs', required: false }],
+      },
+    } as PendingInteraction;
+    renderWith(
+      <ClioPendingInteractions
+        interactions={[optionalOnly]}
+        onResponse={vi.fn(async () => undefined)}
+        viewedSessionId="sess_root"
+      />,
+    );
+    expect(await screen.findByText('Enabled')).toBeTruthy();
+    expect(screen.queryByText(/Add turns it on/u)).toBeNull();
+    expect(screen.queryByLabelText(/Access token/u)).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^1?\s*Add$/u }).hasAttribute('disabled')).toBe(
+        false,
+      ),
+    );
   });
 
   it('says Not now', async () => {
@@ -173,5 +215,47 @@ describe('the agent offers to add a connector to this conversation', () => {
       );
       expect(line()?.textContent).toContain(words);
     }
+  });
+
+  it('offers a plugin the same way: its name, Plugin from its marketplace, the reason, Add', async () => {
+    const user = userEvent.setup();
+    const pluginOffer: PendingInteraction = {
+      ...offer,
+      id: 'connector:plg',
+      title: 'Add tariff-calc to this conversation',
+      payload: {
+        connector_id: '',
+        connector_name: 'tariff-calc',
+        tool_name: 'offer_plugin',
+        intent: 'add_plugin',
+        plugin_id: 'tariff-calc',
+        plugin_ref: 'trade-lab/tariff-calc',
+        reason: 'It computes duty and VAT for the shipment you described.',
+        missing: [],
+      },
+    };
+    const onResponse = vi.fn(async () => undefined);
+    renderWith(
+      <ClioPendingInteractions
+        interactions={[pluginOffer]}
+        onResponse={onResponse}
+        viewedSessionId="sess_root"
+      />,
+    );
+    expect(await screen.findByText('Add tariff-calc to this conversation?')).toBeTruthy();
+    expect(screen.getByText('Plugin from trade-lab')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Settings/u })).toBeNull();
+    expect(repository.connectors).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: /^1?\s*Add$/u }));
+    expect(onResponse).toHaveBeenCalledWith(pluginOffer, {
+      action: 'submit',
+      values: {},
+      metadata: { save_as_default: [] },
+    });
+    cleanup();
+    renderWith(<ConversationInteractionActivity artifacts={{}} interaction={pluginOffer} />);
+    const line = document.querySelector('[data-slot="connector-setup-activity"]');
+    expect(line?.textContent).toContain('Add tariff-calc to this conversation');
+    expect(screen.getByRole('button', { name: /Choose below/u })).toBeTruthy();
   });
 });
