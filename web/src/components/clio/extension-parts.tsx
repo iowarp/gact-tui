@@ -1,5 +1,5 @@
 import { EyeIcon, TriangleAlertIcon } from 'lucide-react';
-import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
+import { Fragment, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -14,6 +14,20 @@ import { IconButton } from './primitives/icon-button';
 import { ItemRow } from './primitives/item-row';
 import { StatusIndicator } from './primitives/status-indicator';
 import { t } from '@lingui/core/macro';
+
+/**
+ * Text that may break after its hyphens ("clio-" / "science"): Japanese phrase
+ * breaking treats a Latin compound as one phrase, so without these it splits mid-word.
+ */
+function HyphenBreaks({ text }: { text: string }) {
+  const pieces = text.split(/(?<=-)(?=.)/u);
+  return pieces.map((piece, index) => (
+    <Fragment key={index}>
+      {index ? <wbr /> : null}
+      {piece}
+    </Fragment>
+  ));
+}
 
 /**
  * Meta parts separated by space alone; the whole line is the hover text when it is cut.
@@ -51,7 +65,7 @@ export function MetaLine({
           )}
           key={`${index}:${part.text}`}
         >
-          {part.text}
+          {wrap && !part.mono ? <HyphenBreaks text={part.text} /> : part.text}
         </span>
       ))}
     </span>
@@ -219,7 +233,7 @@ export function ExtensionRow({
       // A long name wraps whole rather than ending in an ellipsis.
       title={
         <span className="block break-words whitespace-normal" title={title}>
-          {title}
+          <HyphenBreaks text={title} />
         </span>
       }
       actions={
