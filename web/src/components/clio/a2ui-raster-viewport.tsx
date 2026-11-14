@@ -66,11 +66,14 @@ function rangeForBox(extent: Extent, box: Box): Extent {
   ];
 }
 
-/** The first selected value when the shared selection is about `field` (a time, say). */
+/**
+ * The first value of the shared selection, read along this view's `field` (a time,
+ * say). Like the chart and map, the view reads the shared values through its own
+ * field, whatever field name the view that wrote them used.
+ */
 function selectedFrame(selection: unknown, field: string | undefined): string | number | undefined {
   if (!field || typeof selection !== 'object' || selection === null) return undefined;
-  const state = selection as { field?: unknown; values?: unknown };
-  if (state.field !== undefined && state.field !== field) return undefined;
+  const state = selection as { values?: unknown };
   const first = Array.isArray(state.values) ? state.values[0] : undefined;
   return typeof first === 'string' || typeof first === 'number' ? first : undefined;
 }

@@ -56,7 +56,7 @@ it('draws the frame the shared time selection picks and says which', async () =>
         rasterUri="artifact://artifact_msl"
         title="Mean sea level pressure"
         variable="MSL"
-        selection={{ field: 'time', values: ['2024-09-26T12:00:00Z'], source: 'chart1' }}
+        selection={{ field: 'time_utc', values: ['2024-09-26T12:00:00Z'], source: 'chart1' }}
         selectionField="time"
       />
     </QueryClientProvider>,
