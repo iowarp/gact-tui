@@ -20,6 +20,7 @@ export const TOUR_ANCHORS = [
   'confirmation-policy',
   'add-context',
   'practice-artifact-viewer',
+  'connector-offer',
 ] as const;
 
 export type TourAnchorId = (typeof TOUR_ANCHORS)[number];

@@ -292,8 +292,10 @@ export function SettingsWindow() {
         data-settings-main=""
       >
         <AnnounceStates />
-        {/* Panes stop at the spec's 760 px; an open detail pane takes the window's width. */}
-        <div className="max-w-[760px] pb-12 has-[[data-slot=detail-pane]]:max-w-none">
+        {/* Panes stop at the spec's 760 px; Extensions, a directory of cards with its
+            search beside the tabs, at 1040 px (DC-D9); an open detail pane takes the
+            window's width. */}
+        <div className="max-w-[760px] pb-12 has-[[data-slot=detail-pane]]:max-w-none has-[[data-slot=extension-library]]:max-w-[1040px]">
           <SettingsScopeContext.Provider value={scopeLine}>
             <SettingsWindowCloseContext.Provider value={close}>
               <Suspense fallback={<SectionsLoading />}>

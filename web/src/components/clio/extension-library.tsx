@@ -40,7 +40,8 @@ import { ConnectorPane } from './connector-pane';
 import { ExtensionAddDialog, type ExtensionAdd } from './extension-add-dialog';
 import { ExtensionScopeHeading } from './extension-scope-heading';
 import { useDiscoverItems, type DiscoverItem } from './extension-discover';
-import { groupCatalogEntries, listedInYours } from '@/lib/connector-groups';
+import { DiscoverCatalog, type CatalogEntry } from './discover-catalog';
+import { listedInYours } from '@/lib/connector-groups';
 import { BackupDialog, DiscoverPane, McpConnectionPane } from './extension-library-panes';
 import { McpRegistrySection } from './extension-registry-section';
 import { ExtensionToolbar, type ExtensionView } from './extension-library-toolbar';
@@ -210,7 +211,7 @@ function ExtensionLibraryContents({
   };
 
   const { curated, registry, registryItems } = useDiscoverItems({
-    enabled: view === 'discover' && (type === 'all' || type === 'mcp'),
+    enabled: view === 'discover' && (type === 'all' || type === 'mcp') && registrySearch === term,
     search: registrySearch,
     cursor,
     onAdd: setAdding,
@@ -592,10 +593,10 @@ function ExtensionLibraryContents({
     );
   };
 
-  // FP-D4, PL-D1: Discover suggests the catalog's plugins that are off; other MCP servers keep their heading.
-  const catalogOff = entries.filter(
-    (entry): entry is Extract<ExtensionEntry, { kind: 'connector' }> =>
-      entry.kind === 'connector' && !entry.connector.enabled && entry.connector.source !== 'custom',
+  // DC-D2: Discover is the whole catalog as cards; one that is on reads "Enabled".
+  const catalogEntries = entries.filter(
+    (entry): entry is CatalogEntry =>
+      entry.kind === 'connector' && entry.connector.source !== 'custom',
   );
   // A clio-kit connector is in Discover until it is enabled (LZ-D9).
   const yoursEntries = entries.filter(
@@ -642,27 +643,23 @@ function ExtensionLibraryContents({
   const shownCurated = curated.filter(matches);
   const catalogHeading =
     type === 'plugins'
-      ? t`Plugins to enable`
+      ? t`Catalog plugins`
       : type === 'mcp'
-        ? t`Connectors to enable`
-        : t`Plugins and connectors to enable`;
+        ? t`Catalog connectors`
+        : t`Catalog plugins and connectors`;
   const showRegistry = type === 'all' || type === 'mcp';
   const discover = (
     <>
-      {type !== 'marketplaces' && type !== 'skills' && catalogOff.length ? (
-        <>
-          <SettingsGroupLabel>{catalogHeading}</SettingsGroupLabel>
-          <div aria-label={catalogHeading} role="group">
-            {groupCatalogEntries(catalogOff).map((group) => (
-              <div data-group={group.key} data-slot="discover-group" key={group.key}>
-                <p className="mt-2 mb-1 px-1 text-xs font-medium text-muted-foreground">
-                  {group.label}
-                </p>
-                <ItemList label={group.label}>{group.entries.map(row)}</ItemList>
-              </div>
-            ))}
-          </div>
-        </>
+      {type !== 'marketplaces' && type !== 'skills' && catalogEntries.length ? (
+        <DiscoverCatalog
+          entries={catalogEntries}
+          isOpen={(connector) => isOpen({ kind: 'connector', id: connector.id })}
+          label={catalogHeading}
+          onOpen={(connector) => open({ kind: 'connector', id: connector.id })}
+          shippedMarketplace={installed.find((row) => row.default)?.name}
+          showAll={Boolean(term)}
+          supported={supported}
+        />
       ) : null}
       {shownCurated.length ? (
         <>
@@ -677,8 +674,14 @@ function ExtensionLibraryContents({
           cursor={cursor}
           items={registryItems}
           onCursor={setCursor}
+          onSearch={() => {
+            setRegistrySearch(term);
+            setCursor('');
+          }}
+          query={term}
           registry={registry}
           renderItem={discoverRow}
+          searched={registrySearch}
         />
       ) : null}
       {!shownCurated.length && !showRegistry ? (
@@ -700,9 +703,16 @@ function ExtensionLibraryContents({
       <ExtensionToolbar
         onAdd={setAdding}
         onAddMarketplace={manager.openInstall}
-        onSearchChange={setSearch}
+        onSearchChange={(next) => {
+          setSearch(next);
+          // An emptied field browses the Registry again instead of the last query's page.
+          if (!next.trim()) {
+            setRegistrySearch('');
+            setCursor('');
+          }
+        }}
         onSearchSubmit={(next) => {
-          setRegistrySearch(next);
+          setRegistrySearch(next.trim());
           setCursor('');
         }}
         onTypeChange={changeType}
@@ -729,6 +739,7 @@ function ExtensionLibraryContents({
   return (
     <div
       className="-mt-4 -mr-5 -mb-17 flex min-w-0 sm:-mr-7"
+      data-slot="extension-library"
       ref={paneRoot}
       style={
         paneHeight

@@ -2073,6 +2073,10 @@ msgstr ""
 msgid "{from} - {to} of {recordCount}"
 msgstr ""
 
+#: src/components/clio/discover-catalog.tsx
+msgid "{group} ({count})"
+msgstr ""
+
 #: src/lib/plugin-presentation.ts
 msgid "{heading} ({count})"
 msgstr ""
@@ -5453,6 +5457,7 @@ msgid "added by {addedBy}"
 msgstr ""
 
 #: src/components/clio/connector-pane.tsx
+#: src/lib/discover-card.ts
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
 msgid "Added by you"
@@ -7749,6 +7754,10 @@ msgstr ""
 msgid "Bring back the saved draft"
 msgstr ""
 
+#: src/lib/onboarding/tour-script.ts
+msgid "Bring in tools"
+msgstr ""
+
 #: src/components/clio/extension-discover.tsx
 msgid "Bring your own plugin"
 msgstr ""
@@ -8422,8 +8431,20 @@ msgstr ""
 msgid "Catalog access filter"
 msgstr ""
 
+#: src/components/clio/extension-library.tsx
+msgid "Catalog connectors"
+msgstr ""
+
 #: src/components/clio/settings-model-server-details.tsx
 msgid "Catalog health"
+msgstr ""
+
+#: src/components/clio/extension-library.tsx
+msgid "Catalog plugins"
+msgstr ""
+
+#: src/components/clio/extension-library.tsx
+msgid "Catalog plugins and connectors"
 msgstr ""
 
 #: src/components/clio/provider-model-refresh.ts
@@ -8897,6 +8918,7 @@ msgstr ""
 msgid "Checking sync"
 msgstr ""
 
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library.tsx
 msgid "Checking the agent service…"
@@ -9551,6 +9573,7 @@ msgstr ""
 msgid "Clear measurement {number}"
 msgstr ""
 
+#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -9734,7 +9757,6 @@ msgid "Close review"
 msgstr ""
 
 #: src/components/clio/activity-timeline-list.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workbench-list-column.tsx
 #: src/components/clio/workbench-list-search.tsx
@@ -10836,12 +10858,12 @@ msgstr ""
 msgid "Connectors"
 msgstr ""
 
-#: src/lib/plugin-presentation.ts
-msgid "Connectors changed"
+#: src/lib/onboarding/tour-script.ts
+msgid "Connectors and plugins add tools to a conversation. Just ask, and {agent} offers what fits, like this card, or browse Discover in Settings."
 msgstr ""
 
-#: src/components/clio/extension-library.tsx
-msgid "Connectors to enable"
+#: src/lib/plugin-presentation.ts
+msgid "Connectors changed"
 msgstr ""
 
 #: src/components/clio/extension-scope-heading.tsx
@@ -13793,6 +13815,7 @@ msgid "Downloading folder…"
 msgstr ""
 
 #: src/lib/agent-needs.ts
+#: src/lib/discover-card.ts
 msgid "Downloading its tools…"
 msgstr ""
 
@@ -14329,6 +14352,7 @@ msgid "Empty text"
 msgstr ""
 
 #: src/components/clio/connector-pane.tsx
+#: src/components/clio/discover-catalog.tsx
 msgid "Enable"
 msgstr ""
 
@@ -14352,6 +14376,7 @@ msgid "Enable all"
 msgstr ""
 
 #: src/components/clio/connector-offer-response.tsx
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Enabled"
 msgstr ""
@@ -14362,6 +14387,10 @@ msgstr ""
 
 #: src/lib/agent-needs.ts
 msgid "Enabling {names}…"
+msgstr ""
+
+#: src/components/clio/discover-catalog.tsx
+msgid "Enabling needs a newer agent service"
 msgstr ""
 
 #: src/components/clio/ndp-station-filters.tsx
@@ -14777,6 +14806,10 @@ msgstr ""
 
 #: src/widget-gallery-demos.ts
 msgid "Example forecast"
+msgstr ""
+
+#: src/components/clio/onboarding/tour-offer-card.tsx
+msgid "Example offer"
 msgstr ""
 
 #: src/components/clio/document-workspace.tsx
@@ -16286,6 +16319,10 @@ msgstr ""
 msgid "from {marketplace}"
 msgstr ""
 
+#: src/lib/discover-card.ts
+msgid "From {marketplace}"
+msgstr ""
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "from {profile}"
 msgstr ""
@@ -16327,6 +16364,10 @@ msgstr ""
 msgid "From an unknown source"
 msgstr ""
 
+#: src/lib/discover-card.ts
+msgid "From clio-kit"
+msgstr ""
+
 #: src/components/clio/composer-add-context-button.tsx
 msgid "From connected data…"
 msgstr ""
@@ -16361,6 +16402,10 @@ msgstr ""
 
 #: src/components/clio/flow-name.tsx
 msgid "From the {plugin} plugin"
+msgstr ""
+
+#: src/lib/discover-card.ts
+msgid "From the {product} catalog"
 msgstr ""
 
 #: src/gallery-skill-dialog.tsx
@@ -21675,6 +21720,7 @@ msgstr ""
 
 #: src/lib/connector-plugin.ts
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Needs {needs}"
 msgstr ""
 
@@ -24092,6 +24138,10 @@ msgstr ""
 msgid "On this host"
 msgstr ""
 
+#: src/components/clio/discover-catalog.tsx
+msgid "On this machine"
+msgstr ""
+
 #: src/components/clio/tool-technical-details.tsx
 msgid "On, blocked a write to <0>{roots}</0>"
 msgstr ""
@@ -24707,6 +24757,10 @@ msgstr ""
 msgid "Open the folder of {name}"
 msgstr ""
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "Open the live view"
+msgstr ""
+
 #: src/lib/shortcuts/catalog.ts
 msgid "Open the model picker"
 msgstr ""
@@ -24909,6 +24963,10 @@ msgstr ""
 
 #: src/components/clio/markdown-content-link.tsx
 msgid "Opens in the shared browser; shift-click opens it outside"
+msgstr ""
+
+#: src/components/clio/discover-catalog.tsx
+msgid "Opens the setup of {name}"
 msgstr ""
 
 #: src/components/clio/comment-review-chip.tsx
@@ -25989,10 +26047,6 @@ msgstr ""
 msgid "Plugins and connectors changed"
 msgstr ""
 
-#: src/components/clio/extension-library.tsx
-msgid "Plugins and connectors to enable"
-msgstr ""
-
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/lib/plugin-presentation.ts
 msgid "Plugins changed"
@@ -26012,10 +26066,6 @@ msgstr ""
 
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
-msgstr ""
-
-#: src/components/clio/extension-library.tsx
-msgid "Plugins to enable"
 msgstr ""
 
 #: src/components/reui/time-picker.tsx
@@ -30991,7 +31041,6 @@ msgid "SDK Python interpreter"
 msgstr ""
 
 #: src/components/clio/desktop-title-bar.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/navigation-header.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -31196,6 +31245,10 @@ msgstr ""
 msgid "Search past sessions"
 msgstr ""
 
+#: src/components/clio/extension-library-toolbar.tsx
+msgid "Search plugins, connectors and skills"
+msgstr ""
+
 #: src/components/clio/model-picker-search.tsx
 msgid "Search providers and models"
 msgstr ""
@@ -31281,6 +31334,10 @@ msgstr ""
 msgid "Search the list"
 msgstr ""
 
+#: src/components/clio/extension-registry-section.tsx
+msgid "Search the MCP Registry for “{query}”"
+msgstr ""
+
 #: src/components/clio/latex-workspace.tsx
 msgid "Search the outline"
 msgstr ""
@@ -31336,10 +31393,6 @@ msgstr ""
 #: src/components/clio/memory-import-dialog.tsx
 #: src/components/clio/memory-scope-picker.tsx
 msgid "Search workspaces…"
-msgstr ""
-
-#: src/components/clio/extension-library-toolbar.tsx
-msgid "Search, Enter for the registry"
 msgstr ""
 
 #: src/components/reui/cascader/cascader-i18n.tsx
@@ -32476,6 +32529,10 @@ msgstr ""
 msgid "Show All"
 msgstr ""
 
+#: src/components/clio/discover-catalog.tsx
+msgid "Show all ({count})"
+msgstr ""
+
 #: src/components/clio/nested-tool-calls.tsx
 msgid "Show all {calls}"
 msgstr ""
@@ -32561,6 +32618,7 @@ msgstr ""
 msgid "Show every section"
 msgstr ""
 
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
@@ -32712,6 +32770,10 @@ msgstr ""
 
 #: src/components/clio/notebook-view.tsx
 msgid "Show source"
+msgstr ""
+
+#: src/lib/onboarding/tour-offer.ts
+msgid "Show stations, regions, footprints and tracks from GeoJSON on an interactive 3D globe, make map images, and find places by name."
 msgstr ""
 
 #: src/components/clio/mcp-app-card.tsx
@@ -33902,6 +33964,7 @@ msgstr ""
 #: src/components/clio/connector-pane.tsx
 #: src/components/clio/service-management-panel.tsx
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Starting…"
 msgstr ""
 
@@ -35891,8 +35954,16 @@ msgstr ""
 msgid "The linked view is unavailable."
 msgstr ""
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The live view could not open ({detail}); this is its recording."
+msgstr ""
+
 #: src/components/clio/browser-live-socket.ts
 msgid "The live view ended."
+msgstr ""
+
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The live view opens only in a conversation; this is its recording."
 msgstr ""
 
 #: src/tauri/clio-update-verification.ts
@@ -38732,6 +38803,7 @@ msgstr ""
 
 #: src/components/clio/connector-pane.tsx
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Turning off…"
 msgstr ""
 
@@ -41539,6 +41611,10 @@ msgstr ""
 
 #: src/components/clio/injection-presentation.ts
 msgid "You asked for changes. The agent stays in plan mode and revises the plan."
+msgstr ""
+
+#: src/lib/onboarding/tour-offer.ts
+msgid "You asked for hurricane tracks; this shows them on an interactive 3D globe."
 msgstr ""
 
 #: src/components/clio/conversation-summoned-work.tsx

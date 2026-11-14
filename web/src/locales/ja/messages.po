@@ -2073,6 +2073,10 @@ msgstr "{free}。"
 msgid "{from} - {to} of {recordCount}"
 msgstr "{from} - {to} / {recordCount}"
 
+#: src/components/clio/discover-catalog.tsx
+msgid "{group} ({count})"
+msgstr "{group}（{count}）"
+
 #: src/lib/plugin-presentation.ts
 msgid "{heading} ({count})"
 msgstr "{heading}（{count}）"
@@ -5461,6 +5465,7 @@ msgid "added by {addedBy}"
 msgstr "{addedBy}が追加"
 
 #: src/components/clio/connector-pane.tsx
+#: src/lib/discover-card.ts
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
 msgid "Added by you"
@@ -7757,6 +7762,10 @@ msgstr "すべてを手前に移動"
 msgid "Bring back the saved draft"
 msgstr "保存した下書きを復元"
 
+#: src/lib/onboarding/tour-script.ts
+msgid "Bring in tools"
+msgstr "ツールを追加する"
+
 #: src/components/clio/extension-discover.tsx
 msgid "Bring your own plugin"
 msgstr "独自のプラグインを使う"
@@ -8430,9 +8439,21 @@ msgstr "カタログ"
 msgid "Catalog access filter"
 msgstr "カタログのアクセスフィルター"
 
+#: src/components/clio/extension-library.tsx
+msgid "Catalog connectors"
+msgstr "カタログのコネクター"
+
 #: src/components/clio/settings-model-server-details.tsx
 msgid "Catalog health"
 msgstr "カタログの状態"
+
+#: src/components/clio/extension-library.tsx
+msgid "Catalog plugins"
+msgstr "カタログのプラグイン"
+
+#: src/components/clio/extension-library.tsx
+msgid "Catalog plugins and connectors"
+msgstr "カタログのプラグインとコネクター"
 
 #: src/components/clio/provider-model-refresh.ts
 msgid "Catalog refreshed; no compatible client update is available yet."
@@ -8905,6 +8926,7 @@ msgstr "観測点のカバー範囲を確認中"
 msgid "Checking sync"
 msgstr "同期を確認中"
 
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library.tsx
 msgid "Checking the agent service…"
@@ -9559,6 +9581,7 @@ msgstr "フィルターをクリア"
 msgid "Clear measurement {number}"
 msgstr "測定 {number} を消去"
 
+#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -9742,7 +9765,6 @@ msgid "Close review"
 msgstr "レビューを閉じる"
 
 #: src/components/clio/activity-timeline-list.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workbench-list-column.tsx
 #: src/components/clio/workbench-list-search.tsx
@@ -10844,13 +10866,13 @@ msgstr "追加したコネクター"
 msgid "Connectors"
 msgstr "コネクター"
 
+#: src/lib/onboarding/tour-script.ts
+msgid "Connectors and plugins add tools to a conversation. Just ask, and {agent} offers what fits, like this card, or browse Discover in Settings."
+msgstr "コネクターとプラグインは会話にツールを追加します。頼むだけで、このカードのように{agent}が合うものを提案します。設定の「見つける」から探すこともできます。"
+
 #: src/lib/plugin-presentation.ts
 msgid "Connectors changed"
 msgstr "コネクタが変更されました"
-
-#: src/components/clio/extension-library.tsx
-msgid "Connectors to enable"
-msgstr "有効にできるコネクター"
 
 #: src/components/clio/extension-scope-heading.tsx
 msgid "Connectors, plugins, marketplaces and skills for your agents."
@@ -13801,6 +13823,7 @@ msgid "Downloading folder…"
 msgstr "フォルダーをダウンロード中…"
 
 #: src/lib/agent-needs.ts
+#: src/lib/discover-card.ts
 msgid "Downloading its tools…"
 msgstr "ツールをダウンロードしています…"
 
@@ -14337,6 +14360,7 @@ msgid "Empty text"
 msgstr "空のテキスト"
 
 #: src/components/clio/connector-pane.tsx
+#: src/components/clio/discover-catalog.tsx
 msgid "Enable"
 msgstr "有効にする"
 
@@ -14360,6 +14384,7 @@ msgid "Enable all"
 msgstr "すべて有効にする"
 
 #: src/components/clio/connector-offer-response.tsx
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Enabled"
 msgstr "有効"
@@ -14371,6 +14396,10 @@ msgstr "有効です。{name}はプラグインから会話に追加します。
 #: src/lib/agent-needs.ts
 msgid "Enabling {names}…"
 msgstr "{names} を有効にしています…"
+
+#: src/components/clio/discover-catalog.tsx
+msgid "Enabling needs a newer agent service"
+msgstr "有効にするには新しいエージェントサービスが必要です"
 
 #: src/components/clio/ndp-station-filters.tsx
 msgid "End time"
@@ -14786,6 +14815,10 @@ msgstr "サンプルデータ"
 #: src/widget-gallery-demos.ts
 msgid "Example forecast"
 msgstr "予測の例"
+
+#: src/components/clio/onboarding/tour-offer-card.tsx
+msgid "Example offer"
+msgstr "提案の例"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Excel workbook"
@@ -16294,6 +16327,10 @@ msgstr "{hostLabel}から"
 msgid "from {marketplace}"
 msgstr "{marketplace}から"
 
+#: src/lib/discover-card.ts
+msgid "From {marketplace}"
+msgstr "{marketplace} から"
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "from {profile}"
 msgstr "{profile}から"
@@ -16335,6 +16372,10 @@ msgstr "ツールの結果から"
 msgid "From an unknown source"
 msgstr "不明なソースから"
 
+#: src/lib/discover-card.ts
+msgid "From clio-kit"
+msgstr "clio-kit から"
+
 #: src/components/clio/composer-add-context-button.tsx
 msgid "From connected data…"
 msgstr "接続済みデータから…"
@@ -16370,6 +16411,10 @@ msgstr "最初から"
 #: src/components/clio/flow-name.tsx
 msgid "From the {plugin} plugin"
 msgstr "{plugin}プラグインから"
+
+#: src/lib/discover-card.ts
+msgid "From the {product} catalog"
+msgstr "{product} のカタログから"
 
 #: src/gallery-skill-dialog.tsx
 msgid "From the **{name}** catalog. The agent loads its exact contract with:"
@@ -21692,6 +21737,7 @@ msgstr "{missing} が必要です"
 
 #: src/lib/connector-plugin.ts
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Needs {needs}"
 msgstr "{needs}が必要です"
 
@@ -24109,6 +24155,10 @@ msgstr "このコンピューター、別のマシン、またはクラスター
 msgid "On this host"
 msgstr "このホスト上"
 
+#: src/components/clio/discover-catalog.tsx
+msgid "On this machine"
+msgstr "このマシンで"
+
 #: src/components/clio/tool-technical-details.tsx
 msgid "On, blocked a write to <0>{roots}</0>"
 msgstr "オン、<0>{roots}</0> への書き込みをブロックしました"
@@ -24724,6 +24774,10 @@ msgstr "フラグ付きのレコードを開くか、レビューを続けてく
 msgid "Open the folder of {name}"
 msgstr "{name}のフォルダーを開く"
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "Open the live view"
+msgstr ""
+
 #: src/lib/shortcuts/catalog.ts
 msgid "Open the model picker"
 msgstr "モデル選択を開く"
@@ -24927,6 +24981,10 @@ msgstr "タブで開きます。"
 #: src/components/clio/markdown-content-link.tsx
 msgid "Opens in the shared browser; shift-click opens it outside"
 msgstr "共有ブラウザーで開きます。Shiftキーを押しながらクリックすると外部で開きます"
+
+#: src/components/clio/discover-catalog.tsx
+msgid "Opens the setup of {name}"
+msgstr "{name} の設定を開きます"
 
 #: src/components/clio/comment-review-chip.tsx
 msgid "Opens this version with its comments."
@@ -26006,10 +26064,6 @@ msgstr "プラグイン"
 msgid "Plugins and connectors changed"
 msgstr "プラグインとコネクタが変更されました"
 
-#: src/components/clio/extension-library.tsx
-msgid "Plugins and connectors to enable"
-msgstr "有効にできるプラグインとコネクタ"
-
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/lib/plugin-presentation.ts
 msgid "Plugins changed"
@@ -26030,10 +26084,6 @@ msgstr "このパックのプラグイン"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "同時に削除されるプラグイン"
-
-#: src/components/clio/extension-library.tsx
-msgid "Plugins to enable"
-msgstr "有効にできるプラグイン"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -31008,7 +31058,6 @@ msgid "SDK Python interpreter"
 msgstr "SDKのPythonインタープリター"
 
 #: src/components/clio/desktop-title-bar.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/navigation-header.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -31213,6 +31262,10 @@ msgstr "組織を検索…"
 msgid "Search past sessions"
 msgstr "過去のセッションを検索"
 
+#: src/components/clio/extension-library-toolbar.tsx
+msgid "Search plugins, connectors and skills"
+msgstr "プラグイン、コネクター、スキルを検索"
+
 #: src/components/clio/model-picker-search.tsx
 msgid "Search providers and models"
 msgstr "プロバイダーとモデルを検索"
@@ -31298,6 +31351,10 @@ msgstr "タスクを検索"
 msgid "Search the list"
 msgstr "リストを検索"
 
+#: src/components/clio/extension-registry-section.tsx
+msgid "Search the MCP Registry for “{query}”"
+msgstr "MCP Registry で「{query}」を検索"
+
 #: src/components/clio/latex-workspace.tsx
 msgid "Search the outline"
 msgstr "アウトラインを検索"
@@ -31354,10 +31411,6 @@ msgstr "ワークスペースのコンテキストを検索"
 #: src/components/clio/memory-scope-picker.tsx
 msgid "Search workspaces…"
 msgstr "ワークスペースを検索…"
-
-#: src/components/clio/extension-library-toolbar.tsx
-msgid "Search, Enter for the registry"
-msgstr "検索（Enterでレジストリ）"
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Search..."
@@ -32493,6 +32546,10 @@ msgstr "すべて表示"
 msgid "Show All"
 msgstr "すべてを表示"
 
+#: src/components/clio/discover-catalog.tsx
+msgid "Show all ({count})"
+msgstr "すべて表示（{count}）"
+
 #: src/components/clio/nested-tool-calls.tsx
 msgid "Show all {calls}"
 msgstr "{calls}をすべて表示"
@@ -32578,6 +32635,7 @@ msgstr "アドレスを表示"
 msgid "Show every section"
 msgstr "すべてのセクションを表示"
 
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
@@ -32730,6 +32788,10 @@ msgstr "選択項目を表示（{count}）"
 #: src/components/clio/notebook-view.tsx
 msgid "Show source"
 msgstr "ソースを表示"
+
+#: src/lib/onboarding/tour-offer.ts
+msgid "Show stations, regions, footprints and tracks from GeoJSON on an interactive 3D globe, make map images, and find places by name."
+msgstr "GeoJSON の観測点、地域、フットプリント、軌跡をインタラクティブな 3D 地球儀に表示し、地図画像を作成し、地名で場所を検索します。"
 
 #: src/components/clio/mcp-app-card.tsx
 msgid "Show tab"
@@ -33920,6 +33982,7 @@ msgstr "アップロードを開始中"
 #: src/components/clio/connector-pane.tsx
 #: src/components/clio/service-management-panel.tsx
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Starting…"
 msgstr "開始中…"
 
@@ -35909,9 +35972,17 @@ msgstr "リンクされたビューは別の会話に属しています。"
 msgid "The linked view is unavailable."
 msgstr "リンクされたビューを利用できません。"
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The live view could not open ({detail}); this is its recording."
+msgstr ""
+
 #: src/components/clio/browser-live-socket.ts
 msgid "The live view ended."
 msgstr "ライブビューが終了しました。"
+
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The live view opens only in a conversation; this is its recording."
+msgstr ""
 
 #: src/tauri/clio-update-verification.ts
 msgid "The local {agent} service did not report its running version."
@@ -38750,6 +38821,7 @@ msgstr "有効にしています…"
 
 #: src/components/clio/connector-pane.tsx
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Turning off…"
 msgstr "オフにしています…"
 
@@ -41558,6 +41630,10 @@ msgstr "このメッセージで{target}をリクエストしました"
 #: src/components/clio/injection-presentation.ts
 msgid "You asked for changes. The agent stays in plan mode and revises the plan."
 msgstr "変更を依頼しました。エージェントはプランモードのままプランを修正します。"
+
+#: src/lib/onboarding/tour-offer.ts
+msgid "You asked for hurricane tracks; this shows them on an interactive 3D globe."
+msgstr "ハリケーンの進路を求められたので、これでインタラクティブな 3D 地球儀に表示できます。"
 
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "You asked for the flow {target} on this message"

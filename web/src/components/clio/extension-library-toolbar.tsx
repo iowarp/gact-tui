@@ -1,12 +1,5 @@
 import { BoxIcon, LayersIcon, ListIcon, PlugIcon, SearchIcon, SparklesIcon } from 'lucide-react';
-import {
-  startTransition,
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+import { startTransition, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,7 +49,11 @@ const ADD_CHOICES: { kind: ExtensionAdd['kind']; label: string }[] = [
   { kind: 'plugin', label: t`Compose a plugin` },
 ];
 
-/** Type tabs, Yours | Discover, search and Add, on one line that folds with the list's width. */
+/**
+ * Type tabs, Yours | Discover, the search field and Add (DC-D9). Where the list is wide
+ * they share one line, the field taking the room between the tabs and Add; narrower (a
+ * phone, or beside an open pane) the field has its own full-width line under them.
+ */
 export function ExtensionToolbar({
   type,
   onTypeChange,
@@ -75,42 +72,19 @@ export function ExtensionToolbar({
   onViewChange: (view: ExtensionView) => void;
   search: string;
   onSearchChange: (search: string) => void;
-  /** Enter in the field: search the MCP Registry in Discover. */
+  /** Enter in the field: in Discover, also search the MCP Registry for it. */
   onSearchSubmit: (search: string) => void;
   supported: boolean | undefined;
   onAdd: (choice: ExtensionAdd) => void;
   onAddMarketplace: () => void;
 }) {
-  const [searching, setSearching] = useState(Boolean(search));
-  const toolbar = useRef<HTMLDivElement>(null);
-  const refocus = useRef(false);
-  const closeSearch = () => {
-    onSearchChange('');
-    onSearchSubmit('');
-    refocus.current = true;
-    setSearching(false);
-  };
-  // Closing the search unmounts its field; focus returns to the button that opened it.
-  useEffect(() => {
-    if (searching || !refocus.current) return;
-    refocus.current = false;
-    toolbar.current?.querySelector<HTMLButtonElement>('button[data-extension-search]')?.focus();
-  }, [searching]);
   return (
     <div
-      // What doesn't fit (search, Add) drops to a right-aligned second line.
-      className="flex min-h-[2.125rem] min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-1"
-      ref={toolbar}
+      className="flex min-h-[2.125rem] min-w-0 flex-wrap items-center gap-x-2 gap-y-2"
       role="toolbar"
       aria-label={t`Extensions`}
     >
-      {/* Where the types fold, an open search takes the row; the filters still apply. */}
-      <div
-        className={cn(
-          'flex max-w-full min-w-0 flex-wrap items-center gap-2',
-          searching && '@max-[35rem]/ext:hidden',
-        )}
-      >
+      <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
         <TypeTabs onValueChange={onTypeChange} value={type} />
         <SegmentedControl
           label={t`Show`}
@@ -122,29 +96,18 @@ export function ExtensionToolbar({
           value={view}
         />
       </div>
-      <span className={cn('min-w-0 flex-1', searching && '@max-[35rem]/ext:hidden')} />
-      {searching ? (
-        <ExtensionSearchField
-          onClose={closeSearch}
-          onSearchChange={onSearchChange}
-          onSearchSubmit={onSearchSubmit}
-          placeholder={view === 'discover' ? t`Search, Enter for the registry` : t`Search`}
-          search={search}
-        />
-      ) : (
-        <IconButton
-          data-extension-search=""
-          icon={<SearchIcon />}
-          label={t`Search extensions`}
-          onClick={() => setSearching(true)}
-        />
-      )}
-      {supported === false ? (
-        <InfoTip label={t`Why Add is unavailable`}>
-          {t`Adding or composing extensions needs a newer agent service. Existing sources can still be inspected.`}
-        </InfoTip>
-      ) : null}
-      <span className="inline-flex shrink-0">
+      <ExtensionSearchField
+        className="order-last basis-full @[52rem]/ext:order-none @[52rem]/ext:min-w-48 @[52rem]/ext:flex-1 @[52rem]/ext:basis-auto"
+        onSearchChange={onSearchChange}
+        onSearchSubmit={onSearchSubmit}
+        search={search}
+      />
+      <span className="ml-auto inline-flex shrink-0 items-center gap-2">
+        {supported === false ? (
+          <InfoTip label={t`Why Add is unavailable`}>
+            {t`Adding or composing extensions needs a newer agent service. Existing sources can still be inspected.`}
+          </InfoTip>
+        ) : null}
         <SplitButton
           disabled={supported !== true}
           icon={<AddIcon aria-hidden="true" />}
@@ -181,27 +144,31 @@ export function ExtensionToolbar({
 }
 
 /**
- * The open search field. It keeps what is typed and hands it to the list as a
- * transition, so each key repaints the field at once and the list follows.
+ * The search field, always shown. It keeps what is typed and hands it to the list as a
+ * transition, so each key repaints the field at once and the list follows. Its clear
+ * button appears only while there is text; Esc clears it too, and an empty field lets
+ * Esc through to the window.
  */
 function ExtensionSearchField({
   search,
-  placeholder,
   onSearchChange,
   onSearchSubmit,
-  onClose,
+  className,
 }: {
   search: string;
-  placeholder: string;
   onSearchChange: (search: string) => void;
   onSearchSubmit: (search: string) => void;
-  onClose: () => void;
+  className?: string;
 }) {
   const [draft, setDraft] = useState(search);
+  const input = useRef<HTMLInputElement>(null);
+  const change = (next: string) => {
+    setDraft(next);
+    startTransition(() => onSearchChange(next));
+  };
   return (
     <form
-      className="flex min-w-0 basis-[30%] items-center @max-[35rem]/ext:grow"
-      // Esc closes the search first; the window closes only on the next Esc.
+      className={cn('relative flex min-w-0 items-center', className)}
       data-escape-scope=""
       onSubmit={(event) => {
         event.preventDefault();
@@ -209,24 +176,37 @@ function ExtensionSearchField({
       }}
       role="search"
     >
+      <SearchIcon
+        aria-hidden="true"
+        className="pointer-events-none absolute left-2 size-3.5 text-muted-foreground"
+      />
       <Input
         aria-label={t`Search extensions`}
-        autoFocus
-        className="h-7 min-w-0 text-xs"
-        onChange={(event) => {
-          const next = event.target.value;
-          setDraft(next);
-          startTransition(() => onSearchChange(next));
-        }}
+        className="h-7 min-w-0 pr-8 pl-7 text-xs"
+        data-extension-search=""
+        onChange={(event) => change(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key !== 'Escape') return;
+          if (event.key !== 'Escape' || !draft) return;
           event.stopPropagation();
-          onClose();
+          change('');
         }}
-        placeholder={placeholder}
+        placeholder={t`Search plugins, connectors and skills`}
+        ref={input}
         value={draft}
       />
-      <IconButton icon={<CloseIcon />} label={t`Close search`} onClick={onClose} />
+      {draft ? (
+        <IconButton
+          className="absolute right-0.5 size-6"
+          icon={<CloseIcon />}
+          label={t`Clear search`}
+          onClick={() => {
+            change('');
+            input.current?.focus();
+          }}
+          size="sm"
+          type="button"
+        />
+      ) : null}
     </form>
   );
 }
