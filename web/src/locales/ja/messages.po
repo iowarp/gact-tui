@@ -24748,6 +24748,10 @@ msgstr "フラグ付きのレコードを開くか、レビューを続けてく
 msgid "Open the folder of {name}"
 msgstr "{name}のフォルダーを開く"
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "Open the live view"
+msgstr ""
+
 #: src/lib/shortcuts/catalog.ts
 msgid "Open the model picker"
 msgstr "モデル選択を開く"
@@ -35950,9 +35954,17 @@ msgstr "リンクされたビューは別の会話に属しています。"
 msgid "The linked view is unavailable."
 msgstr "リンクされたビューを利用できません。"
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The live view could not open ({detail}); this is its recording."
+msgstr ""
+
 #: src/components/clio/browser-live-socket.ts
 msgid "The live view ended."
 msgstr "ライブビューが終了しました。"
+
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The live view opens only in a conversation; this is its recording."
+msgstr ""
 
 #: src/tauri/clio-update-verification.ts
 msgid "The local {agent} service did not report its running version."

@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { RetryIcon } from '@/lib/icon-vocabulary';
 import { useRepository } from '@/hooks/use-repository';
 import { useA2uiReferenceSession } from '@/lib/a2ui/reference-session';
+import { A2uiMedia } from './a2ui-media';
 import { mcpAppLabel } from './mcp-app-live-set';
 import { McpAppSurface, type McpAppSurfaceHandle } from './mcp-app-surface';
 import {
@@ -45,6 +46,8 @@ export interface ClioMcpAppProps {
   args: Record<string, unknown>;
   channels: readonly McpAppChannel[];
   height?: number;
+  /** A video of the view, played when the live view cannot run. */
+  recordingUri?: string;
   dataContext: McpAppDataContext;
 }
 
@@ -125,6 +128,16 @@ export function ClioMcpApp(props: ClioMcpAppProps) {
   }, [callKey, label, openKey, repository, sessionId]);
 
   if (!sessionId) {
+    if (props.recordingUri) {
+      return (
+        <McpAppRecording
+          componentId={props.componentId}
+          label={label}
+          reason={t`The live view opens only in a conversation; this is its recording.`}
+          url={props.recordingUri}
+        />
+      );
+    }
     return (
       <p className="py-3 text-sm text-destructive" role="alert">
         {t`This view cannot open outside a conversation.`}
@@ -142,6 +155,20 @@ export function ClioMcpApp(props: ClioMcpAppProps) {
         <p className="text-sm text-muted-foreground">{t`Opening the view`}</p>
         <Skeleton className="h-full min-h-40 w-full" />
       </div>
+    );
+  }
+  if (!outcome.ok && props.recordingUri) {
+    return (
+      <McpAppRecording
+        componentId={props.componentId}
+        label={label}
+        onRetry={() => {
+          forgetSurfaceOpen(openKey);
+          setAttempt((current) => current + 1);
+        }}
+        reason={t`The live view could not open (${ph({ detail: outcome.detail })}); this is its recording.`}
+        url={props.recordingUri}
+      />
     );
   }
   if (!outcome.ok) {
@@ -298,5 +325,33 @@ function OpenedMcpApp(
         </ul>
       ) : null}
     </div>
+  );
+}
+
+/** The view's recording, shown in its place when the live view cannot run, saying so. */
+function McpAppRecording(props: {
+  componentId: string;
+  label: string;
+  reason: string;
+  url: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <figure
+      className="grid gap-2"
+      data-mcp-app-component={props.componentId}
+      data-mcp-app-recording=""
+    >
+      <A2uiMedia componentId={props.componentId} kind="video" label={props.label} url={props.url} />
+      <figcaption className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span>{props.reason}</span>
+        {props.onRetry ? (
+          <Button onClick={props.onRetry} size="sm" type="button" variant="outline">
+            <RetryIcon aria-hidden="true" />
+            {t`Open the live view`}
+          </Button>
+        ) : null}
+      </figcaption>
+    </figure>
   );
 }

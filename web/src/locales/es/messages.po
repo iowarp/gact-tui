@@ -24748,6 +24748,10 @@ msgstr "Abre los registros marcados o continúa la revisión."
 msgid "Open the folder of {name}"
 msgstr "Abrir la carpeta de {name}"
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "Open the live view"
+msgstr ""
+
 #: src/lib/shortcuts/catalog.ts
 msgid "Open the model picker"
 msgstr "Abrir el selector de modelos"
@@ -35950,9 +35954,17 @@ msgstr "La vista vinculada pertenece a otra conversación."
 msgid "The linked view is unavailable."
 msgstr "La vista vinculada no está disponible."
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The live view could not open ({detail}); this is its recording."
+msgstr ""
+
 #: src/components/clio/browser-live-socket.ts
 msgid "The live view ended."
 msgstr "La vista en directo terminó."
+
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The live view opens only in a conversation; this is its recording."
+msgstr ""
 
 #: src/tauri/clio-update-verification.ts
 msgid "The local {agent} service did not report its running version."
