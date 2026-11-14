@@ -4057,6 +4057,12 @@
                 }
               ]
             },
+            "selection": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue"
+            },
+            "selectionField": {
+              "type": "string"
+            },
             "title": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
             },
@@ -4074,7 +4080,7 @@
           "type": "object"
         }
       ],
-      "description": "An interactive viewport for a registered two-dimensional grid, with sampled values, colour scale, and region reference.",
+      "description": "An interactive viewport for a registered grid (one 2-D field, or one frame of a time series), with sampled values, colour scale, and region reference.",
       "type": "object",
       "unevaluatedProperties": false
     },

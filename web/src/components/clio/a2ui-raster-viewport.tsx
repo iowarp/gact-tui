@@ -66,6 +66,15 @@ function rangeForBox(extent: Extent, box: Box): Extent {
   ];
 }
 
+/** The first selected value when the shared selection is about `field` (a time, say). */
+function selectedFrame(selection: unknown, field: string | undefined): string | number | undefined {
+  if (!field || typeof selection !== 'object' || selection === null) return undefined;
+  const state = selection as { field?: unknown; values?: unknown };
+  if (state.field !== undefined && state.field !== field) return undefined;
+  const first = Array.isArray(state.values) ? state.values[0] : undefined;
+  return typeof first === 'string' || typeof first === 'number' ? first : undefined;
+}
+
 /** Interactive registered-grid viewer with a bounded server sample per visible extent. */
 export function ClioRasterViewport({
   rasterUri,
@@ -73,6 +82,8 @@ export function ClioRasterViewport({
   title,
   variable,
   band = 1,
+  selection: sharedSelection,
+  selectionField,
   colormap = 'viridis',
   unit = '',
   weight,
@@ -83,6 +94,9 @@ export function ClioRasterViewport({
   title?: string;
   variable?: string;
   band?: number;
+  /** The shared selection's value; its first value picks the frame along `selectionField`. */
+  selection?: unknown;
+  selectionField?: string;
   colormap?: Colormap;
   unit?: string;
   weight?: number;
@@ -102,6 +116,9 @@ export function ClioRasterViewport({
   const [selectedExtent, setSelectedExtent] = useState<Extent>();
   const [draft, setDraft] = useState<Box>();
   const [hover, setHover] = useState<{ x: number; y: number; value: number | null }>();
+  const frameValue = selectedFrame(sharedSelection, selectionField);
+  const select =
+    selectionField && frameValue !== undefined ? { [selectionField]: frameValue } : undefined;
   const sample = useQuery({
     enabled: Boolean(artifactId),
     queryKey: queryKeys.key(
@@ -110,6 +127,7 @@ export function ClioRasterViewport({
       artifactId,
       variable,
       band,
+      frameValue,
       extent?.join(','),
       fullscreen,
     ),
@@ -122,6 +140,7 @@ export function ClioRasterViewport({
           ...(extent ? { extent } : {}),
           variable,
           band,
+          ...(select ? { select } : {}),
         },
         signal,
       ),
@@ -354,6 +373,13 @@ export function ClioRasterViewport({
     >
       <div className="mb-2 flex items-center gap-2">
         <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{heading}</h3>
+        {data?.frame?.length ? (
+          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+            {data.frame
+              .map((part) => `${part.dim} ${part.value} (${part.index + 1} of ${part.count})`)
+              .join(', ')}
+          </span>
+        ) : null}
         {controls(false)}
       </div>
       <SurfaceFullScreenHost
