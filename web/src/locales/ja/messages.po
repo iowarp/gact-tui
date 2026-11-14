@@ -893,6 +893,11 @@ msgstr "{0, plural, one {このファイルの冒頭を表示しています（�
 msgid "{0, plural, one {Showing the first # item. {agent} can read the whole folder.} other {Showing the first # items. {agent} can read the whole folder.}}"
 msgstr "{0, plural, one {最初の#件を表示しています。{agent}はフォルダー全体を読み取れます。} other {最初の#件を表示しています。{agent}はフォルダー全体を読み取れます。}}"
 
+#. placeholder {0}: skills.length
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "{0, plural, one {Skill} other {Skills}}"
+msgstr "{0, plural, other {スキル}}"
+
 #. placeholder {0}: members.length
 #: src/hooks/use-flow-presentation.ts
 msgid "{0, plural, one {The {flow} flow's # call as it ran: {calls}} other {The {flow} flow's # calls as they ran: {calls}}}"
@@ -1831,6 +1836,10 @@ msgstr "{description}ワークスペースと組織のルールは引き続き�
 msgid "{detail} ({elapsed}) You can keep using {agent} while this finishes."
 msgstr "{detail}（{elapsed}）完了するまでの間も{agent}を使い続けられます。"
 
+#: src/components/clio/a2ui-raster-viewport.tsx
+msgid "{dimension} {value} ({position} of {count})"
+msgstr ""
+
 #: src/components/clio/mcp-app-surface.tsx
 msgid "{displayName} view closed"
 msgstr "{displayName}のビューを閉じました"
@@ -2035,6 +2044,10 @@ msgstr "{free}。"
 msgid "{from} - {to} of {recordCount}"
 msgstr "{from} - {to} / {recordCount}"
 
+#: src/lib/plugin-presentation.ts
+msgid "{heading} ({count})"
+msgstr "{heading}（{count}）"
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "{heading} 3D view"
 msgstr "{heading}の3Dビュー"
@@ -2054,6 +2067,14 @@ msgstr "{heading}、{field}で色分け（{min}～{max} {unit}）"
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "{heading}, geometry only"
 msgstr "{heading}、ジオメトリのみ"
+
+#: src/lib/plugin-presentation.ts
+msgid "{heading}: {list}"
+msgstr "{heading}：{list}"
+
+#: src/lib/plugin-presentation.ts
+msgid "{heading}: {list} ({count})"
+msgstr "{heading}：{list}（{count}）"
 
 #: src/components/clio/global-search-results.tsx
 msgid "{hidden, plural, one {# more action} other {# more actions}}"
@@ -2722,6 +2743,10 @@ msgstr "{n, plural, one {#件の認識できないリクエスト} other {#件�
 msgid "{n, plural, one {Refine, up to # try} other {Refine, up to # tries}}"
 msgstr "{n, plural, one {改良（最大#回試行）} other {改良（最大#回試行）}}"
 
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "{name} ({count})"
+msgstr "{name}（{count}）"
+
 #: src/components/clio/flow-railroad.ts
 msgid "{name} (fork of {forkOf})"
 msgstr "{name}（{forkOf}のフォーク）"
@@ -2941,6 +2966,10 @@ msgid "{name} was not added"
 msgstr "{name}は追加されませんでした"
 
 #: src/components/clio/agent-composition-view.tsx
+msgid "{name} was not added back"
+msgstr "{name}は再追加されませんでした"
+
+#: src/components/clio/agent-composition-view.tsx
 msgid "{name} was not removed"
 msgstr "{name}は削除されませんでした"
 
@@ -2963,6 +2992,10 @@ msgstr "{name}、この会話で変更"
 #: src/components/clio/document-pdf-viewer.tsx
 msgid "{name}, page {currentPage} of {pageCount}"
 msgstr "{name}、{currentPage}/{pageCount}ページ"
+
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "{name}, tools listed once enabled"
+msgstr "{name}（ツールは有効にすると表示されます）"
 
 #: src/components/clio/flow-railroad.ts
 msgid "{name}: {status}, {attempts} attempts."
@@ -3067,6 +3100,10 @@ msgstr "{permissionCount, plural, =1 {承認} other {#件の承認}}"
 msgid "{place}, applies to the selected conversation"
 msgstr "{place}、選択中の会話に適用"
 
+#: src/components/clio/extension-scope-heading.tsx
+msgid "{place}, installed for this agent; each conversation adds what it uses"
+msgstr "{place}、このエージェントにインストール済み。各会話は使うものを追加します"
+
 #: src/components/clio/agent-packages.tsx
 msgid "{plugin} brings"
 msgstr "{plugin}が提供するもの"
@@ -3106,10 +3143,6 @@ msgstr "{plugin}のサブエージェント"
 #: src/components/clio/agent-package-items.ts
 msgid "{plugin} tools"
 msgstr "{plugin}のツール"
-
-#: src/components/clio/agent-composition-view.tsx
-msgid "{plugin} was not added back"
-msgstr "{plugin}は再追加されませんでした"
 
 #: src/components/clio/a2ui-carousel.tsx
 #: src/components/clio/pending-interactions.tsx
@@ -3901,10 +3934,15 @@ msgstr "{toolCount}（セットアップには{setupToolCount}）"
 msgid "{toolName}: {list}"
 msgstr "{toolName}：{list}"
 
+#: src/lib/plugin-presentation.ts
+msgid "{tools, plural, one {# new tool} other {# new tools}}"
+msgstr "{tools, plural, other {新しいツール #個}}"
+
 #: src/offline-review.tsx
 msgid "{tools, plural, one {# tool record} other {# tool records}}"
 msgstr "{tools, plural, one {#件のツール記録} other {#件のツール記録}}"
 
+#: src/components/clio/connector-plugin-contents.tsx
 #: src/lib/transcript-message-preview.ts
 msgid "{tools, plural, one {# tool} other {# tools}}"
 msgstr "{tools, plural, one {#件のツール} other {#件のツール}}"
@@ -3916,14 +3954,6 @@ msgstr "{tools, plural, other {MCPサーバー1個（ツール#個）}}"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "{tools, plural, one {called # tool} other {called # tools}}"
 msgstr "{tools, plural, one {#個のツールを呼び出し} other {#個のツールを呼び出し}}"
-
-#: src/lib/plugin-presentation.ts
-msgid "{tools, plural, one {Plugins changed (# new tool)} other {Plugins changed (# new tools)}}"
-msgstr "{tools, plural, one {プラグインが変更されました（新しいツール#件）} other {プラグインが変更されました（新しいツール#件）}}"
-
-#: src/lib/plugin-presentation.ts
-msgid "{tools, plural, one {Plugins changed: {list} (# new tool)} other {Plugins changed: {list} (# new tools)}}"
-msgstr "{tools, plural, one {プラグインが変更されました：{list}（新しいツール#件）} other {プラグインが変更されました：{list}（新しいツール#件）}}"
 
 #: src/lib/plugin-presentation.ts
 msgid "{total, plural, one {{active} of # member in this conversation} other {{active} of # members in this conversation}}"
@@ -4436,6 +4466,10 @@ msgstr "1回限りの実行では、このデバイスのタイムゾーンが�
 msgid "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
 msgstr "plugin.jsonまたは .claude-plugin/plugin.jsonを含むプラグインフォルダー。"
 
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "A plugin with {kinds}. Adding it to a conversation brings both."
+msgstr "{kinds}を含むプラグインです。会話に追加すると両方が使えます。"
+
 #: src/lib/onboarding/tour-script.ts
 msgid "A practice request is already typed in."
 msgstr "練習用のリクエストが入力済みです。"
@@ -4447,6 +4481,10 @@ msgstr "専用の利用枠 (月 100,000 リクエストまで無料)。"
 #: src/lib/search-source-text.ts
 msgid "A private allowance and site allowlists."
 msgstr "専用の利用枠とサイトの許可リスト。"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "A profile in the AWS configuration of the computer {agent} runs on."
+msgstr ""
 
 #: src/widget-preview-app.tsx
 msgid "A question becomes an explorable answer"
@@ -4797,8 +4835,17 @@ msgstr "承認された提案"
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/service-management-facts.tsx
 #: src/components/clio/source-form-parts.tsx
+#: src/components/clio/source-s3-fields.tsx
 msgid "Access"
 msgstr "アクセス"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Access key"
+msgstr ""
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Access key ID"
+msgstr ""
 
 #: src/components/clio/settings-permissions.tsx
 msgid "Access rules"
@@ -5355,13 +5402,13 @@ msgstr "{label}をメッセージに追加しました。"
 msgid "Added {name}"
 msgstr "{name}を追加しました"
 
+#: src/components/clio/agent-composition-view.tsx
+msgid "Added {name} back"
+msgstr "{name}を再追加しました"
+
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Added {name} to the message."
 msgstr "{name}をメッセージに追加しました。"
-
-#: src/components/clio/agent-composition-view.tsx
-msgid "Added {plugin} back"
-msgstr "{plugin}を再追加しました"
 
 #: src/components/clio/flow-run-edits.ts
 msgid "added after you approved it"
@@ -5454,12 +5501,12 @@ msgid "Adds"
 msgstr "追加内容"
 
 #: src/components/clio/agent-composition-view.tsx
-msgid "Adds {name} to this conversation."
-msgstr "{name}をこの会話に追加します。"
+msgid "Adds {name} back to this conversation."
+msgstr "この会話に{name}を再追加します。"
 
 #: src/components/clio/agent-composition-view.tsx
-msgid "Adds {plugin} back to this conversation."
-msgstr "この会話に{plugin}を再追加します。"
+msgid "Adds {name} to this conversation."
+msgstr "{name}をこの会話に追加します。"
 
 #: src/lib/plugin-offer-contents.ts
 msgid "Adds it to this conversation only"
@@ -5627,7 +5674,6 @@ msgstr "新しい会話のエージェント"
 msgid "Agent for this conversation"
 msgstr "この会話のエージェント"
 
-#: src/components/clio/connector-pane.tsx
 #: src/gallery-skill-dialog.tsx
 #: src/widget-preview-app.tsx
 msgid "Agent guidance"
@@ -5686,10 +5732,6 @@ msgstr "エージェントの実行"
 #: src/components/clio/settings-about.tsx
 msgid "Agent service version"
 msgstr "エージェントサービスのバージョン"
-
-#: src/components/clio/extension-discover.tsx
-msgid "Agent Skills"
-msgstr "Agent Skills"
 
 #: src/lib/variant-runs.ts
 msgid "Agent tries"
@@ -7498,10 +7540,6 @@ msgstr "Best of Nと改良"
 msgid "Best of several"
 msgstr "複数案からベストを選択"
 
-#: src/components/clio/extension-discover.tsx
-msgid "Best practices, dashboards, automations and reference files from homeassistant-ai."
-msgstr "homeassistant-aiによるベストプラクティス、ダッシュボード、オートメーション、参照ファイル。"
-
 #: src/components/clio/settings-app-updates.tsx
 #: src/lib/settings-search-rows.ts
 msgid "Beta updates"
@@ -7784,6 +7822,10 @@ msgstr "ブラウザー: {label}"
 #: src/components/clio/host-path-picker.tsx
 msgid "Browsing {hostLabel}"
 msgstr "{hostLabel}を参照中"
+
+#: src/components/clio/source-fields.tsx
+msgid "Bucket and prefix"
+msgstr ""
 
 #: src/components/clio/science-log-panel.tsx
 msgid "Budget"
@@ -10532,10 +10574,6 @@ msgstr "先にサービスに接続してください。"
 msgid "Connect vault"
 msgstr "保管庫を接続"
 
-#: src/components/clio/extension-discover.tsx
-msgid "Connect your Home Assistant deployment, or run the ha-mcp package on the agent host."
-msgstr "Home Assistantの環境を接続するか、エージェントホストでha-mcpパッケージを実行してください。"
-
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/connected-source-detail.tsx
 #: src/components/clio/infrastructure-hosts.tsx
@@ -10741,6 +10779,7 @@ msgstr "接続"
 msgid "Connections from this client to the agent and managed computers"
 msgstr "このクライアントからエージェントおよび管理対象コンピューターへの接続"
 
+#: src/components/clio/agent-plugin-menu.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Connector"
 msgstr "コネクター"
@@ -10749,23 +10788,32 @@ msgstr "コネクター"
 msgid "Connector ({origin})"
 msgstr "コネクター（{origin}）"
 
-#: src/components/clio/extension-library.tsx
-msgid "Connector catalog"
-msgstr "コネクターカタログ"
+#: src/components/clio/connector-pane.tsx
+msgid "Connector (an MCP server)"
+msgstr "コネクタ（MCP サーバー）"
+
+#: src/components/clio/connector-view-dialog.tsx
+msgid "Connector details"
+msgstr "コネクタの詳細"
 
 #: src/lib/plugin-presentation.ts
 msgid "Connector you added"
 msgstr "追加したコネクター"
 
+#: src/components/clio/agent-plugin-menu.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Connectors"
 msgstr "コネクター"
+
+#: src/lib/plugin-presentation.ts
+msgid "Connectors changed"
+msgstr "コネクタが変更されました"
 
 #: src/components/clio/extension-library.tsx
 msgid "Connectors to enable"
 msgstr "有効にできるコネクター"
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Connectors, plugins, marketplaces and skills for your agents."
 msgstr "エージェント向けのコネクター、プラグイン、マーケットプレイス、スキル。"
 
@@ -14281,6 +14329,7 @@ msgstr "実行が記録される前に終了しました"
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/settings-model-server-details.tsx
 #: src/components/clio/settings-usage.tsx
+#: src/components/clio/source-s3-fields.tsx
 msgid "Endpoint"
 msgstr "アドレス"
 
@@ -14982,6 +15031,7 @@ msgstr "拡張機能の種類"
 
 #: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Extensions"
 msgstr "拡張機能"
 
@@ -16975,14 +17025,6 @@ msgstr "{key}を押し続ける"
 msgid "Home"
 msgstr "ホーム"
 
-#: src/components/clio/extension-discover.tsx
-msgid "Home Assistant MCP"
-msgstr "Home Assistant MCP"
-
-#: src/components/clio/extension-discover.tsx
-msgid "Home Assistant skills"
-msgstr "Home Assistantスキル"
-
 #: src/components/clio/connect-address.tsx
 msgid "Homelab"
 msgstr "Homelab"
@@ -17131,10 +17173,6 @@ msgstr "Google Driveフォルダーの選び方"
 #: src/components/clio/source-detail-access.tsx
 msgid "How to use this folder"
 msgstr "このフォルダーの使い方"
-
-#: src/components/clio/connector-pane.tsx
-msgid "How to work with {name}"
-msgstr "{name}の使い方"
 
 #: src/components/clio/dashboard-view.tsx
 msgid "HTML dashboard (all tabs and data)"
@@ -18740,6 +18778,10 @@ msgstr "<0>スケジュールを</0>保持"
 msgid "Keeps the image region and recorded source. Heat is available only when the capture includes a verified image-patch mapping."
 msgstr "画像の領域と記録されたソースを保持します。ヒートマップは、キャプチャに検証済みの画像パッチ対応付けが含まれる場合にのみ利用できます。"
 
+#: src/components/clio/source-s3-fields.tsx
+msgid "Kept by {agent} on the computer it runs on, for this source only; scripts and tools never see it."
+msgstr ""
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Kept in"
 msgstr "保存先"
@@ -18790,6 +18832,7 @@ msgstr "キーボードショートカット"
 msgid "Keys and sign-ins"
 msgstr "キーとサインイン"
 
+#: src/components/clio/connector-pane.tsx
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-prompts.tsx
@@ -18925,6 +18968,10 @@ msgstr "レイアウトとメディア"
 #: src/components/clio/managed-service-parameters.tsx
 msgid "Leave a field empty to keep the engine’s default. After it starts, the values actually in force are shown here."
 msgstr "エンジンの既定値を使う場合はフィールドを空のままにしてください。開始後、実際に有効な値がここに表示されます。"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Leave it empty for Amazon S3. For an S3-compatible store such as MinIO, Ceph or the Open Storage Network, enter its address."
+msgstr ""
 
 #: src/components/clio/remote-agent-conflict.tsx
 msgid "Leave it running and start another"
@@ -20560,6 +20607,7 @@ msgid "MCP Registry servers"
 msgstr "MCP Registryのサーバー"
 
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/connector-plugin-contents.tsx
 #: src/lib/mcp-service-presentation.ts
 msgid "MCP server"
 msgstr "MCPサーバー"
@@ -21583,6 +21631,7 @@ msgstr "上限間近"
 msgid "Needed by the agent"
 msgstr "エージェントに必要"
 
+#: src/lib/connector-plugin.ts
 #: src/lib/connector-presentation.ts
 msgid "Needs {needs}"
 msgstr "{needs}が必要です"
@@ -23672,6 +23721,10 @@ msgstr "このアドレスでは何も実行されていません。"
 msgid "Nothing is scheduled in {title}"
 msgstr "{title}には何もスケジュールされていません"
 
+#: src/components/clio/bound-data-query.tsx
+msgid "Nothing is selected for “{column}” yet."
+msgstr ""
+
 #: src/components/clio/viewer-file-gate.tsx
 msgid "Nothing is selected for this {noun} yet."
 msgstr "この{noun}ではまだ何も選択されていません。"
@@ -24837,6 +24890,7 @@ msgstr "任意"
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-profile.tsx
 #: src/components/clio/source-fields.tsx
+#: src/components/clio/source-s3-fields.tsx
 #: src/gallery-skill-dialog.tsx
 msgid "Optional"
 msgstr "任意"
@@ -25147,6 +25201,7 @@ msgstr "パッケージ：{plugin}、開く"
 msgid "Packages"
 msgstr "パッケージ"
 
+#: src/components/clio/agent-plugin-menu.tsx
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Packs"
 msgstr "パック"
@@ -25807,6 +25862,7 @@ msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr "グラフ、表、レポートは会話内にファイルカードとして表示されます。"
 
 #: src/components/clio/connector-offer-response.tsx
+#: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/extension-library-entries.ts
@@ -25876,14 +25932,18 @@ msgstr "プラグイン"
 msgid "Plugins"
 msgstr "プラグイン"
 
+#: src/lib/plugin-presentation.ts
+msgid "Plugins and connectors changed"
+msgstr "プラグインとコネクタが変更されました"
+
+#: src/components/clio/extension-library.tsx
+msgid "Plugins and connectors to enable"
+msgstr "有効にできるプラグインとコネクタ"
+
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/lib/plugin-presentation.ts
 msgid "Plugins changed"
 msgstr "プラグインが変更されました"
-
-#: src/lib/plugin-presentation.ts
-msgid "Plugins changed: {list}"
-msgstr "プラグインが変更されました：{list}"
 
 #: src/components/clio/installed-plugin-list.tsx
 msgid "Plugins couldn’t be loaded."
@@ -25900,6 +25960,10 @@ msgstr "このパックのプラグイン"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "同時に削除されるプラグイン"
+
+#: src/components/clio/extension-library.tsx
+msgid "Plugins to enable"
+msgstr "有効にできるプラグイン"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -26373,6 +26437,7 @@ msgstr "製品のウェブサイト"
 #: src/components/clio/memory-presentation.ts
 #: src/components/clio/settings-profile.tsx
 #: src/components/clio/settings-prompt-editor.tsx
+#: src/components/clio/source-s3-fields.tsx
 #: src/lib/application-destinations.ts
 msgid "Profile"
 msgstr "プロフィール"
@@ -26380,6 +26445,10 @@ msgstr "プロフィール"
 #: src/components/clio/settings-schema-copy.ts
 msgid "Profile and preferences are always kept. Other retirement proposals need review."
 msgstr "プロフィールと好みは常に保持されます。その他の廃止の提案には確認が必要です。"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Profile name"
+msgstr ""
 
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
@@ -26698,6 +26767,10 @@ msgstr "プロバイダーとモデルの列"
 #: src/lib/onboarding/tour-script.ts
 msgid "Providers are on the left and their models on the right. Type to search all of them."
 msgstr "左側にプロバイダー、右側にそのモデルが表示されます。入力するとすべてを検索できます。"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Public"
+msgstr ""
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Public or private repository folder"
@@ -27400,6 +27473,7 @@ msgstr "一度に最大{tokens}トークンを読み取ります。モデル自�
 #: src/hooks/use-connection-availability.ts
 #: src/hooks/use-known-connections.ts
 #: src/lib/connector-presentation.ts
+#: src/lib/extension-library-entries.ts
 #: src/routes/infrastructure-foundation.ts
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Ready"
@@ -27918,6 +27992,7 @@ msgid "Refuted if"
 msgstr "反証条件"
 
 #: src/components/clio/comments/comment-model.ts
+#: src/components/clio/source-s3-fields.tsx
 #: src/widget-gallery-demos.ts
 msgid "Region"
 msgstr "領域"
@@ -31296,6 +31371,10 @@ msgstr "モデル呼び出しを打ち切るまでの秒数。"
 msgid "Seconds between records"
 msgstr "レコード間の秒数"
 
+#: src/components/clio/source-s3-fields.tsx
+msgid "Secret access key"
+msgstr ""
+
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/cad-model-view.tsx
 #: src/components/clio/cad-tool-panels.tsx
@@ -31511,6 +31590,10 @@ msgstr "選択したフォルダー"
 #: src/lib/a2ui/attention-selection.tsx
 msgid "Selected image region"
 msgstr "選択した画像領域"
+
+#: src/components/clio/file-viewer-shell.tsx
+msgid "Selected in the viewer"
+msgstr ""
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Selected items"
@@ -40138,7 +40221,6 @@ msgid "Video unavailable"
 msgstr "動画を利用できません"
 
 #: src/components/clio/desktop-title-bar.tsx
-#: src/components/clio/extension-discover.tsx
 #: src/components/clio/science-log-model.ts
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/workbench-list-column.tsx
@@ -40173,6 +40255,10 @@ msgstr "ビューは閉じられました"
 #: src/components/clio/activity-row.tsx
 msgid "View command, input, result, and timing"
 msgstr "コマンド、入力、結果、所要時間を表示"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "View connector"
+msgstr "コネクタを表示"
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "View ended"
@@ -40645,6 +40731,10 @@ msgstr "アップデートでの変更点。"
 msgid "What happened, in order ({count})"
 msgstr "発生した出来事（順番、{count}件）"
 
+#: src/components/clio/connector-plugin-contents.tsx
+msgid "What it brings"
+msgstr "含まれるもの"
+
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "What it can reach"
 msgstr "アクセスできる範囲"
@@ -40741,6 +40831,10 @@ msgstr "{trigger}のとき"
 #: src/components/clio/settings-web-search.tsx
 msgid "When a source's free allowance runs out, use the next one without asking."
 msgstr "ソースの無料枠を使い切ったら、確認せずに次のソースを使います。"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "When to set an endpoint"
+msgstr ""
 
 #: src/components/clio/settings-notifications.tsx
 msgid "When to show a system notice while the app is in the background. The system asks for permission the first time."

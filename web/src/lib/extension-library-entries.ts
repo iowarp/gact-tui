@@ -14,6 +14,11 @@ import { toast } from 'sonner';
 import type { ExtensionAdd } from '@/components/clio/extension-add-dialog';
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import { copyText } from '@/lib/clipboard';
+import {
+  bundlingPlugin,
+  connectorPluginContents,
+  connectorSetupWords,
+} from '@/lib/connector-plugin';
 import { connectorStatus, connectorText, type ConnectorChange } from '@/lib/connector-presentation';
 import { serviceEntryTitle, serviceKind, serviceStatus } from '@/lib/mcp-service-presentation';
 import { catalogMatches, catalogRoots } from '@/lib/plugin-catalog-tree';
@@ -69,11 +74,23 @@ interface EntryBase {
   key: string;
   title: string;
   meta: ExtensionMetaPart[];
+  /** What it is, in its own words: one truncated line under the meta (DOCS-D5). */
+  description?: string;
+  /** What it still needs from the person, a line of its own under the description. */
+  needs?: string;
   status?: ExtensionStatus;
 }
 
 export type ExtensionEntry =
-  | (EntryBase & { kind: 'connector'; connector: Connector })
+  | (EntryBase & {
+      kind: 'connector';
+      connector: Connector;
+      /**
+       * The plugin it is part of (PL-D1): the row is that plugin, its skills with the
+       * connector as its MCP server. Absent for a plain connector.
+       */
+      plugin?: PluginEntry;
+    })
   | (EntryBase & { kind: 'plugin'; plugin: PluginEntry })
   | (EntryBase & { kind: 'skill'; plugin: PluginEntry; skill: string })
   | (EntryBase & {
@@ -256,19 +273,36 @@ export function marketplaceRow(
   };
 }
 
-/** A connector: its logo, name and state in words (CN3, CN12). */
-export function connectorRow(connector: Connector, change?: ConnectorChange): ExtensionEntry {
+/**
+ * A catalog entry as what it is (PL-D1). A connector: "Connector", its MCP server and
+ * tool count ("1 MCP server (13 tools)"). A plugin that bundles a connector: "Plugin" and
+ * what it brings ("1 skill, 1 MCP server (13 tools)"). Either way, what it still needs
+ * and its state in words (CN3); the tool count is in what it brings, so a ready row's
+ * state reads "Ready".
+ */
+export function connectorRow(
+  connector: Connector,
+  change?: ConnectorChange,
+  plugin?: PluginEntry,
+): ExtensionEntry {
   const status = connectorStatus(connector, change);
+  const setup = connectorSetupWords(connector);
+  const label = status.tone === 'success' ? t`Ready` : status.label;
   return {
     kind: 'connector',
     key: `connector:${connector.id}`,
     title: connector.name,
     connector,
+    plugin,
     meta: [
-      { text: t`Connector` },
-      { text: connector.source === 'custom' ? t`Added by you` : connector.description },
+      { text: plugin ? t`Plugin` : t`Connector` },
+      { text: connectorPluginContents(connector, plugin) },
+      ...(connector.source === 'custom' ? [{ text: t`Added by you` }] : []),
     ],
-    status: { tone: status.tone, label: status.label },
+    // A plugin says what it is in its own description; a connector in its catalog entry's.
+    description: (plugin?.description || connector.description).trim() || undefined,
+    needs: setup || undefined,
+    status: { tone: status.tone, label },
   };
 }
 
@@ -320,7 +354,16 @@ function shippedLast<T>(rows: readonly T[], shipped: (row: T) => boolean): T[] {
 }
 
 export function entryText(entry: ExtensionEntry): string {
-  if (entry.kind === 'connector') return connectorText(entry.connector);
+  if (entry.kind === 'connector')
+    return [
+      connectorText(entry.connector),
+      ...entry.meta.map((part) => part.text),
+      entry.description ?? '',
+      entry.needs ?? '',
+      ...(entry.plugin ? [entry.plugin.description, ...entry.plugin.skills] : []),
+    ]
+      .join(' ')
+      .toLocaleLowerCase();
   const extra =
     entry.kind === 'plugin' || entry.kind === 'skill'
       ? [entry.plugin.description, entry.plugin.ref]
@@ -356,11 +399,17 @@ export function extensionEntries({
   const query = term.trim().toLocaleLowerCase();
   const shipped = new Set(marketplaces.filter(marketplaceShipped).map((row) => row.name));
   const rows: ExtensionEntry[] = [];
-  // Connectors come first, above plugins and skills (CN12).
-  if (type === 'all' || type === 'mcp')
+  // Catalog entries come first, above plugins and skills (CN12). Each is what it is
+  // (PL-D1): a connector under Connectors, a plugin that bundles one under Plugins.
+  if (type === 'all' || type === 'mcp' || type === 'plugins')
     rows.push(
       ...connectors
-        .map((row) => connectorRow(row, changes?.get(row.id)))
+        .map((row) => connectorRow(row, changes?.get(row.id), bundlingPlugin(row, plugins)))
+        .filter(
+          (row) =>
+            type === 'all' ||
+            (type === 'plugins') === (row.kind === 'connector' && Boolean(row.plugin)),
+        )
         .filter((row) => !query || entryText(row).includes(query)),
     );
   if (type === 'all' || type === 'plugins') {
@@ -419,7 +468,18 @@ export function markdownSummary(text: string | undefined): string {
   if (!text) return '';
   const front = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u);
   const line = front?.[1]?.match(/^description:\s*(.+)$/mu)?.[1]?.trim();
-  if (line) return line.replace(/^(['"])(.*)\1$/u, '$2');
+  // A block scalar (`description: >` or `|`) holds its text on the indented lines below.
+  if (line && /^[>|][+-]?\d*$/u.test(line)) {
+    const block = front![1]!.match(
+      /^description:[^\n]*\n((?:[ \t]+[^\n]*(?:\n|$)|[ \t]*(?:\n|$))+)/mu,
+    )?.[1];
+    const folded = (block ?? '')
+      .split(/\r?\n/u)
+      .map((row) => row.trim())
+      .filter(Boolean)
+      .join(' ');
+    if (folded) return folded;
+  } else if (line) return line.replace(/^(['"])(.*)\1$/u, '$2');
   const body = front ? text.slice(front[0].length) : text;
   return (
     body

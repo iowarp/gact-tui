@@ -100,11 +100,19 @@ export function offeredPlugins<T extends Pick<PluginEntry, 'follows' | 'connecto
   return plugins?.filter((plugin) => !plugin.follows || plugin.connector?.enabled === true);
 }
 
-/** A connector plugin's state in words, from the connector a plugin row names (CN3). */
-export function pluginConnectorStatus(connector: PluginConnector): string {
+/**
+ * A connector plugin's state in words, from the connector a plugin row names (CN3).
+ * `counted`: the row already says how many tools it brings, so "Ready" alone.
+ */
+export function pluginConnectorStatus(
+  connector: PluginConnector,
+  { counted = false }: { counted?: boolean } = {},
+): string {
   if (!connector.enabled) return t`Not enabled`;
   if (connector.status === 'ready')
-    return connector.tool_count === null ? t`Ready` : readyWithTools(connector.tool_count);
+    return connector.tool_count === null || counted
+      ? t`Ready`
+      : readyWithTools(connector.tool_count);
   if (connector.status === 'needs') {
     const needs = formatList(connector.needs);
     return connector.needs.length ? t`Needs ${needs}` : t`Needs setup`;

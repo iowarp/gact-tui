@@ -6,7 +6,7 @@ import {
   type PluginEntry,
 } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -372,5 +372,38 @@ describe('the agent offers to add a connector to this conversation', () => {
       ),
     );
     expect(screen.getByRole('button', { name: 'View plugin' })).toBeTruthy();
+  });
+
+  it('views a connector as a connector, in its own pane, never through its carrier (PL-D1)', async () => {
+    const user = userEvent.setup();
+    repository.connectors.mockResolvedValue([
+      viewer({
+        enabled: true,
+        tool_count: 4,
+        plugin_ref: 'clio-connectors/connector-fixture-viewer',
+      }),
+    ]);
+    repository.plugins.mockResolvedValue({
+      plugins: [
+        pluginEntrySchema.parse({
+          id: 'connector-fixture-viewer',
+          ref: 'clio-connectors/connector-fixture-viewer',
+          marketplace: 'clio-connectors',
+          mcp_servers: ['fixture-viewer'],
+          follows: 'fixture-viewer',
+        }),
+      ],
+      default_marketplace_error: null,
+    });
+    renderDock();
+    await user.click(await screen.findByRole('button', { name: 'View connector' }));
+    expect(screen.queryByRole('button', { name: 'View plugin' })).toBeNull();
+    const dialog = await screen.findByRole('dialog', { name: 'Connector details' });
+    expect(within(dialog).getByText('Connector (an MCP server)')).toBeTruthy();
+    expect(dialog.textContent).not.toContain('connector-fixture-viewer');
+    // Closing it returns to the offer, which stays for Add.
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('button', { name: /^1?\s*Add$/u })).toBeTruthy();
   });
 });

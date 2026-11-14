@@ -1,4 +1,4 @@
-import type { McpServerDefinition, SavedMcpService } from '@clio/core/v3';
+import type { McpServerDefinition, PluginEntry, SavedMcpService } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BoxIcon, CopyIcon, GlobeIcon, KeyRoundIcon, PlugIcon, SparklesIcon } from 'lucide-react';
 import { useState, type CSSProperties } from 'react';
@@ -19,6 +19,7 @@ import {
   usePluginMarketplaces,
 } from '@/hooks/use-session-agent';
 import { connectionScope } from '@/lib/connection-scope';
+import { bundlingPlugin } from '@/lib/connector-plugin';
 import {
   copyAddress,
   copyReference,
@@ -37,6 +38,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectorLogo } from './connector-need-rows';
 import { ConnectorPane } from './connector-pane';
 import { ExtensionAddDialog, type ExtensionAdd } from './extension-add-dialog';
+import { ExtensionScopeHeading } from './extension-scope-heading';
 import { useDiscoverItems, type DiscoverItem } from './extension-discover';
 import { BackupDialog, DiscoverPane, McpConnectionPane } from './extension-library-panes';
 import { McpRegistrySection } from './extension-registry-section';
@@ -53,7 +55,6 @@ import { ItemList } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { PrivateLocalLibrary } from './private-local-library';
 import { SettingsGroupLabel } from './settings-row';
-import { SettingsSectionHeading } from './settings-section-heading';
 import { MarketplaceDetailPane } from './settings-plugins';
 import { RowConfirm } from './primitives/row-confirm';
 import { RemoveSavedMcpDialog } from './settings-saved-mcp';
@@ -211,14 +212,11 @@ function ExtensionLibraryContents({
     enabled: view === 'discover' && (type === 'all' || type === 'mcp'),
     search: registrySearch,
     cursor,
-    plugins,
-    marketplaces: installed,
-    services,
     onAdd: setAdding,
     onAddMarketplace: manager.openInstall,
-    onViewSkill: (plugin, skill) =>
-      setDetail({ kind: 'plugin', ref: plugin.ref, pending: plugin.pending_trust, skill }),
   });
+  const viewSkill = (plugin: PluginEntry, skill: string) =>
+    setDetail({ kind: 'plugin', ref: plugin.ref, pending: plugin.pending_trust, skill });
   const matches = (item: DiscoverItem) =>
     item.types.includes(type) &&
     (!term || `${item.title} ${item.description}`.toLowerCase().includes(term.toLowerCase()));
@@ -251,6 +249,8 @@ function ExtensionLibraryContents({
           key={connector.id}
           onClose={close}
           onSignIn={(row) => setSigning(row.id)}
+          onViewSkill={viewSkill}
+          plugin={bundlingPlugin(connector, plugins)}
         />
       ) : null;
     }
@@ -349,6 +349,8 @@ function ExtensionLibraryContents({
           icon={<ConnectorLogo className="size-5 text-[9px]" connector={entry.connector} />}
           key={entry.key}
           meta={entry.meta}
+          description={entry.description}
+          needs={entry.needs}
           name={entry.title}
           onExplore={() => open(target)}
           selected={isOpen(target)}
@@ -572,7 +574,7 @@ function ExtensionLibraryContents({
         selected={isOpen(target)}
         slot={
           <SlotButton
-            disabled={supported !== true && !item.action.opensOnly}
+            disabled={supported !== true}
             label={t`${ph({ action: item.action.label })} ${ph({ name: item.title })}`}
             onClick={item.action.run}
             reason={
@@ -589,13 +591,10 @@ function ExtensionLibraryContents({
     );
   };
 
-  // FP-D4: under Connectors, suggest catalog connectors; other MCP servers keep their heading.
-  const suggestions =
-    type === 'mcp'
-      ? []
-      : curated.filter((item) => item.suggested && !item.installed && matches(item));
+  // FP-D4, PL-D1: Discover suggests the catalog's plugins that are off; other MCP servers keep their heading.
   const catalogOff = entries.filter(
-    (entry) => entry.kind === 'connector' && !entry.connector.enabled,
+    (entry) =>
+      entry.kind === 'connector' && !entry.connector.enabled && entry.connector.source !== 'custom',
   );
   const yours = loadError ? (
     <div title={loadError.message}>
@@ -633,22 +632,22 @@ function ExtensionLibraryContents({
           title={term ? t`No extensions match “${term}”.` : EMPTY_TITLES[type]}
         />
       )}
-      {suggestions.length ? (
-        <>
-          <SettingsGroupLabel>{t`Discover`}</SettingsGroupLabel>
-          <ItemList label={t`Suggested extensions`}>{suggestions.map(discoverRow)}</ItemList>
-        </>
-      ) : null}
     </>
   );
   const shownCurated = curated.filter(matches);
+  const catalogHeading =
+    type === 'plugins'
+      ? t`Plugins to enable`
+      : type === 'mcp'
+        ? t`Connectors to enable`
+        : t`Plugins and connectors to enable`;
   const showRegistry = type === 'all' || type === 'mcp';
   const discover = (
     <>
-      {type === 'mcp' && catalogOff.length ? (
+      {type !== 'marketplaces' && type !== 'skills' && catalogOff.length ? (
         <>
-          <SettingsGroupLabel>{t`Connector catalog`}</SettingsGroupLabel>
-          <ItemList label={t`Connectors to enable`}>{catalogOff.map(row)}</ItemList>
+          <SettingsGroupLabel>{catalogHeading}</SettingsGroupLabel>
+          <ItemList label={catalogHeading}>{catalogOff.map(row)}</ItemList>
         </>
       ) : null}
       {shownCurated.length ? (
@@ -683,10 +682,7 @@ function ExtensionLibraryContents({
           : undefined,
       )}
     >
-      <SettingsSectionHeading
-        description={t`Connectors, plugins, marketplaces and skills for your agents.`}
-        title={t`Extensions`}
-      />
+      <ExtensionScopeHeading />
       <ExtensionToolbar
         onAdd={setAdding}
         onAddMarketplace={manager.openInstall}

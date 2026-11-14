@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { meshViewportSchema } from './a2ui-mesh-viewport-catalog';
 import { rasterViewportSchema } from './a2ui-raster-viewport-catalog';
+import { withGatedViewersMounted } from './viewer-capture-mount';
 import { ViewerFileGate } from './viewer-file-gate';
 
 let observed: IntersectionObserverCallback | undefined;
@@ -43,6 +44,31 @@ function Scene() {
 }
 
 describe('ViewerFileGate', () => {
+  it('mounts an off-screen viewer while a capture runs and releases it after', async () => {
+    const { container } = render(
+      <ViewerFileGate files={['artifact://artifact_map']} noun="map">
+        <Scene />
+      </ViewerFileGate>,
+    );
+    const gate = container.querySelector<HTMLElement>('[data-slot="viewer-file-gate"]')!;
+    expect(gate).toHaveAttribute('data-viewer-deferred');
+    let finish: () => void = () => {};
+    let capture: Promise<void> = Promise.resolve();
+    act(() => {
+      capture = withGatedViewersMounted(
+        container as HTMLElement,
+        () => new Promise<void>((resolve) => (finish = resolve)),
+      );
+    });
+    expect(screen.getByTestId('scene')).toBeInTheDocument();
+    expect(gate).not.toHaveAttribute('data-viewer-deferred');
+    await act(async () => {
+      finish();
+      await capture;
+    });
+    expect(gate).toHaveAttribute('data-viewer-deferred');
+    expect(screen.queryByTestId('scene')).toBeNull();
+  });
   it('mounts the viewer one viewport ahead and disposes it when it leaves', () => {
     mounts.mockClear();
     render(
