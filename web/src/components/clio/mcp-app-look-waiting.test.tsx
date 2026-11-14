@@ -51,10 +51,12 @@ function lookFrame(callId: string): TransportFrame {
 
 /** A frame laid out in the window (jsdom lays nothing out), or one with no box at all. */
 function frameOnScreen(shown = true): Element {
-  return {
+  const frame = document.createElement('iframe');
+  Object.assign(frame, {
     getClientRects: () => (shown ? [{}] : []),
     getBoundingClientRect: () => ({ left: 10, top: 10, right: 400, bottom: 300 }),
-  } as unknown as Element;
+  });
+  return frame;
 }
 
 function Probe({

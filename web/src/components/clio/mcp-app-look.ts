@@ -69,9 +69,25 @@ export function viewSnapshotFor(frame: Element): TakeSnapshot | undefined {
 }
 
 type LookHandler = (look: McpAppLookEvent) => void;
-/** Per view, every mount that holds it now; the newest answers (a card and a tab overlap
- * while a frame moves between them). */
-const lookHandlers = new Map<string, LookHandler[]>();
+/** One mount holding a view: how it answers, and whether the person can see it now. */
+interface LookMount {
+  answer: LookHandler;
+  onScreen?: () => boolean;
+}
+/** Per view, every mount that holds it now. The newest one on screen answers; with none on
+ * screen, the newest (a card and a tab overlap while a frame moves between them). */
+const lookHandlers = new Map<string, LookMount[]>();
+
+function chosenMount(mounts: LookMount[] | undefined): LookMount | undefined {
+  if (!mounts?.length) return undefined;
+  for (let index = mounts.length - 1; index >= 0; index -= 1) {
+    if (mounts[index]!.onScreen?.()) return mounts[index];
+  }
+  return mounts.at(-1);
+}
+
+/** How often a mount renews its claim on the view; CLIO lets a claim lapse after 60 s. */
+export const HOLDER_RENEW_MS = 20_000;
 
 function key(sessionId: string, appInstanceId: string): string {
   return `${sessionId}:${appInstanceId}`;
@@ -88,10 +104,10 @@ export function dispatchMcpAppLookFrame(frame: TransportFrame): void {
   }
   const look = lookEvent(payload);
   if (!look) return;
-  const handler = lookHandlers.get(key(look.session_id, look.app_instance_id))?.at(-1);
-  if (handler) {
+  const mount = chosenMount(lookHandlers.get(key(look.session_id, look.app_instance_id)));
+  if (mount) {
     unheldLooks.get(look.call_id)?.();
-    handler(look);
+    mount.answer(look);
   } else waitUnheld(look);
 }
 
@@ -228,7 +244,8 @@ export class McpAppLooks {
   private readonly handled = new Set<string>();
   private stopped = false;
   private started = false;
-  private readonly handler: LookHandler = (look) => void this.answer(look);
+  private renewal: ReturnType<typeof setInterval> | undefined;
+  private readonly mount: LookMount;
 
   constructor(
     private readonly repository: Partial<McpAppLookClient>,
@@ -236,29 +253,39 @@ export class McpAppLooks {
     private readonly snapshot: TakeSnapshot,
     /** Lists a snapshot in progress and tells whether its frame is on screen (DOCS-F2). */
     private readonly track?: (callId: string) => TrackedLook,
-  ) {}
+    /** Whether this mount's frame is on screen; a look prefers a mount the person sees. */
+    onScreen?: () => boolean,
+  ) {
+    this.mount = { answer: (look) => void this.answer(look), onScreen };
+  }
 
   /** The view finished initializing: this mount holds it. */
   start(): void {
     if (this.stopped || this.started || !this.repository.setMcpAppShown) return;
     this.started = true;
     const handlerKey = key(this.identity.sessionId, this.identity.appInstanceId);
-    lookHandlers.set(handlerKey, [...(lookHandlers.get(handlerKey) ?? []), this.handler]);
-    void this.repository
-      .setMcpAppShown(this.identity, this.holder, true)
-      .catch((error: unknown) =>
-        console.warn('The view could not be offered to the agent:', error),
-      );
+    lookHandlers.set(handlerKey, [...(lookHandlers.get(handlerKey) ?? []), this.mount]);
+    const offer = () =>
+      void this.repository
+        .setMcpAppShown?.(this.identity, this.holder, true)
+        .catch((error: unknown) =>
+          console.warn('The view could not be offered to the agent:', error),
+        );
+    offer();
+    // The claim is a lease CLIO lets lapse unless renewed, so a window that goes away
+    // without unloading its frames does not leave the agent's looks waiting on it.
+    this.renewal = setInterval(offer, HOLDER_RENEW_MS);
   }
 
   /** The frame is going: let the view go, unless a newer mount took it. */
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
+    clearInterval(this.renewal);
     if (!this.started) return;
     // Another mount of the same view (card to tab) may hold it too: only this one goes.
     const handlerKey = key(this.identity.sessionId, this.identity.appInstanceId);
-    const rest = (lookHandlers.get(handlerKey) ?? []).filter((handler) => handler !== this.handler);
+    const rest = (lookHandlers.get(handlerKey) ?? []).filter((mount) => mount !== this.mount);
     if (rest.length) lookHandlers.set(handlerKey, rest);
     else lookHandlers.delete(handlerKey);
     // A view CLIO closed left the look table with its record, which now answers 404.

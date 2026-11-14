@@ -38,9 +38,11 @@ function patch(callId: string, change: Partial<WaitingViewLook>): void {
   publish(looks.map((look) => (look.callId === callId ? { ...look, ...change } : look)));
 }
 
-/** Whether any part of the frame is in the window now (a hidden tab has no boxes). */
-function onScreen(frame: Element): boolean {
+/** Whether any part of the frame is in the window now (a hidden tab has no boxes; a
+ * sheet kept mounted while closed has boxes but is not visible). */
+export function onScreen(frame: Element): boolean {
   if (!frame.getClientRects().length) return false;
+  if (getComputedStyle(frame).visibility !== 'visible') return false;
   const box = frame.getBoundingClientRect();
   const width = globalThis.innerWidth || document.documentElement.clientWidth;
   const height = globalThis.innerHeight || document.documentElement.clientHeight;
