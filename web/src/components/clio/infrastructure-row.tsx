@@ -1,7 +1,6 @@
 import {
   createContext,
   forwardRef,
-  Fragment,
   memo,
   useContext,
   useId,
@@ -16,6 +15,7 @@ import {
 import { ListGroupLabel, ListRow } from '@/components/clio/primitives/list-row';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
 import { statusWordClass } from '@/components/clio/primitives/status-word-tone';
+import { withAddressBreaks } from '@/lib/address-breaks';
 import { isRowMenuKey } from '@/lib/settings-row-keys';
 import { cn } from '@/lib/utils';
 
@@ -187,23 +187,11 @@ const NARROW_ACTIONS =
 /** Under 480px the name and sub-line wrap whole rather than cut ("セッションと…"). */
 const NARROW_TEXT =
   '@max-[480px]/infra:[&_[data-slot=list-row-text]>span]:whitespace-normal @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:break-words';
-
 /**
- * Offers a line break after the separators inside a host, address or path
- * ("ares.cluster.example.edu"), so a narrow row wraps at a dot or hyphen rather than
- * mid-name. Prose punctuation followed by a space is left alone.
+ * Under 15rem (a 260px window at 150%) the text column would be narrower than a word
+ * ("εκτέλεση"), so the decorative icon gives its column to the name; the status mark stays.
  */
-function withAddressBreaks(text: string): ReactNode {
-  const parts = text.split(/(?<=\S[./\\:@-])(?=\S)/u);
-  if (parts.length < 2) return text;
-  const keys = parts.map((_, index) => parts.slice(0, index + 1).join(''));
-  return parts.map((part, index) => (
-    <Fragment key={keys[index]}>
-      {index ? <wbr /> : null}
-      {part}
-    </Fragment>
-  ));
-}
+const NARROW_ICON = '@max-[15rem]/infra:[&>[data-slot=list-row-icon]]:hidden';
 
 /** Shift+F10 (or the menu key) anywhere in a row opens its ⋯, as the keyboard opens a menu. */
 function openInfraRowMenu(event: KeyboardEvent<HTMLDivElement>) {
@@ -266,7 +254,7 @@ export const InfraRow = memo(
           ref={ref}
           layout="stacked"
           icon={icon}
-          title={title}
+          title={typeof title === 'string' ? withAddressBreaks(title) : title}
           description={subLine}
           columns={
             <>
@@ -297,7 +285,7 @@ export const InfraRow = memo(
           actions={columns.hover ? (actions ?? null) : undefined}
           actionsWidth={columns.hover}
           primaryAction={columns.pinned ? (primaryAction ?? null) : undefined}
-          className={cn(NARROW_TEXT, columns.hover && NARROW_ACTIONS, className)}
+          className={cn(NARROW_TEXT, NARROW_ICON, columns.hover && NARROW_ACTIONS, className)}
           onKeyDown={(event) => {
             onKeyDown?.(event);
             if (!event.defaultPrevented) openInfraRowMenu(event);

@@ -12,6 +12,7 @@ import {
   SmileIcon,
 } from 'lucide-react';
 import { CloseIcon, DeleteIcon, InfoIcon, RetryIcon } from '@/lib/icon-vocabulary';
+import { withAddressBreaks } from '@/lib/address-breaks';
 import { vocab } from '@/lib/brand-vocabulary';
 import { formatBytes } from '@/lib/format';
 import { registryModelTags } from '@/lib/registry-model-tags';
@@ -281,7 +282,7 @@ export function ModelInventoryRow({
         onClick={() => setExpanded((open) => !open)}
         primaryAction={primaryAction ? <span onClick={stop}>{primaryAction}</span> : null}
         status={modelStatus(model, runtimeUnavailable)}
-        title={<span title={model.repository}>{model.repository}</span>}
+        title={<span title={model.repository}>{withAddressBreaks(model.repository)}</span>}
       />
       <Dialog open={cardOpen} onOpenChange={setCardOpen}>
         <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-3xl">

@@ -17,6 +17,7 @@ import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdow
 import { vocab } from '@/lib/brand-vocabulary';
 import { AddIcon, ConfigureIcon, ManageIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { managedServiceStatus } from '@/lib/managed-service-status';
+import { withAddressBreaks } from '@/lib/address-breaks';
 import { InfraRow, type InfraStatus } from './infrastructure-row';
 import { InfraRowMenu } from './infrastructure-row-menu';
 import { deploymentDevices } from './managed-service-gpus';
@@ -295,7 +296,7 @@ export function ManagedServiceInventoryRow({
       title={
         <button
           aria-expanded={expanded}
-          className="max-w-full truncate text-left outline-none focus-visible:underline"
+          className="max-w-full truncate text-left outline-none focus-visible:underline @max-[480px]/infra:break-words @max-[480px]/infra:whitespace-normal"
           onClick={(event) => {
             event.stopPropagation();
             setExpanded((open) => !open);
@@ -309,7 +310,7 @@ export function ManagedServiceInventoryRow({
           }}
           type="button"
         >
-          {service.label}
+          {withAddressBreaks(service.label)}
         </button>
       }
     />

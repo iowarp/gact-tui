@@ -11,6 +11,7 @@ import {
 import { Dialog } from '@/components/ui/dialog';
 import { vocab } from '@/lib/brand-vocabulary';
 import { AddIcon } from '@/lib/icon-vocabulary';
+import { withAddressBreaks } from '@/lib/address-breaks';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { computerConnectionLabel } from '@/lib/infrastructure-service-labels';
 import { InfrastructureHostInspection } from './infrastructure-host-inspection';
@@ -217,7 +218,7 @@ function ComputerRow({
       status={status}
       title={
         <InfraRowToggle expanded={open} label={t`${label} details`}>
-          {label}
+          {withAddressBreaks(label)}
         </InfraRowToggle>
       }
     />
