@@ -37,6 +37,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectorLogo } from './connector-need-rows';
 import { ConnectorPane } from './connector-pane';
 import { ExtensionAddDialog, type ExtensionAdd } from './extension-add-dialog';
+import { ExtensionScopeHeading } from './extension-scope-heading';
 import { useDiscoverItems, type DiscoverItem } from './extension-discover';
 import { BackupDialog, DiscoverPane, McpConnectionPane } from './extension-library-panes';
 import { McpRegistrySection } from './extension-registry-section';
@@ -53,7 +54,6 @@ import { ItemList } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { PrivateLocalLibrary } from './private-local-library';
 import { SettingsGroupLabel } from './settings-row';
-import { SettingsSectionHeading } from './settings-section-heading';
 import { MarketplaceDetailPane } from './settings-plugins';
 import { RowConfirm } from './primitives/row-confirm';
 import { RemoveSavedMcpDialog } from './settings-saved-mcp';
@@ -683,10 +683,7 @@ function ExtensionLibraryContents({
           : undefined,
       )}
     >
-      <SettingsSectionHeading
-        description={t`Connectors, plugins, marketplaces and skills for your agents.`}
-        title={t`Extensions`}
-      />
+      <ExtensionScopeHeading />
       <ExtensionToolbar
         onAdd={setAdding}
         onAddMarketplace={manager.openInstall}
