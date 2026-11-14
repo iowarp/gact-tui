@@ -5,14 +5,15 @@ import { z } from 'zod';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ViewerFileGate } from './viewer-file-gate';
 import { viewerFileUriSchema } from './viewer-file-schema';
+import { refinedStrictObject } from './a2ui-refined-schema';
 import { isBoundToPath } from './selection-state';
 
 const LazyRasterViewport = lazy(() =>
   import('./a2ui-raster-viewport').then((module) => ({ default: module.ClioRasterViewport })),
 );
 
-export const rasterViewportSchema = z
-  .object({
+export const rasterViewportSchema = refinedStrictObject(
+  {
     // Literal or bound; the gate checks the resolved value is a registered artifact.
     rasterUri: viewerFileUriSchema,
     title: CommonSchemas.DynamicString.optional(),
@@ -26,9 +27,8 @@ export const rasterViewportSchema = z
     height: z.number().int().min(160).max(2000).optional(),
     accessibility: CommonSchemas.AccessibilityAttributes.optional(),
     weight: z.number().optional(),
-  })
-  .strict()
-  .superRefine((value, context) => {
+  },
+  (value, context) => {
     if (isBoundToPath(value.selection) && !value.selectionField) {
       context.addIssue({
         code: 'custom',
@@ -36,7 +36,8 @@ export const rasterViewportSchema = z
         message: 'selectionField is required when selection is bound',
       });
     }
-  });
+  },
+);
 
 /** Protocol adapter for a registered grid sampled by the raster-query route. */
 export const ClioRasterViewportCatalogComponent = createComponentImplementation(

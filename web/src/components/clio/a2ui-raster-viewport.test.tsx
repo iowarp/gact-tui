@@ -68,3 +68,16 @@ it('draws the frame the shared time selection picks and says which', async () =>
   );
   expect(await screen.findByText('time 2024-09-26T12:00:00Z (13 of 24)')).toBeInTheDocument();
 });
+
+it('keeps a plain object schema, so the binder resolves a bound selection', async () => {
+  const { rasterViewportSchema } = await import('./a2ui-raster-viewport-catalog');
+  expect(Object.keys(rasterViewportSchema.shape)).toEqual(
+    expect.arrayContaining(['selection', 'selectionField']),
+  );
+  expect(
+    rasterViewportSchema.safeParse({
+      rasterUri: 'artifact://artifact_msl',
+      selection: { path: '/selection/time' },
+    }).success,
+  ).toBe(false);
+});
