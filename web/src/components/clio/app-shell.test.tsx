@@ -45,6 +45,36 @@ function renderShell() {
 }
 
 describe('ClioAppShell responsive workbench', () => {
+  it('keeps status and toolbar slots apart when both carry the conversation key', () => {
+    installMatchMedia((query) => query.startsWith('(min-width:'));
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // The workspace page keys every conversation region by endpoint and conversation.
+    const sessionKey = 'http://127.0.0.1:8787:sess_be05d676c7f7';
+    try {
+      render(
+        <TooltipProvider>
+          <ClioAppShell
+            contextBar={<span key={sessionKey}>Context</span>}
+            navigation={<nav>Navigation</nav>}
+            statusStrip={<span key={sessionKey}>Status</span>}
+            toolbarActions={<span key={sessionKey}>Observability</span>}
+            workbench={<aside key={sessionKey}>Canvas content</aside>}
+          >
+            <span key={sessionKey}>Conversation</span>
+          </ClioAppShell>
+        </TooltipProvider>,
+      );
+      expect(screen.getAllByText('Status')).toHaveLength(1);
+      expect(screen.getAllByText('Observability')).toHaveLength(1);
+      const duplicateKeyWarnings = error.mock.calls.filter((call) =>
+        call.some((arg) => typeof arg === 'string' && arg.includes('same key')),
+      );
+      expect(duplicateKeyWarnings).toEqual([]);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   it('shows only the conversation when a draft has no canvas or status', () => {
     installMatchMedia((query) => query.startsWith('(min-width:'));
     const { container } = render(
