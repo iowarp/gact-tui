@@ -37,6 +37,10 @@ export const mcpAppSchema = z
         message: 'state channel paths must be distinct',
       })
       .optional(),
+    recordingUri: z
+      .string()
+      .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)
+      .optional(),
     height: z.number().int().min(160).max(2000).optional(),
     accessibility: CommonSchemas.AccessibilityAttributes.optional(),
     weight: z.number().optional(),
@@ -59,6 +63,7 @@ export const ClioMcpAppCatalogComponent = createComponentImplementation(
       componentId: context.componentModel.id,
       dataContext: context.dataContext as unknown as McpAppDataContext,
       height: props.height,
+      recordingUri: props.recordingUri,
       server: props.server,
       surfaceId: context.dataContext.surface.id,
       tool: props.tool,
