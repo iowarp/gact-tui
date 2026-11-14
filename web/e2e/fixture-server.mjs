@@ -3133,6 +3133,10 @@ const server = createServer(async (request, response) => {
     sendJson(response, { servers: [] });
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/connectors') {
+    sendJson(response, { connectors: [] });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/mcp/configuration') {
     sendJson(response, { servers: savedMcpServices });
     return;

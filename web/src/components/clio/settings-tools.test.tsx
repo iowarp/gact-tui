@@ -198,12 +198,11 @@ describe('tool provider settings', () => {
     await pasteField(dialog, 'Name', 'Research Tools');
     await pasteField(dialog, 'MCP server URL', 'https://mcp.example.test');
     await confirmAdd(dialog);
-    // An address alone becomes a connector (CN1, AQ11), enabled for every conversation.
+    // An address alone becomes a connector (CN1, AQ11); a conversation adds it from its picker.
     await waitFor(() =>
       expect(repository.createConnector).toHaveBeenCalledWith({
         url: 'https://mcp.example.test',
         name: 'Research Tools',
-        scope: 'all',
       }),
     );
     expect(repository.configureMcpServer).not.toHaveBeenCalled();
@@ -226,7 +225,6 @@ describe('tool provider settings', () => {
         command: 'uvx',
         args: ['mcp-server-fetch'],
         name: 'fetch-qualification',
-        scope: 'all',
       }),
     );
   });
@@ -298,7 +296,6 @@ describe('tool provider settings', () => {
       expect(repository.createConnector).toHaveBeenCalledWith({
         url: 'https://mcp.example.test',
         name: 'science-tools',
-        scope: 'all',
       }),
     );
   });
