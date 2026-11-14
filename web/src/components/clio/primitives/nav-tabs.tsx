@@ -147,7 +147,7 @@ export const NavTabs = memo(function NavTabs({
             />
             {current ? (
               <span
-                className="min-w-0 py-1 leading-tight break-words whitespace-normal"
+                className="min-w-0 py-1 leading-tight break-words whitespace-normal [word-break:auto-phrase]"
                 data-tab-name=""
               >
                 {tabLabel}

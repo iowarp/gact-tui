@@ -22,7 +22,7 @@ export function InfraRowToggle({
     <button
       aria-expanded={expanded}
       aria-label={label}
-      className="max-w-full truncate rounded-[3px] text-left align-bottom outline-none focus-visible:ring-1 focus-visible:ring-ring @max-[480px]/infra:break-words @max-[480px]/infra:whitespace-normal"
+      className="max-w-full truncate rounded-[3px] text-left align-bottom outline-none focus-visible:ring-1 focus-visible:ring-ring @max-[480px]/infra:break-words @max-[480px]/infra:whitespace-normal @max-[480px]/infra:[word-break:auto-phrase]"
       type="button"
     >
       {children}

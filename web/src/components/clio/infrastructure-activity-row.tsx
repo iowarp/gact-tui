@@ -25,6 +25,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { copyText } from '@/lib/clipboard';
+import { withAddressBreaks } from '@/lib/address-breaks';
 import { CloseIcon, DeleteIcon, RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ModelDownloadProgress } from './model-download-progress';
@@ -171,7 +172,7 @@ export function InfrastructureActivityRow({
         status={{ tone: STATE_TONES[row.state] ?? 'idle', label: status }}
         title={
           <InfraRowToggle expanded={expanded} label={t`${title} details`}>
-            {title}
+            {withAddressBreaks(title)}
           </InfraRowToggle>
         }
         actions={
