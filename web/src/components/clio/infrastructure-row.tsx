@@ -184,14 +184,20 @@ const NARROW_STATUS =
   'flex shrink-0 overflow-hidden @max-[480px]/infra:w-4! @max-[480px]/infra:[&_[data-slot=status-indicator]>:last-child]:sr-only';
 const NARROW_ACTIONS =
   '@max-[480px]/infra:[&>[data-slot=list-row-actions]]:w-[26px]! @max-[480px]/infra:[&>[data-slot=list-row-actions]]:opacity-100';
-/** Under 480px the name and sub-line wrap whole rather than cut ("セッションと…"). */
+/**
+ * Under 480px the name and sub-line wrap whole rather than cut ("セッションと…"), and
+ * Japanese wraps between phrases ("ツールゲートウ / ェイ" no longer).
+ */
 const NARROW_TEXT =
-  '@max-[480px]/infra:[&_[data-slot=list-row-text]>span]:whitespace-normal @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:break-words';
+  '@max-[480px]/infra:[&_[data-slot=list-row-text]>span]:whitespace-normal @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:break-words @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:[word-break:auto-phrase]';
 /**
  * Under 15rem (a 260px window at 150%) the text column would be narrower than a word
- * ("εκτέλεση"), so the decorative icon gives its column to the name; the status mark stays.
+ * ("Εγκατάσταση"), so the row gives the text its other room: the decorative icon goes,
+ * the gaps tighten, and the status mark leaves its column. The status word is already
+ * at the start of the sub-line, and the column's label is still read.
  */
-const NARROW_ICON = '@max-[15rem]/infra:[&>[data-slot=list-row-icon]]:hidden';
+const NARROW_ROOM =
+  '@max-[15rem]/infra:gap-1.5 @max-[15rem]/infra:[&>[data-slot=list-row-icon]]:hidden @max-[15rem]/infra:[&>[data-slot=infra-status]]:sr-only!';
 
 /** Shift+F10 (or the menu key) anywhere in a row opens its ⋯, as the keyboard opens a menu. */
 function openInfraRowMenu(event: KeyboardEvent<HTMLDivElement>) {
@@ -285,7 +291,7 @@ export const InfraRow = memo(
           actions={columns.hover ? (actions ?? null) : undefined}
           actionsWidth={columns.hover}
           primaryAction={columns.pinned ? (primaryAction ?? null) : undefined}
-          className={cn(NARROW_TEXT, NARROW_ICON, columns.hover && NARROW_ACTIONS, className)}
+          className={cn(NARROW_TEXT, NARROW_ROOM, columns.hover && NARROW_ACTIONS, className)}
           onKeyDown={(event) => {
             onKeyDown?.(event);
             if (!event.defaultPrevented) openInfraRowMenu(event);
