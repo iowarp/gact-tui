@@ -9,7 +9,7 @@ import { anyServerPreparing } from '@/lib/mcp-preparation';
 import type { EffectiveAgentTool, McpServerDefinition, ToolCatalogItem } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeftIcon, NetworkIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FrameClioMenu } from '@/components/clio/frame-clio-menu';
 import { settingsWindowOpen } from '@/lib/settings-window-route';
@@ -17,6 +17,8 @@ import { InfrastructureServicesSection } from '@/components/clio/infrastructure-
 import { InfrastructureInventory } from '@/components/clio/infrastructure-inventory';
 import { NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { NavTabs } from '@/components/clio/primitives/nav-tabs';
+import { navTabsFloorWidth, navTabsMinWidth } from '@/components/clio/primitives/nav-tabs-measure';
+import { useInterfaceScale } from '@/theme/runtime';
 import { StateView } from '@/components/clio/primitives/state-view';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { Button } from '@/components/ui/button';
@@ -43,13 +45,16 @@ const { workspace } = vocab;
  * Narrow (under 600px), a section with more than one tab action (the host and the
  * section's main verb, a search and its filter) gives them their own row under the
  * tabs, so they stay reachable instead of running off the edge. A lone action
- * (refresh) stays beside the tabs. A main verb that folds into ⋯ (Services,
- * Models) keeps the host beside the tabs; the open tab's name truncates first.
+ * (refresh) stays beside the tabs while the open tab's name can wrap between its
+ * words there. A main verb that folds into ⋯ (Services, Models) keeps the host
+ * beside the tabs while the open tab's whole name fits. Otherwise the row is marked
+ * crowded and the actions move to the second row too. A name that still does not
+ * fit wraps, whole, between words.
  */
 const TAB_ROW =
-  'mx-auto grid h-11 max-w-[840px] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-2 whitespace-nowrap sm:px-3 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>[data-tab-fold]]:gap-x-1.5 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[2.75rem_auto]';
+  'mx-auto grid min-h-11 max-w-[840px] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-2 whitespace-nowrap sm:px-3 data-crowded:h-auto data-crowded:grid-cols-[auto_minmax(0,1fr)] data-crowded:grid-rows-[minmax(2.75rem,auto)_auto] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>[data-tab-fold]]:gap-x-1.5 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[minmax(2.75rem,auto)_auto]';
 const TAB_ACTIONS =
-  'flex min-w-0 items-center justify-end gap-1.5 @max-[600px]/infra-page:has-[>:nth-child(2)]:col-span-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:-mx-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:h-10 @max-[600px]/infra-page:has-[>:nth-child(2)]:border-t @max-[600px]/infra-page:has-[>:nth-child(2)]:border-border @max-[600px]/infra-page:has-[>:nth-child(2)]:px-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:-mx-3 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:px-3';
+  'flex min-w-0 items-center justify-end gap-1.5 @max-[600px]/infra-page:has-[>:nth-child(2)]:col-span-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:-mx-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:h-10 @max-[600px]/infra-page:has-[>:nth-child(2)]:border-t @max-[600px]/infra-page:has-[>:nth-child(2)]:border-border @max-[600px]/infra-page:has-[>:nth-child(2)]:px-2 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:-mx-3 @max-[600px]/infra-page:has-[>:nth-child(2)]:sm:px-3 in-data-crowded:col-span-2 in-data-crowded:-mx-2 in-data-crowded:h-10 in-data-crowded:border-t in-data-crowded:border-border in-data-crowded:px-2 in-data-crowded:sm:-mx-3 in-data-crowded:sm:px-3';
 
 /** Set by Alt ←/→ so the next section focuses its tab; it outlives a remount of the page. */
 let sectionMovedByKey = false;
@@ -160,6 +165,45 @@ export function InfrastructurePage() {
   useShortcut('previous-tab', () => moveSection(-1), { region: tabKeyRegion });
   useShortcut('next-tab', () => moveSection(1), { region: tabKeyRegion });
   const [tabActions, setTabActions] = useState<HTMLElement | null>(null);
+  const [tabRow, setTabRow] = useState<HTMLDivElement | null>(null);
+  const scaleKey = useInterfaceScale();
+  // Natural widths only, so moving the actions down never changes the answer.
+  useLayoutEffect(() => {
+    const nav = tabRow?.querySelector<HTMLElement>('[data-slot=nav-tabs]');
+    const back = tabRow?.firstElementChild;
+    if (!tabRow || !nav || !tabActions || !back) return;
+    const measure = () => {
+      const row = getComputedStyle(tabRow);
+      const inner = tabRow.clientWidth - parseFloat(row.paddingLeft) - parseFloat(row.paddingRight);
+      const gap = parseFloat(row.columnGap) || 0;
+      const items = [...tabActions.children].filter((item) => item.getClientRects().length);
+      const actions =
+        items.reduce(
+          (sum, item) => sum + Math.max(item.scrollWidth, item.getBoundingClientRect().width),
+          0,
+        ) +
+        (parseFloat(getComputedStyle(tabActions).columnGap) || 0) * Math.max(0, items.length - 1);
+      const button = back.getBoundingClientRect().width;
+      const beside = button + actions + 2 * gap;
+      // A host picker moves down before the name wraps; any action, even a lone icon,
+      // moves down before the name would wrap past its longest word.
+      tabRow.toggleAttribute(
+        'data-crowded',
+        (actions > 2 * button && beside + navTabsMinWidth(nav) > inner) ||
+          beside + navTabsFloorWidth(nav) > inner,
+      );
+    };
+    measure();
+    const resize = new ResizeObserver(measure);
+    resize.observe(tabRow);
+    resize.observe(tabActions);
+    const mutation = new MutationObserver(measure);
+    mutation.observe(tabRow, { childList: true, subtree: true, characterData: true });
+    return () => {
+      resize.disconnect();
+      mutation.disconnect();
+    };
+  }, [tabRow, tabActions, scaleKey]);
   return (
     <main
       className="clio-scrollbar @container/infra-page h-full min-h-0 overflow-y-auto bg-background"
@@ -168,7 +212,7 @@ export function InfrastructurePage() {
     >
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
         <FrameClioMenu className="bottom-0 left-2 sm:left-3" covered={settingsWindowOpen} />
-        <div className={TAB_ROW}>
+        <div className={TAB_ROW} ref={setTabRow}>
           <NamedTooltip label={t`Back to ${workspace}`}>
             <Button asChild className="text-muted-foreground" size="icon-sm" variant="ghost">
               <Link aria-label={t`Back to ${workspace}`} to={workspaceRoute}>
