@@ -5,7 +5,8 @@ import type { FlowPresentation } from '@/hooks/use-flow-presentation';
 import { FlowDiagram } from './flow-diagram';
 import type { FlowQuestion } from './flow-run-edits';
 import type { FlowPick } from './flow-railroad';
-import { FlowLegend, FlowPickDetails } from './flow-run-parts';
+import { FlowLegend } from './flow-run-parts';
+import { FlowPickDetails } from './flow-step-details';
 import { t } from '@lingui/core/macro';
 
 /**

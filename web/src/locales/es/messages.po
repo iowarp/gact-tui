@@ -5209,7 +5209,7 @@ msgid "added"
 msgstr "añadido"
 
 #: src/components/clio/diff-lines.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/plugin-change-pending-notice.tsx
 #: src/components/clio/source-review-panel.tsx
@@ -5247,7 +5247,7 @@ msgstr "añadido después de que lo aprobaras"
 msgid "Added as {status}"
 msgstr "Añadido como {status}"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/settings-plugins.tsx
 msgid "Added by"
 msgstr "Añadido por"
@@ -5922,7 +5922,7 @@ msgstr "También disponible como"
 msgid "Also called"
 msgstr "También llamado"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Also waits on its forks"
 msgstr "También espera a sus bifurcaciones"
 
@@ -6083,7 +6083,7 @@ msgid "Another window is using this page."
 msgstr "Otra ventana está usando esta página."
 
 #: src/components/clio/attention-center.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/pending-interaction-question-response.tsx
 #: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
@@ -6678,7 +6678,7 @@ msgstr "Solicitado en una conversación"
 msgid "asked questions"
 msgstr "hizo preguntas"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Asked to answer as"
 msgstr "Se pidió responder como"
 
@@ -6866,7 +6866,7 @@ msgstr "Adjunto: {label} ({media})"
 msgid "Attachments only"
 msgstr "Solo adjuntos"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Attempts"
 msgstr "Intentos"
 
@@ -9242,7 +9242,7 @@ msgstr "Elige qué recuerdos nuevos y actualizados se guardan automáticamente. 
 msgid "Choose…"
 msgstr "Elegir…"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Chosen"
 msgstr "Elegido"
 
@@ -9447,7 +9447,7 @@ msgstr "Cerrar"
 msgid "Close {label}"
 msgstr "Cerrar {label}"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 msgid "Close {name}"
 msgstr "Cerrar {name}"
@@ -12715,7 +12715,7 @@ msgstr "Desc"
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/extension-add-dialog.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/settings-prompt-editor.tsx
 msgid "Description"
@@ -13864,7 +13864,7 @@ msgstr "editando archivos"
 msgid "Editing rounds"
 msgstr "Rondas de edición"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Editor"
 msgstr "Editor"
 
@@ -15384,7 +15384,7 @@ msgstr "flujo"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/agent-subagent-facts.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/flow-tool-presentation.ts
 #: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -15657,7 +15657,7 @@ msgstr "olvidando"
 msgid "forgot from memory"
 msgstr "olvidó de la memoria"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/study-tree.tsx
 msgid "Fork"
 msgstr "Bifurcación"
@@ -15667,7 +15667,7 @@ msgstr "Bifurcación"
 msgid "Fork into a new conversation"
 msgstr "Bifurcar en una nueva conversación"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/lib/session-export/archive-orchestration.tsx
 msgid "Fork note"
 msgstr "Nota de bifurcación"
@@ -15676,7 +15676,7 @@ msgstr "Nota de bifurcación"
 msgid "Fork note: {note}"
 msgstr "Nota de la bifurcación: {note}"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Fork of"
 msgstr "Bifurcación de"
 
@@ -17950,7 +17950,7 @@ msgstr "Cursor de continuación del resultado no válido."
 msgid "Invalid result fragment boundary."
 msgstr "Límite de fragmento del resultado no válido."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Investigates"
 msgstr "Investiga"
 
@@ -17979,7 +17979,7 @@ msgstr "No se puede ejecutar aquí en este momento."
 msgid "It changed before your edit was saved."
 msgstr "Cambió antes de que se guardara tu edición."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "It did not run."
 msgstr "No se ejecutó."
 
@@ -18032,11 +18032,11 @@ msgstr "No devolvió ninguna salida"
 msgid "It runs in this session with the session's agent, model, context and access rules."
 msgstr "Se ejecuta en esta sesión con el agente, el modelo, el contexto y las reglas de acceso de la sesión."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "It runs once every entry has answered."
 msgstr "Se ejecuta cuando todas las entradas han respondido."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "It runs once every member has answered."
 msgstr "Se ejecuta cuando todos los miembros han respondido."
 
@@ -19484,7 +19484,7 @@ msgstr "Cargando tabla…"
 msgid "Loading task choices…"
 msgstr "Cargando opciones de tarea…"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Loading the answer…"
 msgstr "Cargando la respuesta…"
 
@@ -20580,7 +20580,7 @@ msgstr "Modo: {modeLabel}"
 
 #: src/components/clio/agent-subagent-facts.tsx
 #: src/components/clio/agent-tab-run-settings.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/service-management-facts.tsx
@@ -21602,7 +21602,7 @@ msgstr "No hay respuesta en esta dirección."
 msgid "No answer text was recorded."
 msgstr "No se registró ningún texto de respuesta."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "No answer was recorded."
 msgstr "No se registró ninguna respuesta."
 
@@ -23025,7 +23025,7 @@ msgstr "No iniciado"
 msgid "Not started yet"
 msgstr "Aún no iniciado"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Not started yet."
 msgstr "Aún no iniciado."
 
@@ -23619,7 +23619,7 @@ msgstr "abierta"
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/file-viewer-take.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Open"
 msgstr "Abrir"
@@ -23692,7 +23692,7 @@ msgstr "Abrir {label}, {status}"
 #: src/components/clio/artifact-markdown-image.tsx
 #: src/components/clio/artifact-rail-row.tsx
 #: src/components/clio/composer-attachment-chip.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/tool-result-workspace-file.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 #: src/components/clio/workbench-activity-detail.tsx
@@ -25987,11 +25987,11 @@ msgctxt "workflow change"
 msgid "proposed"
 msgstr "propuesto"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Proposed"
 msgstr "Propuesto"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Proposed by"
 msgstr "Propuesto por"
 
@@ -29451,7 +29451,7 @@ msgid "Running, but no model is loaded yet."
 msgstr "En ejecución, pero aún no hay ningún modelo cargado."
 
 #: src/components/clio/activity-timeline-list.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
@@ -33329,7 +33329,7 @@ msgstr "Aún en ejecución"
 msgid "Still waiting. This is taking longer than expected. Check {agent} directly, or try again."
 msgstr "Sigue en espera. Está tardando más de lo esperado. Comprueba {agent} directamente o vuelve a intentarlo."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Still working."
 msgstr "Todavía trabajando."
 
@@ -34525,7 +34525,7 @@ msgstr "La dirección completa del agente, incluido http o https."
 msgid "The agent’s turn failed"
 msgstr "El turno del agente falló"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "The answer could not be loaded: {message}"
 msgstr "No se pudo cargar la respuesta: {message}"
 
@@ -39704,7 +39704,7 @@ msgstr "Esperando para instalar…"
 msgid "Waiting to send"
 msgstr "Esperando para enviar"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Waits on"
 msgstr "Espera a"
 

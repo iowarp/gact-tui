@@ -5209,7 +5209,7 @@ msgid "added"
 msgstr "追加"
 
 #: src/components/clio/diff-lines.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/plugin-change-pending-notice.tsx
 #: src/components/clio/source-review-panel.tsx
@@ -5247,7 +5247,7 @@ msgstr "承認後に追加"
 msgid "Added as {status}"
 msgstr "{status}として追加"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/settings-plugins.tsx
 msgid "Added by"
 msgstr "追加者"
@@ -5922,7 +5922,7 @@ msgstr "別の形式でも利用可能"
 msgid "Also called"
 msgstr "別名"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Also waits on its forks"
 msgstr "フォークも待機"
 
@@ -6083,7 +6083,7 @@ msgid "Another window is using this page."
 msgstr "別のウィンドウがこのページを使用しています。"
 
 #: src/components/clio/attention-center.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/pending-interaction-question-response.tsx
 #: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
@@ -6678,7 +6678,7 @@ msgstr "会話で依頼"
 msgid "asked questions"
 msgstr "質問しました"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Asked to answer as"
 msgstr "回答を求められた立場"
 
@@ -6866,7 +6866,7 @@ msgstr "添付ファイル：{label}（{media}）"
 msgid "Attachments only"
 msgstr "添付ファイルのみ"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Attempts"
 msgstr "試行回数"
 
@@ -9242,7 +9242,7 @@ msgstr "自動で保存する新規・更新メモリーを選びます。廃止
 msgid "Choose…"
 msgstr "選択…"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Chosen"
 msgstr "選択済み"
 
@@ -9447,7 +9447,7 @@ msgstr "閉じる"
 msgid "Close {label}"
 msgstr "{label}を閉じる"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 msgid "Close {name}"
 msgstr "{name}を閉じる"
@@ -12715,7 +12715,7 @@ msgstr "降順"
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/extension-add-dialog.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/settings-prompt-editor.tsx
 msgid "Description"
@@ -13864,7 +13864,7 @@ msgstr "ファイルを編集中"
 msgid "Editing rounds"
 msgstr "編集ラウンド数"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Editor"
 msgstr "編集者"
 
@@ -15384,7 +15384,7 @@ msgstr "フロー"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/agent-subagent-facts.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/flow-tool-presentation.ts
 #: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -15657,7 +15657,7 @@ msgstr "忘却中"
 msgid "forgot from memory"
 msgstr "メモリーから忘却しました"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/study-tree.tsx
 msgid "Fork"
 msgstr "フォーク"
@@ -15667,7 +15667,7 @@ msgstr "フォーク"
 msgid "Fork into a new conversation"
 msgstr "新しい会話にフォーク"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/lib/session-export/archive-orchestration.tsx
 msgid "Fork note"
 msgstr "フォークのメモ"
@@ -15676,7 +15676,7 @@ msgstr "フォークのメモ"
 msgid "Fork note: {note}"
 msgstr "フォークのメモ: {note}"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Fork of"
 msgstr "フォーク元"
 
@@ -17950,7 +17950,7 @@ msgstr "結果の継続カーソルが無効です。"
 msgid "Invalid result fragment boundary."
 msgstr "結果フラグメントの境界が無効です。"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Investigates"
 msgstr "調査内容"
 
@@ -17979,7 +17979,7 @@ msgstr "現在ここでは実行できません。"
 msgid "It changed before your edit was saved."
 msgstr "編集が保存される前に変更されました。"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "It did not run."
 msgstr "実行されませんでした。"
 
@@ -18032,11 +18032,11 @@ msgstr "出力を返しませんでした"
 msgid "It runs in this session with the session's agent, model, context and access rules."
 msgstr "このセッションで、セッションのエージェント、モデル、コンテキスト、アクセスルールを使って実行されます。"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "It runs once every entry has answered."
 msgstr "すべてのエントリーが回答すると実行されます。"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "It runs once every member has answered."
 msgstr "すべてのメンバーが回答すると実行されます。"
 
@@ -19484,7 +19484,7 @@ msgstr "表を読み込み中…"
 msgid "Loading task choices…"
 msgstr "タスクの選択肢を読み込み中…"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Loading the answer…"
 msgstr "回答を読み込み中…"
 
@@ -20580,7 +20580,7 @@ msgstr "モード: {modeLabel}"
 
 #: src/components/clio/agent-subagent-facts.tsx
 #: src/components/clio/agent-tab-run-settings.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/service-management-facts.tsx
@@ -21602,7 +21602,7 @@ msgstr "このアドレスから応答がありません。"
 msgid "No answer text was recorded."
 msgstr "回答テキストは記録されていません。"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "No answer was recorded."
 msgstr "回答は記録されていません。"
 
@@ -23025,7 +23025,7 @@ msgstr "未開始"
 msgid "Not started yet"
 msgstr "未開始"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Not started yet."
 msgstr "まだ開始されていません。"
 
@@ -23619,7 +23619,7 @@ msgstr "未解決"
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/file-viewer-take.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Open"
 msgstr "開く"
@@ -23692,7 +23692,7 @@ msgstr "{label}を開く、{status}"
 #: src/components/clio/artifact-markdown-image.tsx
 #: src/components/clio/artifact-rail-row.tsx
 #: src/components/clio/composer-attachment-chip.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/tool-result-workspace-file.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 #: src/components/clio/workbench-activity-detail.tsx
@@ -25987,11 +25987,11 @@ msgctxt "workflow change"
 msgid "proposed"
 msgstr "提案済み"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Proposed"
 msgstr "提案済み"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Proposed by"
 msgstr "提案者"
 
@@ -29451,7 +29451,7 @@ msgid "Running, but no model is loaded yet."
 msgstr "実行中ですが、モデルはまだ読み込まれていません。"
 
 #: src/components/clio/activity-timeline-list.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
@@ -33329,7 +33329,7 @@ msgstr "実行中"
 msgid "Still waiting. This is taking longer than expected. Check {agent} directly, or try again."
 msgstr "まだ待機中です。想定より時間がかかっています。{agent}を直接確認するか、もう一度お試しください。"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Still working."
 msgstr "まだ処理中です。"
 
@@ -34525,7 +34525,7 @@ msgstr "httpまたはhttpsを含む、エージェントの完全なアドレス
 msgid "The agent’s turn failed"
 msgstr "エージェントのターンが失敗しました"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "The answer could not be loaded: {message}"
 msgstr "回答を読み込めませんでした：{message}"
 
@@ -39704,7 +39704,7 @@ msgstr "インストール待ち…"
 msgid "Waiting to send"
 msgstr "送信待ち"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Waits on"
 msgstr "待機対象"
 
