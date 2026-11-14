@@ -35129,6 +35129,10 @@ msgstr "Η συνομιλία άλλαξε ενώ διαβαζόταν. Ένα �
 msgid "The conversation did not establish a confident answer."
 msgstr "Η συνομιλία δεν κατέληξε σε μια βέβαιη απάντηση."
 
+#: src/components/clio/composer-failure.ts
+msgid "The conversation store is refusing writes."
+msgstr ""
+
 #: src/components/clio/study-views.tsx
 msgid "The conversation that attached this view has since deleted its dashboard."
 msgstr "Η συνομιλία που επισύναψε αυτήν την προβολή έχει διαγράψει στο μεταξύ τον πίνακα ελέγχου της."
@@ -41242,6 +41246,10 @@ msgstr "το μήνυμά σας"
 #: src/lib/transcript-message-preview.ts
 msgid "Your message"
 msgstr "Το μήνυμά σας"
+
+#: src/components/clio/composer-store-refusal.tsx
+msgid "Your message was not saved."
+msgstr ""
 
 #: src/lib/search-source-text.ts
 msgid "Your own monthly allowance, and deeper search modes."

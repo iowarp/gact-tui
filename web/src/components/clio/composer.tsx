@@ -23,7 +23,8 @@ import { COMPOSER_ATTACHMENT_MAX_BYTES } from '@/lib/composer-paste';
 import { formatBytes } from '@/lib/format';
 import { compactModelName, type ClioModelOption } from '@/lib/model-options';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
-import { composerFailureReason, humanFailureText } from './composer-failure';
+import { composerFailureReason, humanFailureText, storeRefusal } from './composer-failure';
+import { ComposerStoreRefusal } from './composer-store-refusal';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue } from './composer-queue';
 import { ComposerRunAnnouncer } from './composer-run-announcer';
@@ -175,6 +176,8 @@ export function ClioComposer({
     [onReferencesChange, references],
   );
   const [uploadFailure, setUploadFailure] = useState<ResourceUploadFailure>();
+  // A send the store refused stays in view until one is accepted (MC-F3).
+  const [refused, setRefused] = useState<string>();
   // The attachment in flight when a submit is rejected; the progress state is
   // cleared on the way out, so the name is kept separately.
   const uploadingFilenameRef = useRef<string>(undefined);
@@ -527,6 +530,7 @@ export function ClioComposer({
                   : {}),
               });
             } catch (error) {
+              setRefused(storeRefusal(error));
               const reason = composerFailureReason(error, t`The service rejected it.`);
               const failedFile = uploadingFilenameRef.current;
               const retryDelivery = nextDeliveryRef.current;
@@ -549,6 +553,7 @@ export function ClioComposer({
               restoreInputFocusWhenReady();
             }
             nextDeliveryRef.current = undefined;
+            setRefused(undefined);
             await sourceAttachments.keep();
             if (latestInputRef.current.trim() === trimmed) setInput('');
             setSelectedReferences([]);
@@ -580,6 +585,7 @@ export function ClioComposer({
               : t`Uploading ${ph({ filename: uploadProgress.filename })}`}
           </div>
         ) : null}
+        <ComposerStoreRefusal message={refused} />
         {sessionId ? (
           <ModelFitNotice
             modelId={selectedOption?.id}

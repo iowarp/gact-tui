@@ -399,6 +399,13 @@
     flex-direction: column !important;
     align-items: stretch !important;
   }
+
+  /* Stacked, a weighted panel keeps its content height (see the dashboard rule below). */
+  [data-slot='a2ui-surface-root']
+    > div:is([style*='flex-direction: row'], [style*='flex-direction:row'])
+    :is([style*='min-height: 0px'], [style*='min-height:0']) {
+    min-height: auto !important;
+  }
 }
 
 /* A chart needs room for axes and its legend even when the transcript itself
@@ -1310,6 +1317,17 @@ html[data-clio-motion='reduced'] *::after {
     div:is([style*='flex-direction: row'], [style*='flex-direction:row']) {
     flex-direction: column !important;
     align-items: stretch !important;
+  }
+
+  /* A stacked panel is never shorter than what it holds. A weight is a share of the
+     row's width; the kernel also gives a weighted panel `min-height: 0`, so once its
+     column has a definite height (a capture's frozen clone, a sized region) the weight
+     split that height and an app view or chart spilled over the panel below (MC-F5).
+     Matched on the weighted panel itself, so no inline-style write restyles a subtree. */
+  [data-slot='a2ui-dashboard']
+    [data-slot='a2ui-surface-root']
+    :is([style*='min-height: 0px'], [style*='min-height:0']) {
+    min-height: auto !important;
   }
 }
 
