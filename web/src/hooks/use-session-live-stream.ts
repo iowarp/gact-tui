@@ -25,6 +25,7 @@ import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
 import { dispatchMcpAppClosedFrame } from '@/components/clio/mcp-app-live-set';
 import { dispatchMcpAppLookFrame } from '@/components/clio/mcp-app-look';
+import { dispatchFileViewLookFrame } from '@/components/clio/file-view-look';
 import { dispatchMcpAppToolCallFrame } from '@/components/clio/mcp-app-view-tools';
 import { useRepository } from './use-repository';
 import { ph, t } from '@lingui/core/macro';
@@ -211,6 +212,7 @@ export function useSessionLiveStream({
             liveSources.push(frame);
             dispatchMcpAppToolCallFrame(frame);
             dispatchMcpAppLookFrame(frame);
+            dispatchFileViewLookFrame(frame);
             dispatchMcpAppClosedFrame(frame);
             if (frame.eventName === 'message.completed') {
               batcher.flush();

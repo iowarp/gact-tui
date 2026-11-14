@@ -50,13 +50,19 @@ export interface SentCommentSession {
   threads: ArtifactReview[];
 }
 
-export type CommentSurfaceKind = 'agent-answer' | 'a2ui-surface' | 'browser-page' | 'mcp-app';
+export type CommentSurfaceKind =
+  | 'agent-answer'
+  | 'a2ui-surface'
+  | 'browser-page'
+  | 'mcp-app'
+  | 'file-view';
 
 /** The payload of a `comment_session` message part. */
 export interface CommentAttachment {
   kind: CommentSurfaceKind;
   title?: string;
   marks: Array<{ label: string; anchor: DocumentAnchor; comment: string }>;
-  /** Browser-drawn images (A2UI only): the overview has no label, a crop names its mark. */
+  /** Browser-drawn images (A2UI surfaces, app views, file views): the overview has no
+   * label, a crop names its mark. */
   images?: Array<{ label?: string; data: string }>;
 }

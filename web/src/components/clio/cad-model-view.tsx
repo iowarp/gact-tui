@@ -7,7 +7,6 @@ import {
   ImageIcon,
   LayersIcon,
   PentagonIcon,
-  PrinterIcon,
   RulerDimensionLineIcon,
   RulerIcon,
   Rotate3dIcon,
@@ -30,18 +29,8 @@ import { explodeOffsets } from './cad-explode';
 import { CadAxisGizmo } from './cad-gizmo';
 import { useCadMeasure } from './cad-measure-state';
 import { CadMeasureLabels, CadMeasurePanel } from './cad-measure-tool';
-import { boxCenter, boxExtent, partFacts, unionBounds, unionBox, type Vec3 } from './cad-parts';
+import { boxCenter, boxExtent, partFacts, unionBounds, type Vec3 } from './cad-parts';
 import { CadPartsList } from './cad-parts-panel';
-import {
-  footprint,
-  plateAxes,
-  plateBounds,
-  plateCenter,
-  plateOf,
-  readPlateChoice,
-  savePlateChoice,
-  type PlateChoice,
-} from './cad-plate';
 import { useCanvasPointer } from './cad-pointer';
 import { CadScene, UP_VECTORS, type PartFocus, type Projection } from './cad-scene';
 import {
@@ -56,9 +45,11 @@ import {
   type SectionState,
 } from './cad-section';
 import { CadToolColumn } from './cad-tool-panel';
-import { CadExplodePanel, CadPlatePanel, CadSectionPanel, CadSelectionPanel } from './cad-tool-panels';
+import { cadViewState } from './cad-view-state';
+import { useClientFileView, type ClientFileViewDeclaration } from './client-file-view';
+import { CadExplodePanel, CadSectionPanel, CadSelectionPanel } from './cad-tool-panels';
 import { formatBox, readLengthUnit, saveLengthUnit, type LengthUnit } from './cad-units';
-import { modelParts, partColors, standardViewFrame, upAxisOf, type StandardView } from './cad-view-model';
+import { groundAxes, modelParts, partColors, standardViewFrame, upAxisOf, type StandardView } from './cad-view-model';
 import { useFileViewerActions, type FileViewerAction } from './file-viewer-action-context';
 import { useFileViewerFacts } from './file-viewer-facts';
 import type { MeshFormat } from './mesh-viewport-formats';
@@ -93,7 +84,7 @@ function typing(target: EventTarget | null): boolean {
 
 /**
  * A parsed CAD model with the usual CAD tools: measure, section, exploded view, part
- * selection, a print-plate check, units, projection and an axis gizmo.
+ * selection, units, projection and an axis gizmo.
  */
 export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name: string; format: MeshFormat }) {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -113,8 +104,6 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
   const [section, setSection] = useState<SectionState>();
   const [explodeOpen, setExplodeOpen] = useState(false);
   const [explode, setExplodeState] = useState(0);
-  const [plateOpen, setPlateOpen] = useState(false);
-  const [plate, setPlateState] = useState<PlateChoice>(readPlateChoice);
   const [selectedState, setSelected] = useState<number>();
   const [focus, setFocus] = useState<PartFocus>('normal');
   const [cover, setCover] = useState(0);
@@ -125,12 +114,7 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
   const colors = useMemo(() => partColors(mesh, palette), [mesh, palette]);
   const ink = useMemo(() => {
     void theme; // Read again for each theme.
-    return {
-      accent: readThemeColor('primary'),
-      plateLine: readThemeColor('muted-foreground'),
-      plateFill: readThemeColor('muted'),
-      grid: readThemeColor('border'),
-    };
+    return { accent: readThemeColor('primary') };
   }, [theme]);
 
   const offsets = useMemo(
@@ -142,14 +126,17 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
     (index: number) => !hidden.has(index) && (focus !== 'isolate' || selected === undefined || index === selected),
     [focus, hidden, selected],
   );
-  // As modelled (what a slicer gets), and as drawn now (exploded): sizes read the first.
+  // As modelled, and as drawn now (exploded): sizes read the first.
   const assembled = useMemo(() => unionBounds(facts, shownPart), [facts, shownPart]);
   const drawn = useMemo(() => unionBounds(facts, shownPart, offsets), [facts, offsets, shownPart]);
-  const size = boxExtent(assembled ?? mesh.bounds);
+  const size = useMemo(() => boxExtent(assembled ?? mesh.bounds), [assembled, mesh.bounds]);
   const sizeFact = formatBox(size, unit);
   const partsFact = multipart ? plural(parts.length, { one: '# part', other: '# parts' }) : '';
   useFileViewerFacts([sizeFact, partsFact].filter(Boolean));
-  const sectionShown = section && drawn ? clampSection(section, drawn) : undefined;
+  const sectionShown = useMemo(
+    () => (section && drawn ? clampSection(section, drawn) : undefined),
+    [drawn, section],
+  );
 
   useEffect(() => {
     const container = canvasRef.current;
@@ -198,31 +185,6 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
     [scene, measure.shapes, measure.pendingPoint, ink],
   );
   useEffect(() => scene?.requestRender(), [scene, measure.shapes, measure.pending]);
-  const plateSpec = plateOf(plate);
-  useEffect(() => {
-    if (!scene) return;
-    scene.overlays.setPlate(
-      plateOpen && assembled
-        ? { center: plateCenter(assembled, up), size: plateSpec.size, axes: plateAxes(up) }
-        : undefined,
-      { measure: ink.accent, ...ink },
-    );
-    scene.requestRender();
-  }, [scene, plateOpen, assembled, plateSpec.size, up, ink]);
-  // Opening the plate, or choosing another, frames the whole bed; closing it frames the model.
-  const plateShown = useRef(false);
-  const [plateW, plateD, plateH] = plateSpec.size;
-  useEffect(() => {
-    if (!scene || !assembled || !drawn) return;
-    if (plateOpen) {
-      const bed = plateBounds(plateCenter(assembled, up), [plateW, plateD, plateH], up);
-      scene.fit(unionBox(bed, drawn));
-    } else if (plateShown.current) scene.fit(drawn);
-    plateShown.current = plateOpen;
-    // Hiding a part or exploding keeps the camera where the person put it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scene, plateOpen, plateW, plateD, plateH, up]);
-
   // The exploded view eases open and shut, at once when motion is reduced.
   const animation = useRef(0);
   const explodeNow = useRef(explode);
@@ -263,10 +225,6 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
     setUnitState(next);
     saveLengthUnit(next);
   };
-  const setPlate = (next: PlateChoice) => {
-    setPlateState(next);
-    savePlateChoice(next);
-  };
   const toggleMeasure = useCallback(() => {
     setMeasureOpen((open) => {
       if (open) measure.cancel();
@@ -277,7 +235,7 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
     setSection((current) => {
       if (current || !drawn) return undefined;
       // The default cut runs through the model's long axis: across the narrower plan axis.
-      const [w, d] = plateAxes(up);
+      const [w, d] = groundAxes(up);
       const extent = boxExtent(drawn);
       const index = extent[w]! <= extent[d]! ? w : d;
       // Keep the far half, so the cut faces the camera.
@@ -328,7 +286,8 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
 
   // Escape is read before the page's own layers (a maximized canvas restores on Escape), so a
   // half-made measurement, the measuring mode or a selection is cancelled first, one per key.
-  const viewRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<HTMLDivElement | null>(null);
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const escape = useRef<() => boolean>(() => false);
   useEffect(() => {
     escape.current = () => {
@@ -391,14 +350,6 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
       });
     rows.push({ label: t`PNG image of this view`, kind: 'download', icon: ImageIcon, onSelect: savePicture });
     rows.push({
-      label: t`Print plate`,
-      description: t`Whether the shown parts fit a printer`,
-      kind: 'view',
-      selected: plateOpen,
-      icon: PrinterIcon,
-      onSelect: () => setPlateOpen((open) => !open),
-    });
-    rows.push({
       label: t`Orthographic`,
       description: t`No perspective: parallel edges stay parallel`,
       kind: 'view',
@@ -431,7 +382,7 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
       });
     return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [colors, edges, format, mesh, multipart, partsOpen, plateOpen, projection, savePicture, stem, unit]);
+  }, [colors, edges, format, mesh, multipart, partsOpen, projection, savePicture, stem, unit]);
   useFileViewerActions(actions);
 
   const toggle = (index: number) =>
@@ -448,12 +399,67 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
     ['right', t`Right`],
   ];
   const selectedFacts = selected !== undefined ? facts[selected] : undefined;
-  const anyPanel = measureOpen || Boolean(section) || explodeOpen || plateOpen || Boolean(selectedFacts);
+
+  // The view as a client-rendered file view (FV-D1): the agent looks at it and region
+  // comments carry its picture and this state. The camera moves without a React render,
+  // so a settled camera bumps the key the host reports the state on.
+  const [cameraTick, setCameraTick] = useState(0);
+  useEffect(() => {
+    if (!scene) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = scene.subscribe(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setCameraTick((tick) => tick + 1), 300);
+    });
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [scene]);
+  const viewState = useCallback(
+    () =>
+      cadViewState({
+        name,
+        up,
+        unit,
+        projection,
+        viewDirection: (scene?.viewDirection().toArray() ?? [0, 0, 1]) as Vec3,
+        facts,
+        hidden,
+        size,
+        section: sectionShown,
+        explode,
+        selected,
+        focus,
+        measurements: measure.items,
+        measuring: Boolean(measure.pending),
+      }),
+    [explode, facts, focus, hidden, measure.items, measure.pending, name, projection, scene, sectionShown, selected, size, unit, up],
+  );
+  const declaration = useMemo<ClientFileViewDeclaration | undefined>(
+    () =>
+      root && scene
+        ? {
+            // i18n-ignore: the kind of view, in words the agent reads
+            kind: '3D model',
+            root,
+            draw: () => scene.capture(),
+            state: viewState,
+            stateKey: `${cameraTick}:${viewState().join('\n')}`,
+          }
+        : undefined,
+    [cameraTick, root, scene, viewState],
+  );
+  useClientFileView(declaration);
+  const anyPanel = measureOpen || Boolean(section) || explodeOpen || Boolean(selectedFacts);
   return (
     // The keys act on the view whichever of its controls has focus.
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
-      ref={viewRef}
+      ref={(element) => {
+        viewRef.current = element;
+        setRoot(element);
+      }}
       className="@container relative size-full min-h-0 overflow-hidden bg-muted/40"
       data-slot="cad-view"
       onKeyDown={onKeyDown}
@@ -554,15 +560,6 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
               onChange={(value) => explodeTo(value, false)}
               onCommit={frameExploded}
               onClose={toggleExplode}
-            />
-          ) : null}
-          {plateOpen ? (
-            <CadPlatePanel
-              choice={plate}
-              model={footprint(size, up)}
-              onChoice={setPlate}
-              onClose={() => setPlateOpen(false)}
-              unit={unit}
             />
           ) : null}
         </CadToolColumn>

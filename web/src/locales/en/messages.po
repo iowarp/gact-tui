@@ -7847,10 +7847,6 @@ msgstr "Build problems"
 msgid "Build this paper"
 msgstr "Build this paper"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Build volume {size}"
-msgstr "Build volume {size}"
-
 #: src/components/clio/latex-workspace.tsx
 msgid "Building the paper…"
 msgstr "Building the paper…"
@@ -9986,6 +9982,10 @@ msgstr "Comment on {label}"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Comment on {optionLabel}"
 msgstr "Comment on {optionLabel}"
+
+#: src/components/clio/composer-annotations.tsx
+msgid "Comment on a file view"
+msgstr "Comment on a file view"
 
 #: src/components/clio/composer-annotations.tsx
 msgid "Comment on a page"
@@ -12393,10 +12393,6 @@ msgstr "Current workspace"
 msgid "Custom repeat <0>{0}</0>"
 msgstr "Custom repeat <0>{0}</0>"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Custom size"
-msgstr "Custom size"
-
 #: src/components/clio/settings-runtime-number.tsx
 msgid "Custom…"
 msgstr "Custom…"
@@ -12966,10 +12962,6 @@ msgstr "Deploys as {id}@{value}"
 #: src/components/clio/managed-service-instance.tsx
 msgid "Deploys as {id}@name"
 msgstr "Deploys as {id}@name"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Depth"
-msgstr "Depth"
 
 #: src/widget-gallery-scenarios.ts
 msgid "Depth and magnitude"
@@ -13866,7 +13858,7 @@ msgstr "Drag over the page to mark a region"
 msgid "Drag over the surface to add a region."
 msgstr "Drag over the surface to add a region."
 
-#: src/components/clio/comments/mcp-app-comments.tsx
+#: src/components/clio/comments/snapshot-comments.tsx
 msgid "Drag over the view to mark a region, or click a point"
 msgstr "Drag over the view to mark a region, or click a point"
 
@@ -15739,22 +15731,6 @@ msgstr "Fit to view (F)"
 msgid "Fit view"
 msgstr "Fit view"
 
-#: src/components/clio/cad-plate.ts
-msgid "Fits the {name} plate"
-msgstr "Fits the {name} plate"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the {name} plate when turned 90°"
-msgstr "Fits the {name} plate when turned 90°"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the custom plate"
-msgstr "Fits the custom plate"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the custom plate when turned 90°"
-msgstr "Fits the custom plate when turned 90°"
-
 #: src/components/clio/model-acquisition.tsx
 msgid "Fits: {free}."
 msgstr "Fits: {free}."
@@ -16782,7 +16758,6 @@ msgstr "Heat profile: {name}"
 msgid "Heat shown in transcript"
 msgstr "Heat shown in transcript"
 
-#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Height"
 msgstr "Height"
@@ -24303,6 +24278,7 @@ msgstr "Open a conversation in this workspace to view this file."
 msgid "Open a conversation to add it to a message"
 msgstr "Open a conversation to add it to a message"
 
+#: src/components/clio/client-file-view.tsx
 #: src/components/clio/comments/file-comments.tsx
 msgid "Open a conversation to comment"
 msgstr "Open a conversation to comment"
@@ -26342,18 +26318,9 @@ msgstr "Previous<0>{count}</0>"
 msgid "Primary folder"
 msgstr "Primary folder"
 
-#: src/components/clio/cad-model-view.tsx
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Print plate"
-msgstr "Print plate"
-
 #: src/components/clio/script-run-body.tsx
 msgid "Printed"
 msgstr "Printed"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Printer"
-msgstr "Printer"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Priority"
@@ -28384,6 +28351,10 @@ msgstr "Remove attachment"
 #: src/components/clio/composer-source-attachments.tsx
 msgid "Remove attachment {label}"
 msgstr "Remove attachment {label}"
+
+#: src/components/clio/composer-annotations.tsx
+msgid "Remove comment on a file view"
+msgstr "Remove comment on a file view"
 
 #: src/components/clio/composer-annotations.tsx
 msgid "Remove comment on a page"
@@ -32834,10 +32805,6 @@ msgstr "Showing the last {rows} rows."
 msgid "Showing the last completed conversion"
 msgstr "Showing the last completed conversion"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Shown parts as modelled: {size}"
-msgstr "Shown parts as modelled: {size}"
-
 #: src/components/clio/image-reach.ts
 msgid "shown to the model"
 msgstr "shown to the model"
@@ -33113,14 +33080,6 @@ msgstr "Size"
 #: src/components/clio/file-viewer-actions.tsx
 msgid "Size unavailable"
 msgstr "Size unavailable"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Sizes in inches"
-msgstr "Sizes in inches"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Sizes in millimetres"
-msgstr "Sizes in millimetres"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
@@ -38135,21 +38094,9 @@ msgstr "Token usage unavailable"
 msgid "Tokens"
 msgstr "Tokens"
 
-#: src/components/clio/cad-plate.ts
-msgid "Too deep by {length}"
-msgstr "Too deep by {length}"
-
 #: src/components/ai-elements/prompt-input.tsx
 msgid "Too many files. Some were not added."
 msgstr "Too many files. Some were not added."
-
-#: src/components/clio/cad-plate.ts
-msgid "Too tall by {length}"
-msgstr "Too tall by {length}"
-
-#: src/components/clio/cad-plate.ts
-msgid "Too wide by {length}"
-msgstr "Too wide by {length}"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Took"
@@ -40884,10 +40831,6 @@ msgstr "Where this tab's services and models run."
 msgid "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 msgstr "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 
-#: src/components/clio/cad-model-view.tsx
-msgid "Whether the shown parts fit a printer"
-msgstr "Whether the shown parts fit a printer"
-
 #: src/components/clio/settings-schema-copy.ts
 msgid "Which browser"
 msgstr "Which browser"
@@ -40952,7 +40895,6 @@ msgstr "Widget catalog loaded. Use technical details to inspect the full catalog
 msgid "Widget gallery"
 msgstr "Widget gallery"
 
-#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Width"
 msgstr "Width"

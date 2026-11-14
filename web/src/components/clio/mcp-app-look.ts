@@ -116,6 +116,43 @@ export function snapshotAnswer(value: unknown): McpAppSnapshot {
   };
 }
 
+/**
+ * Take a snapshot for a look, answered within {@link SNAPSHOT_ANSWER_MS}: a frame that never
+ * replies is answered `snapshot_unanswered`, and a throw is `snapshot_failed`, so a look is
+ * never left waiting by the window that holds the view. Shared by app and file views.
+ */
+export async function answerWithin(
+  snapshot: TakeSnapshot,
+  options: SnapshotOptions,
+): Promise<McpAppSnapshot> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const unanswered = new Promise<McpAppSnapshot>((resolve) => {
+    timer = setTimeout(
+      () =>
+        resolve({
+          error: {
+            reason: 'snapshot_unanswered',
+            // i18n-ignore: error returned to the agent's look_at_view result
+            message: `The view's frame did not answer within ${SNAPSHOT_ANSWER_MS / 1000} s; it may be hidden or still loading.`,
+          },
+        }),
+      SNAPSHOT_ANSWER_MS,
+    );
+  });
+  try {
+    return await Promise.race([snapshot(options), unanswered]);
+  } catch (error) {
+    return {
+      error: {
+        reason: 'snapshot_failed',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** One mount of a view: it holds the view for the agent's looks while it is loaded. */
 export class McpAppLooks {
   private readonly holder = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -161,34 +198,8 @@ export class McpAppLooks {
   private async answer(look: McpAppLookEvent): Promise<void> {
     if (this.stopped || this.handled.has(look.call_id) || !this.repository.postMcpAppLook) return;
     this.handled.add(look.call_id);
-    let answer: McpAppSnapshot;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const unanswered = new Promise<McpAppSnapshot>((resolve) => {
-      timer = setTimeout(
-        () =>
-          resolve({
-            error: {
-              reason: 'snapshot_unanswered',
-              // i18n-ignore: error returned to the agent's look_at_view result
-              message: `The view's frame did not answer within ${SNAPSHOT_ANSWER_MS / 1000} s; it may be hidden or still loading.`,
-            },
-          }),
-        SNAPSHOT_ANSWER_MS,
-      );
-    });
-    try {
-      const scale = (globalThis as { devicePixelRatio?: number }).devicePixelRatio || 1;
-      answer = await Promise.race([this.snapshot({ scale, maxSide: look.max_side }), unanswered]);
-    } catch (error) {
-      answer = {
-        error: {
-          reason: 'snapshot_failed',
-          message: error instanceof Error ? error.message : String(error),
-        },
-      };
-    } finally {
-      clearTimeout(timer);
-    }
+    const scale = (globalThis as { devicePixelRatio?: number }).devicePixelRatio || 1;
+    const answer = await answerWithin(this.snapshot, { scale, maxSide: look.max_side });
     await this.repository
       .postMcpAppLook(this.identity, look.call_id, answer)
       .catch((error: unknown) => console.warn('The view snapshot was not delivered:', error));

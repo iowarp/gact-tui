@@ -88,6 +88,26 @@ export interface McpAppLookEvent {
   max_side: number;
 }
 
+/**
+ * A client-rendered file view (a 3D model the file viewer draws): the file it shows, for
+ * `PUT /v1/sessions/{sid}/file-views/{view_id}` (FV-D3).
+ */
+export interface FileViewFile {
+  workspace_id: string;
+  path: string;
+  name: string;
+  /** The kind of view, in words the agent reads ("3D model"). */
+  kind: string;
+}
+
+/** The agent looks at a file view: the `file_view_look` session event (FV-D3). */
+export interface FileViewLookEvent {
+  session_id: string;
+  view_id: string;
+  call_id: string;
+  max_side: number;
+}
+
 /** One gap in a view snapshot: what was not painted, and the typed reason. */
 export interface McpAppSnapshotSkip {
   what: string;

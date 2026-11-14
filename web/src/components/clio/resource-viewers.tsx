@@ -17,6 +17,7 @@ import { artifactDetailVersionEntity } from '@/lib/session-artifacts';
 
 import { FileTextView } from './file-text-view';
 import { cadFormatOf } from './cad-file-format';
+import { ClientFileViewHost } from './client-file-view';
 import {
   fileName,
   HDF5_MEDIA_TYPE,
@@ -243,6 +244,13 @@ export function WorkspaceFileView({
   ) : (
     <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
   );
+  // A renderer that draws in the browser (a 3D model) declares itself to the host, which
+  // gives it comments and the agent's look (FV-D1).
+  const hosted = (
+    <ClientFileViewHost path={path} workspaceId={workspaceId}>
+      {preview}
+    </ClientFileViewHost>
+  );
   return (
     <FileViewerShell
       source={source}
@@ -251,8 +259,8 @@ export function WorkspaceFileView({
       tabs={[
         // An Office file reads as its document from first paint, as it will once loaded.
         officeMediaType(path)
-          ? { value: 'preview', label: t`Read document`, icon: BookOpenIcon, content: preview }
-          : { value: 'preview', label: t`Preview`, icon: EyeIcon, content: preview },
+          ? { value: 'preview', label: t`Read document`, icon: BookOpenIcon, content: hosted }
+          : { value: 'preview', label: t`Preview`, icon: EyeIcon, content: hosted },
       ]}
       lineage={
         embedded ? undefined : (

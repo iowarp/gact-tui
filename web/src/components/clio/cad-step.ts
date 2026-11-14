@@ -69,7 +69,7 @@ export async function readStepModel(bytes: Uint8Array): Promise<THREE.Object3D> 
   const occt = await loadReader();
   let result: OcctResult;
   try {
-    // Millimetres: what a print plate and a slicer measure in.
+    // Millimetres: what CAD tools and slicers measure in.
     result = occt.ReadStepFile(bytes, { linearUnit: 'millimeter' });
   } catch (error) {
     throw new MeshFormatError(

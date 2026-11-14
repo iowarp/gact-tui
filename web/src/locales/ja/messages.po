@@ -7847,10 +7847,6 @@ msgstr "ビルドの問題"
 msgid "Build this paper"
 msgstr "この論文をビルド"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Build volume {size}"
-msgstr "造形サイズ {size}"
-
 #: src/components/clio/latex-workspace.tsx
 msgid "Building the paper…"
 msgstr "論文をビルド中…"
@@ -9986,6 +9982,10 @@ msgstr "{label}にコメント"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Comment on {optionLabel}"
 msgstr "{optionLabel}へのコメント"
+
+#: src/components/clio/composer-annotations.tsx
+msgid "Comment on a file view"
+msgstr "ファイルビューにコメント"
 
 #: src/components/clio/composer-annotations.tsx
 msgid "Comment on a page"
@@ -12393,10 +12393,6 @@ msgstr "現在のワークスペース"
 msgid "Custom repeat <0>{0}</0>"
 msgstr "カスタムの繰り返し<0>{0}</0>"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Custom size"
-msgstr "カスタムサイズ"
-
 #: src/components/clio/settings-runtime-number.tsx
 msgid "Custom…"
 msgstr "カスタム…"
@@ -12966,10 +12962,6 @@ msgstr "{id}@{value}としてデプロイ"
 #: src/components/clio/managed-service-instance.tsx
 msgid "Deploys as {id}@name"
 msgstr "{id}@名前 としてデプロイ"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Depth"
-msgstr "奥行き"
 
 #: src/widget-gallery-scenarios.ts
 msgid "Depth and magnitude"
@@ -13866,7 +13858,7 @@ msgstr "ページ上をドラッグして領域をマーク"
 msgid "Drag over the surface to add a region."
 msgstr "サーフェス上をドラッグして領域を追加します。"
 
-#: src/components/clio/comments/mcp-app-comments.tsx
+#: src/components/clio/comments/snapshot-comments.tsx
 msgid "Drag over the view to mark a region, or click a point"
 msgstr "ビューの上をドラッグして領域をマークするか、点をクリックします"
 
@@ -15739,22 +15731,6 @@ msgstr "全体表示 (F)"
 msgid "Fit view"
 msgstr "全体を表示"
 
-#: src/components/clio/cad-plate.ts
-msgid "Fits the {name} plate"
-msgstr "{name} のプレートに収まります"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the {name} plate when turned 90°"
-msgstr "90° 回転させると {name} のプレートに収まります"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the custom plate"
-msgstr "カスタムプレートに収まります"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the custom plate when turned 90°"
-msgstr "90° 回転させるとカスタムプレートに収まります"
-
 #: src/components/clio/model-acquisition.tsx
 msgid "Fits: {free}."
 msgstr "収まります: {free}。"
@@ -16782,7 +16758,6 @@ msgstr "ヒートプロファイル: {name}"
 msgid "Heat shown in transcript"
 msgstr "トランスクリプトに表示されたヒート"
 
-#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Height"
 msgstr "高さ"
@@ -24303,6 +24278,7 @@ msgstr "このファイルを表示するには、このワークスペースで
 msgid "Open a conversation to add it to a message"
 msgstr "メッセージに追加するには会話を開いてください"
 
+#: src/components/clio/client-file-view.tsx
 #: src/components/clio/comments/file-comments.tsx
 msgid "Open a conversation to comment"
 msgstr "コメントするには会話を開いてください"
@@ -26342,18 +26318,9 @@ msgstr "以前<0>{count}</0>"
 msgid "Primary folder"
 msgstr "プライマリフォルダー"
 
-#: src/components/clio/cad-model-view.tsx
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Print plate"
-msgstr "造形プレート"
-
 #: src/components/clio/script-run-body.tsx
 msgid "Printed"
 msgstr "出力"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Printer"
-msgstr "プリンター"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Priority"
@@ -28384,6 +28351,10 @@ msgstr "添付ファイルを削除"
 #: src/components/clio/composer-source-attachments.tsx
 msgid "Remove attachment {label}"
 msgstr "添付ファイル{label}を削除"
+
+#: src/components/clio/composer-annotations.tsx
+msgid "Remove comment on a file view"
+msgstr "ファイルビューのコメントを削除"
 
 #: src/components/clio/composer-annotations.tsx
 msgid "Remove comment on a page"
@@ -32834,10 +32805,6 @@ msgstr "最後の{rows}行を表示しています。"
 msgid "Showing the last completed conversion"
 msgstr "最後に完了した変換を表示しています"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Shown parts as modelled: {size}"
-msgstr "表示中の部品 (モデルどおり): {size}"
-
 #: src/components/clio/image-reach.ts
 msgid "shown to the model"
 msgstr "モデルに表示済み"
@@ -33113,14 +33080,6 @@ msgstr "サイズ"
 #: src/components/clio/file-viewer-actions.tsx
 msgid "Size unavailable"
 msgstr "サイズ不明"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Sizes in inches"
-msgstr "サイズはインチ"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Sizes in millimetres"
-msgstr "サイズはミリメートル"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
@@ -38135,21 +38094,9 @@ msgstr "トークン使用量を利用できません"
 msgid "Tokens"
 msgstr "トークン"
 
-#: src/components/clio/cad-plate.ts
-msgid "Too deep by {length}"
-msgstr "奥行きが {length} 超過"
-
 #: src/components/ai-elements/prompt-input.tsx
 msgid "Too many files. Some were not added."
 msgstr "ファイルが多すぎます。一部は追加されませんでした。"
-
-#: src/components/clio/cad-plate.ts
-msgid "Too tall by {length}"
-msgstr "高さが {length} 超過"
-
-#: src/components/clio/cad-plate.ts
-msgid "Too wide by {length}"
-msgstr "幅が {length} 超過"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Took"
@@ -40884,10 +40831,6 @@ msgstr "このタブのサービスとモデルが実行される場所です。
 msgid "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 msgstr "このワークスペースの会話を開始する場所と、そのコマンドが変更できる他のフォルダー。色とアイコンはこのデバイスに保存されます。"
 
-#: src/components/clio/cad-model-view.tsx
-msgid "Whether the shown parts fit a printer"
-msgstr "表示中の部品がプリンターに収まるか"
-
 #: src/components/clio/settings-schema-copy.ts
 msgid "Which browser"
 msgstr "使用するブラウザー"
@@ -40952,7 +40895,6 @@ msgstr "ウィジェットカタログを読み込みました。カタログ全
 msgid "Widget gallery"
 msgstr "ウィジェットギャラリー"
 
-#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Width"
 msgstr "幅"

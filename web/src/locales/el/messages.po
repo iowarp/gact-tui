@@ -7847,10 +7847,6 @@ msgstr "Προβλήματα μεταγλώττισης"
 msgid "Build this paper"
 msgstr "Μεταγλώττιση αυτής της εργασίας"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Build volume {size}"
-msgstr "Όγκος εκτύπωσης {size}"
-
 #: src/components/clio/latex-workspace.tsx
 msgid "Building the paper…"
 msgstr "Μεταγλώττιση της εργασίας…"
@@ -9986,6 +9982,10 @@ msgstr "Σχολιασμός {label}"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Comment on {optionLabel}"
 msgstr "Σχόλιο για {optionLabel}"
+
+#: src/components/clio/composer-annotations.tsx
+msgid "Comment on a file view"
+msgstr "Σχόλιο σε προβολή αρχείου"
 
 #: src/components/clio/composer-annotations.tsx
 msgid "Comment on a page"
@@ -12393,10 +12393,6 @@ msgstr "Τρέχων χώρος εργασίας"
 msgid "Custom repeat <0>{0}</0>"
 msgstr "Προσαρμοσμένη επανάληψη <0>{0}</0>"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Custom size"
-msgstr "Προσαρμοσμένο μέγεθος"
-
 #: src/components/clio/settings-runtime-number.tsx
 msgid "Custom…"
 msgstr "Προσαρμοσμένο…"
@@ -12966,10 +12962,6 @@ msgstr "Ανάπτυξη ως {id}@{value}"
 #: src/components/clio/managed-service-instance.tsx
 msgid "Deploys as {id}@name"
 msgstr "Ανάπτυξη ως {id}@όνομα"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Depth"
-msgstr "Βάθος"
 
 #: src/widget-gallery-scenarios.ts
 msgid "Depth and magnitude"
@@ -13866,7 +13858,7 @@ msgstr "Σύρετε πάνω στη σελίδα για να επισημάνε
 msgid "Drag over the surface to add a region."
 msgstr "Σύρετε πάνω στην επιφάνεια για να προσθέσετε μια περιοχή."
 
-#: src/components/clio/comments/mcp-app-comments.tsx
+#: src/components/clio/comments/snapshot-comments.tsx
 msgid "Drag over the view to mark a region, or click a point"
 msgstr "Σύρετε πάνω στην προβολή για να σημειώσετε περιοχή ή κάντε κλικ σε σημείο"
 
@@ -15739,22 +15731,6 @@ msgstr "Προσαρμογή στην προβολή (F)"
 msgid "Fit view"
 msgstr "Προσαρμογή προβολής"
 
-#: src/components/clio/cad-plate.ts
-msgid "Fits the {name} plate"
-msgstr "Χωράει στην πλάκα του {name}"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the {name} plate when turned 90°"
-msgstr "Χωράει στην πλάκα του {name} αν περιστραφεί 90°"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the custom plate"
-msgstr "Χωράει στην προσαρμοσμένη πλάκα"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the custom plate when turned 90°"
-msgstr "Χωράει στην προσαρμοσμένη πλάκα αν περιστραφεί 90°"
-
 #: src/components/clio/model-acquisition.tsx
 msgid "Fits: {free}."
 msgstr "Χωράει: {free}."
@@ -16782,7 +16758,6 @@ msgstr "Προφίλ θερμότητας: {name}"
 msgid "Heat shown in transcript"
 msgstr "Θερμότητα που εμφανίζεται στα πρακτικά"
 
-#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Height"
 msgstr "Ύψος"
@@ -24303,6 +24278,7 @@ msgstr "Ανοίξτε μια συνομιλία σε αυτόν τον χώρο
 msgid "Open a conversation to add it to a message"
 msgstr "Ανοίξτε μια συνομιλία για να το προσθέσετε σε μήνυμα"
 
+#: src/components/clio/client-file-view.tsx
 #: src/components/clio/comments/file-comments.tsx
 msgid "Open a conversation to comment"
 msgstr "Ανοίξτε μια συνομιλία για να σχολιάσετε"
@@ -26342,18 +26318,9 @@ msgstr "Προηγούμενα<0>{count}</0>"
 msgid "Primary folder"
 msgstr "Κύριος φάκελος"
 
-#: src/components/clio/cad-model-view.tsx
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Print plate"
-msgstr "Πλάκα εκτύπωσης"
-
 #: src/components/clio/script-run-body.tsx
 msgid "Printed"
 msgstr "Εκτυπώθηκε"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Printer"
-msgstr "Εκτυπωτής"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Priority"
@@ -28384,6 +28351,10 @@ msgstr "Αφαίρεση συνημμένου"
 #: src/components/clio/composer-source-attachments.tsx
 msgid "Remove attachment {label}"
 msgstr "Αφαίρεση συνημμένου {label}"
+
+#: src/components/clio/composer-annotations.tsx
+msgid "Remove comment on a file view"
+msgstr "Αφαίρεση σχολίου σε προβολή αρχείου"
 
 #: src/components/clio/composer-annotations.tsx
 msgid "Remove comment on a page"
@@ -32834,10 +32805,6 @@ msgstr "Εμφανίζονται οι τελευταίες {rows} γραμμές
 msgid "Showing the last completed conversion"
 msgstr "Εμφανίζεται η τελευταία ολοκληρωμένη μετατροπή"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Shown parts as modelled: {size}"
-msgstr "Εμφανιζόμενα εξαρτήματα όπως σχεδιάστηκαν: {size}"
-
 #: src/components/clio/image-reach.ts
 msgid "shown to the model"
 msgstr "εμφανίστηκε στο μοντέλο"
@@ -33113,14 +33080,6 @@ msgstr "Μέγεθος"
 #: src/components/clio/file-viewer-actions.tsx
 msgid "Size unavailable"
 msgstr "Μη διαθέσιμο μέγεθος"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Sizes in inches"
-msgstr "Μεγέθη σε ίντσες"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Sizes in millimetres"
-msgstr "Μεγέθη σε χιλιοστά"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
@@ -38135,21 +38094,9 @@ msgstr "Η χρήση token δεν είναι διαθέσιμη"
 msgid "Tokens"
 msgstr "Tokens"
 
-#: src/components/clio/cad-plate.ts
-msgid "Too deep by {length}"
-msgstr "Πολύ βαθύ κατά {length}"
-
 #: src/components/ai-elements/prompt-input.tsx
 msgid "Too many files. Some were not added."
 msgstr "Πάρα πολλά αρχεία. Ορισμένα δεν προστέθηκαν."
-
-#: src/components/clio/cad-plate.ts
-msgid "Too tall by {length}"
-msgstr "Πολύ ψηλό κατά {length}"
-
-#: src/components/clio/cad-plate.ts
-msgid "Too wide by {length}"
-msgstr "Πολύ φαρδύ κατά {length}"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Took"
@@ -40884,10 +40831,6 @@ msgstr "Πού εκτελούνται οι υπηρεσίες και τα μον
 msgid "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 msgstr "Πού ξεκινούν οι συνομιλίες αυτού του χώρου εργασίας και ποιους άλλους φακέλους μπορούν να αλλάξουν οι εντολές τους. Το χρώμα και το εικονίδιο διατηρούνται σε αυτή τη συσκευή."
 
-#: src/components/clio/cad-model-view.tsx
-msgid "Whether the shown parts fit a printer"
-msgstr "Αν τα εμφανιζόμενα εξαρτήματα χωρούν σε έναν εκτυπωτή"
-
 #: src/components/clio/settings-schema-copy.ts
 msgid "Which browser"
 msgstr "Ποιο πρόγραμμα περιήγησης"
@@ -40952,7 +40895,6 @@ msgstr "Ο κατάλογος γραφικών στοιχείων φορτώθη
 msgid "Widget gallery"
 msgstr "Συλλογή γραφικών στοιχείων"
 
-#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Width"
 msgstr "Πλάτος"

@@ -5,7 +5,7 @@ export type LengthUnit = 'mm' | 'in';
 
 export const MM_PER_INCH = 25.4;
 
-/** How many decimals a value gets: a size reads like a plate spec, a measurement finer. */
+/** How many decimals a value gets: a size reads to the tenth, a measurement finer. */
 export type LengthPrecision = 'size' | 'measure';
 
 const DIGITS: Record<LengthUnit, Record<LengthPrecision, number>> = {
