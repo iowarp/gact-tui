@@ -422,7 +422,7 @@ export function WorkspacePage() {
           key="shell"
           toolbarActions={
             <WorkspaceObservabilityDock
-              key={sessionKey}
+              key={`${sessionKey}:dock`}
               data={data}
               navigation={workbench}
               sessionId={sessionId}
@@ -468,7 +468,7 @@ export function WorkspacePage() {
           workbenchReveal={workbench.requests}
           statusStrip={
             <WorkspaceLiveStatusStrip
-              key={sessionKey}
+              key={`${sessionKey}:status`}
               work={work}
               onInspectTasks={() => openObservability()}
               onOpenWork={openWork}
