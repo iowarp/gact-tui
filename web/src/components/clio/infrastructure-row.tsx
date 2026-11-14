@@ -136,7 +136,7 @@ export function InfraList({
         data-slot="infra-list"
       >
         {heading ? (
-          <ListGroupLabel action={headingAction} id={headingId}>
+          <ListGroupLabel action={headingAction} id={headingId} wrap>
             {heading}
           </ListGroupLabel>
         ) : null}
@@ -189,15 +189,16 @@ const NARROW_ACTIONS =
  * Japanese wraps between phrases ("ツールゲートウ / ェイ" no longer).
  */
 const NARROW_TEXT =
-  '@max-[480px]/infra:[&_[data-slot=list-row-text]>span]:whitespace-normal @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:break-words @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:[word-break:auto-phrase]';
+  '@max-[480px]/infra:[&_[data-slot=list-row-text]>span]:whitespace-normal @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:break-words @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:[word-break:auto-phrase] @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:[line-break:strict]';
 /**
- * Under 15rem (a 260px window at 150%) the text column would be narrower than a word
- * ("Εγκατάσταση"), so the row gives the text its other room: the decorative icon goes,
- * the gaps tighten, and the status mark leaves its column. The status word is already
- * at the start of the sub-line, and the column's label is still read.
+ * Under 12rem (a 260px or 300px window at interface size 150, or 260px at 125) the
+ * text column would be narrower than a word ("Εγκατάσταση"), so the row gives the text
+ * its other room: the decorative icon goes, the gaps tighten, and the status mark leaves
+ * its column. The status word is already at the start of the sub-line, and the column's
+ * label is still read. A 390px window at 150% zoom keeps its icons and marks.
  */
 const NARROW_ROOM =
-  '@max-[15rem]/infra:gap-1.5 @max-[15rem]/infra:[&>[data-slot=list-row-icon]]:hidden @max-[15rem]/infra:[&>[data-slot=infra-status]]:sr-only!';
+  '@max-[12rem]/infra:gap-1.5 @max-[12rem]/infra:[&>[data-slot=list-row-icon]]:hidden @max-[12rem]/infra:[&>[data-slot=infra-status]]:sr-only!';
 
 /** Shift+F10 (or the menu key) anywhere in a row opens its ⋯, as the keyboard opens a menu. */
 function openInfraRowMenu(event: KeyboardEvent<HTMLDivElement>) {

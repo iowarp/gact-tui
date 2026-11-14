@@ -54,6 +54,7 @@ export function ModelStorageLocations({
             <EditIcon aria-hidden="true" /> {t`Edit locations`}
           </Button>
         }
+        wrap
       >
         {t`Storage on ${hostLabel}`}
       </ListGroupLabel>
