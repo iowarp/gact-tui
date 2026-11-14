@@ -120,7 +120,7 @@ export function SettingsRow({
             {htmlFor ? (
               <Label
                 htmlFor={htmlFor}
-                className="block min-w-0 text-ui leading-snug font-normal text-pretty break-words [word-break:auto-phrase]"
+                className="block min-w-0 text-ui leading-snug font-normal text-pretty break-words [word-break:auto-phrase] [line-break:strict]"
                 data-slot="settings-label"
                 title={title}
               >
@@ -128,7 +128,7 @@ export function SettingsRow({
               </Label>
             ) : (
               <h2
-                className="min-w-0 text-ui leading-snug font-normal text-pretty break-words [word-break:auto-phrase]"
+                className="min-w-0 text-ui leading-snug font-normal text-pretty break-words [word-break:auto-phrase] [line-break:strict]"
                 data-slot="settings-label"
                 title={title}
               >
@@ -206,7 +206,7 @@ export function SettingsGroupLabel({
       data-slot="settings-group-label"
     >
       {/* A long localized label wraps rather than clipping. */}
-      <h2 className="max-w-full min-w-0 shrink-0 font-normal break-words whitespace-normal [word-break:auto-phrase]">
+      <h2 className="max-w-full min-w-0 shrink-0 font-normal break-words whitespace-normal [word-break:auto-phrase] [line-break:strict]">
         {children}
       </h2>
       {info ? (

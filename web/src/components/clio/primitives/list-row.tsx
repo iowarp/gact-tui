@@ -413,7 +413,8 @@ export const ListRow = memo(
 /**
  * The small heading over a group of rows ("Errors", "Inference", "Storage on
  * ares"). One line; an optional trailing control (a total, Edit locations)
- * sits at the right edge.
+ * sits at the right edge. With `wrap`, a heading too long for a narrow pane
+ * wraps whole (the control moves under it) instead of being cut.
  */
 export const ListGroupLabel = memo(function ListGroupLabel({
   children,
@@ -421,23 +422,34 @@ export const ListGroupLabel = memo(function ListGroupLabel({
   className,
   id,
   onContextMenu,
+  wrap = false,
 }: {
   children: ReactNode;
   action?: ReactNode;
   className?: string;
   id?: string;
   onContextMenu?: MouseEventHandler<HTMLDivElement>;
+  wrap?: boolean;
 }) {
   return (
     <div
       data-slot="list-group-label"
       onContextMenu={onContextMenu}
       className={cn(
-        'flex h-7 min-w-0 items-end gap-1.5 px-2 pb-1 text-caption font-semibold whitespace-nowrap text-muted-foreground',
+        'flex min-w-0 items-end gap-1.5 px-2 pb-1 text-caption font-semibold text-muted-foreground',
+        wrap ? 'min-h-7 flex-wrap' : 'h-7 whitespace-nowrap',
         className,
       )}
     >
-      <h3 className="min-w-0 truncate" id={id}>
+      <h3
+        className={cn(
+          'min-w-0',
+          wrap
+            ? 'break-words whitespace-normal [word-break:auto-phrase] [line-break:strict]'
+            : 'truncate',
+        )}
+        id={id}
+      >
         {children}
       </h3>
       {action ? (

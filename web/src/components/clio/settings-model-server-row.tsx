@@ -404,7 +404,7 @@ export function ModelServerRow({
         <span className="flex min-w-0" role="status" title={state.hint}>
           {/* A long localized status wraps inside its column rather than ending in an ellipsis. */}
           <StatusIndicator
-            className="[&>span:last-child]:break-words [&>span:last-child]:whitespace-normal [&>span:last-child]:[word-break:auto-phrase]"
+            className="[&>span:last-child]:break-words [&>span:last-child]:whitespace-normal [&>span:last-child]:[word-break:auto-phrase] [&>span:last-child]:[line-break:strict]"
             label={state.label}
             tone={state.tone}
           />

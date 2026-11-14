@@ -83,7 +83,7 @@ export function ExtensionAddMenu({
     <span className="inline-flex max-w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-x-2.5 gap-y-1">
       {supported !== true ? (
         <span
-          className="min-w-0 text-xs whitespace-normal text-muted-foreground [word-break:auto-phrase]"
+          className="min-w-0 text-xs whitespace-normal text-muted-foreground [word-break:auto-phrase] [line-break:strict]"
           role="status"
         >
           {supported === false ? t`Needs a newer agent service` : t`Checking the agent service…`}
