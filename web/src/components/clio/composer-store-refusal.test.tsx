@@ -17,7 +17,7 @@ vi.mock('@/providers/connection-provider', () => ({
 afterEach(cleanup);
 
 const FULL =
-  "Not saved: CLIO's conversation store is full, so nothing new can be recorded. Free disk space or give the store more room, then restart CLIO.";
+  "CLIO's conversation store is full, so nothing new can be recorded. Free disk space or give the store more room, then restart CLIO.";
 const refusal = () => new TransportError(FULL, 503, 'clio_core_writes_refused', {});
 
 function show(onSubmit: ClioComposerProps['onSubmit']) {
