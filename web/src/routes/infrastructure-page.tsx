@@ -17,7 +17,7 @@ import { InfrastructureServicesSection } from '@/components/clio/infrastructure-
 import { InfrastructureInventory } from '@/components/clio/infrastructure-inventory';
 import { NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { NavTabs } from '@/components/clio/primitives/nav-tabs';
-import { navTabsMinWidth } from '@/components/clio/primitives/nav-tabs-measure';
+import { navTabsFloorWidth, navTabsMinWidth } from '@/components/clio/primitives/nav-tabs-measure';
 import { useInterfaceScale } from '@/theme/runtime';
 import { StateView } from '@/components/clio/primitives/state-view';
 import { useShortcut } from '@/lib/shortcuts/hooks';
@@ -45,10 +45,11 @@ const { workspace } = vocab;
  * Narrow (under 600px), a section with more than one tab action (the host and the
  * section's main verb, a search and its filter) gives them their own row under the
  * tabs, so they stay reachable instead of running off the edge. A lone action
- * (refresh) stays beside the tabs. A main verb that folds into ⋯ (Services,
- * Models) keeps the host beside the tabs while the open tab's whole name fits;
- * when it does not, the row is marked crowded and the actions move to the second
- * row too. A name that still does not fit wraps, whole.
+ * (refresh) stays beside the tabs while the open tab's name can wrap between its
+ * words there. A main verb that folds into ⋯ (Services, Models) keeps the host
+ * beside the tabs while the open tab's whole name fits. Otherwise the row is marked
+ * crowded and the actions move to the second row too. A name that still does not
+ * fit wraps, whole, between words.
  */
 const TAB_ROW =
   'mx-auto grid min-h-11 max-w-[840px] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-2 whitespace-nowrap sm:px-3 data-crowded:h-auto data-crowded:grid-cols-[auto_minmax(0,1fr)] data-crowded:grid-rows-[minmax(2.75rem,auto)_auto] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>[data-tab-fold]]:gap-x-1.5 @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:h-auto @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-cols-[auto_minmax(0,1fr)] @max-[600px]/infra-page:has-[>[data-slot=infrastructure-tab-actions]>:nth-child(2)]:grid-rows-[minmax(2.75rem,auto)_auto]';
@@ -183,10 +184,13 @@ export function InfrastructurePage() {
         ) +
         (parseFloat(getComputedStyle(tabActions).columnGap) || 0) * Math.max(0, items.length - 1);
       const button = back.getBoundingClientRect().width;
-      // A lone icon stays beside the tabs and the name wraps; a host picker moves down.
+      const beside = button + actions + 2 * gap;
+      // A host picker moves down before the name wraps; any action, even a lone icon,
+      // moves down before the name would wrap past its longest word.
       tabRow.toggleAttribute(
         'data-crowded',
-        actions > 2 * button && button + navTabsMinWidth(nav) + actions + 2 * gap > inner,
+        (actions > 2 * button && beside + navTabsMinWidth(nav) > inner) ||
+          beside + navTabsFloorWidth(nav) > inner,
       );
     };
     measure();
