@@ -128,7 +128,7 @@ describe('plugin presentation', () => {
   });
 
   it('names a connector plugin by its connector and says why it left (CN10, PL-D1)', () => {
-    const connector = { id: 'viewer', name: 'Viewer', logo_url: null };
+    const connector = { id: 'viewer', name: 'Viewer', logo_url: null, logo_dark_url: null };
     expect(resolvedPluginName({ id: 'connector-viewer', connector })).toBe('Viewer');
     expect(resolvedPluginName({ id: 'shell', connector: null })).toBe('shell');
     expect(

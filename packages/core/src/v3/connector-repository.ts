@@ -37,12 +37,17 @@ export class ConnectorRepository extends McpRepository {
 
   /**
    * The connector's SVG, as text. It is read through the transport (which carries the
-   * service's credentials) and shown as an image, never inserted into the page.
+   * service's credentials) and shown as an image, never inserted into the page. `dark`
+   * reads the dark-theme variant a row names as `logo_dark_url`.
    */
-  public connectorLogo(id: string, signal?: AbortSignal): Promise<string> {
+  public connectorLogo(
+    id: string,
+    signal?: AbortSignal,
+    theme: 'light' | 'dark' = 'light',
+  ): Promise<string> {
     return this.transport.request({
       method: 'GET',
-      path: `${connectorPath(id)}/logo`,
+      path: `${connectorPath(id)}/logo${theme === 'dark' ? '?theme=dark' : ''}`,
       responseType: 'text',
       decode: (value) => z.string().parse(value),
       signal,

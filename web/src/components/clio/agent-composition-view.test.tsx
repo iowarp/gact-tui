@@ -568,7 +568,7 @@ describe('the agent of a conversation not yet started', () => {
 
   it('names a connector plugin by its connector in the summary and the removal dialog', async () => {
     const user = userEvent.setup();
-    const connector = { id: 'burette', name: 'Burette', logo_url: null };
+    const connector = { id: 'burette', name: 'Burette', logo_url: null, logo_dark_url: null };
     const burette = plugin(
       'connector-burette',
       { source: 'user', via: '', label: 'you' },

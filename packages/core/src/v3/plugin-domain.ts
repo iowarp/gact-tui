@@ -36,6 +36,11 @@ export const pluginConnectorSchema = z
       .string()
       .nullish()
       .transform((value) => value ?? null),
+    /** The logo on a dark theme, when it differs (`?theme=dark`); null: `logo_url` on every theme. */
+    logo_dark_url: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? null),
     enabled: z.boolean().default(false),
     status: z.string().default('unknown'),
     needs: z.array(z.string()).default([]),
@@ -255,6 +260,10 @@ export const resolvedPluginSchema = z.object({
       id: z.string(),
       name: z.string().default(''),
       logo_url: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? null),
+      logo_dark_url: z
         .string()
         .nullish()
         .transform((value) => value ?? null),

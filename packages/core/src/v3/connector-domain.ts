@@ -80,6 +80,11 @@ export const connectorSchema = z
       .string()
       .nullish()
       .transform((value) => value ?? null),
+    /** The logo on a dark theme, when it differs (`?theme=dark`); null: `logo_url` on every theme. */
+    logo_dark_url: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? null),
     source: forwardCompatibleEnum(['catalog', 'custom']).default('catalog'),
     /** Installed and ready. It reaches a conversation only when its plugin is added there. */
     enabled: z.boolean().default(false),
@@ -137,6 +142,11 @@ export const agentNeedItemSchema = z
     name: z.string(),
     kind: forwardCompatibleEnum(['connector', 'plugin']).default('connector'),
     logo_url: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? null),
+    /** The logo on a dark theme, when it differs (`?theme=dark`); null: `logo_url` on every theme. */
+    logo_dark_url: z
       .string()
       .nullish()
       .transform((value) => value ?? null),

@@ -17,24 +17,42 @@ import { cn } from '@/lib/utils';
 import { Monogram } from './primitives/monogram';
 import { ph, t } from '@lingui/core/macro';
 
-/** A connector's logo, or its monogram when it has none (CN11). */
+/**
+ * A connector's logo, or its monogram when it has none (CN11). A logo with a dark-theme
+ * variant (`logo_dark_url`, LG-D1) shows each on its theme; until the variant has loaded,
+ * or if it fails, the one logo shows on both.
+ */
 export function ConnectorLogo({
   connector,
   className,
 }: {
-  connector: Pick<Connector, 'id' | 'name' | 'logo_url'>;
+  connector: Pick<Connector, 'id' | 'name' | 'logo_url'> & { logo_dark_url?: string | null };
   className?: string;
 }) {
-  const logo = useConnectorLogo(connector);
-  if (logo.data)
+  const light = useConnectorLogo(connector);
+  const dark = useConnectorLogo(connector, 'dark');
+  const image = (src: string, variant?: 'light' | 'dark') => (
+    <img
+      alt=""
+      className={cn(
+        'size-[26px] shrink-0 object-contain',
+        variant === 'light' && 'dark:hidden',
+        variant === 'dark' && 'hidden dark:block',
+        className,
+      )}
+      data-slot="connector-logo"
+      data-theme-variant={variant}
+      src={src}
+    />
+  );
+  if (light.data && dark.data)
     return (
-      <img
-        alt=""
-        className={cn('size-[26px] shrink-0 object-contain', className)}
-        data-slot="connector-logo"
-        src={logo.data}
-      />
+      <>
+        {image(light.data, 'light')}
+        {image(dark.data, 'dark')}
+      </>
     );
+  if (light.data) return image(light.data);
   return <Monogram className={className} name={connector.name} />;
 }
 
