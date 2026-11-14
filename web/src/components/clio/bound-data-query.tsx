@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { queryFilterSchema } from './data-query-schema';
+import { StateView } from './primitives/state-view';
 import type { TableDataQuery } from './table-query-rows';
 
 interface DataContextLike {
@@ -69,6 +70,25 @@ export function BoundDataQuery({
         : resolved;
     return { ...entry, value };
   });
+  // A bound selection that is empty (nothing chosen yet, or the person cleared it) is a
+  // normal state for a view that shows the selected item, not a failed filter.
+  const unset = filter.findIndex(
+    (entry, index) =>
+      bindingPath(query!.filter![index]!.value) !== undefined &&
+      entry.op !== 'isnull' &&
+      (entry.value === undefined ||
+        entry.value === null ||
+        (Array.isArray(entry.value) && entry.value.length === 0)),
+  );
+  if (unset >= 0) {
+    return (
+      <StateView
+        kind="empty"
+        size="panel"
+        title={`Nothing is selected for “${query!.filter![unset]!.column}” yet.`}
+      />
+    );
+  }
   for (let index = 0; index < filter.length; index += 1) {
     const result = queryFilterSchema.safeParse(filter[index]);
     if (!result.success) {
