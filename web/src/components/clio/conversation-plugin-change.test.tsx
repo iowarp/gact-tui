@@ -4,7 +4,11 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { HarnessInjection } from './conversation-harness-injection';
 import { conversationTurnPresentation } from './conversation-turn-model';
-import { pluginChangeLabel, pluginNameResolver } from '@/lib/plugin-presentation';
+import {
+  pluginChangeLabel,
+  pluginKindResolver,
+  pluginNameResolver,
+} from '@/lib/plugin-presentation';
 
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -39,6 +43,42 @@ describe('plugin_change injection', () => {
     expect(pluginChangeLabel(note, nameOf)).toBe(
       'Plugins changed: +Molecule Lab, +Viewer Pro, +Tools',
     );
+  });
+
+  it('says connectors changed when only connectors did, never naming a carrier (PL-D1)', () => {
+    const plugins = [
+      {
+        id: 'viewer',
+        follows: 'viewer',
+        skills: ['viewer-scenes'],
+        mcp_servers: ['viewer'],
+        tools: [],
+      },
+      { id: 'tools', follows: '', skills: [], mcp_servers: [], tools: ['t'] },
+    ];
+    const connectors = [
+      { id: 'viewer', name: 'Viewer Pro', plugin: 'viewer' },
+      { id: 'molecules', name: 'Molecule Lab', plugin: '' },
+    ];
+    const nameOf = pluginNameResolver(plugins, connectors);
+    const kindOf = pluginKindResolver(plugins, connectors);
+    expect(kindOf('connector-molecules')).toBe('connector');
+    expect(kindOf('viewer')).toBe('plugin');
+    expect(kindOf('tools')).toBe('plugin');
+    const tools = '\nNew tools you can call now:\n- molecules_open(x: string): Open.';
+    expect(pluginChangeLabel(`Added: connector-molecules.${tools}`, nameOf, kindOf)).toBe(
+      'Connectors changed: +Molecule Lab (1 new tool)',
+    );
+    expect(pluginChangeLabel('Added: viewer.', nameOf, kindOf)).toBe(
+      'Plugins changed: +Viewer Pro',
+    );
+    expect(
+      pluginChangeLabel(
+        'Added: connector-molecules.\nRemoved: tools. Do not use their tools.',
+        nameOf,
+        kindOf,
+      ),
+    ).toBe('Plugins and connectors changed: +Molecule Lab, −Tools');
   });
 
   it('labels the change from the note itself', () => {

@@ -13,9 +13,12 @@ export function PluginChangePendingNotice({
   basis,
   compacting,
   onCompact,
+  nameOf = (id) => id,
 }: {
   basis: PromptBasis;
   compacting: boolean;
+  /** How the person reads an id: a connector by its name, never `connector-<id>` (PL-D1). */
+  nameOf?: (id: string) => string;
   /** Absent when the conversation cannot be changed from here (a defined subagent). */
   onCompact?: () => void;
 }) {
@@ -31,13 +34,13 @@ export function PluginChangePendingNotice({
           {basis.added.length ? (
             <div className="flex flex-wrap gap-x-1.5">
               <dt className="font-medium text-foreground">{t`Added`}</dt>
-              <dd>{basis.added.join(', ')}</dd>
+              <dd>{basis.added.map(nameOf).join(', ')}</dd>
             </div>
           ) : null}
           {basis.removed.length ? (
             <div className="flex flex-wrap gap-x-1.5">
               <dt className="font-medium text-foreground">{t`Removed`}</dt>
-              <dd>{basis.removed.join(', ')}</dd>
+              <dd>{basis.removed.map(nameOf).join(', ')}</dd>
             </div>
           ) : null}
         </dl>

@@ -43,6 +43,16 @@ const catalog = [
     },
   }),
   plugin({
+    id: 'hub-skills',
+    ref: 'clio/hub-skills',
+    marketplace: 'clio',
+    description: 'Read the hub',
+    skills: ['hub-best-practices', 'hub-sensors'],
+    mcp_servers: ['hub'],
+    follows: 'hub',
+    connector: { id: 'hub', name: 'Home hub', enabled: true, status: 'ready', tool_count: 27 },
+  }),
+  plugin({
     id: 'connector-off',
     ref: 'clio-connectors/connector-off',
     marketplace: 'clio-connectors',
@@ -95,6 +105,24 @@ describe('a conversation adds a connector from its plugin picker (CN10)', () => 
     expect(screen.queryByText('Off connector')).toBeNull();
     await user.click(row);
     expect(onAdd).toHaveBeenCalledWith('clio-connectors/connector-viewer');
+  });
+
+  it('shows a plugin that bundles a connector once, as a plugin with what it brings (PL-D1)', async () => {
+    const user = userEvent.setup();
+    const onAdd = renderMenu();
+    await user.click(screen.getByRole('button', { name: 'Add plugin' }));
+    const plugins = await screen.findByRole('group', { name: 'Plugins' });
+    const row = within(plugins).getByRole('option', { name: /Home hub/u });
+    expect(row.textContent).toContain('2 skills, 1 MCP server (27 tools)');
+    expect(row.textContent).toContain('Ready');
+    expect(row.textContent).not.toContain('Ready, 27 tools');
+    const connectors = screen.getByRole('group', { name: 'Connectors' });
+    expect(within(connectors).queryByText('Home hub')).toBeNull();
+    expect(screen.getAllByText('Home hub')).toHaveLength(1);
+    // First among the plugins.
+    expect(within(plugins).getAllByRole('option')[0]).toBe(row);
+    await user.click(row);
+    expect(onAdd).toHaveBeenCalledWith('clio/hub-skills');
   });
 
   it('says a connector already in this conversation is there', async () => {

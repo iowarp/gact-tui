@@ -410,13 +410,15 @@ function AgentComposition({
             delta={delta}
             kind={view}
             onAdd={add}
-            onAddBack={(plugin) =>
+            onAddBack={(plugin) => {
+              // Named as the rows name it: a connector by its name, never by its carrier id.
+              const name = pluginName(plugin);
               change(deltaWith(delta, { add: plugin }), {
-                summary: t`Adds ${plugin} back to this conversation.`,
-                success: t`Added ${plugin} back`,
-                failure: t`${plugin} was not added back`,
-              })
-            }
+                summary: t`Adds ${name} back to this conversation.`,
+                success: t`Added ${name} back`,
+                failure: t`${name} was not added back`,
+              });
+            }}
             onBack={back}
             onCompact={onCompact}
             onOpenItem={setItem}
