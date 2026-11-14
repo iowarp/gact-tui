@@ -6,7 +6,8 @@ import { t } from '@lingui/core/macro';
 const MODEL_DEFAULT = '__model_default__';
 /**
  * The segmented control (spec .xsg): the chosen level is the raised segment.
- * Seven levels fit a phone column only with tighter segments.
+ * Seven levels fit a phone column only with tighter segments; past that (long
+ * translations, a large interface size) they wrap onto a second line.
  */
 const ITEM =
   'h-6 rounded-[0.3125rem] border-0 px-2.5 max-[25rem]:px-1! text-xs font-normal text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground data-[state=on]:bg-menu-highlight data-[state=on]:text-foreground';
@@ -37,7 +38,7 @@ export function ReasoningLevelSegmented({
   return (
     <ToggleGroup
       aria-label={t`Reasoning effort`}
-      className="shrink-0 gap-px rounded-[0.4375rem] bg-muted p-0.5"
+      className="max-w-full shrink-0 flex-wrap gap-px rounded-[0.4375rem] bg-muted p-0.5"
       data-slot="reasoning-level"
       disabled={disabled}
       onValueChange={(next) => {

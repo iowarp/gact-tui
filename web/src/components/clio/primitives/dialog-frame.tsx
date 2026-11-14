@@ -234,7 +234,8 @@ export const DialogFrame = memo(function DialogFrame({
         )}
       >
         {fullWindow ? null : <DialogSheetHandle />}
-        <div className="flex h-12 min-w-0 items-center gap-2.5 pr-2.5 pl-4">
+        {/* A long translated title wraps whole onto more lines; the row grows with it. */}
+        <div className="flex min-h-12 min-w-0 items-center gap-2.5 py-1.5 pr-2.5 pl-4">
           {icon ? (
             <span
               aria-hidden="true"
@@ -243,7 +244,7 @@ export const DialogFrame = memo(function DialogFrame({
               {icon}
             </span>
           ) : null}
-          <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[0.875rem] leading-7 font-semibold [overflow-wrap:normal]">
+          <DialogTitle className="min-w-0 flex-1 font-sans text-[0.875rem] leading-snug font-semibold text-pretty break-words [word-break:auto-phrase] [line-break:strict]">
             {title}
           </DialogTitle>
           {help ? (
