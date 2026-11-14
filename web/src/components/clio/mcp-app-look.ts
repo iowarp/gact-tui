@@ -6,7 +6,13 @@ import {
   type McpAppSnapshot,
   type TransportFrame,
 } from '@clio/core/v3';
-import { mcpAppEnded } from './mcp-app-live-set';
+import {
+  mcpAppEnded,
+  mcpAppIdentity,
+  openMcpAppInTab,
+  useMcpAppLiveSetStore,
+} from './mcp-app-live-set';
+import { trackViewLook } from './mcp-app-look-waiting';
 
 /**
  * The agent looks at a view (CM1). The surface holding a view says so to CLIO
@@ -26,6 +32,15 @@ export interface SnapshotOptions {
   scale?: number;
   /** The longest side of the image, in pixels. */
   maxSide?: number;
+}
+
+/** A snapshot in progress, as its mount follows it: whether the frame is on screen, and
+ * the end of the listing. */
+export interface TrackedLook {
+  visible: () => boolean;
+  /** Resolves once the frame is on screen (at once when it is). */
+  whenVisible: () => Promise<void>;
+  end: () => void;
 }
 
 /** Ask the sandbox document for a snapshot of the view it hosts. */
@@ -72,7 +87,61 @@ export function dispatchMcpAppLookFrame(frame: TransportFrame): void {
     return; // Frame reduction owns malformed-envelope reporting.
   }
   const look = lookEvent(payload);
-  if (look) lookHandlers.get(key(look.session_id, look.app_instance_id))?.at(-1)?.(look);
+  if (!look) return;
+  const handler = lookHandlers.get(key(look.session_id, look.app_instance_id))?.at(-1);
+  if (handler) {
+    unheldLooks.get(look.call_id)?.();
+    handler(look);
+  } else waitUnheld(look);
+}
+
+/** The words a look gets when the view stayed out of sight for the whole wait (DOCS-F2). */
+const NOT_VISIBLE = (seconds: number) =>
+  // i18n-ignore: error returned to the agent's look_at_view result
+  `The view was not on screen for ${seconds} s (its card scrolled out of sight, its tab not shown, or it is not open in this window), so it could not be seen. Ask the person to show the view, then look again.`;
+
+/** Looks at a view this window knows but no mount here holds, by call: their end. */
+const unheldLooks = new Map<string, () => void>();
+
+/**
+ * CLIO thinks the view is shown (a window that closed without unloading it may still hold
+ * it), but no mount in this window holds it: say the agent is waiting, offer to open the
+ * view in its tab (its mount then answers), and answer view_not_visible after the same
+ * 30 s if none did. Another window that holds it answers first; this answer then 404s.
+ */
+function waitUnheld(look: McpAppLookEvent): void {
+  const entry = useMcpAppLiveSetStore.getState().apps[look.app_instance_id];
+  const repository = entry?.repository as Partial<McpAppLookClient> | undefined;
+  if (
+    !entry ||
+    unheldLooks.has(look.call_id) ||
+    entry.placement === 'ended' ||
+    entry.sessionId !== look.session_id ||
+    !repository?.postMcpAppLook
+  )
+    return;
+  const tracked = trackViewLook(
+    {
+      callId: look.call_id,
+      sessionId: look.session_id,
+      appInstanceId: look.app_instance_id,
+      reveal: () => openMcpAppInTab(entry, entry.repository),
+    },
+    null,
+    true,
+  );
+  const end = () => {
+    clearTimeout(timer);
+    tracked.end();
+    unheldLooks.delete(look.call_id);
+  };
+  const timer = setTimeout(() => {
+    end();
+    void repository.postMcpAppLook!(mcpAppIdentity(entry), look.call_id, {
+      error: { reason: 'view_not_visible', message: NOT_VISIBLE(SNAPSHOT_ANSWER_MS / 1000) },
+    }).catch(() => undefined);
+  }, SNAPSHOT_ANSWER_MS);
+  unheldLooks.set(look.call_id, end);
 }
 
 function lookEvent(value: unknown): McpAppLookEvent | undefined {
@@ -128,6 +197,8 @@ export class McpAppLooks {
     private readonly repository: Partial<McpAppLookClient>,
     private readonly identity: McpAppIdentity,
     private readonly snapshot: TakeSnapshot,
+    /** Lists a snapshot in progress and tells whether its frame is on screen (DOCS-F2). */
+    private readonly track?: (callId: string) => TrackedLook,
   ) {}
 
   /** The view finished initializing: this mount holds it. */
@@ -162,23 +233,42 @@ export class McpAppLooks {
     if (this.stopped || this.handled.has(look.call_id) || !this.repository.postMcpAppLook) return;
     this.handled.add(look.call_id);
     let answer: McpAppSnapshot;
+    const tracked = this.track?.(look.call_id);
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // A frame that never answers is answered here, typed. A view off screen is the usual
+    // cause (the browser does not draw it): the answer says so in words, so the agent can
+    // ask the person to show it; meanwhile its row and card offered to (DOCS-F2).
     const unanswered = new Promise<McpAppSnapshot>((resolve) => {
       timer = setTimeout(
         () =>
-          resolve({
-            error: {
-              reason: 'snapshot_unanswered',
-              // i18n-ignore: error returned to the agent's look_at_view result
-              message: `The view's frame did not answer within ${SNAPSHOT_ANSWER_MS / 1000} s; it may be hidden or still loading.`,
-            },
-          }),
+          resolve(
+            tracked && !tracked.visible()
+              ? {
+                  error: {
+                    reason: 'view_not_visible',
+                    message: NOT_VISIBLE(SNAPSHOT_ANSWER_MS / 1000),
+                  },
+                }
+              : {
+                  error: {
+                    reason: 'snapshot_unanswered',
+                    // i18n-ignore: error returned to the agent's look_at_view result
+                    message: `The view's frame did not answer within ${SNAPSHOT_ANSWER_MS / 1000} s; it may be hidden or still loading.`,
+                  },
+                },
+          ),
         SNAPSHOT_ANSWER_MS,
       );
     });
     try {
       const scale = (globalThis as { devicePixelRatio?: number }).devicePixelRatio || 1;
-      answer = await Promise.race([this.snapshot({ scale, maxSide: look.max_side }), unanswered]);
+      // A frame off screen is not drawn (or has no size): wait, within the same 30 s, for
+      // the person to show it, as the row and card ask; then take the snapshot.
+      const taken = (async () => {
+        if (tracked && !tracked.visible()) await tracked.whenVisible();
+        return this.snapshot({ scale, maxSide: look.max_side });
+      })();
+      answer = await Promise.race([taken, unanswered]);
     } catch (error) {
       answer = {
         error: {
@@ -188,6 +278,7 @@ export class McpAppLooks {
       };
     } finally {
       clearTimeout(timer);
+      tracked?.end();
     }
     await this.repository
       .postMcpAppLook(this.identity, look.call_id, answer)

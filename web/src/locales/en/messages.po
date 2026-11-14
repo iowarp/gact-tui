@@ -32541,6 +32541,10 @@ msgstr "Show in Files"
 msgid "Show in log"
 msgstr "Show in log"
 
+#: src/components/clio/mcp-app-look-waiting-notice.tsx
+msgid "Show it"
+msgstr "Show it"
+
 #: src/components/clio/resource-states.tsx
 msgid "Show it anyway"
 msgstr "Show it anyway"
@@ -35226,6 +35230,10 @@ msgstr "The agent is still writing the plan."
 msgid "The agent is stopping. New input stays queued until its current execution exits."
 msgstr "The agent is stopping. New input stays queued until its current execution exits."
 
+#: src/components/clio/mcp-app-look-waiting-notice.tsx
+msgid "The agent is waiting to see this view."
+msgstr "The agent is waiting to see this view."
+
 #: src/lib/plugin-presentation.ts
 msgid "The agent layer selects this plugin."
 msgstr "The agent layer selects this plugin."
@@ -36855,6 +36863,10 @@ msgstr "The view could not be opened: {reason}"
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The view could not open"
 msgstr "The view could not open"
+
+#: src/components/clio/mcp-app-look-waiting-notice.tsx
+msgid "The view is not on screen. Show it so the agent can see it."
+msgstr "The view is not on screen. Show it so the agent can see it."
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "The view is still loading."
@@ -40558,6 +40570,10 @@ msgstr "Waiting on {host}."
 #: src/components/clio/provider-actions.ts
 msgid "Waiting to install…"
 msgstr "Waiting to install…"
+
+#: src/components/clio/mcp-app-look-waiting-notice.tsx
+msgid "waiting to see the view"
+msgstr "waiting to see the view"
 
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "Waiting to send"
