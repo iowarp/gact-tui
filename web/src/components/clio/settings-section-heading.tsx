@@ -38,15 +38,16 @@ export function SettingsSectionHeading({
     <div className={level === 1 ? 'mb-2' : undefined}>
       {eyebrow ? <p className="mb-2 text-xs font-medium text-muted-foreground">{eyebrow}</p> : null}
       {/* Title and ⓘ stay together; the actions drop under them when both don't fit, and a
-          title longer than the line wraps, so a narrow window never cuts the page's name. */}
+          title longer than the line wraps, so a narrow window never cuts the page's name; a word
+          longer than the line is hyphenated at a syllable. */}
       <div className="flex min-h-[1.875rem] min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <div className="flex min-w-0 flex-[1_1_auto] items-center gap-2">
           {/* The info control sits beside the heading so the heading's name is the title alone. */}
           <Heading
             className={
               level === 1
-                ? 'min-w-0 font-heading text-title font-semibold text-balance [overflow-wrap:anywhere]'
-                : 'min-w-0 font-heading text-h3 font-semibold text-balance [overflow-wrap:anywhere]'
+                ? 'min-w-0 font-heading text-title font-semibold text-balance [overflow-wrap:anywhere] hyphens-auto [hyphenate-limit-chars:10_4_4]'
+                : 'min-w-0 font-heading text-h3 font-semibold text-balance [overflow-wrap:anywhere] hyphens-auto [hyphenate-limit-chars:10_4_4]'
             }
           >
             {title}

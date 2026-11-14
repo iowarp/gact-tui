@@ -192,8 +192,7 @@ export const ItemRow = memo(
               size === 'line' ? 'max-w-full shrink-0 text-menu' : 'text-ui font-medium',
               wrapTitle &&
                 stacks &&
-                // A word wider than the column breaks at a hyphen, not mid-syllable.
-                '@max-sm:leading-snug @max-sm:break-words @max-sm:hyphens-auto @max-sm:whitespace-normal @max-sm:[word-break:auto-phrase] @max-sm:[line-break:strict]',
+                '@max-sm:leading-snug @max-sm:break-words @max-sm:whitespace-normal @max-sm:[word-break:auto-phrase] @max-sm:[line-break:strict] @max-sm:hyphens-auto @max-sm:[hyphenate-limit-chars:10_4_4]',
             )}
             data-slot="item-row-title"
           >
@@ -264,7 +263,7 @@ export const ItemRow = memo(
                   '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1]',
                 // On its own line, a long localized status wraps rather than clipping.
                 stacks &&
-                  '@max-sm:[&_[data-slot=status-indicator]>span]:break-words @max-sm:[&_[data-slot=status-indicator]>span]:whitespace-normal @max-sm:[&_[data-slot=status-indicator]>span]:[word-break:auto-phrase] @max-sm:[&_[data-slot=status-indicator]>span]:[line-break:strict]',
+                  '@max-sm:[&_[data-slot=status-indicator]>span]:break-words @max-sm:[&_[data-slot=status-indicator]>span]:whitespace-normal @max-sm:[&_[data-slot=status-indicator]>span]:[word-break:auto-phrase] @max-sm:[&_[data-slot=status-indicator]>span]:[line-break:strict] @max-sm:[&_[data-slot=status-indicator]>span]:hyphens-auto @max-sm:[&_[data-slot=status-indicator]>span]:[hyphenate-limit-chars:10_4_4]',
               )}
               data-slot="item-row-status"
             >
