@@ -89,7 +89,7 @@ function MemorySearchField({
   return (
     <div className="py-2">
       {/* The spec's search field (.xsr): 30 px, outlined, 12.5 px faint text, 14 px icon. */}
-      <InputGroup className="h-[1.875rem] rounded-[7px] dark:bg-transparent">
+      <InputGroup className="@container/memory-search h-[1.875rem] rounded-[7px] dark:bg-transparent">
         <InputGroupAddon className="[&>svg:not([class*='size-'])]:size-3.5">
           <SearchIcon aria-hidden="true" />
         </InputGroupAddon>
@@ -110,7 +110,9 @@ function MemorySearchField({
           ref={inputRef}
           value={text}
         />
-        <InputGroupAddon align="inline-end">
+        {/* In a narrow field the placeholder needs the room more than the "/" hint does;
+            the shortcut stays listed in the keyboard shortcuts. */}
+        <InputGroupAddon align="inline-end" className="@max-[12rem]/memory-search:hidden">
           <ShortcutKeys id="memory-search" variant="inline" />
         </InputGroupAddon>
       </InputGroup>
