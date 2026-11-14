@@ -94,12 +94,22 @@ export function ConnectorOfferResponse({
       data-interaction-kind="connector_setup"
       data-intent={payload?.intent ?? 'enable'}
       headerActions={
-        <span className="shrink-0 pl-1 text-xs" data-slot="connector-offer-state">
+        <span
+          className="flex max-w-[45%] shrink-0 items-center gap-1 pl-1 text-right text-xs text-muted-foreground"
+          data-slot="connector-offer-state"
+        >
           {plugin ? (
-            <span className="text-muted-foreground">{state}</span>
+            state
           ) : (
-            <StatusIndicator label={state} tone={on ? 'success' : 'inactive'} />
+            <StatusIndicator
+              label={on ? 'Enabled' : 'Not enabled'}
+              tone={on ? 'success' : 'inactive'}
+            />
           )}
+          {/* In a narrow card the title keeps the room; Add's tooltip says it too. */}
+          {!plugin && !on ? (
+            <span className="@max-[420px]/ask:hidden">(Add turns it on)</span>
+          ) : null}
         </span>
       }
       icon={plugin ? PuzzleIcon : PlugIcon}

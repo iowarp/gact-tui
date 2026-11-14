@@ -107,7 +107,8 @@ describe('the agent offers to add a connector to this conversation', () => {
       await screen.findByText(/Add Fixture viewer for very large.* to this conversation\?/u),
     ).toBeTruthy();
     // State in words, with what Add does when it is off.
-    expect(screen.getByText('Not enabled (Add turns it on)')).toBeTruthy();
+    expect(screen.getByText('Not enabled')).toBeTruthy();
+    expect(screen.getByText('(Add turns it on)')).toBeTruthy();
     const reason = screen.getByRole('button', { name: offer.payload!.reason as string });
     expect(reason.getAttribute('aria-expanded')).toBe('false');
     expect(reason.className).toContain('truncate');
