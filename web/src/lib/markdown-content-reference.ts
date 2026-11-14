@@ -41,7 +41,11 @@ export function parseMarkdownContentReference(uri: string): MarkdownContentRefer
     const [target, query, extra] = body.split('?');
     if (extra !== undefined) return undefined;
     const params = new URLSearchParams(query);
-    if ([...params.keys()].some((key) => !['line', 'find'].includes(key))) return undefined;
+    if ([...params.keys()].some((key) => !['line', 'find', 'locator'].includes(key)))
+      return undefined;
+    // An object inside the file (an HDF5 dataset such as /entry/data) opens the viewer there.
+    const locator = params.get('locator') ?? undefined;
+    if (locator !== undefined && !/^\/[^\u0000-\u001f\u007f]*$/u.test(locator)) return undefined;
     const line = params.has('line') ? Number(params.get('line')) : undefined;
     if (line !== undefined && (!Number.isSafeInteger(line) || line < 1)) return undefined;
     let path: string;
@@ -69,6 +73,7 @@ export function parseMarkdownContentReference(uri: string): MarkdownContentRefer
       ...(workspaceId ? { workspaceId } : {}),
       ...(line ? { line } : {}),
       ...(params.has('find') ? { find: params.get('find')! } : {}),
+      ...(locator ? { locator } : {}),
     };
   }
   if (scheme === 'artifact' && body && body !== '//') return { kind: 'artifact', uri };

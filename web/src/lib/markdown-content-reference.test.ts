@@ -40,6 +40,14 @@ describe('Markdown content references', () => {
     expect(parseMarkdownContentReference(uri)).toEqual({ kind: 'file', path });
   });
 
+  it('opens an object inside a file by its locator', () => {
+    expect(
+      parseMarkdownContentReference('workspace-file:/w/era5/msl.nc?locator=%2FMSL'),
+    ).toEqual({ kind: 'file', path: '/w/era5/msl.nc', locator: '/MSL' });
+    expect(parseMarkdownContentReference('workspace-file:/w/a.h5?locator=entry')).toBeUndefined();
+    expect(parseMarkdownContentReference('workspace-file:/w/a.h5?locator=%2Fa%00')).toBeUndefined();
+  });
+
   it.each([
     'workspace-file:',
     'workspace-file:%ZZ',

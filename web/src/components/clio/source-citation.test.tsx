@@ -92,4 +92,31 @@ describe('SourceCitation', () => {
     fireEvent.click(chip);
     expect(openFile).toHaveBeenCalledWith('throughput.png');
   });
+
+  it('opens a linked dataset inside a file at that dataset', () => {
+    const openFile = vi.fn();
+    const openReference = vi.fn();
+    render(
+      <PresentationNavigation.Provider
+        value={{
+          artifacts: {},
+          subagents: {},
+          onOpenFile: openFile,
+          onOpenFileReference: openReference,
+        }}
+      >
+        <MarkdownContentLink href="workspace-file:/w/era5/msl.nc?locator=%2FMSL">
+          MSL
+        </MarkdownContentLink>
+      </PresentationNavigation.Provider>,
+    );
+    fireEvent.click(screen.getByRole('link', { name: 'MSL' }));
+    expect(openReference).toHaveBeenCalledWith('/w/era5/msl.nc', {
+      workspaceId: undefined,
+      line: undefined,
+      find: undefined,
+      locator: '/MSL',
+    });
+    expect(openFile).not.toHaveBeenCalled();
+  });
 });
