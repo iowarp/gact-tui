@@ -218,7 +218,7 @@ describe('connectors and plugins are shown as what they are (PL-D1)', () => {
   });
 });
 
-describe('Discover lists the catalog entries that are off, each as what it is', () => {
+describe('Discover lists the catalog entries as cards, each as what it is', () => {
   beforeEach(() => {
     repository.capabilities.mockResolvedValue({
       capabilities: { x_clio_agent_plugins: true, x_clio_extension_library: true },
@@ -243,12 +243,14 @@ describe('Discover lists the catalog entries that are off, each as what it is', 
     );
     await screen.findByRole('group', { name: 'Extensions' }, { timeout: 10_000 });
     await user.click(screen.getByRole('radio', { name: 'Discover' }));
-    const list = await screen.findByRole('group', { name: 'Plugins and connectors to enable' });
+    const list = await screen.findByRole('group', { name: 'Catalog plugins and connectors' });
     expect(list.textContent).toContain('Home hub');
     expect(list.textContent).toContain('Plugin2 skills, 1 MCP server');
     expect(list.textContent).toContain('Structure viewer');
     expect(list.textContent).toContain('Connector1 MCP server');
-    expect(list.textContent).not.toContain('Scientific viewer');
+    // An entry that is on stays in its place, its check with the word (DC-D2).
+    const viewerCard = list.querySelector('[data-connector="viewer"]')!;
+    expect(viewerCard.textContent).toContain('Enabled');
     expect(screen.queryByText('Home Assistant skills')).toBeNull();
     expect(screen.queryByText('Home Assistant MCP')).toBeNull();
     expect(screen.getByText('Bring your own plugin')).toBeTruthy();

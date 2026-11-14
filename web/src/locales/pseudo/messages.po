@@ -2073,6 +2073,10 @@ msgstr ""
 msgid "{from} - {to} of {recordCount}"
 msgstr ""
 
+#: src/components/clio/discover-catalog.tsx
+msgid "{group} ({count})"
+msgstr ""
+
 #: src/lib/plugin-presentation.ts
 msgid "{heading} ({count})"
 msgstr ""
@@ -5453,6 +5457,7 @@ msgid "added by {addedBy}"
 msgstr ""
 
 #: src/components/clio/connector-pane.tsx
+#: src/lib/discover-card.ts
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
 msgid "Added by you"
@@ -8422,8 +8427,20 @@ msgstr ""
 msgid "Catalog access filter"
 msgstr ""
 
+#: src/components/clio/extension-library.tsx
+msgid "Catalog connectors"
+msgstr ""
+
 #: src/components/clio/settings-model-server-details.tsx
 msgid "Catalog health"
+msgstr ""
+
+#: src/components/clio/extension-library.tsx
+msgid "Catalog plugins"
+msgstr ""
+
+#: src/components/clio/extension-library.tsx
+msgid "Catalog plugins and connectors"
 msgstr ""
 
 #: src/components/clio/provider-model-refresh.ts
@@ -8897,6 +8914,7 @@ msgstr ""
 msgid "Checking sync"
 msgstr ""
 
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library.tsx
 msgid "Checking the agent service…"
@@ -10838,10 +10856,6 @@ msgstr ""
 
 #: src/lib/plugin-presentation.ts
 msgid "Connectors changed"
-msgstr ""
-
-#: src/components/clio/extension-library.tsx
-msgid "Connectors to enable"
 msgstr ""
 
 #: src/components/clio/extension-scope-heading.tsx
@@ -13793,6 +13807,7 @@ msgid "Downloading folder…"
 msgstr ""
 
 #: src/lib/agent-needs.ts
+#: src/lib/discover-card.ts
 msgid "Downloading its tools…"
 msgstr ""
 
@@ -14329,6 +14344,7 @@ msgid "Empty text"
 msgstr ""
 
 #: src/components/clio/connector-pane.tsx
+#: src/components/clio/discover-catalog.tsx
 msgid "Enable"
 msgstr ""
 
@@ -14352,6 +14368,7 @@ msgid "Enable all"
 msgstr ""
 
 #: src/components/clio/connector-offer-response.tsx
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Enabled"
 msgstr ""
@@ -14362,6 +14379,10 @@ msgstr ""
 
 #: src/lib/agent-needs.ts
 msgid "Enabling {names}…"
+msgstr ""
+
+#: src/components/clio/discover-catalog.tsx
+msgid "Enabling needs a newer agent service"
 msgstr ""
 
 #: src/components/clio/ndp-station-filters.tsx
@@ -16286,6 +16307,10 @@ msgstr ""
 msgid "from {marketplace}"
 msgstr ""
 
+#: src/lib/discover-card.ts
+msgid "From {marketplace}"
+msgstr ""
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "from {profile}"
 msgstr ""
@@ -16327,6 +16352,10 @@ msgstr ""
 msgid "From an unknown source"
 msgstr ""
 
+#: src/lib/discover-card.ts
+msgid "From clio-kit"
+msgstr ""
+
 #: src/components/clio/composer-add-context-button.tsx
 msgid "From connected data…"
 msgstr ""
@@ -16361,6 +16390,10 @@ msgstr ""
 
 #: src/components/clio/flow-name.tsx
 msgid "From the {plugin} plugin"
+msgstr ""
+
+#: src/lib/discover-card.ts
+msgid "From the {product} catalog"
 msgstr ""
 
 #: src/gallery-skill-dialog.tsx
@@ -21675,6 +21708,7 @@ msgstr ""
 
 #: src/lib/connector-plugin.ts
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Needs {needs}"
 msgstr ""
 
@@ -24092,6 +24126,10 @@ msgstr ""
 msgid "On this host"
 msgstr ""
 
+#: src/components/clio/discover-catalog.tsx
+msgid "On this machine"
+msgstr ""
+
 #: src/components/clio/tool-technical-details.tsx
 msgid "On, blocked a write to <0>{roots}</0>"
 msgstr ""
@@ -24909,6 +24947,10 @@ msgstr ""
 
 #: src/components/clio/markdown-content-link.tsx
 msgid "Opens in the shared browser; shift-click opens it outside"
+msgstr ""
+
+#: src/components/clio/discover-catalog.tsx
+msgid "Opens the setup of {name}"
 msgstr ""
 
 #: src/components/clio/comment-review-chip.tsx
@@ -25989,10 +26031,6 @@ msgstr ""
 msgid "Plugins and connectors changed"
 msgstr ""
 
-#: src/components/clio/extension-library.tsx
-msgid "Plugins and connectors to enable"
-msgstr ""
-
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/lib/plugin-presentation.ts
 msgid "Plugins changed"
@@ -26012,10 +26050,6 @@ msgstr ""
 
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
-msgstr ""
-
-#: src/components/clio/extension-library.tsx
-msgid "Plugins to enable"
 msgstr ""
 
 #: src/components/reui/time-picker.tsx
@@ -32476,6 +32510,10 @@ msgstr ""
 msgid "Show All"
 msgstr ""
 
+#: src/components/clio/discover-catalog.tsx
+msgid "Show all ({count})"
+msgstr ""
+
 #: src/components/clio/nested-tool-calls.tsx
 msgid "Show all {calls}"
 msgstr ""
@@ -32561,6 +32599,7 @@ msgstr ""
 msgid "Show every section"
 msgstr ""
 
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
@@ -33902,6 +33941,7 @@ msgstr ""
 #: src/components/clio/connector-pane.tsx
 #: src/components/clio/service-management-panel.tsx
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Starting…"
 msgstr ""
 
@@ -38732,6 +38772,7 @@ msgstr ""
 
 #: src/components/clio/connector-pane.tsx
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Turning off…"
 msgstr ""
 

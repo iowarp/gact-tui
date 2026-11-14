@@ -2073,6 +2073,10 @@ msgstr "{free}。"
 msgid "{from} - {to} of {recordCount}"
 msgstr "{from} - {to} / {recordCount}"
 
+#: src/components/clio/discover-catalog.tsx
+msgid "{group} ({count})"
+msgstr "{group}（{count}）"
+
 #: src/lib/plugin-presentation.ts
 msgid "{heading} ({count})"
 msgstr "{heading}（{count}）"
@@ -5461,6 +5465,7 @@ msgid "added by {addedBy}"
 msgstr "{addedBy}が追加"
 
 #: src/components/clio/connector-pane.tsx
+#: src/lib/discover-card.ts
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
 msgid "Added by you"
@@ -8430,9 +8435,21 @@ msgstr "カタログ"
 msgid "Catalog access filter"
 msgstr "カタログのアクセスフィルター"
 
+#: src/components/clio/extension-library.tsx
+msgid "Catalog connectors"
+msgstr "カタログのコネクター"
+
 #: src/components/clio/settings-model-server-details.tsx
 msgid "Catalog health"
 msgstr "カタログの状態"
+
+#: src/components/clio/extension-library.tsx
+msgid "Catalog plugins"
+msgstr "カタログのプラグイン"
+
+#: src/components/clio/extension-library.tsx
+msgid "Catalog plugins and connectors"
+msgstr "カタログのプラグインとコネクター"
 
 #: src/components/clio/provider-model-refresh.ts
 msgid "Catalog refreshed; no compatible client update is available yet."
@@ -8905,6 +8922,7 @@ msgstr "観測点のカバー範囲を確認中"
 msgid "Checking sync"
 msgstr "同期を確認中"
 
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library.tsx
 msgid "Checking the agent service…"
@@ -10847,10 +10865,6 @@ msgstr "コネクター"
 #: src/lib/plugin-presentation.ts
 msgid "Connectors changed"
 msgstr "コネクタが変更されました"
-
-#: src/components/clio/extension-library.tsx
-msgid "Connectors to enable"
-msgstr "有効にできるコネクター"
 
 #: src/components/clio/extension-scope-heading.tsx
 msgid "Connectors, plugins, marketplaces and skills for your agents."
@@ -13801,6 +13815,7 @@ msgid "Downloading folder…"
 msgstr "フォルダーをダウンロード中…"
 
 #: src/lib/agent-needs.ts
+#: src/lib/discover-card.ts
 msgid "Downloading its tools…"
 msgstr "ツールをダウンロードしています…"
 
@@ -14337,6 +14352,7 @@ msgid "Empty text"
 msgstr "空のテキスト"
 
 #: src/components/clio/connector-pane.tsx
+#: src/components/clio/discover-catalog.tsx
 msgid "Enable"
 msgstr "有効にする"
 
@@ -14360,6 +14376,7 @@ msgid "Enable all"
 msgstr "すべて有効にする"
 
 #: src/components/clio/connector-offer-response.tsx
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Enabled"
 msgstr "有効"
@@ -14371,6 +14388,10 @@ msgstr "有効です。{name}はプラグインから会話に追加します。
 #: src/lib/agent-needs.ts
 msgid "Enabling {names}…"
 msgstr "{names} を有効にしています…"
+
+#: src/components/clio/discover-catalog.tsx
+msgid "Enabling needs a newer agent service"
+msgstr "有効にするには新しいエージェントサービスが必要です"
 
 #: src/components/clio/ndp-station-filters.tsx
 msgid "End time"
@@ -16294,6 +16315,10 @@ msgstr "{hostLabel}から"
 msgid "from {marketplace}"
 msgstr "{marketplace}から"
 
+#: src/lib/discover-card.ts
+msgid "From {marketplace}"
+msgstr "{marketplace} から"
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "from {profile}"
 msgstr "{profile}から"
@@ -16335,6 +16360,10 @@ msgstr "ツールの結果から"
 msgid "From an unknown source"
 msgstr "不明なソースから"
 
+#: src/lib/discover-card.ts
+msgid "From clio-kit"
+msgstr "clio-kit から"
+
 #: src/components/clio/composer-add-context-button.tsx
 msgid "From connected data…"
 msgstr "接続済みデータから…"
@@ -16370,6 +16399,10 @@ msgstr "最初から"
 #: src/components/clio/flow-name.tsx
 msgid "From the {plugin} plugin"
 msgstr "{plugin}プラグインから"
+
+#: src/lib/discover-card.ts
+msgid "From the {product} catalog"
+msgstr "{product} のカタログから"
 
 #: src/gallery-skill-dialog.tsx
 msgid "From the **{name}** catalog. The agent loads its exact contract with:"
@@ -21692,6 +21725,7 @@ msgstr "{missing} が必要です"
 
 #: src/lib/connector-plugin.ts
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Needs {needs}"
 msgstr "{needs}が必要です"
 
@@ -24109,6 +24143,10 @@ msgstr "このコンピューター、別のマシン、またはクラスター
 msgid "On this host"
 msgstr "このホスト上"
 
+#: src/components/clio/discover-catalog.tsx
+msgid "On this machine"
+msgstr "このマシンで"
+
 #: src/components/clio/tool-technical-details.tsx
 msgid "On, blocked a write to <0>{roots}</0>"
 msgstr "オン、<0>{roots}</0> への書き込みをブロックしました"
@@ -24927,6 +24965,10 @@ msgstr "タブで開きます。"
 #: src/components/clio/markdown-content-link.tsx
 msgid "Opens in the shared browser; shift-click opens it outside"
 msgstr "共有ブラウザーで開きます。Shiftキーを押しながらクリックすると外部で開きます"
+
+#: src/components/clio/discover-catalog.tsx
+msgid "Opens the setup of {name}"
+msgstr "{name} の設定を開きます"
 
 #: src/components/clio/comment-review-chip.tsx
 msgid "Opens this version with its comments."
@@ -26006,10 +26048,6 @@ msgstr "プラグイン"
 msgid "Plugins and connectors changed"
 msgstr "プラグインとコネクタが変更されました"
 
-#: src/components/clio/extension-library.tsx
-msgid "Plugins and connectors to enable"
-msgstr "有効にできるプラグインとコネクタ"
-
 #: src/components/clio/conversation-harness-injection.tsx
 #: src/lib/plugin-presentation.ts
 msgid "Plugins changed"
@@ -26030,10 +26068,6 @@ msgstr "このパックのプラグイン"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "同時に削除されるプラグイン"
-
-#: src/components/clio/extension-library.tsx
-msgid "Plugins to enable"
-msgstr "有効にできるプラグイン"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -32493,6 +32527,10 @@ msgstr "すべて表示"
 msgid "Show All"
 msgstr "すべてを表示"
 
+#: src/components/clio/discover-catalog.tsx
+msgid "Show all ({count})"
+msgstr "すべて表示（{count}）"
+
 #: src/components/clio/nested-tool-calls.tsx
 msgid "Show all {calls}"
 msgstr "{calls}をすべて表示"
@@ -32578,6 +32616,7 @@ msgstr "アドレスを表示"
 msgid "Show every section"
 msgstr "すべてのセクションを表示"
 
+#: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
@@ -33920,6 +33959,7 @@ msgstr "アップロードを開始中"
 #: src/components/clio/connector-pane.tsx
 #: src/components/clio/service-management-panel.tsx
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Starting…"
 msgstr "開始中…"
 
@@ -38750,6 +38790,7 @@ msgstr "有効にしています…"
 
 #: src/components/clio/connector-pane.tsx
 #: src/lib/connector-presentation.ts
+#: src/lib/discover-card.ts
 msgid "Turning off…"
 msgstr "オフにしています…"
 
