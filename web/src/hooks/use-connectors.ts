@@ -68,18 +68,23 @@ export function useSessionConnector(id: string | undefined, sessionId: string | 
 /**
  * A connector's logo as an image address. The SVG is read through the repository (so
  * it carries the service's credentials on every transport) and shown in an `<img>`,
- * where it cannot run anything.
+ * where it cannot run anything. `dark` reads the dark-theme variant, when the row names
+ * one (`logo_dark_url`).
  */
-export function useConnectorLogo(connector: Pick<Connector, 'id' | 'logo_url'>) {
+export function useConnectorLogo(
+  connector: Pick<Connector, 'id' | 'logo_url'> & { logo_dark_url?: string | null },
+  theme: 'light' | 'dark' = 'light',
+) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const url = theme === 'dark' ? connector.logo_dark_url : connector.logo_url;
   return useQuery({
-    queryKey: queryKeys.key('connector-logo', settings.endpoint, connector.id, connector.logo_url),
+    queryKey: queryKeys.key('connector-logo', settings.endpoint, connector.id, url ?? ''),
     queryFn: async ({ signal }) =>
       `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-        await repository.connectorLogo(connector.id, signal),
+        await repository.connectorLogo(connector.id, signal, theme),
       )}`,
-    enabled: Boolean(connector.logo_url),
+    enabled: Boolean(url),
     staleTime: Infinity,
     retry: false,
   });

@@ -262,7 +262,12 @@ function NeedItem({ item, asking, left }: { item: AgentNeedItem; asking: boolean
     >
       <ConnectorLogo
         className="size-4 shrink-0 text-[8px]"
-        connector={{ id: item.id, name: item.name, logo_url: item.logo_url }}
+        connector={{
+          id: item.id,
+          name: item.name,
+          logo_url: item.logo_url,
+          logo_dark_url: item.logo_dark_url,
+        }}
       />
       <span className="shrink-0 font-medium">{item.name}</span>
       <span className="shrink-0 text-xs text-muted-foreground">{agentNeedKind(item)}</span>

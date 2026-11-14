@@ -77,6 +77,7 @@ describe('connector repository', () => {
     const transport = new RecordingTransport([
       { connectors: [fixture] },
       '<svg xmlns="http://www.w3.org/2000/svg"/>',
+      '<svg data-theme="dark"/>',
       ready,
       ready,
       { ...ready, enabled: false },
@@ -90,6 +91,7 @@ describe('connector repository', () => {
     expect(listed?.needs[2]?.has_value).toBe(true);
     expect(listed?.needs[1]?.help).toBe('');
     expect(await repository.connectorLogo('fixture-address')).toContain('<svg');
+    expect(await repository.connectorLogo('fixture-address', undefined, 'dark')).toContain('dark');
     const saved = await repository.setConnectorValues('fixture-address', {
       address: 'http://127.0.0.1:19201/mcp',
       token: null,
@@ -104,16 +106,17 @@ describe('connector repository', () => {
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
       { method: 'GET', path: '/v1/connectors' },
       { method: 'GET', path: '/v1/connectors/fixture-address/logo' },
+      { method: 'GET', path: '/v1/connectors/fixture-address/logo?theme=dark' },
       { method: 'PUT', path: '/v1/connectors/fixture-address/values' },
       { method: 'POST', path: '/v1/connectors/fixture-address/enable' },
       { method: 'POST', path: '/v1/connectors/fixture-address/disable' },
       { method: 'POST', path: '/v1/connectors' },
     ]);
     expect(transport.requests[1]?.responseType).toBe('text');
-    expect(transport.requests[2]?.body).toEqual({
+    expect(transport.requests[3]?.body).toEqual({
       values: { address: 'http://127.0.0.1:19201/mcp', token: null },
     });
-    expect(transport.requests[3]?.body).toBeUndefined();
+    expect(transport.requests[4]?.body).toBeUndefined();
   });
 
   it('names the missing needs in the entry order and reads an unknown kind or status', () => {
