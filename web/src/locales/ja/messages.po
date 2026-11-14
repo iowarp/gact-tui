@@ -1688,6 +1688,10 @@ msgstr "{count, plural, one {#件のコメントを送信} other {#件のコメ�
 msgid "{count, plural, one {Study: {name}, # entry} other {Study: {name}, # entries}}"
 msgstr "{count, plural, one {研究：{name}、#件のエントリー} other {研究：{name}、#件のエントリー}}"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "{count, plural, one {This conversation started # task that is still open. Stopping everything cancels it and anything it started; finished results are kept, and you can restart it later.} other {This conversation started # tasks that are still open. Stopping everything cancels them and anything they started; finished results are kept, and you can restart them later.}}"
+msgstr "{count, plural, one {この会話が開始した # 件のタスクがまだ開いています。すべて停止すると、そのタスクと、そこから開始されたものがキャンセルされます。完了した結果は保持され、後で再開できます。} other {この会話が開始した # 件のタスクがまだ開いています。すべて停止すると、それらのタスクと、そこから開始されたものがキャンセルされます。完了した結果は保持され、後で再開できます。}}"
+
 #: src/components/clio/memory-used-action.tsx
 msgid "{count, plural, one {Used # memory document} other {Used # memory documents}}"
 msgstr "{count, plural, one {#件のメモリードキュメントを使用} other {#件のメモリードキュメントを使用}}"
@@ -5397,6 +5401,7 @@ msgstr "エージェント"
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/private-local-library.tsx
 #: src/components/clio/settings-session-defaults.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/use-workbench-strip.tsx
@@ -9673,6 +9678,7 @@ msgstr "インストール済みの機能と保存済みの接続を組み合わ
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/mcp-connection-dialog.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Command"
@@ -13229,6 +13235,7 @@ msgstr "ドットファイルとフォルダー"
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/settings-app-updates.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/surface-toolbar.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -17257,6 +17264,7 @@ msgstr "ファイルを共有する独立した会話"
 msgid "Index more sessions"
 msgstr "さらにセッションをインデックス"
 
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Indexing"
 msgstr "インデックス作成中"
@@ -18309,6 +18317,10 @@ msgstr "{product}を閉じてもこのリモートエージェントを実行し
 #: src/components/clio/async-task-list.tsx
 msgid "Keep this run"
 msgstr "この実行を残す"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Keep working"
+msgstr "作業を続ける"
 
 #: src/components/clio/settings-schedule-row.tsx
 msgid "Keep<0> schedule</0>"
@@ -24039,6 +24051,10 @@ msgstr "システム設定を開く"
 msgid "Open task"
 msgstr "タスクを開く"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Open tasks"
+msgstr "開いているタスク"
+
 #: src/lib/global-search-commands.ts
 msgid "Open terminal"
 msgstr "ターミナルを開く"
@@ -24870,6 +24886,7 @@ msgstr "一時停止"
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-schedule-row.tsx
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Paused"
 msgstr "一時停止"
@@ -26232,6 +26249,7 @@ msgstr "質問"
 #: src/components/clio/question-answer-reader.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/science-log-model.ts
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/study-tree.tsx
 #: src/components/clio/surface-question-notice.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -26316,6 +26334,7 @@ msgstr "待機中"
 #: src/components/clio/resource-processing-presentation.ts
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Queued"
 msgstr "待機中"
@@ -29365,6 +29384,7 @@ msgstr "実行中"
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -30184,6 +30204,7 @@ msgstr "スコア{score}"
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/science-log-sources.tsx
 #: src/components/clio/script-run-body.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/routes/workspace-page.tsx
 msgid "Script"
@@ -33124,6 +33145,10 @@ msgstr "状態"
 msgid "State not recognized"
 msgstr "認識できない状態"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "State unconfirmed"
+msgstr "状態未確認"
+
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
 msgid "state unknown"
@@ -33335,6 +33360,10 @@ msgstr "回答をやめる"
 msgid "Stop connecting"
 msgstr "接続を中止"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop everything"
+msgstr "すべて停止"
+
 #: src/components/clio/ndp-sdk-stream-actions.tsx
 msgid "Stop reader"
 msgstr "リーダーを停止"
@@ -33342,6 +33371,10 @@ msgstr "リーダーを停止"
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Stop replay"
 msgstr "再生を停止"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop reply only"
+msgstr "返信のみ停止"
 
 #: src/components/clio/rail-runs.tsx
 msgid "Stop run"
@@ -33362,6 +33395,10 @@ msgstr "同期を停止"
 #: src/components/clio/work-record-controls.tsx
 msgid "Stop text"
 msgstr "停止テキスト"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop the work this conversation started?"
+msgstr "この会話が開始した作業を停止しますか？"
 
 #: src/components/clio/rail-runs.tsx
 msgid "Stop this run?"
@@ -34036,6 +34073,7 @@ msgstr "対象は報告されていません"
 #: src/components/clio/model-picker-anchors.tsx
 #: src/components/clio/registry-model-details.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-task-row.tsx
@@ -37289,6 +37327,10 @@ msgstr "ツールのアクション"
 msgid "Tool audio result"
 msgstr "ツールの音声結果"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Tool call"
+msgstr "ツール呼び出し"
+
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/context-composition-model.ts
 #: src/components/clio/session-rail-layout.ts
@@ -39503,6 +39545,10 @@ msgstr "ブラウザーでのサインインを待っています…"
 #: src/components/clio/workspace-resource-derivatives.tsx
 msgid "Waiting for converter activity."
 msgstr "コンバーターのアクティビティを待機中です。"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Waiting for input"
+msgstr "入力待ち"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "Waiting for more conversation messages"

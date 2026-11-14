@@ -8,11 +8,13 @@ import type { useSessionMutations } from '@/hooks/use-session-mutations';
 import type { useSpotterQuarantine } from '@/hooks/use-spotter-quarantine';
 import type { useWorkspaceData } from '@/hooks/use-workspace-data';
 import { useModelCatalogStatus } from '@/hooks/use-model-catalog-status';
+import { useStopWithChildren } from '@/hooks/use-stop-with-children';
 import { isManagedChildSession } from '@/lib/session-state';
 import { sessionSpotterModel } from '@/lib/spotter-model-ref';
 import { ClioChildSessionFooter } from './child-session-footer';
 import { ClioComposer } from './composer';
 import { sessionPatchForMessageBehavior } from './session-behavior-options';
+import { StopChildrenDialog } from './stop-children-dialog';
 import type { useWorkspaceQuestions } from './use-workspace-questions';
 import * as workspaceRouteState from './workspace-route-state';
 import { t } from '@lingui/core/macro';
@@ -101,6 +103,7 @@ export function WorkspaceComposer({
   onOpenReference,
 }: WorkspaceComposerProps) {
   const { cancel } = mutations;
+  const stop = useStopWithChildren(sessionId, cancel);
   const queue = useComposerQueue({
     reconcileTurnMode: mutations.reconcileTurnMode,
     sessionId,
@@ -208,7 +211,7 @@ export function WorkspaceComposer({
           onDiscardFiles={mutations.discardFiles}
           onHeightChange={docked ? onHeightChange : undefined}
           onSubmit={(value) => startingConversation(() => submit(value))}
-          onStop={() => cancel.mutate()}
+          onStop={() => void stop.request()}
           onOpenResource={onOpenResource}
           onOpenReference={onOpenReference}
           onDeleteQueuedMessage={(message) => deleteQueuedMessage.mutateAsync(message)}
@@ -237,6 +240,7 @@ export function WorkspaceComposer({
           workspaceId={workspaceId}
         />
       )}
+      <StopChildrenDialog {...stop.dialog} />
     </m.div>
   );
 }

@@ -3,7 +3,7 @@ import { invalidateQueriesInBackground } from '@/lib/query-invalidation';
 import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
 import { livePollInterval, useLiveStreamHealthy } from './use-live-poll-interval';
 import { SendIdentities, sendFingerprint } from '@/lib/send-identity';
-import { emptyAgentDelta } from '@clio/core/v3';
+import { emptyAgentDelta, type StopChildren } from '@clio/core/v3';
 import type {
   ComposerMessagePart,
   MessageBehavior,
@@ -527,7 +527,8 @@ export function useSessionMutations({
 
   const cancel = useMutation({
     mutationKey: queryKeys.sessionAction(settings.endpoint, sessionId, 'cancel'),
-    mutationFn: () => repository.cancelSession(sessionId),
+    mutationFn: (children?: StopChildren) =>
+      repository.cancelSession(sessionId, undefined, children),
     onSuccess: invalidateComposerState,
   });
 

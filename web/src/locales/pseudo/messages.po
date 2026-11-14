@@ -1688,6 +1688,10 @@ msgstr ""
 msgid "{count, plural, one {Study: {name}, # entry} other {Study: {name}, # entries}}"
 msgstr ""
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "{count, plural, one {This conversation started # task that is still open. Stopping everything cancels it and anything it started; finished results are kept, and you can restart it later.} other {This conversation started # tasks that are still open. Stopping everything cancels them and anything they started; finished results are kept, and you can restart them later.}}"
+msgstr ""
+
 #: src/components/clio/memory-used-action.tsx
 msgid "{count, plural, one {Used # memory document} other {Used # memory documents}}"
 msgstr ""
@@ -5389,6 +5393,7 @@ msgstr ""
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/private-local-library.tsx
 #: src/components/clio/settings-session-defaults.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/use-workbench-strip.tsx
@@ -9665,6 +9670,7 @@ msgstr ""
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/mcp-connection-dialog.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Command"
@@ -13221,6 +13227,7 @@ msgstr ""
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/settings-app-updates.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/surface-toolbar.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -17240,6 +17247,7 @@ msgstr ""
 msgid "Index more sessions"
 msgstr ""
 
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Indexing"
 msgstr ""
@@ -18291,6 +18299,10 @@ msgstr ""
 
 #: src/components/clio/async-task-list.tsx
 msgid "Keep this run"
+msgstr ""
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Keep working"
 msgstr ""
 
 #: src/components/clio/settings-schedule-row.tsx
@@ -24022,6 +24034,10 @@ msgstr ""
 msgid "Open task"
 msgstr ""
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Open tasks"
+msgstr ""
+
 #: src/lib/global-search-commands.ts
 msgid "Open terminal"
 msgstr ""
@@ -24853,6 +24869,7 @@ msgstr ""
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-schedule-row.tsx
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Paused"
 msgstr ""
@@ -26215,6 +26232,7 @@ msgstr ""
 #: src/components/clio/question-answer-reader.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/science-log-model.ts
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/study-tree.tsx
 #: src/components/clio/surface-question-notice.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -26299,6 +26317,7 @@ msgstr ""
 #: src/components/clio/resource-processing-presentation.ts
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Queued"
 msgstr ""
@@ -29348,6 +29367,7 @@ msgstr ""
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -30167,6 +30187,7 @@ msgstr ""
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/science-log-sources.tsx
 #: src/components/clio/script-run-body.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/routes/workspace-page.tsx
 msgid "Script"
@@ -33106,6 +33127,10 @@ msgstr ""
 msgid "State not recognized"
 msgstr ""
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "State unconfirmed"
+msgstr ""
+
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
 msgid "state unknown"
@@ -33317,12 +33342,20 @@ msgstr ""
 msgid "Stop connecting"
 msgstr ""
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop everything"
+msgstr ""
+
 #: src/components/clio/ndp-sdk-stream-actions.tsx
 msgid "Stop reader"
 msgstr ""
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Stop replay"
+msgstr ""
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop reply only"
 msgstr ""
 
 #: src/components/clio/rail-runs.tsx
@@ -33343,6 +33376,10 @@ msgstr ""
 
 #: src/components/clio/work-record-controls.tsx
 msgid "Stop text"
+msgstr ""
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop the work this conversation started?"
 msgstr ""
 
 #: src/components/clio/rail-runs.tsx
@@ -34018,6 +34055,7 @@ msgstr ""
 #: src/components/clio/model-picker-anchors.tsx
 #: src/components/clio/registry-model-details.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-task-row.tsx
@@ -37271,6 +37309,10 @@ msgstr ""
 msgid "Tool audio result"
 msgstr ""
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Tool call"
+msgstr ""
+
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/context-composition-model.ts
 #: src/components/clio/session-rail-layout.ts
@@ -39484,6 +39526,10 @@ msgstr ""
 
 #: src/components/clio/workspace-resource-derivatives.tsx
 msgid "Waiting for converter activity."
+msgstr ""
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Waiting for input"
 msgstr ""
 
 #: src/components/clio/memory-creation-log.tsx

@@ -1688,6 +1688,10 @@ msgstr "{count, plural, one {Αποστολή # σχολίου} other {Αποσ�
 msgid "{count, plural, one {Study: {name}, # entry} other {Study: {name}, # entries}}"
 msgstr "{count, plural, one {Μελέτη: {name}, # καταχώριση} other {Μελέτη: {name}, # καταχωρίσεις}}"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "{count, plural, one {This conversation started # task that is still open. Stopping everything cancels it and anything it started; finished results are kept, and you can restart it later.} other {This conversation started # tasks that are still open. Stopping everything cancels them and anything they started; finished results are kept, and you can restart them later.}}"
+msgstr "{count, plural, one {Αυτή η συνομιλία ξεκίνησε # εργασία που είναι ακόμη ανοιχτή. Η διακοπή όλων την ακυρώνει μαζί με ό,τι ξεκίνησε· τα ολοκληρωμένα αποτελέσματα διατηρούνται και μπορείτε να την επανεκκινήσετε αργότερα.} other {Αυτή η συνομιλία ξεκίνησε # εργασίες που είναι ακόμη ανοιχτές. Η διακοπή όλων τις ακυρώνει μαζί με ό,τι ξεκίνησαν· τα ολοκληρωμένα αποτελέσματα διατηρούνται και μπορείτε να τις επανεκκινήσετε αργότερα.}}"
+
 #: src/components/clio/memory-used-action.tsx
 msgid "{count, plural, one {Used # memory document} other {Used # memory documents}}"
 msgstr "{count, plural, one {Χρησιμοποιήθηκε # έγγραφο μνήμης} other {Χρησιμοποιήθηκαν # έγγραφα μνήμης}}"
@@ -5397,6 +5401,7 @@ msgstr "πράκτορας"
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/private-local-library.tsx
 #: src/components/clio/settings-session-defaults.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/use-workbench-strip.tsx
@@ -9673,6 +9678,7 @@ msgstr "Συνδυάστε εγκατεστημένες δυνατότητες �
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/mcp-connection-dialog.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Command"
@@ -13229,6 +13235,7 @@ msgstr "Αρχεία και φάκελοι με τελεία"
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/settings-app-updates.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/surface-toolbar.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -17257,6 +17264,7 @@ msgstr "Ανεξάρτητη συνομιλία με κοινόχρηστα αρ
 msgid "Index more sessions"
 msgstr "Ευρετηρίαση περισσότερων συνεδριών"
 
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Indexing"
 msgstr "Ευρετηρίαση"
@@ -18309,6 +18317,10 @@ msgstr "Να συνεχίζει να εκτελείται αυτός ο απομ
 #: src/components/clio/async-task-list.tsx
 msgid "Keep this run"
 msgstr "Διατήρηση αυτής της εκτέλεσης"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Keep working"
+msgstr "Συνέχεια εργασίας"
 
 #: src/components/clio/settings-schedule-row.tsx
 msgid "Keep<0> schedule</0>"
@@ -24039,6 +24051,10 @@ msgstr "Άνοιγμα Ρυθμίσεων συστήματος"
 msgid "Open task"
 msgstr "Άνοιγμα εργασίας"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Open tasks"
+msgstr "Ανοιχτές εργασίες"
+
 #: src/lib/global-search-commands.ts
 msgid "Open terminal"
 msgstr "Άνοιγμα τερματικού"
@@ -24870,6 +24886,7 @@ msgstr "σε παύση"
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-schedule-row.tsx
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Paused"
 msgstr "Σε παύση"
@@ -26232,6 +26249,7 @@ msgstr "ερώτηση"
 #: src/components/clio/question-answer-reader.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/science-log-model.ts
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/study-tree.tsx
 #: src/components/clio/surface-question-notice.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -26316,6 +26334,7 @@ msgstr "σε αναμονή"
 #: src/components/clio/resource-processing-presentation.ts
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Queued"
 msgstr "Σε αναμονή"
@@ -29365,6 +29384,7 @@ msgstr "σε εκτέλεση"
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -30184,6 +30204,7 @@ msgstr "βαθμολογία {score}"
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/science-log-sources.tsx
 #: src/components/clio/script-run-body.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/routes/workspace-page.tsx
 msgid "Script"
@@ -33124,6 +33145,10 @@ msgstr "Κατάσταση"
 msgid "State not recognized"
 msgstr "Μη αναγνωρισμένη κατάσταση"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "State unconfirmed"
+msgstr "Μη επιβεβαιωμένη κατάσταση"
+
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
 msgid "state unknown"
@@ -33335,6 +33360,10 @@ msgstr "Διακοπή απάντησης"
 msgid "Stop connecting"
 msgstr "Διακοπή σύνδεσης"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop everything"
+msgstr "Διακοπή όλων"
+
 #: src/components/clio/ndp-sdk-stream-actions.tsx
 msgid "Stop reader"
 msgstr "Διακοπή αναγνώστη"
@@ -33342,6 +33371,10 @@ msgstr "Διακοπή αναγνώστη"
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Stop replay"
 msgstr "Διακοπή αναπαραγωγής"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop reply only"
+msgstr "Διακοπή μόνο της απάντησης"
 
 #: src/components/clio/rail-runs.tsx
 msgid "Stop run"
@@ -33362,6 +33395,10 @@ msgstr "Διακοπή συγχρονισμού"
 #: src/components/clio/work-record-controls.tsx
 msgid "Stop text"
 msgstr "Κείμενο διακοπής"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop the work this conversation started?"
+msgstr "Διακοπή της εργασίας που ξεκίνησε αυτή η συνομιλία;"
 
 #: src/components/clio/rail-runs.tsx
 msgid "Stop this run?"
@@ -34036,6 +34073,7 @@ msgstr "Ο στόχος δεν αναφέρθηκε"
 #: src/components/clio/model-picker-anchors.tsx
 #: src/components/clio/registry-model-details.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-task-row.tsx
@@ -37289,6 +37327,10 @@ msgstr "Ενέργεια εργαλείου"
 msgid "Tool audio result"
 msgstr "Αποτέλεσμα ήχου εργαλείου"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Tool call"
+msgstr "Κλήση εργαλείου"
+
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/context-composition-model.ts
 #: src/components/clio/session-rail-layout.ts
@@ -39503,6 +39545,10 @@ msgstr "Αναμονή για σύνδεση στο πρόγραμμα περι�
 #: src/components/clio/workspace-resource-derivatives.tsx
 msgid "Waiting for converter activity."
 msgstr "Αναμονή για δραστηριότητα του μετατροπέα."
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Waiting for input"
+msgstr "Αναμονή για απάντηση"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "Waiting for more conversation messages"
