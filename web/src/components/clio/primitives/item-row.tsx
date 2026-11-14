@@ -110,6 +110,17 @@ export const ItemRow = memo(
     const overlay = !actionsVisible && status !== undefined;
     const floats = floatActions && !actionsVisible && status === undefined && !foldActions;
     const hasSlot = slot !== undefined && slot !== null && slot !== false;
+    // Stacked, hidden actions with no status or slot to sit over float over the
+    // name's end, so a long name (a folder path) gets the row instead of a column
+    // that stays empty until hover.
+    const floatsOverName =
+      stacks &&
+      !overlay &&
+      !folds &&
+      !floats &&
+      !actionsVisible &&
+      !hasSlot &&
+      actions !== undefined;
     const columns: CSSProperties = {
       ['--item-icon' as string]: iconWidth === undefined ? '1.25rem' : `${iconWidth}px`,
       ['--item-status' as string]: `${status === undefined ? 0 : statusWidth}px`,
@@ -155,6 +166,7 @@ export const ItemRow = memo(
             !overlay &&
             !folds &&
             '@max-sm:has-[[data-slot=item-row-slot]_[data-slot=button]]:[--item-actions:0px]!',
+          floatsOverName && '@max-sm:[--item-actions:0px]!',
           // Floating actions: the name, then a slot that is only as wide as its content.
           floats && 'grid-cols-[var(--item-icon)_minmax(0,1fr)_auto]!',
           size === 'line'
@@ -189,6 +201,7 @@ export const ItemRow = memo(
               !floats &&
               !folds &&
               '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1]',
+            floatsOverName && '@max-sm:col-[2/-1]',
           )}
         >
           <span
@@ -208,9 +221,11 @@ export const ItemRow = memo(
               className={cn(
                 'min-w-0 text-muted-foreground',
                 wrapMeta && size !== 'line'
-                  ? 'line-clamp-2 leading-snug break-words whitespace-normal [word-break:auto-phrase]'
+                  ? 'line-clamp-2 leading-snug break-words whitespace-normal [word-break:auto-phrase] [line-break:strict]'
                   : 'truncate',
                 size === 'line' ? 'shrink-[100] text-label' : 'text-xs',
+                // Stacked, a phone's column fits fewer words per line ("Φάκελος / χώρου / εργασίας").
+                wrapMeta && stacks && '@max-sm:line-clamp-3',
               )}
               data-slot="item-row-meta"
             >
@@ -287,6 +302,9 @@ export const ItemRow = memo(
                   !overlay &&
                   !folds &&
                   '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:row-[3] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:justify-self-end @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:pt-1',
+                // Over the end of the name's first line, as overlay actions sit over the status.
+                floatsOverName &&
+                  '@max-sm:col-[2/-1] @max-sm:row-start-1 @max-sm:self-start @max-sm:justify-self-end @max-sm:bg-hover @max-sm:pl-1',
                 folds &&
                   '@xl:pointer-coarse:pointer-events-auto @xl:pointer-coarse:opacity-100 @max-sm:pointer-events-auto @max-sm:opacity-100 @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
                 folds &&
@@ -304,6 +322,7 @@ export const ItemRow = memo(
                   (hasSlot && !folds
                     ? '@max-sm:col-end-[-1] @max-sm:row-start-1'
                     : '@max-sm:row-span-2'),
+                floatsOverName && '@max-sm:hidden',
                 // A labelled button ("Update", "Change") gets a line of its own, start-aligned
                 // under the name and meta, so a localized label never squeezes the name. Its
                 // indent is a spacer that gives way first, so a label wider than the name column
