@@ -4,10 +4,11 @@ import * as THREE from 'three';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { explodeOffsets, isExploded } from './cad-explode';
 import { edgeChain, faceAngle, fitCircle, measureDistance, snapPoint } from './cad-measure';
-import { partFacts, unionBounds, type PartFacts, type Vec3 } from './cad-parts';
+import { partFacts, unionBounds, unionBox, type PartFacts, type Vec3 } from './cad-parts';
 import {
   footprint,
   parsePlateChoice,
+  plateBounds,
   plateCenter,
   plateFit,
   plateOf,
@@ -307,6 +308,16 @@ describe('print plate', () => {
     const bounds = { min: [-5, 2, 0] as Vec3, max: [5, 32, 20] as Vec3 };
     expect(plateCenter(bounds, 'y')).toEqual([0, 2, 10]);
     expect(plateCenter(bounds, 'z')).toEqual([0, 17, 0]);
+  });
+
+  it('boxes the build volume over the plate centre, and joins it with the model', () => {
+    const bed = plateBounds([0, 17, 0], [256, 256, 256], 'z');
+    expect(bed).toEqual({ min: [-128, -111, 0], max: [128, 145, 256] });
+    expect(plateBounds([0, 2, 10], [100, 50, 30], 'y')).toEqual({ min: [-50, 2, -15], max: [50, 32, 35] });
+    expect(unionBox(bed, { min: [-200, 0, -5], max: [0, 0, 0] })).toEqual({
+      min: [-200, -111, -5],
+      max: [128, 145, 256],
+    });
   });
 
   it('reads back only a choice it understands', () => {

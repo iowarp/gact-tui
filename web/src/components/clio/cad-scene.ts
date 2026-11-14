@@ -51,6 +51,8 @@ export class CadScene {
   private readonly orthographic = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 1e6);
   private camera: THREE.PerspectiveCamera | THREE.OrthographicCamera = this.perspective;
   private orthoHeight = 1;
+  /** Pixels a sheet covers along the bottom; the view's centre moves up by half of it. */
+  private inset = 0;
   private readonly controls: OrbitControls;
   private readonly light = new THREE.DirectionalLight(0xffffff, 1.6);
   private readonly edgeMaterial = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.7 });
@@ -282,6 +284,14 @@ export class CadScene {
     this.frameFrom(bounds, direction, this.camera.up.clone());
   }
 
+  /** Keep the model clear of a sheet covering `pixels` of the view's bottom edge. */
+  public setViewInset(pixels: number): void {
+    if (pixels === this.inset) return;
+    this.inset = pixels;
+    this.updateProjection();
+    this.requestRender();
+  }
+
   /** The unit direction from the view's centre towards the camera. */
   public viewDirection(): THREE.Vector3 {
     return this.camera.position.clone().sub(this.controls.target).normalize();
@@ -465,6 +475,12 @@ export class CadScene {
     this.orthographic.right = (this.orthoHeight * aspect) / 2;
     this.orthographic.top = this.orthoHeight / 2;
     this.orthographic.bottom = -this.orthoHeight / 2;
+    const width = Math.max(1, this.container.clientWidth);
+    const height = Math.max(1, this.container.clientHeight);
+    for (const camera of [this.perspective, this.orthographic]) {
+      if (this.inset > 0) camera.setViewOffset(width, height, 0, this.inset / 2, width, height);
+      else camera.clearViewOffset();
+    }
     this.orthographic.updateProjectionMatrix();
     this.perspective.updateProjectionMatrix();
   }

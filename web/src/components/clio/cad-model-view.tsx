@@ -30,9 +30,18 @@ import { explodeOffsets } from './cad-explode';
 import { CadAxisGizmo } from './cad-gizmo';
 import { useCadMeasure } from './cad-measure-state';
 import { CadMeasureLabels, CadMeasurePanel } from './cad-measure-tool';
-import { boxCenter, boxExtent, partFacts, unionBounds, type Vec3 } from './cad-parts';
+import { boxCenter, boxExtent, partFacts, unionBounds, unionBox, type Vec3 } from './cad-parts';
 import { CadPartsList } from './cad-parts-panel';
-import { footprint, plateAxes, plateCenter, plateOf, readPlateChoice, savePlateChoice, type PlateChoice } from './cad-plate';
+import {
+  footprint,
+  plateAxes,
+  plateBounds,
+  plateCenter,
+  plateOf,
+  readPlateChoice,
+  savePlateChoice,
+  type PlateChoice,
+} from './cad-plate';
 import { useCanvasPointer } from './cad-pointer';
 import { CadScene, UP_VECTORS, type PartFocus, type Projection } from './cad-scene';
 import {
@@ -108,6 +117,7 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
   const [plate, setPlateState] = useState<PlateChoice>(readPlateChoice);
   const [selectedState, setSelected] = useState<number>();
   const [focus, setFocus] = useState<PartFocus>('normal');
+  const [cover, setCover] = useState(0);
   const selected = selectedState !== undefined && !hidden.has(selectedState) ? selectedState : undefined;
 
   // The palette follows the theme, so it is read again when the theme changes.
@@ -168,6 +178,7 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
   useEffect(() => scene?.setOffsets(offsets), [scene, offsets, mesh]);
   useEffect(() => scene?.setSelection(selected, focus, ink.accent), [scene, selected, focus, ink, mesh]);
   useEffect(() => scene?.setProjection(projection), [scene, projection]);
+  useEffect(() => scene?.setViewInset(cover), [scene, cover]);
   useEffect(() => {
     if (!scene) return;
     if (!sectionShown || !drawn) return scene.setSection(undefined, ink.accent);
@@ -198,6 +209,19 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
     );
     scene.requestRender();
   }, [scene, plateOpen, assembled, plateSpec.size, up, ink]);
+  // Opening the plate, or choosing another, frames the whole bed; closing it frames the model.
+  const plateShown = useRef(false);
+  const [plateW, plateD, plateH] = plateSpec.size;
+  useEffect(() => {
+    if (!scene || !assembled || !drawn) return;
+    if (plateOpen) {
+      const bed = plateBounds(plateCenter(assembled, up), [plateW, plateD, plateH], up);
+      scene.fit(unionBox(bed, drawn));
+    } else if (plateShown.current) scene.fit(drawn);
+    plateShown.current = plateOpen;
+    // Hiding a part or exploding keeps the camera where the person put it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene, plateOpen, plateW, plateD, plateH, up]);
 
   // The exploded view eases open and shut, at once when motion is reduced.
   const animation = useRef(0);
@@ -500,7 +524,7 @@ export function CadModelView({ mesh, name, format }: { mesh: ParsedFeaMesh; name
       ) : null}
       {scene ? <CadAxisGizmo onLook={lookAlong} scene={scene} /> : null}
       {anyPanel ? (
-        <CadToolColumn>
+        <CadToolColumn onCover={setCover}>
           {selectedFacts ? (
             <CadSelectionPanel
               focus={focus}

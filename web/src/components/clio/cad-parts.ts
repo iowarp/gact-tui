@@ -94,3 +94,11 @@ export function unionBounds(
   }
   return Number.isFinite(min[0]) ? { min, max } : undefined;
 }
+
+/** The box around two boxes. */
+export function unionBox(a: MeshBounds, b: MeshBounds): MeshBounds {
+  return {
+    min: [0, 1, 2].map((k) => Math.min(a.min[k]!, b.min[k]!)) as Vec3,
+    max: [0, 1, 2].map((k) => Math.max(a.max[k]!, b.max[k]!)) as Vec3,
+  };
+}

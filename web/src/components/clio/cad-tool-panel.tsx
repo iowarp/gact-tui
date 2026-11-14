@@ -1,5 +1,5 @@
 import { ph, t } from '@lingui/core/macro';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 
@@ -41,10 +41,39 @@ export function CadToolPanel({
   );
 }
 
-/** The column (wide) or bottom sheet (narrow) the open tool panels share. */
-export function CadToolColumn({ children }: { children: ReactNode }) {
+/**
+ * The column (wide) or bottom sheet (narrow) the open tool panels share. As a sheet it
+ * reports how much of the view it covers, so the model can stay above it.
+ */
+export function CadToolColumn({
+  children,
+  onCover,
+}: {
+  children: ReactNode;
+  onCover?: (pixels: number) => void;
+}) {
+  const column = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = column.current;
+    if (!element || !onCover) return;
+    const report = () => {
+      const view = element.parentElement;
+      // Wide, the column sits at the side and covers nothing below the model.
+      const sheet = view ? view.clientWidth < 672 : false;
+      onCover(sheet ? Math.round(element.offsetHeight + 8) : 0);
+    };
+    const observer = new ResizeObserver(report);
+    observer.observe(element);
+    if (element.parentElement) observer.observe(element.parentElement);
+    report();
+    return () => {
+      observer.disconnect();
+      onCover(0);
+    };
+  }, [onCover]);
   return (
     <div
+      ref={column}
       className="pointer-events-none absolute inset-x-2 bottom-2 flex max-h-[48%] flex-col gap-2 overflow-y-auto @2xl:inset-x-auto @2xl:top-2 @2xl:right-2 @2xl:bottom-auto @2xl:max-h-[calc(100%-6rem)] @2xl:w-72"
       data-slot="cad-tools"
     >

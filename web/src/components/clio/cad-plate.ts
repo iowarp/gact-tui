@@ -92,6 +92,19 @@ export function plateCenter(bounds: MeshBounds, up: MeshUpAxis): Vec3 {
   return center;
 }
 
+/** The build volume's box in model coordinates, for a plate centred at `center`. */
+export function plateBounds(center: Vec3, size: Vec3, up: MeshUpAxis): MeshBounds {
+  const axes = plateAxes(up);
+  const min: Vec3 = [...center];
+  const max: Vec3 = [...center];
+  for (let k = 0; k < 2; k += 1) {
+    min[axes[k]!] = center[axes[k]!]! - size[k]! / 2;
+    max[axes[k]!] = center[axes[k]!]! + size[k]! / 2;
+  }
+  max[axes[2]] = center[axes[2]]! + size[2];
+  return { min, max };
+}
+
 const STORAGE_KEY = 'clio.cad.plate';
 
 /** A stored choice, or undefined when it is missing or not one this view understands. */
