@@ -78,6 +78,7 @@ export function PluginChangeDialog({
           {change ? <p className="font-medium">{change.summary}</p> : null}
           {change?.removing ? (
             <PluginRemovalCascade
+              name={change.removingName}
               plugin={change.removing}
               preview={preview}
               previewError={previewError}

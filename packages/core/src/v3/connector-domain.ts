@@ -127,8 +127,12 @@ export const connectorSetupPayloadSchema = z
     /**
      * `enable`: the agent offers to add a connector to this conversation (connector
      * discovery). The card adds it here, turning it on first when it is off.
+     * `add_plugin`: the agent offers a plugin of the person's library that follows no
+     * connector (plugin discovery); `plugin_id` and `plugin_ref` name it.
      */
     intent: optionalWireString(),
+    plugin_id: optionalWireString(),
+    plugin_ref: optionalWireString(),
     description: optionalWireString(),
     reason: optionalWireString(),
     agent_ref: optionalWireString(),
@@ -149,6 +153,11 @@ export function connectorSetupPayload(payload: unknown): ConnectorSetupPayload |
 /** Whether a `connector_setup` payload is the agent's offer to add a connector here. */
 export function isConnectorOffer(payload: unknown): boolean {
   return connectorSetupPayload(payload)?.intent === 'enable';
+}
+
+/** Whether a `connector_setup` payload is the agent's offer to add a plugin here. */
+export function isPluginOffer(payload: unknown): boolean {
+  return connectorSetupPayload(payload)?.intent === 'add_plugin';
 }
 
 /** The needs still blocking a connector: what its state names, in the entry's order. */

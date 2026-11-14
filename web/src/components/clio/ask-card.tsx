@@ -116,6 +116,8 @@ export function AskPagerControls({
 export interface AskCardProps extends Omit<ComponentProps<'section'>, 'title'> {
   kind: AskKind;
   icon: LucideIcon;
+  /** Drawn in the icon's place: a connector's logo. */
+  leading?: ReactNode;
   title: ReactNode;
   /** Full title on hover when it is cut. */
   titleText?: string;
@@ -136,6 +138,7 @@ export interface AskCardProps extends Omit<ComponentProps<'section'>, 'title'> {
 export function AskCard({
   kind,
   icon: Icon,
+  leading,
   title,
   titleText,
   wrapTitle,
@@ -187,7 +190,7 @@ export function AskCard({
           EDGE[kind],
         )}
       >
-        <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />
+        {leading ?? <Icon aria-hidden="true" className={cn('size-4 shrink-0', TONE[kind])} />}
         <h2
           className={cn(
             'min-w-0 shrink truncate text-[13.5px] leading-5 font-medium',
@@ -746,7 +749,9 @@ export function AskCode({
       </pre>
       {hidden > 0 || onOpen ? (
         <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
-          <span className="truncate">{hidden > 0 ? `${hidden} more ${hidden === 1 ? 'line' : 'lines'}` : null}</span>
+          <span className="truncate">
+            {hidden > 0 ? `${hidden} more ${hidden === 1 ? 'line' : 'lines'}` : null}
+          </span>
           <AskButton
             {...askKeyAttributes(['o'])}
             className="ml-auto h-6 px-2 text-[12px]"

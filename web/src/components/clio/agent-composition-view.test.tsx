@@ -9,6 +9,7 @@ import {
   agentTranscript as transcript,
   emptyDelta,
   openUse,
+  plugin,
   renderAgentView,
   resolution,
   seedAgentRepository,
@@ -563,6 +564,38 @@ describe('the agent of a conversation not yet started', () => {
     );
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(repository.updateSessionAgent).not.toHaveBeenCalled();
+  });
+
+  it('names a connector plugin by its connector in the summary and the removal dialog', async () => {
+    const user = userEvent.setup();
+    const connector = { id: 'burette', name: 'Burette', logo_url: null };
+    const burette = plugin(
+      'connector-burette',
+      { source: 'user', via: '', label: 'you' },
+      { marketplace: 'clio-connectors', follows: 'burette', connector },
+    );
+    repository.sessionAgent.mockResolvedValue({
+      ...sessionAgent,
+      delta: { add: ['clio-connectors/connector-burette'], remove: [] },
+      resolution: { ...resolution, plugins: [...resolution.plugins, burette] },
+    });
+    repository.previewPluginRemoval.mockResolvedValue({
+      plugin: 'connector-burette',
+      removes: [{ id: 'connector-burette', reason: { reason: 'removed', because: '' } }],
+      tools_removed: [],
+    });
+    renderView();
+    expect(
+      await screen.findByText('This conversation changes Standard: adds Burette.'),
+    ).toBeVisible();
+    await openUse(user);
+    await user.click(
+      await screen.findByRole('button', { name: /Remove (Burette|connector-burette)/u }),
+    );
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Removes Burette from this conversation.')).toBeVisible();
+    expect(await within(dialog).findByText('No other plugin depends on Burette.')).toBeVisible();
+    expect(within(dialog).queryByText(/connector-burette/u)).toBeNull();
   });
 
   it('shows what leaves with a removal before it applies', async () => {
