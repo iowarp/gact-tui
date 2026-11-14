@@ -325,9 +325,13 @@ export const ItemRow = memo(
                     : '@max-sm:row-span-2'),
                 floatsOverName && '@max-sm:hidden',
                 // A labelled button ("Update", "Change") gets a line of its own, start-aligned
-                // under the name and meta, so a localized label never squeezes the name.
+                // under the name and meta, so a localized label never squeezes the name. Its
+                // indent is a spacer that gives way first, so a label wider than the name column
+                // ("Εγκατάσταση" at 260 px and 150%) moves left under the icon instead of overflowing.
                 stacks &&
-                  '@max-sm:has-[[data-slot=button]]:col-[2/-1] @max-sm:has-[[data-slot=button]]:row-[3] @max-sm:has-[[data-slot=button]]:justify-self-start @max-sm:has-[[data-slot=button]]:pt-1',
+                  '@max-sm:has-[[data-slot=button]]:col-[1/-1] @max-sm:has-[[data-slot=button]]:row-[3] @max-sm:has-[[data-slot=button]]:max-w-full @max-sm:has-[[data-slot=button]]:justify-self-start @max-sm:has-[[data-slot=button]]:justify-start @max-sm:has-[[data-slot=button]]:pt-1',
+                stacks &&
+                  "@max-sm:has-[[data-slot=button]]:before:w-[calc(var(--item-icon)+0.125rem)] @max-sm:has-[[data-slot=button]]:before:min-w-0 @max-sm:has-[[data-slot=button]]:before:shrink @max-sm:has-[[data-slot=button]]:before:content-['']",
               )}
               data-slot="item-row-slot"
             >
