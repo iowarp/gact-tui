@@ -4319,6 +4319,11 @@ const server = createServer(async (request, response) => {
     sendJson(response, { session_id: sessionId, open_children: [] });
     return;
   }
+  // A run card's selected step reads its input from the task index; the fixture has no runs.
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/tasks/query`) {
+    sendJson(response, { tasks: [], total: 0, cursor: null, revision: 0 });
+    return;
+  }
 
   if (scienceViews.fallback(request, response, url)) return;
   sendJson(response, { error: 'not_found', path: url.pathname }, 404);

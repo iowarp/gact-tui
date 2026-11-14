@@ -5,7 +5,8 @@ import type { FlowPresentation } from '@/hooks/use-flow-presentation';
 import { FlowDiagram } from './flow-diagram';
 import type { FlowQuestion } from './flow-run-edits';
 import type { FlowPick } from './flow-railroad';
-import { FlowLegend, FlowPickDetails } from './flow-run-parts';
+import { FlowLegend } from './flow-run-parts';
+import { FlowPickDetails } from './flow-step-details';
 import { t } from '@lingui/core/macro';
 
 /**
@@ -24,8 +25,11 @@ export function FlowTrack({
   usage,
   historyUnavailable,
   questions,
+  sessionId,
   active = true,
 }: {
+  /** The conversation that started the run: the selected step's input is read from it. */
+  sessionId?: string;
   /** The approval questions the run asked, shown on the step each is about. */
   questions?: readonly FlowQuestion[];
   flow: string;
@@ -122,6 +126,7 @@ export function FlowTrack({
           onOpenHandle={onOpenHandle}
           pick={pick}
           questions={questions}
+          sessionId={sessionId}
           usage={usage}
         />
       ) : null}

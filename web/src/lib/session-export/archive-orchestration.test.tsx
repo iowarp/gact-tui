@@ -557,7 +557,7 @@ describe('exported orchestration', () => {
     await user.click(screen.getByRole('button', { name: /^draft: Completed\./u }));
     const details = screen.getByRole('region', { name: 'draft: Completed' });
     expect(within(details).getByText('Draft the summary.')).toBeVisible();
-    await user.click(within(details).getByRole('button', { name: 'Open draft' }));
+    await user.click(within(details).getByRole('button', { name: "See draft's conversation" }));
     await waitFor(() =>
       expect(onOpenSubagent).toHaveBeenCalledWith(
         expect.objectContaining({ child_session_id: 'sess_draft' }),

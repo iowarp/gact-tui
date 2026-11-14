@@ -204,6 +204,7 @@ function FlowRunCardBody({
               onOpenHandle={openHandle}
               presentation={presentation}
               questions={questions}
+              sessionId={sessionId}
               usage={data.usage}
               historyUnavailable={historyUnavailable}
             />
@@ -263,6 +264,7 @@ function FlowRunCardBody({
               presentation={presentation}
               questions={questions}
               run={data}
+              sessionId={sessionId}
             />
           </FlowRunFullScreen>
         ) : null}
