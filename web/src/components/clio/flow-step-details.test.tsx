@@ -88,6 +88,22 @@ describe('FlowPickDetails', () => {
     expect(onOpen).toHaveBeenCalledWith('task_researcher');
   });
 
+  it('shows a structured assignment readably, and as sent on request', async () => {
+    repository.taskInput.mockResolvedValue({
+      handle: 'task_researcher',
+      label: 'HDF5 registry filter IDs',
+      description:
+        'Input:\n```json\n{"direction": {"action": "", "question": "Which ID does ZFP have?"}}\n```',
+      description_missing: false,
+    });
+    renderDetails(researcher);
+    expect(await screen.findByText('Which ID does ZFP have?')).toBeVisible();
+    expect(screen.queryByText(/```json/u)).toBeNull();
+    expect(screen.queryByText('Empty text')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Show exactly as sent' }));
+    expect(screen.getByText(/```json/u)).toBeVisible();
+  });
+
   it('says where the input is when the task did not record it', async () => {
     repository.taskInput.mockResolvedValue(null);
     renderDetails(researcher);

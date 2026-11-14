@@ -31824,6 +31824,10 @@ msgstr "アドレスを表示"
 msgid "Show every section"
 msgstr "すべてのセクションを表示"
 
+#: src/components/clio/flow-step-details.tsx
+msgid "Show exactly as sent"
+msgstr "送信したとおりに表示"
+
 #: src/components/clio/knowledge-note-body.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
@@ -31947,6 +31951,10 @@ msgstr "開いているターミナルを表示"
 #: src/components/clio/composer-queue.tsx
 msgid "Show queued messages"
 msgstr "待機中のメッセージを表示"
+
+#: src/components/clio/flow-step-details.tsx
+msgid "Show readable"
+msgstr "読みやすく表示"
 
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
 #: src/components/clio/workspace-navigation-tree-item.tsx

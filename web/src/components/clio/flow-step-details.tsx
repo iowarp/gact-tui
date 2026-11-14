@@ -1,7 +1,7 @@
 import type { FlowRunUsage } from '@clio/core/v3';
 import { MessagesSquareIcon } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useFlowTaskAnswer, useFlowTaskInput } from '@/hooks/use-flow-run';
@@ -14,6 +14,7 @@ import type { FlowQuestion } from './flow-run-edits';
 import { StepQuestions } from './flow-run-edit-list';
 import { Fact, FlowVerdictView, Instructions } from './flow-run-parts';
 import { StepFolder } from './node-folder';
+import { ToolOperationValue } from './tool-operation-value';
 import type { FlowPick } from './flow-railroad';
 import { ClioStatus } from './status';
 import { t, ph } from '@lingui/core/macro';
@@ -303,12 +304,75 @@ function StepInput({
           {t`The input could not be loaded: ${ph({ message: fetched.error.message })}`}
         </p>
       ) : fetched.data ? (
-        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2 font-sans text-xs leading-5 text-foreground">
-          {fetched.data}
-        </pre>
+        <ReadableInput text={fetched.data} />
       ) : (
         <p>{t`Not recorded here. See conversation shows what it was given.`}</p>
       )}
+    </div>
+  );
+}
+
+const SENT_TEXT =
+  'max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2 font-sans text-xs leading-5 text-foreground';
+
+/** Drop fields that say nothing (empty text, null, empty lists and objects). */
+function meaningful(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    const items = value.map(meaningful).filter((item) => item !== undefined);
+    return items.length ? items : undefined;
+  }
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value)
+      .map(([key, item]) => [key, meaningful(item)] as const)
+      .filter(([, item]) => item !== undefined);
+    return entries.length ? Object.fromEntries(entries) : undefined;
+  }
+  return value === '' || value === null ? undefined : value;
+}
+
+/**
+ * The structured part of an assignment: a whole-JSON text or a fenced ```json
+ * block, with the prose around it. ``undefined`` when the text is plain prose.
+ */
+function structuredInput(text: string): { prose: string; value: unknown } | undefined {
+  const fence = /```json\s*\n([\s\S]*?)\n```/u.exec(text);
+  const body = fence ? fence[1] : text.trim();
+  if (!body.startsWith('{') && !body.startsWith('[')) return undefined;
+  try {
+    const value = meaningful(JSON.parse(body));
+    if (value === undefined) return undefined;
+    const prose = fence ? text.replace(fence[0], '').trim() : '';
+    return { prose: /^input:?$/iu.test(prose) ? '' : prose, value };
+  } catch {
+    return undefined;
+  }
+}
+
+/** A step's input, readable: structured fields through the shared reader, or the text. */
+function ReadableInput({ text }: { text: string }) {
+  const [sent, setSent] = useState(false);
+  const structured = useMemo(() => structuredInput(text), [text]);
+  if (!structured) return <pre className={SENT_TEXT}>{text}</pre>;
+  return (
+    <div className="grid min-w-0 gap-1">
+      {sent ? (
+        <pre className={SENT_TEXT}>{text}</pre>
+      ) : (
+        <div className="max-h-72 min-w-0 overflow-auto rounded-md bg-muted/40 p-2">
+          {structured.prose ? (
+            <p className="mb-1 whitespace-pre-wrap text-sm">{structured.prose}</p>
+          ) : null}
+          <ToolOperationValue value={structured.value} />
+        </div>
+      )}
+      <Button
+        aria-pressed={sent}
+        className="h-auto w-fit p-0 text-xs"
+        onClick={() => setSent(!sent)}
+        variant="link"
+      >
+        {sent ? t`Show readable` : t`Show exactly as sent`}
+      </Button>
     </div>
   );
 }

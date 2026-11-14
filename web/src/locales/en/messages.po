@@ -31824,6 +31824,10 @@ msgstr "Show endpoint"
 msgid "Show every section"
 msgstr "Show every section"
 
+#: src/components/clio/flow-step-details.tsx
+msgid "Show exactly as sent"
+msgstr "Show exactly as sent"
+
 #: src/components/clio/knowledge-note-body.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
@@ -31947,6 +31951,10 @@ msgstr "Show open terminals"
 #: src/components/clio/composer-queue.tsx
 msgid "Show queued messages"
 msgstr "Show queued messages"
+
+#: src/components/clio/flow-step-details.tsx
+msgid "Show readable"
+msgstr "Show readable"
 
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
 #: src/components/clio/workspace-navigation-tree-item.tsx

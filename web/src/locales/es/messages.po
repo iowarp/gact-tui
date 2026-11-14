@@ -31824,6 +31824,10 @@ msgstr "Mostrar dirección"
 msgid "Show every section"
 msgstr "Mostrar todas las secciones"
 
+#: src/components/clio/flow-step-details.tsx
+msgid "Show exactly as sent"
+msgstr "Ver tal como se envió"
+
 #: src/components/clio/knowledge-note-body.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
@@ -31947,6 +31951,10 @@ msgstr "Mostrar terminales abiertos"
 #: src/components/clio/composer-queue.tsx
 msgid "Show queued messages"
 msgstr "Mostrar los mensajes en cola"
+
+#: src/components/clio/flow-step-details.tsx
+msgid "Show readable"
+msgstr "Ver legible"
 
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
 #: src/components/clio/workspace-navigation-tree-item.tsx

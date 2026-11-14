@@ -31824,6 +31824,10 @@ msgstr "Εμφάνιση διεύθυνσης"
 msgid "Show every section"
 msgstr "Εμφάνιση όλων των ενοτήτων"
 
+#: src/components/clio/flow-step-details.tsx
+msgid "Show exactly as sent"
+msgstr "Προβολή ακριβώς όπως στάλθηκε"
+
 #: src/components/clio/knowledge-note-body.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
@@ -31947,6 +31951,10 @@ msgstr "Εμφάνιση ανοιχτών τερματικών"
 #: src/components/clio/composer-queue.tsx
 msgid "Show queued messages"
 msgstr "Εμφάνιση μηνυμάτων σε αναμονή"
+
+#: src/components/clio/flow-step-details.tsx
+msgid "Show readable"
+msgstr "Αναγνώσιμη προβολή"
 
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
 #: src/components/clio/workspace-navigation-tree-item.tsx
