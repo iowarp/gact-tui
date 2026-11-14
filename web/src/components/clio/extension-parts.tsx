@@ -147,6 +147,8 @@ export function ExtensionRow({
   name,
   title = name,
   meta,
+  description,
+  needs,
   status,
   onExplore,
   exploreLabel = t`Explore ${name}`,
@@ -165,6 +167,10 @@ export function ExtensionRow({
   name: string;
   title?: string;
   meta?: readonly (ExtensionMetaPart | string)[];
+  /** What it is, one line under the meta, cut with an ellipsis (its whole text on hover). */
+  description?: string;
+  /** What it still needs, a line of its own under the description. */
+  needs?: string;
   status?: ExtensionStatus;
   onExplore?: () => void;
   exploreLabel?: string;
@@ -208,7 +214,27 @@ export function ExtensionRow({
       className={cn(onExplore && 'cursor-default', ROW_MENU_OPEN_VISIBLE, className)}
       confirm={confirm}
       icon={icon}
-      meta={meta?.length ? <MetaLine parts={meta} wrap /> : undefined}
+      meta={
+        meta?.length || description || needs ? (
+          <span className="flex min-w-0 flex-col">
+            {meta?.length ? <MetaLine parts={meta} wrap /> : null}
+            {description ? (
+              <span
+                className="block truncate"
+                data-slot="extension-description"
+                title={description}
+              >
+                {description}
+              </span>
+            ) : null}
+            {needs ? (
+              <span className="block break-words whitespace-normal" data-slot="extension-needs">
+                {needs}
+              </span>
+            ) : null}
+          </span>
+        ) : undefined
+      }
       onClick={onExplore ? open : undefined}
       onKeyDown={onKeyDown}
       selected={selected}

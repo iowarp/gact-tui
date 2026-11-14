@@ -349,6 +349,8 @@ function ExtensionLibraryContents({
           icon={<ConnectorLogo className="size-5 text-[9px]" connector={entry.connector} />}
           key={entry.key}
           meta={entry.meta}
+          description={entry.description}
+          needs={entry.needs}
           name={entry.title}
           onExplore={() => open(target)}
           selected={isOpen(target)}

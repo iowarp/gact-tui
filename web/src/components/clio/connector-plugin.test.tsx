@@ -157,11 +157,8 @@ describe('connectors and plugins are shown as what they are (PL-D1)', () => {
     ]);
     // The tool count is in what it brings; the state does not repeat it.
     expect(shown!.status).toEqual({ tone: 'success', label: 'Ready' });
-    expect(off!.meta.map((part) => part.text)).toEqual([
-      'Plugin',
-      '2 skills, 1 MCP server',
-      'Needs hub address and access token',
-    ]);
+    expect(off!.meta.map((part) => part.text)).toEqual(['Plugin', '2 skills, 1 MCP server']);
+    expect(off!.needs).toBe('Needs hub address and access token');
     expect(off!.status?.label).toBe('Not enabled');
     expect(plain!.meta.map((part) => part.text)).toEqual(['Connector', '1 MCP server (4 tools)']);
     expect(mine!.meta.map((part) => part.text)).toEqual([
