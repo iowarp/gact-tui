@@ -6,6 +6,7 @@ import { connectionScope } from '@/lib/connection-scope';
 import type { ConnectorChange } from '@/lib/connector-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { t } from '@lingui/core/macro';
 
 /**
  * What a connector change makes stale: the connectors, the servers they start, the
@@ -142,21 +143,21 @@ export function useConnectorActions() {
       repository.setConnectorValues(id, values),
     onSuccess: settle,
     onError: (error: Error) =>
-      toast.error('The values were not saved', { description: error.message }),
+      toast.error(t`The values were not saved`, { description: error.message }),
   });
   const enable = useMutation({
     mutationKey: [CONNECTOR_CHANGE, 'starting'],
     mutationFn: (id: string) => repository.enableConnector(id),
     onSuccess: settle,
     onError: (error: Error) =>
-      toast.error('The connector was not enabled', { description: error.message }),
+      toast.error(t`The connector was not enabled`, { description: error.message }),
   });
   const disable = useMutation({
     mutationKey: [CONNECTOR_CHANGE, 'turning-off'],
     mutationFn: (id: string) => repository.disableConnector(id),
     onSuccess: settle,
     onError: (error: Error) =>
-      toast.error('The connector was not turned off', { description: error.message }),
+      toast.error(t`The connector was not turned off`, { description: error.message }),
   });
   const remove = useMutation({
     mutationFn: (id: string) => repository.removeConnector(id),
@@ -164,7 +165,7 @@ export function useConnectorActions() {
       await invalidate();
     },
     onError: (error: Error) =>
-      toast.error('The connector was not removed', { description: error.message }),
+      toast.error(t`The connector was not removed`, { description: error.message }),
   });
   return { save, enable, disable, remove, invalidate };
 }

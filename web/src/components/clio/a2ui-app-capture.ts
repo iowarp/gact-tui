@@ -82,6 +82,7 @@ export async function paintAppFrames(
       height: rect.height * scaleY,
     };
     const take = viewSnapshotFor(frame);
+    // i18n-ignore: painted into the capture the agent reads, kept in English like other text sent to the agent
     let refusal = 'View not captured: the view has not finished loading (view_not_ready).';
     if (take) {
       try {
@@ -92,12 +93,15 @@ export async function paintAppFrames(
             ...new Set(snapshot.skipped.map((row) => row.reason).filter((r) => !QUIET.has(r))),
           ];
           if (gaps.length)
+            // i18n-ignore: painted into the capture the agent reads, kept in English like other text sent to the agent
             paintGapNote(context, box, `Not in this picture: ${gaps.join(', ')}`, scaleX);
           continue;
         }
+        // i18n-ignore: painted into the capture the agent reads, kept in English like other text sent to the agent
         refusal = `View not captured: ${snapshot.error.message} (${snapshot.error.reason}).`;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        // i18n-ignore: painted into the capture the agent reads, kept in English like other text sent to the agent
         refusal = `View not captured: ${message} (snapshot_failed).`;
       }
     }

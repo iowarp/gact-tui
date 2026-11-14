@@ -113,6 +113,7 @@ export function mcpAppStyleVariables(root: Element = document.documentElement) {
     else if ('tint' in source) {
       const tint = read(source.tint);
       value =
+        // i18n-ignore: CSS color-mix expression, not copy
         tint && background ? `color-mix(in oklab, ${tint} ${source.percent}%, ${background})` : '';
     } else {
       value = source.value;

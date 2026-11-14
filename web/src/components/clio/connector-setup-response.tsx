@@ -16,6 +16,8 @@ import { pendingInteractionDomId, respondFromControl } from './interaction-contr
 import { McpSignInDialog } from './mcp-sign-in';
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { StatusIndicator } from './primitives/status-indicator';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /**
  * The setup card inside the conversation (CN5). The agent called a tool on a connector
@@ -96,8 +98,8 @@ function ConnectorSetupCard({
         />
       }
       spokenDetail={status ? `${name}: ${status.label}` : undefined}
-      title={`Set up ${name}`}
-      titleText={`Set up ${name}`}
+      title={t`Set up ${name}`}
+      titleText={t`Set up ${name}`}
       wrapTitle
     >
       <AskBody>
@@ -105,11 +107,13 @@ function ConnectorSetupCard({
           <p className="truncate leading-5 text-muted-foreground" title={tool || undefined}>
             {tool ? (
               <>
-                <span className="font-mono text-[11.5px]">{tool}</span> waits for this, then
-                continues.
+                <Trans>
+                  <span className="font-mono text-label">{tool}</span> waits for this, then
+                  continues.
+                </Trans>
               </>
             ) : (
-              'The agent’s call waits for this, then continues.'
+              t`The agent’s call waits for this, then continues.`
             )}
           </p>
           {payload ? (
@@ -124,34 +128,36 @@ function ConnectorSetupCard({
               }
               onSubmit={submit}
               saveAsDefault={saveAsDefault}
-              submitLabel={`Set up ${name}`}
+              submitLabel={t`Set up ${name}`}
             />
           ) : (
-            <p role="alert">This setup request can’t be read by this version.</p>
+            <p role="alert">{t`This setup request can’t be read by this version.`}</p>
           )}
         </AskSection>
       </AskBody>
       <AskError error={responseError} />
-      <AskOptions aria-label="Decision">
+      <AskOptions aria-label={t`Decision`}>
         {offered('submit') ? (
           <AskButton
             disabled={disabled || !payload || unfilled.length > 0}
+            // i18n-ignore: key name
             hint={unfilled.length ? undefined : 'Enter'}
             number={1}
             onClick={submit}
             primary
-            title={unfilled.length ? 'Fill the required rows first' : undefined}
+            title={unfilled.length ? t`Fill the required rows first` : undefined}
           >
-            Continue
+            {t`Continue`}
           </AskButton>
         ) : null}
         {offered('decline') ? (
           <AskButton
             disabled={disabled}
+            // i18n-ignore: key name
             hint="Escape"
             onClick={() => respondFromControl(onResponse(interaction, { action: 'decline' }))}
           >
-            Decline
+            {t`Decline`}
           </AskButton>
         ) : null}
       </AskOptions>

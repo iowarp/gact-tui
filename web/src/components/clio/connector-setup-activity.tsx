@@ -4,6 +4,7 @@ import { useConnector } from '@/hooks/use-connectors';
 import { WaitingForYou } from './agent-answer-activity';
 import { ConnectorLogo } from './connector-need-rows';
 import { humanizePluginId } from '@/lib/plugin-presentation';
+import { t } from '@lingui/core/macro';
 
 const OUTCOME: Record<string, string> = {
   answered: 'set up',
@@ -47,8 +48,7 @@ export function ConnectorSetupActivity({ interaction }: { interaction: PendingIn
         />
       )}
       <span className="min-w-0 truncate text-foreground/80">
-        {offer ? 'Add' : 'Set up'} {name}
-        {offer ? ' to this conversation' : ''}
+        {offer ? t`Add ${name} to this conversation` : t`Set up ${name}`}
       </span>
       {interaction.status === 'pending' ? (
         <WaitingForYou interaction={interaction} />

@@ -11,7 +11,7 @@ import {
   type RemovedPlugin,
   type ResolvedPlugin,
 } from '@clio/core/v3';
-import { plural, t, ph } from '@lingui/core/macro';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /**
  * Where an active plugin came from, as a person reads it: core (every agent
@@ -50,8 +50,8 @@ export function resolvedPluginOrigin(plugin: Pick<ResolvedPlugin, 'provenance' |
   const label = provenanceLabel(plugin.provenance);
   if (!plugin.connector) return label;
   return plugin.provenance.source === 'user'
-    ? 'Connector you added'
-    : `Connector (${label.toLowerCase()})`;
+    ? t`Connector you added`
+    : t`Connector (${ph({ origin: label.toLowerCase() })})`;
 }
 
 /** A longer explanation for the provenance badge's tooltip. */
@@ -272,9 +272,9 @@ export function packMembersLabel(total: number, active: number): string {
 export function removedPluginReason(row: RemovedPlugin): string {
   switch (row.reason) {
     case 'connector_off':
-      return `Left because its connector ${row.because} is turned off; it returns when it is on`;
+      return t`Left because its connector ${ph({ connector: row.because })} is turned off; it returns when it is on`;
     case 'connector_not_found':
-      return `Left because its connector ${row.because} no longer exists`;
+      return t`Left because its connector ${ph({ connector: row.because })} no longer exists`;
     case 'pack_empty':
       return t`Left because none of its members remain`;
     case 'removed':

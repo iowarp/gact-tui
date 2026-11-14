@@ -416,7 +416,7 @@ export function WorkbenchTabContent({
       return <WorkbenchVariantTryTab tab={tab} />;
     case 'mcp-app':
       return (
-        <Suspense fallback={<CanvasLoading label="Opening the view" />}>
+        <Suspense fallback={<CanvasLoading label={t`Opening the view`} />}>
           <McpAppTabPanel onReplaceTab={onReplaceTab} target={tab} />
         </Suspense>
       );

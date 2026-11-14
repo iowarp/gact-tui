@@ -35,7 +35,7 @@ import { mapPngBlob } from './map-export';
 import type { MapDebugSurface } from './scientific-map-view';
 import { readThemeColor, readThemeFont } from '@/theme/runtime';
 import { isTransparentColor } from './surface-export';
-import { plural, t, ph } from '@lingui/core/macro';
+import { ph, plural, t } from '@lingui/core/macro';
 
 interface CaptureContext {
   allowed: boolean;
@@ -558,7 +558,7 @@ export function A2uiRegionCaptureProvider({
                   type="button"
                   variant="outline"
                 >
-                  Mark across the whole dashboard
+                  {t`Mark across the whole dashboard`}
                 </Button>
               ) : null}
               {attention && regions.length ? (

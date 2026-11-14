@@ -34,7 +34,7 @@ import { IconButton } from './primitives/icon-button';
 import { SegmentedControl } from './primitives/segmented-control';
 import { SettingsRow } from './settings-row';
 import { identifierInputProps } from '@/lib/identifier-input';
-import { t, ph, plural } from '@lingui/core/macro';
+import { ph, plural, t } from '@lingui/core/macro';
 
 export type McpConnectionKind = 'remote' | 'local';
 
@@ -209,7 +209,7 @@ export function McpConnectionDialog({
         )
           onSignIn(created.id);
         else
-          toast.success(`Added ${created.name}`, { description: connectorStatus(created).detail });
+          toast.success(t`Added ${ph({ name: created.name })}`, { description: connectorStatus(created).detail });
         return;
       }
       const result = await repository.configureMcpServer(key, input);

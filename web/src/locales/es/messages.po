@@ -52,6 +52,10 @@ msgstr "“{label}” es por nodo; un umbral necesita valores por elemento, así
 msgid "“How did Harvey, Maria, and Dorian move, and when did each reach its strongest winds?”"
 msgstr "«¿Cómo se desplazaron Harvey, Maria y Dorian, y cuándo alcanzó cada uno sus vientos más fuertes?»"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "(Add turns it on)"
+msgstr "(Añadir lo activa)"
+
 #: src/components/clio/ndp-endpoint-panel.tsx
 msgid "(Hidden)"
 msgstr "(Oculto)"
@@ -497,6 +501,11 @@ msgstr "{0, plural, one {# dato reemplazado} other {# datos reemplazados}}"
 msgid "{0, plural, one {# reported call} other {# reported calls}}"
 msgstr "{0, plural, one {# llamada informada} other {# llamadas informadas}}"
 
+#. placeholder {0}: missing.length
+#: src/components/clio/connector-pane.tsx
+msgid "{0, plural, one {# required row is empty} other {# required rows are empty}}"
+msgstr "{0, plural, one {# fila obligatoria está vacía} other {# filas obligatorias están vacías}}"
+
 #. placeholder {0}: dataset.resources.length
 #. placeholder {0}: records(row.resources).length
 #: src/components/clio/ndp-browser-tab.tsx
@@ -790,8 +799,8 @@ msgstr "{0, plural, one {Mensajes de # script en segundo plano} other {Mensajes 
 
 #. placeholder {0}: dependents.length
 #: src/components/clio/plugin-removal-cascade.tsx
-msgid "{0, plural, one {One more plugin leaves with {plugin}:} other {# more plugins leave with {plugin}:}}"
-msgstr "{0, plural, one {Un complemento más se va con {plugin}:} other {# complementos más se van con {plugin}:}}"
+msgid "{0, plural, one {One more plugin leaves with {named}:} other {# more plugins leave with {named}:}}"
+msgstr "{0, plural, one {Un plugin más sale junto con {named}:} other {# plugins más salen junto con {named}:}}"
 
 #. placeholder {0}: pages.length
 #: src/components/clio/script-run-body.tsx
@@ -1140,6 +1149,10 @@ msgstr "{agent} cerró la conexión SSH antes de vincularla (código {code})."
 #: src/components/clio/update-restart-overlay.tsx
 msgid "{agent} could not be reached after the update."
 msgstr "No se pudo contactar con {agent} después de la actualización."
+
+#: src/components/clio/mcp-app-reopen.tsx
+msgid "{agent} could not be reached."
+msgstr "No se pudo contactar con {agent}."
 
 #: src/components/clio/settings-runtime.tsx
 msgid "{agent} default"
@@ -1680,6 +1693,10 @@ msgstr "{count, plural, one {Abrir {label} con # comentario} other {Abrir {label
 msgid "{count, plural, one {Published # file to the originals.} other {Published # files to the originals.}}"
 msgstr "{count, plural, one {Se publicó # archivo en los originales.} other {Se publicaron # archivos en los originales.}}"
 
+#: src/lib/connector-presentation.ts
+msgid "{count, plural, one {Ready, # tool} other {Ready, # tools}}"
+msgstr "{count, plural, one {Listo, # herramienta} other {Listo, # herramientas}}"
+
 #: src/components/clio/comments/comment-session.tsx
 msgid "{count, plural, one {Send # comment} other {Send # comments}}"
 msgstr "{count, plural, one {Enviar # comentario} other {Enviar # comentarios}}"
@@ -1795,12 +1812,12 @@ msgid "{detail} ({elapsed}) You can keep using {agent} while this finishes."
 msgstr "{detail} ({elapsed}) Puedes seguir usando {agent} mientras termina."
 
 #: src/components/clio/mcp-app-surface.tsx
-msgid "{displayName} interactive view"
-msgstr "Vista interactiva de {displayName}"
-
-#: src/components/clio/mcp-app-surface.tsx
 msgid "{displayName} view closed"
 msgstr "Vista de {displayName} cerrada"
+
+#: src/components/clio/mcp-app-surface.tsx
+msgid "{displayName}, interactive view"
+msgstr "{displayName}, vista interactiva"
 
 #: src/components/clio/task-progress-label.ts
 msgid "{done, plural, one {{doneText} entry indexed} other {{doneText} entries indexed}}"
@@ -2113,10 +2130,6 @@ msgstr "Ajustes de {id}"
 msgid "{id} text"
 msgstr "Texto de {id}"
 
-#: src/components/clio/agent-composition-view.tsx
-msgid "{id} was not added"
-msgstr "No se añadió {id}"
-
 #: src/routes/settings-window.tsx
 msgid "{inbox, plural, one {# memory change waiting for review} other {# memory changes waiting for review}}"
 msgstr "{inbox, plural, one {# cambio de memoria pendiente de revisión} other {# cambios de memoria pendientes de revisión}}"
@@ -2414,6 +2427,10 @@ msgstr "{label}: detalles técnicos"
 msgid "{label}: view call {callId} in transcript"
 msgstr "{label}: ver la llamada {callId} en la transcripción"
 
+#: src/lib/connector-presentation.ts
+msgid "{label}. {reason}"
+msgstr "{label}. {reason}"
+
 #: src/lib/model-capability-tags.ts
 msgid "{label}. Hugging Face task: {hub}."
 msgstr "{label}. Tarea de Hugging Face: {hub}."
@@ -2607,23 +2624,43 @@ msgstr "{modelCount, plural, one {# modelo} other {# modelos}}"
 msgid "{n, plural, one {# {protocol} surface} other {# {protocol} surfaces}}"
 msgstr "{n, plural, one {# superficie {protocol}} other {# superficies {protocol}}}"
 
+#: src/lib/plugin-offer-contents.ts
+msgid "{n, plural, one {# agent} other {# agents}}"
+msgstr "{n, plural, one {# agente} other {# agentes}}"
+
 #: src/lib/extension-library-entries.ts
+#: src/lib/plugin-offer-contents.ts
 msgid "{n, plural, one {# command} other {# commands}}"
 msgstr "{n, plural, one {# comando} other {# comandos}}"
 
 #: src/lib/extension-library-entries.ts
+#: src/lib/plugin-offer-contents.ts
 msgid "{n, plural, one {# flow} other {# flows}}"
 msgstr "{n, plural, one {# flujo} other {# flujos}}"
 
 #: src/lib/extension-library-entries.ts
+#: src/lib/plugin-offer-contents.ts
 msgid "{n, plural, one {# hook} other {# hooks}}"
 msgstr "{n, plural, one {# hook} other {# hooks}}"
+
+#: src/lib/plugin-offer-contents.ts
+msgid "{n, plural, one {# MCP server} other {# MCP servers}}"
+msgstr "{n, plural, one {# servidor MCP} other {# servidores MCP}}"
+
+#: src/lib/plugin-offer-contents.ts
+msgid "{n, plural, one {# other MCP server} other {# other MCP servers}}"
+msgstr "{n, plural, one {# servidor MCP más} other {# servidores MCP más}}"
 
 #: src/lib/session-attention.ts
 msgid "{n, plural, one {# permission} other {# permissions}}"
 msgstr "{n, plural, one {# permiso} other {# permisos}}"
 
+#: src/lib/plugin-offer-contents.ts
+msgid "{n, plural, one {# plugin} other {# plugins}}"
+msgstr "{n, plural, one {# plugin} other {# plugins}}"
+
 #: src/lib/extension-library-entries.ts
+#: src/lib/plugin-offer-contents.ts
 msgid "{n, plural, one {# prompt fragment} other {# prompt fragments}}"
 msgstr "{n, plural, one {# fragmento de instrucción} other {# fragmentos de instrucción}}"
 
@@ -2636,6 +2673,7 @@ msgid "{n, plural, one {# server} other {# servers}}"
 msgstr "{n, plural, one {# servidor} other {# servidores}}"
 
 #: src/lib/extension-library-entries.ts
+#: src/lib/plugin-offer-contents.ts
 msgid "{n, plural, one {# skill} other {# skills}}"
 msgstr "{n, plural, one {# habilidad} other {# habilidades}}"
 
@@ -2648,8 +2686,13 @@ msgid "{n, plural, one {# task input} other {# task inputs}}"
 msgstr "{n, plural, one {# entrada de tarea} other {# entradas de tarea}}"
 
 #: src/lib/extension-library-entries.ts
+#: src/lib/plugin-offer-contents.ts
 msgid "{n, plural, one {# tool} other {# tools}}"
 msgstr "{n, plural, one {# herramienta} other {# herramientas}}"
+
+#: src/lib/plugin-offer-contents.ts
+msgid "{n, plural, one {# UI catalog} other {# UI catalogs}}"
+msgstr "{n, plural, one {# catálogo de interfaz} other {# catálogos de interfaz}}"
 
 #: src/lib/session-attention.ts
 msgid "{n, plural, one {# unrecognized request} other {# unrecognized requests}}"
@@ -2873,6 +2916,14 @@ msgstr "Verificar configuración de {name}"
 msgid "{name} view logs"
 msgstr "Ver registros de {name}"
 
+#: src/components/clio/agent-composition-view.tsx
+msgid "{name} was not added"
+msgstr "No se añadió {name}"
+
+#: src/components/clio/agent-composition-view.tsx
+msgid "{name} was not removed"
+msgstr "No se quitó {name}"
+
 #: src/components/clio/workspace-folders.tsx
 msgid "{name}, {note}. Copy {path}"
 msgstr "{name}, {note}. Copiar {path}"
@@ -3035,10 +3086,6 @@ msgstr "Herramientas de {plugin}"
 #: src/components/clio/agent-composition-view.tsx
 msgid "{plugin} was not added back"
 msgstr "No se volvió a añadir {plugin}"
-
-#: src/components/clio/agent-composition-view.tsx
-msgid "{plugin} was not removed"
-msgstr "No se quitó {plugin}"
 
 #: src/components/clio/a2ui-carousel.tsx
 #: src/components/clio/pending-interactions.tsx
@@ -3801,6 +3848,14 @@ msgstr "{tokens} tokens con lecturas de caché, menos de $0.01"
 msgid "{tool} ({status}): show exact record"
 msgstr "{tool} ({status}): mostrar el registro exacto"
 
+#: src/components/clio/mcp-app-reopen.tsx
+msgid "{tool} from {server}"
+msgstr "{tool} de {server}"
+
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "{tool} on {server}"
+msgstr "{tool} en {server}"
+
 #: src/components/clio/message-reply-facts.tsx
 msgid "{toolCount, plural, one {# tool call, {failedToolCount} failed} other {# tool calls, {failedToolCount} failed}}"
 msgstr "{toolCount, plural, one {# llamada a herramienta, {failedToolCount} con error} other {# llamadas a herramientas, {failedToolCount} con error}}"
@@ -3829,6 +3884,10 @@ msgstr "{tools, plural, one {# registro de herramienta} other {# registros de he
 #: src/lib/transcript-message-preview.ts
 msgid "{tools, plural, one {# tool} other {# tools}}"
 msgstr "{tools, plural, one {# herramienta} other {# herramientas}}"
+
+#: src/lib/plugin-offer-contents.ts
+msgid "{tools, plural, one {1 MCP server (# tool)} other {1 MCP server (# tools)}}"
+msgstr "{tools, plural, one {1 servidor MCP (# herramienta)} other {1 servidor MCP (# herramientas)}}"
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "{tools, plural, one {called # tool} other {called # tools}}"
@@ -4050,6 +4109,10 @@ msgstr "<0>{host}</0> presentó un certificado en el que este navegador no conf�
 msgid "<0>{severity}</0>: {message}"
 msgstr "<0>{severity}</0>: {message}"
 
+#: src/components/clio/connector-setup-response.tsx
+msgid "<0>{tool}</0> waits for this, then continues."
+msgstr "<0>{tool}</0> espera esto y después continúa."
+
 #: src/components/clio/search-contact-email.tsx
 msgid "<0>Add an email in Profile</0> to use it here."
 msgstr "<0>Añade un correo en Perfil</0> para usarlo aquí."
@@ -4095,6 +4158,10 @@ msgstr "<0>Esperando a que se inicie el servicio</0><1>. Se abrirá solo en cuan
 #: src/components/clio/install-expectation-model.ts
 msgid "~{minutes} min"
 msgstr "~{minutes} min"
+
+#: src/lib/plugin-offer-contents.ts
+msgid "1 MCP server"
+msgstr "1 servidor MCP"
 
 #: src/lib/model-range-scales.ts
 msgid "1 year"
@@ -4372,6 +4439,10 @@ msgstr "Un aviso breve sobre un resultado, una advertencia o un siguiente paso q
 #: src/components/clio/settings-general.tsx
 msgid "A short walkthrough with a practice conversation. Nothing in it is sent or saved."
 msgstr "Un breve recorrido con una conversación de práctica. No se envía ni se guarda nada."
+
+#: src/lib/connector-presentation.ts
+msgid "a sign-in"
+msgstr "un inicio de sesión"
 
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A skill folder containing SKILL.md and its references."
@@ -4906,6 +4977,7 @@ msgstr "Tamaño real ({percent} %)"
 msgid "Add"
 msgstr "Añadir"
 
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/extension-add-dialog.tsx
 msgctxt "verb"
 msgid "Add"
@@ -4920,9 +4992,18 @@ msgstr "Añadir instancia de {label}"
 msgid "Add {label} to message"
 msgstr "Añadir {label} al mensaje"
 
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/session-rail-customize.tsx
 msgid "Add {name}"
 msgstr "Añadir {name}"
+
+#: src/components/clio/connector-setup-activity.tsx
+msgid "Add {name} to this conversation"
+msgstr "Añadir {name} a esta conversación"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "Add {name} to this conversation?"
+msgstr "¿Añadir {name} a esta conversación?"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Add {name} to this workspace"
@@ -4981,11 +5062,6 @@ msgstr "Añadir un agente…"
 msgid "Add an API key."
 msgstr "Añade una clave de API."
 
-#: src/components/clio/extension-add-dialog.tsx
-#: src/components/clio/mcp-connection-dialog.tsx
-msgid "Add an MCP connection"
-msgstr "Añadir una conexión MCP"
-
 #: src/components/clio/ssh-host-dialog.tsx
 msgid "Add an SSH host"
 msgstr "Añadir un host SSH"
@@ -5005,6 +5081,16 @@ msgstr "Añadir adjuntos"
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "Add back"
 msgstr "Volver a añadir"
+
+#: src/components/clio/extension-add-dialog.tsx
+msgid "Add by command"
+msgstr "Añadir por comando"
+
+#: src/components/clio/extension-add-dialog.tsx
+#: src/components/clio/extension-library-toolbar.tsx
+#: src/components/clio/mcp-connection-dialog.tsx
+msgid "Add by URL or command"
+msgstr "Añadir por URL o comando"
 
 #: src/components/clio/a2ui-message-draft.tsx
 msgid "Add Cc"
@@ -5206,15 +5292,13 @@ msgstr "añadido"
 msgid "Added"
 msgstr "Añadido"
 
-#: src/components/clio/agent-composition-view.tsx
-msgid "Added {id}"
-msgstr "Se añadió {id}"
-
 #: src/components/clio/file-viewer-take-hooks.tsx
 #: src/components/clio/workbench-tab-row.tsx
 msgid "Added {label} to the message."
 msgstr "Se añadió {label} al mensaje."
 
+#: src/components/clio/agent-composition-view.tsx
+#: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/settings-connection.tsx
 msgid "Added {name}"
 msgstr "Se añadió {name}"
@@ -5244,6 +5328,8 @@ msgstr "Añadido por"
 msgid "added by {addedBy}"
 msgstr "añadido por {addedBy}"
 
+#: src/components/clio/connector-pane.tsx
+#: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
 msgid "Added by you"
 msgstr "Añadido por ti"
@@ -5263,6 +5349,10 @@ msgstr "Añadiendo y comprobando…"
 #: src/components/clio/extension-library-toolbar.tsx
 msgid "Adding or composing extensions needs a newer agent service. Existing sources can still be inspected."
 msgstr "Añadir o componer extensiones requiere un servicio de agente más reciente. Las fuentes existentes aún se pueden inspeccionar."
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "Adding turns {name} on."
+msgstr "Al añadirlo se activa {name}."
 
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/mcp-connection-dialog.tsx
@@ -5312,12 +5402,20 @@ msgid "Adds"
 msgstr "Añade"
 
 #: src/components/clio/agent-composition-view.tsx
-msgid "Adds {id} to this conversation."
-msgstr "Añade {id} a esta conversación."
+msgid "Adds {name} to this conversation."
+msgstr "Añade {name} a esta conversación."
 
 #: src/components/clio/agent-composition-view.tsx
 msgid "Adds {plugin} back to this conversation."
 msgstr "Vuelve a añadir {plugin} a esta conversación."
+
+#: src/lib/plugin-offer-contents.ts
+msgid "Adds it to this conversation only"
+msgstr "Lo añade solo a esta conversación"
+
+#: src/components/clio/comments/comment-editor.tsx
+msgid "Adjust region"
+msgstr "Ajustar región"
 
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "Admin"
@@ -5477,6 +5575,7 @@ msgstr "Agente para una conversación nueva"
 msgid "Agent for this conversation"
 msgstr "Agente para esta conversación"
 
+#: src/components/clio/connector-pane.tsx
 #: src/gallery-skill-dialog.tsx
 #: src/widget-preview-app.tsx
 msgid "Agent guidance"
@@ -6561,7 +6660,7 @@ msgstr "Preguntar a la Búsqueda de {agent}"
 msgid "Ask {name}"
 msgstr "Preguntar a {name}"
 
-#: src/components/clio/composer.tsx
+#: src/lib/brand-vocabulary.ts
 msgid "Ask {name} anything, or describe a task…"
 msgstr "Pregunta a {name} lo que quieras o describe una tarea…"
 
@@ -7127,7 +7226,7 @@ msgstr "Volver a Conversaciones"
 msgid "Back to derivatives"
 msgstr "Volver a los derivados"
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-registry-section.tsx
 msgid "Back to first page"
 msgstr "Volver a la primera página"
 
@@ -7535,6 +7634,10 @@ msgstr "Trae tu propio complemento"
 msgid "Bring your own skills"
 msgstr "Trae tus propias habilidades"
 
+#: src/lib/plugin-offer-contents.ts
+msgid "Brings {kinds} to this conversation"
+msgstr "Aporta {kinds} a esta conversación"
+
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/path-picker.tsx
 msgid "Browse"
@@ -7793,6 +7896,10 @@ msgstr "Puede pensar antes de responder."
 #: src/lib/model-capability-tags.ts
 msgid "Can use tools."
 msgstr "Puede usar herramientas."
+
+#: src/lib/connector-presentation.ts
+msgid "Can’t be reached"
+msgstr "No se puede contactar"
 
 #: src/components/clio/provider-component-status.tsx
 msgid "Can't check updates"
@@ -8108,7 +8215,6 @@ msgstr "Capturar"
 msgid "Capture attention context"
 msgstr "Capturar contexto de atención"
 
-#: src/components/clio/dashboard-capture-action.tsx
 #: src/components/clio/surface-toolbar.tsx
 msgid "Capture labelled regions"
 msgstr "Capturar regiones etiquetadas"
@@ -8179,6 +8285,7 @@ msgstr "Ficha: {repository}, revisión {revision}. Metadatos de capacidades: {me
 msgid "Carousel"
 msgstr "Carrusel"
 
+#: src/components/clio/connector-pane.tsx
 #: src/components/clio/ndp-endpoint-data.ts
 msgid "Catalog"
 msgstr "Catálogo"
@@ -8717,8 +8824,8 @@ msgid "Checking versions"
 msgstr "Comprobando versiones"
 
 #: src/components/clio/plugin-removal-cascade.tsx
-msgid "Checking what depends on {plugin}…"
-msgstr "Comprobando qué depende de {plugin}…"
+msgid "Checking what depends on {named}…"
+msgstr "Comprobando qué depende de {named}…"
 
 #: src/components/clio/provider-action-flows.ts
 msgid "Checking your key"
@@ -9046,6 +9153,10 @@ msgstr "Elige al menos {count}."
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Choose at least one skill, plugin or MCP connection"
 msgstr "Elige al menos una habilidad, un complemento o una conexión MCP"
+
+#: src/components/clio/agent-answer-activity.tsx
+msgid "Choose below"
+msgstr "Elige abajo"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Choose Box select or hold Shift and drag to select matching rows."
@@ -9757,6 +9868,10 @@ msgstr "Comentario sobre una vista"
 msgid "Comment on an answer"
 msgstr "Comentario sobre una respuesta"
 
+#: src/components/clio/composer-annotations.tsx
+msgid "Comment on an app view"
+msgstr "Comentario sobre una vista de aplicación"
+
 #: src/components/clio/browser-frame.tsx
 msgid "Comment on the page to add it to a message"
 msgstr "Comenta la página para añadirla a un mensaje"
@@ -10454,6 +10569,7 @@ msgstr "Conectando..."
 
 #: src/components/clio/composer-toolbar-status.tsx
 #: src/components/clio/connected-source-form.tsx
+#: src/components/clio/connector-pane.tsx
 #: src/components/clio/managed-services.tsx
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/obsidian-source-form.tsx
@@ -10535,6 +10651,34 @@ msgstr "Conexiones"
 #: src/components/clio/infrastructure-topology.tsx
 msgid "Connections from this client to the agent and managed computers"
 msgstr "Conexiones de este cliente al agente y a los equipos gestionados"
+
+#: src/lib/extension-library-entries.ts
+msgid "Connector"
+msgstr "Conector"
+
+#: src/lib/plugin-presentation.ts
+msgid "Connector ({origin})"
+msgstr "Conector ({origin})"
+
+#: src/components/clio/extension-library.tsx
+msgid "Connector catalog"
+msgstr "Catálogo de conectores"
+
+#: src/lib/plugin-presentation.ts
+msgid "Connector you added"
+msgstr "Conector que añadiste"
+
+#: src/lib/extension-library-entries.ts
+msgid "Connectors"
+msgstr "Conectores"
+
+#: src/components/clio/extension-library.tsx
+msgid "Connectors to enable"
+msgstr "Conectores para activar"
+
+#: src/components/clio/extension-library.tsx
+msgid "Connectors, plugins, marketplaces and skills for your agents."
+msgstr "Conectores, plugins, marketplaces y habilidades para tus agentes."
 
 #: src/components/clio/sftp-authentication-fields.tsx
 msgid "Connects from {hostLabel}. A selected key or password is sent privately to this {agent} and kept in memory until disconnect or restart. It is never included in the conversation. Without a selected key, this host's configured keys or SSH agent are used. Interactive Duo/2FA, security-key prompts and Kerberos require {product}."
@@ -10698,6 +10842,7 @@ msgstr "El contexto no se compactó"
 msgid "Context window"
 msgstr "Ventana de contexto"
 
+#: src/components/clio/connector-setup-response.tsx
 #: src/components/clio/managed-service-instance.tsx
 #: src/components/clio/managed-service-target.tsx
 #: src/components/clio/service-management-confirm-dialog.tsx
@@ -11436,6 +11581,10 @@ msgstr "No se pudo añadir esta selección"
 msgid "Could not allow {name} again"
 msgstr "No se pudo volver a permitir {name}"
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "Could not change {key}: {message}"
+msgstr "No se pudo cambiar {key}: {message}"
+
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/settings-app-updates.tsx
 msgid "Could not check"
@@ -11708,6 +11857,10 @@ msgstr "No se pudo quitar la dirección"
 #: src/components/clio/connected-source-actions.tsx
 msgid "Could not remove source"
 msgstr "No se pudo quitar la fuente"
+
+#: src/components/clio/mcp-app-reopen.tsx
+msgid "Could not reopen {displayName}"
+msgstr "No se pudo volver a abrir {displayName}"
 
 #: src/components/clio/provider-component-status.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
@@ -12287,6 +12440,8 @@ msgstr "Decidir: {request}"
 
 #: src/components/clio/a2ui-action-lifecycle.tsx
 #: src/components/clio/agent-answer-domain.ts
+#: src/components/clio/connector-offer-response.tsx
+#: src/components/clio/connector-setup-response.tsx
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Decision"
@@ -12308,6 +12463,7 @@ msgstr "Declarado como {type}."
 msgid "Declared as a structured value."
 msgstr "Declarado como un valor estructurado."
 
+#: src/components/clio/connector-setup-response.tsx
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Decline"
 msgstr "Rechazar"
@@ -12976,6 +13132,7 @@ msgstr "Descartar"
 msgid "Discard all unpublished edits? The originals stay unchanged."
 msgstr "¿Descartar todas las ediciones sin publicar? Los originales no cambian."
 
+#: src/components/clio/connector-pane.tsx
 #: src/components/clio/service-management-panel.tsx
 msgid "Discard changes"
 msgstr "Descartar cambios"
@@ -13552,6 +13709,10 @@ msgstr "Arrastra sobre la página para marcar una región"
 msgid "Drag over the surface to add a region."
 msgstr "Arrastra sobre la superficie para añadir una región."
 
+#: src/components/clio/comments/mcp-app-comments.tsx
+msgid "Drag over the view to mark a region, or click a point"
+msgstr "Arrastra sobre la vista para marcar una región o haz clic en un punto"
+
 #: src/components/clio/comments/comment-session.tsx
 msgid "Drag over the view to mark a region."
 msgstr "Arrastra sobre la vista para marcar una región."
@@ -13591,6 +13752,10 @@ msgstr "Arrastra para seleccionar nodos de la malla"
 #: src/components/clio/a2ui-chart.tsx
 msgid "Drag to select points. {primary}-drag selects whole curves. Shift adds or removes."
 msgstr "Arrastra para seleccionar puntos. {primary}+arrastrar selecciona curvas completas. Shift añade o quita."
+
+#: src/components/clio/mcp-app-frame-menu.tsx
+msgid "Drawing"
+msgstr "Dibujando"
 
 #: src/components/clio/plugin-flow-shape.tsx
 msgid "Drawing the diagram…"
@@ -13962,9 +14127,22 @@ msgstr "Vacío"
 msgid "Empty text"
 msgstr "Texto vacío"
 
+#: src/components/clio/connector-pane.tsx
+msgid "Enable"
+msgstr "Activar"
+
+#: src/components/clio/connector-pane.tsx
+msgid "Enable {name} to add it to the conversations that need it."
+msgstr "Activa {name} para añadirlo a las conversaciones que lo necesiten."
+
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Enabled"
 msgstr "Activado"
+
+#: src/components/clio/connector-pane.tsx
+msgid "Enabled. Add {name} to a conversation from its plugins; other conversations don’t carry its tools."
+msgstr "Activado. Añade {name} a una conversación desde sus plugins; las demás conversaciones no llevan sus herramientas."
 
 #: src/components/clio/ndp-station-filters.tsx
 msgid "End time"
@@ -14667,9 +14845,12 @@ msgstr "Tipo de extensión"
 
 #: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/extension-library.tsx
-#: src/lib/application-destinations.ts
 msgid "Extensions"
 msgstr "Extensiones"
+
+#: src/lib/application-destinations.ts
+msgid "Extensions and connectors"
+msgstr "Extensiones y conectores"
 
 #: src/components/clio/extension-library.tsx
 msgid "Extensions couldn’t be loaded."
@@ -15033,6 +15214,14 @@ msgstr "Rellenar"
 #: src/lib/shortcuts/catalog.ts
 msgid "Fill the command, to add to it"
 msgstr "Rellenar el comando para ampliarlo"
+
+#: src/components/clio/connector-setup-response.tsx
+msgid "Fill the required rows first"
+msgstr "Rellena primero las filas obligatorias"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "Fill the required rows first."
+msgstr "Rellena primero las filas obligatorias."
 
 #: src/components/clio/data-table-column-filter.tsx
 msgid "Filter {columnLabel}, contains"
@@ -15871,6 +16060,10 @@ msgstr "De una fuente desconocida"
 #: src/components/clio/composer-add-context-button.tsx
 msgid "From connected data…"
 msgstr "Desde datos conectados…"
+
+#: src/lib/plugin-presentation.ts
+msgid "From connector {via}"
+msgstr "Del conector {via}"
 
 #: src/components/clio/data-filter-popover.tsx
 msgid "From date for {label}"
@@ -16743,6 +16936,10 @@ msgstr "Cómo elegir una carpeta de Google Drive"
 msgid "How to use this folder"
 msgstr "Cómo usar esta carpeta"
 
+#: src/components/clio/connector-pane.tsx
+msgid "How to work with {name}"
+msgstr "Cómo trabajar con {name}"
+
 #: src/components/clio/dashboard-view.tsx
 msgid "HTML dashboard (all tabs and data)"
 msgstr "Panel HTML (todas las pestañas y datos)"
@@ -17096,6 +17293,10 @@ msgstr "En cualquier menú"
 msgid "In background"
 msgstr "En segundo plano"
 
+#: src/components/clio/connector-pane.tsx
+msgid "In conversations"
+msgstr "En conversaciones"
+
 #: src/tauri/workspace-terminal.ts
 msgid "In File Explorer"
 msgstr "En el Explorador de archivos"
@@ -17176,6 +17377,7 @@ msgstr "En los filtros"
 msgid "In the system app"
 msgstr "En la aplicación del sistema"
 
+#: src/components/clio/agent-plugin-menu.tsx
 #: src/components/clio/session-rail-layout.ts
 msgid "In this conversation"
 msgstr "En esta conversación"
@@ -17951,6 +18153,14 @@ msgstr "Emitido para: {subject}"
 msgid "It appears once the flow starts."
 msgstr "Aparece cuando el flujo comienza."
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "It asks for a sign-in the first time the agent uses it."
+msgstr "Pide iniciar sesión la primera vez que el agente lo usa."
+
+#: src/lib/plugin-presentation.ts
+msgid "It belongs to a connector you enabled in Extensions."
+msgstr "Pertenece a un conector que activaste en Extensiones."
+
 #: src/components/clio/resource-viewers.tsx
 msgid "It can't run here right now."
 msgstr "No se puede ejecutar aquí en este momento."
@@ -17999,6 +18209,10 @@ msgstr "Puede que se haya eliminado o que pertenezca a otra conexión."
 #: src/components/clio/observability-provenance.tsx
 msgid "It may still be running, or its final update may be missing."
 msgstr "Puede que siga en ejecución o que falte su actualización final."
+
+#: src/components/clio/connector-pane.tsx
+msgid "It needs nothing from you."
+msgstr "No necesita nada de ti."
 
 #: src/components/clio/diff-canvas-view.tsx
 msgid "It refuses if the file changed after the agent wrote it."
@@ -18525,6 +18739,14 @@ msgid "Left bar"
 msgstr "Barra izquierda"
 
 #: src/lib/plugin-presentation.ts
+msgid "Left because its connector {connector} is turned off; it returns when it is on"
+msgstr "Salió porque su conector {connector} está desactivado; vuelve cuando se active"
+
+#: src/lib/plugin-presentation.ts
+msgid "Left because its connector {connector} no longer exists"
+msgstr "Salió porque su conector {connector} ya no existe"
+
+#: src/lib/plugin-presentation.ts
 msgid "Left because none of its members remain"
 msgstr "Retirado porque no queda ninguno de sus miembros"
 
@@ -18760,6 +18982,10 @@ msgstr "Listar subidas"
 msgid "List workspace resources"
 msgstr "Listar recursos del espacio de trabajo"
 
+#: src/components/clio/mcp-app-host-hooks.ts
+msgid "Listed in Artifacts"
+msgstr "Aparece en Artefactos"
+
 #: src/components/clio/knowledge-vault-files.tsx
 msgid "Listing notes"
 msgstr "Listando notas"
@@ -18874,6 +19100,10 @@ msgstr "Carga el contenido completo para leer este archivo."
 msgid "Load the rest"
 msgstr "Cargar el resto"
 
+#: src/components/clio/mcp-app-frame-menu.tsx
+msgid "Load the view again. What it shows is kept by its service."
+msgstr "Carga la vista de nuevo. Lo que muestra lo conserva su servicio."
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "loaded {count}×"
 msgstr "cargado {count}×"
@@ -18923,7 +19153,7 @@ msgstr "Catálogo de widgets cargado"
 #: src/components/clio/browser-frame.tsx
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/mcp-app-surface.tsx
+#: src/components/clio/mcp-app-frame-menu.tsx
 #: src/components/clio/settings-memory.tsx
 #: src/components/clio/settings-tool-permissions.tsx
 #: src/components/ui/spinner.tsx
@@ -19205,6 +19435,10 @@ msgstr "Cargando infraestructura…"
 #: src/components/clio/settings-tool-detail.tsx
 msgid "Loading inputs…"
 msgstr "Cargando entradas…"
+
+#: src/components/clio/mcp-app-reopen.tsx
+msgid "Loading interactive view"
+msgstr "Cargando la vista interactiva"
 
 #: src/components/clio/delegate-calls.tsx
 msgid "Loading its calls…"
@@ -19620,11 +19854,6 @@ msgstr "Local es el equipo de {agent} conectado. Otros equipos ejecutan servicio
 msgid "Local marketplace details"
 msgstr "Detalles del catálogo de complementos local"
 
-#: src/components/clio/extension-add-dialog.tsx
-#: src/components/clio/extension-library-toolbar.tsx
-msgid "Local MCP command"
-msgstr "Comando MCP local"
-
 #: src/lib/fleet-usage.ts
 msgid "Local or free"
 msgstr "Local o gratuito"
@@ -19715,6 +19944,10 @@ msgstr "Texto de prueba largo con acentos"
 #: src/components/clio/settings-models-form.ts
 msgid "Longest reply"
 msgstr "Respuesta más larga"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Look at view"
+msgstr "Mirar la vista"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "Look inside a file"
@@ -19933,6 +20166,10 @@ msgstr "Marcar"
 msgid "Mark a useful message. Open Marked messages to return to it later."
 msgstr "Marca un mensaje útil. Abre Mensajes marcados para volver a él más tarde."
 
+#: src/components/clio/a2ui-region-capture.tsx
+msgid "Mark across the whole dashboard"
+msgstr "Marcar en todo el panel"
+
 #: src/components/clio/comments/comment-session.tsx
 msgid "Mark again on the new version"
 msgstr "Marcar de nuevo en la nueva versión"
@@ -19944,6 +20181,18 @@ msgstr "Marcar todo como leído"
 #: src/components/clio/message-mark-button.tsx
 msgid "Mark message"
 msgstr "Marcar mensaje"
+
+#: src/components/clio/dashboard-capture-action.tsx
+msgid "Mark regions across the dashboard"
+msgstr "Marcar regiones en el panel"
+
+#: src/components/clio/dashboard-capture-action.tsx
+msgid "Mark regions anywhere on the displayed dashboard, across its charts and views"
+msgstr "Marca regiones en cualquier parte del panel mostrado, en sus gráficos y vistas"
+
+#: src/components/clio/surface-toolbar.tsx
+msgid "Mark regions in this chart"
+msgstr "Marcar regiones en este gráfico"
 
 #: src/components/clio/knowledge-source-view.tsx
 msgid "Markdown"
@@ -20086,10 +20335,6 @@ msgstr "Puede que el entorno aislado lo haya bloqueado"
 msgid "MCP connection"
 msgstr "Conexión MCP"
 
-#: src/lib/extension-library-entries.ts
-msgid "MCP connections"
-msgstr "Conexiones MCP"
-
 #: src/components/clio/catalog-toolset.tsx
 msgid "MCP or domain"
 msgstr "MCP o dominio"
@@ -20098,11 +20343,11 @@ msgstr "MCP o dominio"
 msgid "MCP prompt"
 msgstr "Instrucción MCP"
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-registry-section.tsx
 msgid "MCP Registry"
 msgstr "MCP Registry"
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-registry-section.tsx
 msgid "MCP Registry servers"
 msgstr "Servidores de MCP Registry"
 
@@ -20119,8 +20364,6 @@ msgstr "Servidor MCP desconectado"
 msgid "MCP server reconnected"
 msgstr "Servidor MCP reconectado"
 
-#: src/components/clio/extension-add-dialog.tsx
-#: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "MCP server URL"
 msgstr "URL del servidor MCP"
@@ -20138,6 +20381,10 @@ msgstr "Servidores MCP"
 #: src/components/clio/settings-tools.tsx
 msgid "MCP servers couldn’t be loaded."
 msgstr "No se pudieron cargar los servidores MCP."
+
+#: src/components/clio/extension-library.tsx
+msgid "MCP servers you add yourself"
+msgstr "Servidores MCP que añades tú"
 
 #: src/components/clio/managed-services.tsx
 msgid "MCP services"
@@ -20772,11 +21019,13 @@ msgstr "Más sobre {type}"
 
 #: src/components/clio/async-task-list.tsx
 #: src/components/clio/file-viewer-take.tsx
+#: src/components/clio/mcp-app-frame-menu.tsx
 msgid "More actions"
 msgstr "Más acciones"
 
 #: src/components/clio/connected-source-actions.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
+#: src/components/clio/mcp-app-frame-menu.tsx
 #: src/components/clio/provenance-connections.tsx
 msgid "More actions for {label}"
 msgstr "Más acciones para {label}"
@@ -21116,6 +21365,10 @@ msgstr "cerca del límite"
 msgid "Needed by the agent"
 msgstr "Necesario para el agente"
 
+#: src/lib/connector-presentation.ts
+msgid "Needs {needs}"
+msgstr "Necesita {needs}"
+
 #: src/components/clio/model-acquisition.tsx
 msgid "Needs {size}; only {free}."
 msgstr "Necesita {size}; solo hay {free}."
@@ -21208,6 +21461,7 @@ msgstr "Necesita instalación"
 msgid "Needs processing"
 msgstr "Requiere procesamiento"
 
+#: src/lib/connector-presentation.ts
 #: src/lib/provider-availability.ts
 msgid "Needs setup"
 msgstr "Necesita configuración"
@@ -21344,6 +21598,10 @@ msgstr "Nueva conversación en {workspace}"
 msgid "New conversations no longer get its tools. A conversation using it now keeps it until its turn ends."
 msgstr "Las conversaciones nuevas ya no reciben sus herramientas. Una conversación que lo esté usando lo conserva hasta que termine su turno."
 
+#: src/components/clio/connector-need-rows.tsx
+msgid "New conversations use it too."
+msgstr "Las conversaciones nuevas también lo usan."
+
 #: src/components/clio/ssh-jump-host-list.tsx
 msgid "New jump host"
 msgstr "Nuevo host de salto"
@@ -21454,7 +21712,7 @@ msgstr "Mes siguiente"
 msgid "Next notes"
 msgstr "Notas siguientes"
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-registry-section.tsx
 msgid "Next page"
 msgstr "Página siguiente"
 
@@ -22165,8 +22423,8 @@ msgid "No other connected model can answer now."
 msgstr "Ningún otro modelo conectado puede responder ahora."
 
 #: src/components/clio/plugin-removal-cascade.tsx
-msgid "No other plugin depends on {plugin}."
-msgstr "Ningún otro complemento depende de {plugin}."
+msgid "No other plugin depends on {named}."
+msgstr "Ningún otro plugin depende de {named}."
 
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/desktop-title-bar.tsx
@@ -22424,7 +22682,7 @@ msgstr "Aún no hay secciones."
 msgid "No selected rows match the current view."
 msgstr "Ninguna fila seleccionada coincide con la vista actual."
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-registry-section.tsx
 msgid "No servers match."
 msgstr "Ningún servidor coincide."
 
@@ -22794,6 +23052,15 @@ msgstr "No conectado"
 msgid "Not connected to {agent}"
 msgstr "No conectado a {agent}"
 
+#: src/components/clio/connector-offer-response.tsx
+#: src/lib/connector-presentation.ts
+msgid "Not enabled"
+msgstr "No activado"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "Not enabled (Add turns it on)"
+msgstr "No activado (Añadir lo activa)"
+
 #: src/components/clio/plan-decision-controls.tsx
 msgid "not executed"
 msgstr "no ejecutado"
@@ -22866,6 +23133,7 @@ msgid "Not needed: the {agent} already running there was reused"
 msgstr "No es necesario: se reutilizó el {agent} que ya se estaba ejecutando allí"
 
 #: src/components/clio/attention-center.tsx
+#: src/components/clio/connector-offer-response.tsx
 msgid "Not now"
 msgstr "Ahora no"
 
@@ -22989,6 +23257,10 @@ msgstr "no se mostró al modelo"
 #: src/components/clio/image-reach.ts
 msgid "Not shown to the model"
 msgstr "No se mostró al modelo"
+
+#: src/components/clio/connector-need-rows.tsx
+msgid "Not signed in"
+msgstr "Sin iniciar sesión"
 
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/resource-processing-presentation.ts
@@ -23120,6 +23392,10 @@ msgstr "Todavía nada respondió en esta dirección. Si el servicio se acaba de 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Nothing connected yet."
 msgstr "Todavía no hay nada conectado."
+
+#: src/components/clio/mcp-app-frame-menu.tsx
+msgid "Nothing drawn"
+msgstr "Nada dibujado"
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/workbench-activity-list.tsx
@@ -23610,6 +23886,11 @@ msgctxt "state"
 msgid "Open"
 msgstr "Abierto"
 
+#: src/components/clio/mcp-app-host-hooks.ts
+msgctxt "verb"
+msgid "Open"
+msgstr "Abrir"
+
 #: src/components/clio/tool-operation-contract.ts
 msgctxt "verb: tool action"
 msgid "Open"
@@ -23864,6 +24145,10 @@ msgstr "Abrir el inicio de sesión de GitHub"
 msgid "Open in a browser tab"
 msgstr "Abrir en una pestaña del navegador"
 
+#: src/components/clio/mcp-app-card.tsx
+msgid "Open in a tab"
+msgstr "Abierta en una pestaña"
+
 #: src/components/clio/subagent-navigation.ts
 msgid "Open in a workspace tab. Shift-click to open in the center."
 msgstr "Abrir en una pestaña del espacio de trabajo. Haz Shift-clic para abrir en el centro."
@@ -23894,6 +24179,7 @@ msgid "Open in system terminal"
 msgstr "Abrir en el terminal del sistema"
 
 #: src/components/clio/ask-card.tsx
+#: src/components/clio/mcp-app-card.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
 msgstr "Abrir en una pestaña"
@@ -24261,6 +24547,11 @@ msgstr "Abriendo la página"
 msgid "Opening the search assistant"
 msgstr "Abriendo el asistente de búsqueda"
 
+#: src/components/clio/a2ui-mcp-app.tsx
+#: src/components/clio/workbench-tab-content.tsx
+msgid "Opening the view"
+msgstr "Abriendo la vista"
+
 #: src/components/clio/local-startup-steps.tsx
 msgid "Opening the workspace"
 msgstr "Abriendo el espacio de trabajo"
@@ -24307,6 +24598,7 @@ msgstr "Pautas de funcionamiento"
 msgid "optional"
 msgstr "opcional"
 
+#: src/components/clio/connector-need-rows.tsx
 #: src/components/clio/desktop-folder-upload.tsx
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/save-user-agent-dialog.tsx
@@ -25254,6 +25546,7 @@ msgstr "Grafica el desplazamiento vertical en la estación BKL1."
 msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr "Los gráficos, tablas e informes aparecen como tarjetas de archivo en la conversación."
 
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/extension-library-entries.ts
@@ -25287,6 +25580,10 @@ msgstr "No se pudieron cargar los detalles del complemento: {message}"
 #: src/components/clio/plugin-explorer.tsx
 msgid "Plugin files"
 msgstr "Archivos del complemento"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "Plugin from {marketplace}"
+msgstr "Plugin de {marketplace}"
 
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "Plugin marketplaces in the Agent Plugins or Claude Code format are both supported. The {agent} fetches the source; you trust it in the next step."
@@ -25343,10 +25640,6 @@ msgstr "Complementos de este paquete"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "Complementos que también se van"
-
-#: src/components/clio/extension-library.tsx
-msgid "Plugins, marketplaces, MCP connections and skills for your agents."
-msgstr "Complementos, catálogos de complementos, conexiones MCP y habilidades para tus agentes."
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -26141,7 +26434,7 @@ msgstr "Carpeta de repositorio público o privado"
 msgid "Public repositories don't need sign-in."
 msgstr "Los repositorios públicos no necesitan inicio de sesión."
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-registry-section.tsx
 msgid "Public server metadata. Browsing starts no servers."
 msgstr "Metadatos públicos de servidores. Explorar no inicia ningún servidor."
 
@@ -26812,7 +27105,7 @@ msgstr "Lee hasta {tokens} tokens a la vez. El propio modelo lee hasta {native}.
 
 #: src/components/clio/clio-menu.tsx
 #: src/components/clio/connected-source-labels.ts
-#: src/components/clio/mcp-app-surface.tsx
+#: src/components/clio/mcp-app-frame-menu.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/model-picker-model.ts
 #: src/components/clio/resource-availability.ts
@@ -26821,6 +27114,7 @@ msgstr "Lee hasta {tokens} tokens a la vez. El propio modelo lee hasta {native}.
 #: src/components/clio/workbench-sources-list.tsx
 #: src/hooks/use-connection-availability.ts
 #: src/hooks/use-known-connections.ts
+#: src/lib/connector-presentation.ts
 #: src/routes/infrastructure-foundation.ts
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Ready"
@@ -27505,6 +27799,7 @@ msgstr "Recargar modelos, actualizando antes el cliente del proveedor si hace fa
 msgid "Reload sources"
 msgstr "Recargar fuentes"
 
+#: src/components/clio/mcp-app-frame-menu.tsx
 #: src/components/clio/viewer-file-gate.tsx
 msgid "Reload view"
 msgstr "Recargar vista"
@@ -27681,6 +27976,7 @@ msgid "Remove {label}?"
 msgstr "¿Quitar {label}?"
 
 #: src/components/clio/composer-attachment-chip.tsx
+#: src/components/clio/connector-pane.tsx
 #: src/components/clio/model-picker-anchors.tsx
 #: src/components/clio/session-rail-customize.tsx
 #: src/components/clio/settings-connection.tsx
@@ -27740,6 +28036,10 @@ msgstr "Quitar el comentario sobre una vista"
 #: src/components/clio/composer-annotations.tsx
 msgid "Remove comment on an answer"
 msgstr "Quitar el comentario sobre una respuesta"
+
+#: src/components/clio/composer-annotations.tsx
+msgid "Remove comment on an app view"
+msgstr "Quitar el comentario sobre una vista de aplicación"
 
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "Remove conversation"
@@ -27899,16 +28199,13 @@ msgstr "Eliminado"
 msgid "Removed (select to add back)"
 msgstr "Quitado (selecciona para volver a añadirlo)"
 
+#: src/components/clio/agent-composition-view.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-folders.tsx
 #: src/components/clio/workspace-resource-remove.tsx
 #: src/hooks/use-saved-mcp-services.ts
 msgid "Removed {name}"
 msgstr "Se quitó {name}"
-
-#: src/components/clio/agent-composition-view.tsx
-msgid "Removed {plugin}"
-msgstr "Se quitó {plugin}"
 
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "Removed by you"
@@ -27939,8 +28236,8 @@ msgid "Removes"
 msgstr "Quita"
 
 #: src/components/clio/agent-composition-view.tsx
-msgid "Removes {plugin} from this conversation."
-msgstr "Quita {plugin} de esta conversación."
+msgid "Removes {name} from this conversation."
+msgstr "Quita {name} de esta conversación."
 
 #: src/components/clio/archived-sessions-dialog.tsx
 #: src/components/clio/resource-dialogs.tsx
@@ -28048,6 +28345,15 @@ msgstr "Representando..."
 #: src/widget-gallery-demos.ts
 msgid "Reno"
 msgstr "Reno"
+
+#: src/components/clio/mcp-app-reopen.tsx
+msgctxt "verb"
+msgid "Reopen"
+msgstr "Volver a abrir"
+
+#: src/components/clio/mcp-app-reopen.tsx
+msgid "Reopening"
+msgstr "Volviendo a abrir"
 
 #: src/components/clio/ssh-jump-host-list.tsx
 msgid "Reorder destination"
@@ -28287,6 +28593,7 @@ msgstr "Solicitudes"
 msgid "required"
 msgstr "obligatorio"
 
+#: src/components/clio/connector-need-rows.tsx
 #: src/gallery-skill-dialog.tsx
 msgid "Required"
 msgstr "Obligatorio"
@@ -28801,6 +29108,7 @@ msgstr "Reintenta un fallo temporal del proveedor antes de que se transmita ning
 msgid "Retrieval"
 msgstr "Recuperación"
 
+#: src/components/clio/a2ui-mcp-app.tsx
 #: src/components/clio/agent-composition-view.tsx
 #: src/components/clio/agent-item-details.tsx
 #: src/components/clio/archived-sessions-dialog.tsx
@@ -28815,6 +29123,7 @@ msgstr "Recuperación"
 #: src/components/clio/conversation-message-blocks.tsx
 #: src/components/clio/delegate-calls.tsx
 #: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-registry-section.tsx
 #: src/components/clio/flow-run-view.tsx
 #: src/components/clio/host-storage-settings.tsx
 #: src/components/clio/infrastructure-inventory.tsx
@@ -28823,6 +29132,7 @@ msgstr "Recuperación"
 #: src/components/clio/knowledge-vault-files.tsx
 #: src/components/clio/latex-workspace.tsx
 #: src/components/clio/loading-feedback.tsx
+#: src/components/clio/mcp-app-reopen.tsx
 #: src/components/clio/memory-error-line.tsx
 #: src/components/clio/memory-scope-picker.tsx
 #: src/components/clio/model-acquisition.tsx
@@ -28950,6 +29260,10 @@ msgstr "Volver a {parentTitle}"
 #: src/components/clio/conversation-inspector.tsx
 msgid "Return to {title}"
 msgstr "Volver a {title}"
+
+#: src/components/clio/mcp-app-tab-panel.tsx
+msgid "Return to conversation"
+msgstr "Volver a la conversación"
 
 #: src/components/clio/child-session-footer.tsx
 msgid "Return to parent"
@@ -29670,6 +29984,11 @@ msgstr "Sábado"
 msgid "Save"
 msgstr "Guardar"
 
+#: src/components/clio/connector-pane.tsx
+msgctxt "verb"
+msgid "Save"
+msgstr "Guardar"
+
 #: src/components/clio/search-text-setting.tsx
 msgctxt "verb: save a setting"
 msgid "Save"
@@ -29711,6 +30030,10 @@ msgstr "Guardar como configuración…"
 #: src/components/clio/save-user-agent-dialog.tsx
 msgid "Save as agent"
 msgstr "Guardar como agente"
+
+#: src/components/clio/connector-need-rows.tsx
+msgid "Save as default"
+msgstr "Guardar como predeterminado"
 
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Save changes"
@@ -29832,6 +30155,10 @@ msgstr "Guardado"
 msgid "Saved {name}"
 msgstr "Se guardó {name}"
 
+#: src/components/clio/mcp-app-host-hooks.ts
+msgid "Saved {name} to the workspace"
+msgstr "{name} se guardó en el espacio de trabajo"
+
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Saved {name}, but it couldn’t connect"
 msgstr "{name} se guardó, pero no pudo conectarse"
@@ -29863,6 +30190,10 @@ msgstr "Guardado pero no usado por este modelo:"
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Saved by this app"
 msgstr "Guardado por esta aplicación"
+
+#: src/components/clio/mcp-app-reopen.tsx
+msgid "Saved call"
+msgstr "Llamada guardada"
 
 #: src/components/clio/infrastructure-hosts.tsx
 msgid "Saved computer"
@@ -29988,6 +30319,10 @@ msgstr "Guardado. Reinicia el {agent} conectado para aplicar esta elección."
 #: src/components/clio/session-plan-section.tsx
 msgid "Saved. The agent receives your edit at its next step."
 msgstr "Guardado. El agente recibe tu cambio en su siguiente paso."
+
+#: src/components/clio/connector-need-rows.tsx
+msgid "Saved. Type a new one to replace it"
+msgstr "Guardado. Escribe uno nuevo para sustituirlo"
 
 #: src/components/clio/memory-create.tsx
 msgid "Saves exactly what you enter. No model is called."
@@ -30633,7 +30968,7 @@ msgstr "Buscando herramientas de complementos…"
 msgid "Searching settings"
 msgstr "Buscando en los ajustes"
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-registry-section.tsx
 msgid "Searching the MCP Registry…"
 msgstr "Buscando en MCP Registry…"
 
@@ -30991,10 +31326,6 @@ msgstr "Enviar ahora"
 msgid "Send response"
 msgstr "Enviar respuesta"
 
-#: src/components/clio/dashboard-capture-action.tsx
-msgid "Send the displayed dashboard, with its regions labelled, to the conversation"
-msgstr "Enviar a la conversación el panel mostrado, con sus regiones etiquetadas"
-
 #: src/lib/onboarding/tour-script.ts
 msgid "Send this request too."
 msgstr "Envía también esta solicitud."
@@ -31214,6 +31545,10 @@ msgstr "Servicio en {hostLabel}"
 msgid "Service record"
 msgstr "Registro del servicio"
 
+#: src/components/clio/mcp-app-surface.tsx
+msgid "Service unavailable"
+msgstr "Servicio no disponible"
+
 #: src/components/clio/provenance-connections.tsx
 msgid "Service URL from this {agent}"
 msgstr "URL del servicio desde este {agent}"
@@ -31423,6 +31758,12 @@ msgstr "Configurar"
 msgid "Set up {label}"
 msgstr "Configurar {label}"
 
+#: src/components/clio/connector-pane.tsx
+#: src/components/clio/connector-setup-activity.tsx
+#: src/components/clio/connector-setup-response.tsx
+msgid "Set up {name}"
+msgstr "Configurar {name}"
+
 #: src/lib/model-options.ts
 msgid "Set up {providerName} to use its models."
 msgstr "Configura {providerName} para usar sus modelos."
@@ -31430,6 +31771,10 @@ msgstr "Configura {providerName} para usar sus modelos."
 #: src/components/clio/infrastructure-activity.tsx
 msgid "Set up a service"
 msgstr "Configurar un servicio"
+
+#: src/components/clio/agent-answer-activity.tsx
+msgid "Set up below"
+msgstr "Configura abajo"
 
 #: src/components/clio/model-picker-provider-panel.tsx
 msgid "Set up in provider settings"
@@ -31500,6 +31845,10 @@ msgstr "Ajustes › {group}"
 msgid "Settings › {section}"
 msgstr "Ajustes › {section}"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Settings ({count})"
+msgstr "Ajustes ({count})"
+
 #: src/routes/settings-window.tsx
 msgid "Settings content"
 msgstr "Contenido de ajustes"
@@ -31525,6 +31874,8 @@ msgid "Settled"
 msgstr "Finalizado"
 
 #: src/components/clio/agent-composition-view.tsx
+#: src/components/clio/connector-pane.tsx
+#: src/components/clio/pending-interactions.tsx
 msgid "Setup"
 msgstr "Configuración"
 
@@ -31911,6 +32262,10 @@ msgstr "Mostrar seleccionadas ({count})"
 msgid "Show source"
 msgstr "Mostrar código fuente"
 
+#: src/components/clio/mcp-app-card.tsx
+msgid "Show tab"
+msgstr "Mostrar pestaña"
+
 #: src/components/clio/flow-run-card.tsx
 msgid "Show the {flow} run full screen"
 msgstr "Mostrar la ejecución de {flow} en pantalla completa"
@@ -32112,11 +32467,13 @@ msgid "Sidebar"
 msgstr "Barra lateral"
 
 #: src/components/clio/connected-source-form.tsx
+#: src/components/clio/connector-need-rows.tsx
 #: src/components/clio/mcp-sign-in.tsx
 #: src/components/clio/settings-data-sources.tsx
 msgid "Sign in"
 msgstr "Iniciar sesión"
 
+#: src/components/clio/connector-need-rows.tsx
 #: src/components/clio/model-picker-provider-panel.tsx
 #: src/components/clio/provider-connect-state.tsx
 #: src/components/clio/turn-provider-sign-in.tsx
@@ -32285,6 +32642,7 @@ msgstr "El inicio de sesión es privado. El agente recibe el estado y las refere
 
 #: src/components/clio/connected-source-form.tsx
 #: src/components/clio/connected-source-picker.tsx
+#: src/components/clio/connector-need-rows.tsx
 #: src/components/clio/settings-data-sources.tsx
 #: src/lib/provider-availability.ts
 msgid "Signed in"
@@ -32579,6 +32937,7 @@ msgstr "fuente"
 #: src/components/ai-elements/attachments.tsx
 #: src/components/clio/agent-plugin-tree.tsx
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/connector-pane.tsx
 #: src/components/clio/document-view-controls.tsx
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library-panes.tsx
@@ -33037,6 +33396,10 @@ msgstr "Iniciando el agente"
 msgid "Starting download…"
 msgstr "Iniciando la descarga…"
 
+#: src/lib/connector-presentation.ts
+msgid "Starting it and checking what it needs."
+msgstr "Iniciándolo y comprobando qué necesita."
+
 #: src/components/clio/remote-agent-conflict.tsx
 msgid "Starting it keeps its version and data."
 msgstr "Al iniciarlo se conservan su versión y sus datos."
@@ -33081,7 +33444,9 @@ msgstr "Iniciando. Se abre solo cuando esté listo."
 msgid "Starting upload"
 msgstr "Iniciando la subida"
 
+#: src/components/clio/connector-pane.tsx
 #: src/components/clio/service-management-panel.tsx
+#: src/lib/connector-presentation.ts
 msgid "Starting…"
 msgstr "Iniciando…"
 
@@ -33120,9 +33485,17 @@ msgstr "Progreso del inicio"
 msgid "State"
 msgstr "Estado"
 
+#: src/lib/connector-presentation.ts
+msgid "State not known"
+msgstr "Estado desconocido"
+
 #: src/components/clio/flow-run-presentation.ts
 msgid "State not recognized"
 msgstr "Estado no reconocido"
+
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "State shared with this surface"
+msgstr "Estado compartido con esta superficie"
 
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
@@ -34167,6 +34540,11 @@ msgstr "Detalles técnicos de la solicitud {number}"
 msgid "Technical details for task {title}"
 msgstr "Detalles técnicos de la tarea {title}"
 
+#. placeholder {0}: failure.code
+#: src/components/clio/mcp-app-reopen.tsx
+msgid "Technical details: <0>{0}</0>"
+msgstr "Detalles técnicos: <0>{0}</0>"
+
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "Tells the agent now; the prompt changes at the next compaction. Added tools are announced, not listed; removed plugins stay visible to the agent until then."
 msgstr "Se lo comunica al agente ahora; la instrucción cambia en la próxima compactación. Las herramientas añadidas se anuncian, no se enumeran; los complementos quitados siguen visibles para el agente hasta entonces."
@@ -34361,6 +34739,10 @@ msgstr "El agente la llama. Sus scripts no pueden."
 msgid "The agent can call these tools now: <0>{toolList}</0>"
 msgstr "El agente ya puede llamar a estas herramientas: <0>{toolList}</0>"
 
+#: src/components/clio/connector-need-rows.tsx
+msgid "The agent can set this."
+msgstr "El agente puede definirlo."
+
 #: src/components/clio/memory-document-helpers.ts
 #: src/components/clio/settings-health-reason.ts
 msgid "The agent could not be reached."
@@ -34450,6 +34832,10 @@ msgstr "El agente la coloca"
 #: src/components/clio/agent-composition-view.tsx
 msgid "The agent was not changed"
 msgstr "No se cambió el agente"
+
+#: src/components/clio/connector-setup-response.tsx
+msgid "The agent’s call waits for this, then continues."
+msgstr "La llamada del agente espera esto y después continúa."
 
 #: src/components/clio/settings-connection-dialogs.tsx
 msgid "The agent’s full address, including http or https."
@@ -34648,6 +35034,18 @@ msgstr "El servicio conectado denegó el acceso a este archivo."
 #: src/components/clio/settings-prompt-editor.tsx
 msgid "The connected service validates changes before they are saved."
 msgstr "El servicio conectado valida los cambios antes de guardarlos."
+
+#: src/hooks/use-connectors.ts
+msgid "The connector was not enabled"
+msgstr "No se activó el conector"
+
+#: src/hooks/use-connectors.ts
+msgid "The connector was not removed"
+msgstr "No se quitó el conector"
+
+#: src/hooks/use-connectors.ts
+msgid "The connector was not turned off"
+msgstr "No se desactivó el conector"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
@@ -34950,19 +35348,19 @@ msgstr "No se guardó la imagen: {snapshotError}"
 msgid "The install failed."
 msgstr "Falló la instalación."
 
-#: src/components/clio/mcp-app-surface.tsx
+#: src/components/clio/mcp-app-bridge.ts
 msgid "The interactive tool resource did not match its message."
 msgstr "El recurso de la herramienta interactiva no coincidía con su mensaje."
 
-#: src/components/clio/mcp-app-surface.tsx
+#: src/components/clio/mcp-app-bridge.ts
 msgid "The interactive tool resource is not MCP App HTML."
 msgstr "El recurso de la herramienta interactiva no es HTML de MCP App."
 
-#: src/components/clio/mcp-app-surface.tsx
+#: src/components/clio/mcp-app-bridge.ts
 msgid "The interactive tool sandbox did not match its capability identity."
 msgstr "El entorno aislado de la herramienta interactiva no coincidía con su identidad de capacidad."
 
-#: src/components/clio/mcp-app-surface.tsx
+#: src/components/clio/mcp-app-bridge.ts
 msgid "The interactive tool sandbox is not isolated from the workspace."
 msgstr "El entorno aislado de la herramienta interactiva no está aislado del espacio de trabajo."
 
@@ -35066,7 +35464,7 @@ msgstr "El mapa y la tabla comparten una misma selección."
 msgid "The map tiles could not be loaded."
 msgstr "No se pudieron cargar los mosaicos del mapa."
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-registry-section.tsx
 msgid "The MCP Registry couldn’t be searched."
 msgstr "No se pudo buscar en MCP Registry."
 
@@ -35950,6 +36348,10 @@ msgstr "El texto aún no está disponible."
 msgid "The time to pick ran out. {unused}"
 msgstr "Se agotó el tiempo para elegir. {unused}"
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The tool answered with an error."
+msgstr "La herramienta respondió con un error."
+
 #: src/components/clio/settings-tools-header.tsx
 msgid "The tool, its flag, and what a call does in the mode chosen above."
 msgstr "La herramienta, su indicador y lo que hace una llamada en el modo elegido arriba."
@@ -35994,6 +36396,10 @@ msgstr "El servicio local actualizado no estuvo listo a tiempo."
 msgid "The upload failed."
 msgstr "La subida falló."
 
+#: src/hooks/use-connectors.ts
+msgid "The values were not saved"
+msgstr "No se guardaron los valores"
+
 #: src/components/clio/knowledge-source-view.tsx
 msgid "The vault could not be read"
 msgstr "No se pudo leer la bóveda"
@@ -36001,6 +36407,26 @@ msgstr "No se pudo leer la bóveda"
 #: src/hooks/use-open-view-runtime.ts
 msgid "The view could not be opened: {reason}"
 msgstr "No se pudo abrir la vista: {reason}"
+
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The view could not open"
+msgstr "No se pudo abrir la vista"
+
+#: src/components/clio/mcp-app-surface.tsx
+msgid "The view is still loading."
+msgstr "La vista aún se está cargando."
+
+#: src/components/clio/mcp-app-frame-menu.tsx
+msgid "The view loaded but has drawn nothing."
+msgstr "La vista se cargó pero no ha dibujado nada."
+
+#: src/components/clio/mcp-app-frame-menu.tsx
+msgid "The view loaded but has drawn nothing. It may need more room: reload it, or open it in a wider panel."
+msgstr "La vista se cargó pero no ha dibujado nada. Puede que necesite más espacio: vuelve a cargarla o ábrela en un panel más ancho."
+
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The view reported a {key} that a shared selection cannot hold."
+msgstr "La vista indicó un valor de {key} que una selección compartida no puede contener."
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP {name} array has invalid numbers."
@@ -36472,6 +36898,18 @@ msgstr "Esta conversación no tiene un agente resuelto"
 msgid "This conversation isn't available"
 msgstr "Esta conversación no está disponible"
 
+#: src/components/clio/connector-need-rows.tsx
+msgid "This conversation only."
+msgstr "Solo esta conversación."
+
+#: src/components/clio/connector-need-rows.tsx
+msgid "This conversation only. Default: {value}"
+msgstr "Solo esta conversación. Predeterminado: {value}"
+
+#: src/components/clio/connector-need-rows.tsx
+msgid "This conversation only. Default: none"
+msgstr "Solo esta conversación. Predeterminado: ninguno"
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "This conversation runs a defined subagent. Its plugins follow the conversation that started it."
 msgstr "Esta conversación ejecuta un subagente definido. Sus complementos siguen a la conversación que lo inició."
@@ -36593,7 +37031,7 @@ msgstr "Esta instalación conserva su método registrado. Quita su entorno de ej
 msgid "This installs again without reusing anything already on the host: images are pulled, environments rebuilt and models downloaded again. It can take much longer."
 msgstr "Vuelve a instalar sin reutilizar nada de lo que ya hay en el host: se descargan de nuevo las imágenes y los modelos, y se reconstruyen los entornos. Puede tardar mucho más."
 
-#: src/components/clio/mcp-app-surface.tsx
+#: src/components/clio/mcp-app-bridge.ts
 msgid "This interactive tool uses an unsupported protocol version."
 msgstr "Esta herramienta interactiva usa una versión de protocolo no compatible."
 
@@ -36656,6 +37094,10 @@ msgstr "Esta nueva conversación"
 #: src/components/clio/notebook-view.tsx
 msgid "This notebook has no cells"
 msgstr "Este cuaderno no tiene celdas"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "This offer can’t be read by this version."
+msgstr "Esta versión no puede leer esta oferta."
 
 #: src/components/clio/browser-live-socket.ts
 msgid "This page is closed."
@@ -36884,6 +37326,10 @@ msgstr "Esta sesión no forma parte de un estudio"
 msgid "This setup belongs to a different {agent}. Reconnect to the original host."
 msgstr "Esta configuración pertenece a otro {agent}. Vuelve a conectarte al host original."
 
+#: src/components/clio/connector-setup-response.tsx
+msgid "This setup request can’t be read by this version."
+msgstr "Esta versión no puede leer esta solicitud de configuración."
+
 #: src/components/clio/a2ui-source-sign-in.tsx
 msgid "This sign-in action could not be checked against the connected {agent}."
 msgstr "No se pudo verificar esta acción de inicio de sesión con el {agent} conectado."
@@ -36961,6 +37407,10 @@ msgstr "Este turno"
 msgid "This two-minute tour uses a practice conversation, so nothing you do in it is sent or saved. Press Esc to leave at any time."
 msgstr "Este recorrido de dos minutos usa una conversación de práctica, así que nada de lo que hagas en ella se envía ni se guarda. Pulsa Esc para salir en cualquier momento."
 
+#: src/lib/connector-presentation.ts
+msgid "This version can’t read the connector’s state"
+msgstr "Esta versión no puede leer el estado del conector"
+
 #: src/components/clio/attention-center.tsx
 msgid "This version can't show it."
 msgstr "Esta versión no puede mostrarlo."
@@ -36980,6 +37430,10 @@ msgstr "Esta versión. Elígela para volver a plegar las versiones."
 #: src/components/clio/observability-provenance.tsx
 msgid "This view brings together saved activity, file use and artifact relationships for this conversation."
 msgstr "Esta vista reúne la actividad guardada, el uso de archivos y las relaciones de artefactos de esta conversación."
+
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "This view cannot open outside a conversation."
+msgstr "Esta vista no se puede abrir fuera de una conversación."
 
 #: src/components/clio/observability-provenance.tsx
 msgid "This view cannot show the full sequence of work or all relationships between records."
@@ -37394,6 +37848,7 @@ msgstr "herramientas"
 #: src/components/clio/agent-subagent-facts.tsx
 #: src/components/clio/agent-tab-values.ts
 #: src/components/clio/composer-references.tsx
+#: src/components/clio/connector-pane.tsx
 #: src/components/clio/extension-library-panes.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/plugin-explorer.tsx
@@ -37752,6 +38207,10 @@ msgstr "Activa una cuenta para que {agent} ejecute trabajo delegado en ella sin 
 msgid "Turn limit"
 msgstr "Límite de turnos"
 
+#: src/components/clio/connector-pane.tsx
+msgid "Turn off"
+msgstr "Desactivar"
+
 #: src/components/clio/attention-center.tsx
 msgid "Turn them on in Settings › Notifications at any time."
 msgstr "Actívalas en Ajustes › Notificaciones en cualquier momento."
@@ -37759,6 +38218,11 @@ msgstr "Actívalas en Ajustes › Notificaciones en cualquier momento."
 #: src/components/clio/settings-notifications.tsx
 msgid "Turned off in system settings"
 msgstr "Desactivadas en la configuración del sistema"
+
+#: src/components/clio/connector-pane.tsx
+#: src/lib/connector-presentation.ts
+msgid "Turning off…"
+msgstr "Desactivando…"
 
 #: src/lib/search-source-text.ts
 msgid "Turns the source on."
@@ -37925,6 +38389,7 @@ msgstr "no disponible"
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/managed-service-inventory.tsx
+#: src/components/clio/mcp-app-surface.tsx
 #: src/components/clio/model-picker-model.ts
 #: src/components/clio/provider-heartbeat.tsx
 #: src/components/clio/relative-time.tsx
@@ -39319,6 +39784,10 @@ msgstr "Ver asignación"
 msgid "View call {callId} in transcript"
 msgstr "Ver la llamada {callId} en la transcripción"
 
+#: src/components/clio/mcp-app-reopen.tsx
+msgid "View closed"
+msgstr "Vista cerrada"
+
 #: src/components/clio/activity-row.tsx
 msgid "View command, input, result, and timing"
 msgstr "Ver comando, entrada, resultado y tiempos"
@@ -39360,6 +39829,10 @@ msgstr "Ver operación"
 #: src/components/clio/tool-operation-contract.ts
 msgid "View PDF"
 msgstr "Ver PDF"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "View plugin"
+msgstr "Ver plugin"
 
 #: src/components/clio/sandbox-setup-notification.tsx
 msgid "View progress"
@@ -39940,6 +40413,7 @@ msgstr "Quién"
 msgid "Who you are, for {agent}. Saved only on this computer."
 msgstr "Quién eres, para {agent}. Solo se guarda en este equipo."
 
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/permission-operation-details.tsx
 msgid "Why"
 msgstr "Motivo"
@@ -40018,6 +40492,11 @@ msgstr "Windows PowerShell"
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "Windows, Linux"
 msgstr "Windows, Linux"
+
+#: src/components/clio/mcp-app-reopen.tsx
+msgctxt "saved call arguments"
+msgid "With"
+msgstr "Con"
 
 #: src/components/clio/document-open-menu.tsx
 #: src/components/clio/file-viewer-take-hooks.tsx

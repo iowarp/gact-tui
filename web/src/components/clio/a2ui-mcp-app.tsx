@@ -26,6 +26,7 @@ import {
   type ChannelIssue,
   type McpAppChannel,
 } from './mcp-app-state-bridge';
+import { ph, t } from '@lingui/core/macro';
 
 /** The parts of an A2UI `DataContext` the bridge reads and writes. */
 export interface McpAppDataContext {
@@ -59,13 +60,13 @@ function resultError(result: unknown): string | undefined {
     .map((block) => (block.type === 'text' ? (block.text ?? '') : ''))
     .join(' ')
     .trim();
-  return text || 'The tool answered with an error.';
+  return text || t`The tool answered with an error.`;
 }
 
 function issueText(issue: ChannelIssue): string {
   return issue.kind === 'tool_failed'
-    ? `Could not change ${issue.key}: ${issue.message}`
-    : `The view reported a ${issue.key} that a shared selection cannot hold.`;
+    ? t`Could not change ${ph({ key: issue.key })}: ${ph({ message: issue.message })}`
+    : t`The view reported a ${ph({ key: issue.key })} that a shared selection cannot hold.`;
 }
 
 /** An MCP App's view in an A2UI surface, opened by its call, with linked state (MA20-MA22). */
@@ -126,7 +127,7 @@ export function ClioMcpApp(props: ClioMcpAppProps) {
   if (!sessionId) {
     return (
       <p className="py-3 text-sm text-destructive" role="alert">
-        This view cannot open outside a conversation.
+        {t`This view cannot open outside a conversation.`}
       </p>
     );
   }
@@ -138,7 +139,7 @@ export function ClioMcpApp(props: ClioMcpAppProps) {
         data-mcp-app-component={props.componentId}
         style={{ minHeight: props.height ?? 320 }}
       >
-        <p className="text-sm text-muted-foreground">Opening the view</p>
+        <p className="text-sm text-muted-foreground">{t`Opening the view`}</p>
         <Skeleton className="h-full min-h-40 w-full" />
       </div>
     );
@@ -147,11 +148,11 @@ export function ClioMcpApp(props: ClioMcpAppProps) {
     return (
       <Alert data-mcp-app-component={props.componentId} variant="destructive">
         <AlertTriangleIcon aria-hidden="true" />
-        <AlertTitle>The view could not open</AlertTitle>
+        <AlertTitle>{t`The view could not open`}</AlertTitle>
         <AlertDescription className="grid gap-2">
           <span>{outcome.detail}</span>
           <span className="text-xs text-muted-foreground">
-            {props.tool} on {props.server}
+            {t`${ph({ tool: props.tool })} on ${ph({ server: props.server })}`}
           </span>
           <Button
             className="justify-self-start"
@@ -164,7 +165,7 @@ export function ClioMcpApp(props: ClioMcpAppProps) {
             variant="outline"
           >
             <RetryIcon aria-hidden="true" />
-            Retry
+            {t`Retry`}
           </Button>
         </AlertDescription>
       </Alert>
@@ -273,7 +274,7 @@ function OpenedMcpApp(
         toolName={view.toolName}
       />
       {props.channels.length ? (
-        <ul aria-label="State shared with this surface" className="grid gap-1 text-xs">
+        <ul aria-label={t`State shared with this surface`} className="grid gap-1 text-xs">
           {props.channels.map((channel) => (
             <li
               className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-muted-foreground"

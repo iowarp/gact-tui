@@ -4,6 +4,8 @@
  */
 import type { Connector, ConnectorNeed, PluginConnector, PluginEntry } from '@clio/core/v3';
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
+import { plural, t } from '@lingui/core/macro';
+import { formatList } from '@/lib/locale-format';
 
 export interface ConnectorStatusWords {
   tone: StatusTone;
@@ -13,21 +15,19 @@ export interface ConnectorStatusWords {
   detail: string;
 }
 
-const plural = (count: number, one: string, many = `${one}s`) =>
-  `${count} ${count === 1 ? one : many}`;
+const readyWithTools = (count: number) =>
+  plural(count, { one: 'Ready, # tool', other: 'Ready, # tools' });
 
 /** How a need reads inside "Needs …": its own label, lower-cased after the first word. */
 export function needName(need: Pick<ConnectorNeed, 'kind' | 'label' | 'key'>): string {
-  if (need.kind === 'sign-in') return 'a sign-in';
+  if (need.kind === 'sign-in') return t`a sign-in`;
   const label = need.label.trim() || need.key;
   return label.charAt(0).toLowerCase() + label.slice(1);
 }
 
 /** "a sign-in", "server address and a sign-in", "a, b and c". */
 export function listNeeds(needs: readonly Pick<ConnectorNeed, 'kind' | 'label' | 'key'>[]): string {
-  const names = needs.map(needName);
-  if (names.length <= 1) return names[0] ?? '';
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return formatList(needs.map(needName), { and: true });
 }
 
 /** The needs a state names, falling back to the bare keys a newer service may send. */
@@ -56,33 +56,35 @@ export function connectorStatus(
   if (change === 'starting')
     return {
       tone: 'running',
-      label: 'Starting…',
-      detail: 'Starting it and checking what it needs.',
+      label: t`Starting…`,
+      detail: t`Starting it and checking what it needs.`,
     };
   if (change === 'turning-off')
-    return { tone: 'running', label: 'Turning off…', detail: 'Turning off…' };
-  if (!connector.enabled) return { tone: 'inactive', label: 'Not enabled', detail: 'Not enabled' };
+    return { tone: 'running', label: t`Turning off…`, detail: t`Turning off…` };
+  if (!connector.enabled)
+    return { tone: 'inactive', label: t`Not enabled`, detail: t`Not enabled` };
   const { state } = connector;
   if (state.status === 'ready') {
-    const tools = connector.tool_count === null ? '' : `, ${plural(connector.tool_count, 'tool')}`;
-    return { tone: 'success', label: `Ready${tools}`, detail: `Ready${tools}` };
+    const label = connector.tool_count === null ? t`Ready` : readyWithTools(connector.tool_count);
+    return { tone: 'success', label, detail: label };
   }
   if (state.status === 'needs') {
     const needs = listNeeds(namedNeeds(connector));
-    const label = needs ? `Needs ${needs}` : 'Needs setup';
-    return { tone: 'warning', label, detail: state.reason ? `${label}. ${state.reason}` : label };
+    const label = needs ? t`Needs ${needs}` : t`Needs setup`;
+    const reason = state.reason;
+    return { tone: 'warning', label, detail: reason ? t`${label}. ${reason}` : label };
   }
   if (state.status === 'unreachable')
     return {
       tone: 'error',
-      label: 'Can’t be reached',
+      label: t`Can’t be reached`,
       // The reason is already a sentence ("Nothing answered at …"): shown once, under the label.
-      detail: state.reason ?? 'Can’t be reached',
+      detail: state.reason ?? t`Can’t be reached`,
     };
   return {
     tone: 'idle',
-    label: 'State not known',
-    detail: state.reason ?? 'This version can’t read the connector’s state',
+    label: t`State not known`,
+    detail: state.reason ?? t`This version can’t read the connector’s state`,
   };
 }
 
@@ -100,15 +102,15 @@ export function offeredPlugins<T extends Pick<PluginEntry, 'follows' | 'connecto
 
 /** A connector plugin's state in words, from the connector a plugin row names (CN3). */
 export function pluginConnectorStatus(connector: PluginConnector): string {
-  if (!connector.enabled) return 'Not enabled';
+  if (!connector.enabled) return t`Not enabled`;
   if (connector.status === 'ready')
-    return connector.tool_count === null
-      ? 'Ready'
-      : `Ready, ${plural(connector.tool_count, 'tool')}`;
-  if (connector.status === 'needs')
-    return connector.needs.length ? `Needs ${connector.needs.join(', ')}` : 'Needs setup';
-  if (connector.status === 'unreachable') return 'Can’t be reached';
-  return 'State not known';
+    return connector.tool_count === null ? t`Ready` : readyWithTools(connector.tool_count);
+  if (connector.status === 'needs') {
+    const needs = formatList(connector.needs);
+    return connector.needs.length ? t`Needs ${needs}` : t`Needs setup`;
+  }
+  if (connector.status === 'unreachable') return t`Can’t be reached`;
+  return t`State not known`;
 }
 
 /** The words a list search matches for a connector. */

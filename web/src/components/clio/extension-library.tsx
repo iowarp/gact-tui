@@ -58,7 +58,7 @@ import { MarketplaceDetailPane } from './settings-plugins';
 import { RowConfirm } from './primitives/row-confirm';
 import { RemoveSavedMcpDialog } from './settings-saved-mcp';
 import { downloadBytes } from './surface-export';
-import { t, ph } from '@lingui/core/macro';
+import { ph, t } from '@lingui/core/macro';
 
 /** Each type's empty state, written whole (not composed from the type's label). */
 const EMPTY_TITLES: Record<ExtensionType, string> = {
@@ -647,8 +647,8 @@ function ExtensionLibraryContents({
     <>
       {type === 'mcp' && catalogOff.length ? (
         <>
-          <SettingsGroupLabel>Connector catalog</SettingsGroupLabel>
-          <ItemList label="Connectors to enable">{catalogOff.map(row)}</ItemList>
+          <SettingsGroupLabel>{t`Connector catalog`}</SettingsGroupLabel>
+          <ItemList label={t`Connectors to enable`}>{catalogOff.map(row)}</ItemList>
         </>
       ) : null}
       {shownCurated.length ? (

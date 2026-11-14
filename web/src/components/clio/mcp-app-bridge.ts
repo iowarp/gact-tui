@@ -199,16 +199,19 @@ export function resolveDisplayMode(
 /** `ui/open-link` (MA15): `http` and `https` open a page in the in-app browser. */
 export function checkedLink(raw: unknown): URL {
   if (typeof raw !== 'string' || !raw.trim()) {
+    // i18n-ignore: JSON-RPC error message returned to the MCP App
     throw new McpAppRpcFailure('The link has no address.', 'invalid_url');
   }
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
+    // i18n-ignore: JSON-RPC error message returned to the MCP App
     throw new McpAppRpcFailure('The link is not a valid address.', 'invalid_url');
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new McpAppRpcFailure(
+      // i18n-ignore: JSON-RPC error message returned to the MCP App
       `Only http and https links open here, not ${url.protocol.replace(/:$/u, '')}.`,
       'unsupported_scheme',
       { scheme: url.protocol.replace(/:$/u, '') },
@@ -261,6 +264,7 @@ export async function bridgeRequest(
     }
     default:
       throw new McpAppRpcFailure(
+        // i18n-ignore: JSON-RPC error message returned to the MCP App
         `Unsupported MCP App method: ${message.method}`,
         'unsupported_method',
       );

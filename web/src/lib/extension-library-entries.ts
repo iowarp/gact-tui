@@ -17,7 +17,7 @@ import { copyText } from '@/lib/clipboard';
 import { connectorStatus, connectorText, type ConnectorChange } from '@/lib/connector-presentation';
 import { serviceEntryTitle, serviceKind, serviceStatus } from '@/lib/mcp-service-presentation';
 import { catalogMatches, catalogRoots } from '@/lib/plugin-catalog-tree';
-import { plural, t, ph } from '@lingui/core/macro';
+import { ph, plural, t } from '@lingui/core/macro';
 
 export type ExtensionType = 'all' | 'plugins' | 'marketplaces' | 'mcp' | 'skills';
 
@@ -265,8 +265,8 @@ export function connectorRow(connector: Connector, change?: ConnectorChange): Ex
     title: connector.name,
     connector,
     meta: [
-      { text: 'Connector' },
-      { text: connector.source === 'custom' ? 'Added by you' : connector.description },
+      { text: t`Connector` },
+      { text: connector.source === 'custom' ? t`Added by you` : connector.description },
     ],
     status: { tone: status.tone, label: status.label },
   };
