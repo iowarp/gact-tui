@@ -35055,6 +35055,10 @@ msgstr "La conversación cambió mientras se leía. Una pasada posterior puede l
 msgid "The conversation did not establish a confident answer."
 msgstr "La conversación no permitió establecer una respuesta fiable."
 
+#: src/components/clio/composer-failure.ts
+msgid "The conversation store is refusing writes."
+msgstr ""
+
 #: src/components/clio/study-views.tsx
 msgid "The conversation that attached this view has since deleted its dashboard."
 msgstr "La conversación que adjuntó esta vista ha eliminado su panel desde entonces."
@@ -41145,6 +41149,10 @@ msgstr "tu mensaje"
 #: src/lib/transcript-message-preview.ts
 msgid "Your message"
 msgstr "Tu mensaje"
+
+#: src/components/clio/composer-store-refusal.tsx
+msgid "Your message was not saved."
+msgstr ""
 
 #: src/lib/search-source-text.ts
 msgid "Your own monthly allowance, and deeper search modes."
