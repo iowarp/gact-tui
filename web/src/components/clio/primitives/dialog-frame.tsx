@@ -279,6 +279,8 @@ export const DialogFrame = memo(function DialogFrame({
               // Full window: the body takes the height, so the buttons sit at the bottom.
               fullWindow && 'max-[599px]:flex-1',
               '[&_[data-slot=settings-row]]:@min-[18rem]:grid-cols-[minmax(min-content,36%)_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
+              // Inline-control rows wrap their control under the label elsewhere; here they keep the two columns.
+              '[&_[data-slot=settings-row][data-control=inline]]:@min-[18rem]:grid',
               // A 36% label column is ~110px in a 340px frame: names wrap onto a
               // second line there rather than cut to "Provider prefe…".
               '[&_[data-slot=settings-label]]:leading-[1.3] [&_[data-slot=settings-label]]:whitespace-normal',
