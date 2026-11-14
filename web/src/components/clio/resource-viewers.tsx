@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { artifactDetailVersionEntity } from '@/lib/session-artifacts';
 
 import { FileTextView } from './file-text-view';
+import { cadFormatOf } from './cad-file-format';
 import {
   fileName,
   HDF5_MEDIA_TYPE,
@@ -119,7 +120,10 @@ export function WorkspaceFileView({
   const [previewAnyway, setPreviewAnyway] = useState(false);
   // A large text file past the gate opens at its beginning or its end, as chosen.
   const [textStart, setTextStart] = useState<'head' | 'end'>();
+  // A STEP is text and an STL can be listed as text: the name decides, before the text views.
+  const cad = cadFormatOf(path);
   const html =
+    !cad &&
     detected !== 'application/pdf' && !detected.startsWith('image/') && isHtmlFile(path, detected);
   const text = html || isTextMediaType(detected);
   const source: FileViewerSource = {
@@ -132,7 +136,7 @@ export function WorkspaceFileView({
   // PDFs and images are read whole, so past the inline cap they are offered, not read.
   const tooLarge =
     !previewAnyway &&
-    (detected === 'application/pdf' || detected.startsWith('image/')) &&
+    (cad || detected === 'application/pdf' || detected.startsWith('image/')) &&
     size !== undefined &&
     size > INLINE_PREVIEW_MAX_BYTES;
   // Text is read in windows, but past the inline cap nothing is fetched until a window is chosen.
@@ -147,6 +151,10 @@ export function WorkspaceFileView({
       size={size}
       source={source}
     />
+  ) : cad ? (
+    <Suspense fallback={<ResourceLoading label={t`Loading ${ph({ name: fileName(path) })}`} />}>
+      <WorkspaceCadView format={cad} path={path} source={source} workspaceId={workspaceId} />
+    </Suspense>
   ) : detected === 'application/pdf' ? (
     <WorkspacePdfView
       fit={embedded ? 'width' : 'page'}
@@ -260,6 +268,10 @@ const NAME_DECIDES = new Set([
   'application/x-netcdf',
   'application/netcdf',
 ]);
+
+const WorkspaceCadView = lazy(() =>
+  import('./cad-file-view').then((module) => ({ default: module.WorkspaceCadView })),
+);
 
 const Hdf5ViewerFrame = lazy(() =>
   import('./hdf5-viewer-frame').then((module) => ({ default: module.Hdf5ViewerFrame })),

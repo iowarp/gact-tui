@@ -92,6 +92,7 @@ const MESH_MIME_TYPE: Record<MeshFormat, string> = {
   vtk: 'application/octet-stream',
   vtp: 'application/xml',
   drc: 'application/octet-stream',
+  step: 'model/step',
 };
 
 /** An orbitable view of one registered mesh, colored, thresholded, and stepped by its fields. */
