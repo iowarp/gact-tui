@@ -10,10 +10,10 @@ const OUTCOME: Record<string, string> = {
   expired: 'expired',
 };
 
-/** An offer's outcomes: the person turned the connector on, or said Not now. */
+/** An offer's outcomes: the person added the connector here, or said Not now. */
 const OFFER_OUTCOME: Record<string, string> = {
   ...OUTCOME,
-  answered: 'turned on',
+  answered: 'added',
   denied: 'not now',
 };
 
@@ -38,7 +38,8 @@ export function ConnectorSetupActivity({ interaction }: { interaction: PendingIn
         connector={connector ?? { id, name, logo_url: null }}
       />
       <span className="min-w-0 truncate text-foreground/80">
-        {offer ? 'Turn on' : 'Set up'} {name}
+        {offer ? 'Add' : 'Set up'} {name}
+        {offer ? ' to this conversation' : ''}
       </span>
       {interaction.status === 'pending' ? (
         <WaitingForYou interaction={interaction} />

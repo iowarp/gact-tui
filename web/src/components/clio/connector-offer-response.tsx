@@ -1,9 +1,8 @@
 import { connectorSetupPayload, type PendingInteraction } from '@clio/core/v3';
 import { ChevronRightIcon, PlugIcon } from 'lucide-react';
 import { useState } from 'react';
-import { Switch } from '@/components/ui/switch';
-import { useConnector } from '@/hooks/use-connectors';
-import { draftValues, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
+import { useConnector, useSessionConnector } from '@/hooks/use-connectors';
+import { conversationAnswer, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
 import { cn } from '@/lib/utils';
 import { AskBody, AskButton, AskCard, AskError, AskOptions, AskSection } from './ask-card';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
@@ -12,10 +11,11 @@ import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { StatusIndicator } from './primitives/status-indicator';
 
 /**
- * The agent offers a connector that is off (connector discovery). The same card as a
- * setup request (CN5): the connector's logo, what it does, why the agent offers it and
- * what it needs. Turn on enables it for every conversation, or for this conversation's
- * agent only (CN10), and the agent's request continues; Not now refuses.
+ * The agent offers to add a connector to this conversation (connector discovery). The
+ * same card as a setup request (CN5): the connector's logo, what it does, whether it is
+ * on, why the agent offers it and what it needs. Add puts its plugin in this
+ * conversation only, turning the connector on first when it is off (CN10), and the
+ * agent's request continues; Not now refuses.
  */
 export function ConnectorOfferResponse({
   disabled,
@@ -30,15 +30,21 @@ export function ConnectorOfferResponse({
 }) {
   const payload = connectorSetupPayload(interaction.payload);
   const id = payload?.connector_id ?? '';
-  const { connector } = useConnector(id || undefined);
+  // The rows as this conversation sees them: its own values over the defaults (CV-D5).
+  const { connector: everywhereRow } = useConnector(id || undefined);
+  const { connector: conversationRow } = useSessionConnector(
+    id || undefined,
+    interaction.owner_session_id || undefined,
+  );
+  const connector = conversationRow ?? everywhereRow;
+  const [saveAsDefault, setSaveAsDefault] = useState<Record<string, boolean>>({});
   const [draft, setDraft] = useState<ConnectorDraft>({});
-  const [everywhere, setEverywhere] = useState(true);
   const rows = (payload?.missing ?? []).map(
     (need) => connector?.needs.find((row) => row.key === need.key) ?? need,
   );
   const name = connector?.name ?? payload?.connector_name ?? id;
   const description = connector?.description ?? payload?.description ?? '';
-  const agent = payload?.agent_name || payload?.agent_ref || 'this agent';
+  const on = connector?.enabled ?? payload?.connector_enabled ?? false;
   const unfilled = unfilledRequired(rows, draft);
   // Required rows show at once; optional ones (where it runs, a command to run first)
   // wait behind one disclosure, so the offer stays short.
@@ -49,22 +55,25 @@ export function ConnectorOfferResponse({
   const offered = (action: string) => !interaction.actions || interaction.actions.includes(action);
   const turnOn = () => {
     if (disabled || unfilled.length) return;
+    const { values, save_as_default } = conversationAnswer(rows, draft, saveAsDefault);
     respondFromControl(
       onResponse(interaction, {
         action: 'submit',
-        values: draftValues(rows, draft),
-        metadata: { scope: everywhere ? 'all' : 'agent' },
+        values,
+        metadata: { save_as_default },
       }),
     );
   };
-  const switchId = `${pendingInteractionDomId(interaction.id)}-everywhere`;
   const needProps = {
     disabled,
     draft,
     onDraft: (key: string, value: string) => setDraft((current) => ({ ...current, [key]: value })),
     onSignIn: () => undefined,
+    onSaveAsDefault: (key: string, save: boolean) =>
+      setSaveAsDefault((current) => ({ ...current, [key]: save })),
     onSubmit: turnOn,
-    submitLabel: `Turn on ${name}`,
+    saveAsDefault,
+    submitLabel: `Add ${name}`,
   };
   return (
     <AskCard
@@ -74,9 +83,9 @@ export function ConnectorOfferResponse({
       icon={PlugIcon}
       id={pendingInteractionDomId(interaction.id)}
       kind="question"
-      spokenDetail={`${name}: not enabled. ${payload?.reason ?? ''}`}
-      title={`Turn on ${name}?`}
-      titleText={`Turn on ${name}?`}
+      spokenDetail={`${name}: ${on ? 'enabled' : 'not enabled'}. ${payload?.reason ?? ''}`}
+      title={`Add ${name} to this conversation?`}
+      titleText={`Add ${name} to this conversation?`}
       wrapTitle
     >
       <AskBody>
@@ -89,7 +98,10 @@ export function ConnectorOfferResponse({
             <div className="grid min-w-0 gap-0.5">
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{name}</span>
-                <StatusIndicator label="Not enabled" tone="inactive" />
+                <StatusIndicator
+                  label={on ? 'Enabled' : 'Not enabled'}
+                  tone={on ? 'success' : 'inactive'}
+                />
               </div>
               {description ? (
                 <p className="leading-5 text-muted-foreground [overflow-wrap:anywhere]">
@@ -146,23 +158,11 @@ export function ConnectorOfferResponse({
               It also needs a sign-in, which it asks for the first time the agent uses it.
             </p>
           ) : null}
-          <label
-            className="flex min-w-0 items-center justify-between gap-3 rounded-[6px] border border-border/70 px-2.5 py-2"
-            htmlFor={switchId}
-          >
-            <span className="grid min-w-0 gap-0.5">
-              <span className="text-[0.8125rem]">Available in every conversation</span>
-              <span className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                {everywhere ? 'Every agent can use it.' : `Only ${agent} can use it.`}
-              </span>
-            </span>
-            <Switch
-              checked={everywhere}
-              disabled={disabled}
-              id={switchId}
-              onCheckedChange={setEverywhere}
-            />
-          </label>
+          <p className="text-xs text-muted-foreground" data-slot="connector-offer-where">
+            {on
+              ? 'Its tools join this conversation only.'
+              : `Adding turns ${name} on, then its tools join this conversation only.`}
+          </p>
         </AskSection>
       </AskBody>
       <AskError error={responseError} />
@@ -176,7 +176,7 @@ export function ConnectorOfferResponse({
             primary
             title={unfilled.length ? 'Fill the required rows first' : undefined}
           >
-            Turn on
+            Add
           </AskButton>
         ) : null}
         {offered('decline') ? (

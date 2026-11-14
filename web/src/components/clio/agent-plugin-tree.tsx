@@ -18,10 +18,12 @@ import {
   pluginContributions,
   promptSectionLabel,
   provenanceDetail,
-  provenanceLabel,
+  resolvedPluginName,
+  resolvedPluginOrigin,
   removedPluginReason,
   type PluginContributions,
 } from '@/lib/plugin-presentation';
+import { ConnectorLogo } from './connector-need-rows';
 import { PluginExplorer } from './plugin-explorer';
 import { PluginChangePendingNotice } from './plugin-change-pending-notice';
 import { StateView } from './primitives/state-view';
@@ -288,15 +290,22 @@ function PluginNode({
           aria-hidden="true"
           className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/plugin:rotate-90 motion-reduce:transition-none"
         />
-        <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        {plugin.connector ? (
+          <ConnectorLogo
+            className="mt-0.5 size-4 text-[8px]"
+            connector={{ ...plugin.connector, name: resolvedPluginName(plugin) }}
+          />
+        ) : (
+          <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        )}
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
           <CollapsibleTrigger className="min-w-0 truncate text-left text-sm font-medium outline-none after:absolute after:inset-0 after:rounded-md">
-            {plugin.id}
+            {resolvedPluginName(plugin)}
           </CollapsibleTrigger>
           <Tooltip>
             <TooltipTrigger asChild>
               <Badge className="relative z-10" tabIndex={0} variant="outline">
-                {provenanceLabel(plugin.provenance)}
+                {resolvedPluginOrigin(plugin)}
               </Badge>
             </TooltipTrigger>
             <TooltipContent>{provenanceDetail(plugin.provenance)}</TooltipContent>

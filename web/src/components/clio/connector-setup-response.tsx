@@ -1,12 +1,12 @@
 import { connectorSetupPayload, isConnectorOffer, type PendingInteraction } from '@clio/core/v3';
 import { PlugIcon } from 'lucide-react';
 import { useState } from 'react';
-import { useConnector, useInvalidateConnectors } from '@/hooks/use-connectors';
+import { useConnector, useInvalidateConnectors, useSessionConnector } from '@/hooks/use-connectors';
 import { connectorStatus } from '@/lib/connector-presentation';
 import { AskBody, AskButton, AskCard, AskError, AskOptions, AskSection } from './ask-card';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
 import { ConnectorOfferResponse } from './connector-offer-response';
-import { draftValues, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
+import { conversationAnswer, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import { McpSignInDialog } from './mcp-sign-in';
 import type { ClioPendingInteractionsProps } from './pending-interactions';
@@ -41,7 +41,14 @@ function ConnectorSetupCard({
 }: ConnectorCardProps) {
   const payload = connectorSetupPayload(interaction.payload);
   const id = payload?.connector_id ?? '';
-  const { connector } = useConnector(id || undefined);
+  // The rows as this conversation sees them: its own values over the defaults (CV-D5).
+  const { connector: everywhereRow } = useConnector(id || undefined);
+  const { connector: conversationRow } = useSessionConnector(
+    id || undefined,
+    interaction.owner_session_id || undefined,
+  );
+  const connector = conversationRow ?? everywhereRow;
+  const [saveAsDefault, setSaveAsDefault] = useState<Record<string, boolean>>({});
   const invalidate = useInvalidateConnectors();
   const [draft, setDraft] = useState<ConnectorDraft>({});
   const [signingIn, setSigningIn] = useState(false);
@@ -52,12 +59,14 @@ function ConnectorSetupCard({
   );
   const name = connector?.name ?? payload?.connector_name ?? id;
   const unfilled = unfilledRequired(rows, draft);
+  const answer = () => {
+    const { values, save_as_default } = conversationAnswer(rows, draft, saveAsDefault);
+    return { action: 'submit', values, metadata: { save_as_default } };
+  };
   const offered = (action: string) => !interaction.actions || interaction.actions.includes(action);
   const submit = () => {
     if (disabled || unfilled.length) return;
-    respondFromControl(
-      onResponse(interaction, { action: 'submit', values: draftValues(rows, draft) }),
-    );
+    respondFromControl(onResponse(interaction, answer()));
   };
   const status = connector ? connectorStatus(connector) : undefined;
   const tool = payload?.tool_name ?? interaction.source.tool_name;
@@ -102,7 +111,11 @@ function ConnectorSetupCard({
               needs={rows}
               onDraft={(key, value) => setDraft((current) => ({ ...current, [key]: value }))}
               onSignIn={() => setSigningIn(true)}
+              onSaveAsDefault={(key, save) =>
+                setSaveAsDefault((current) => ({ ...current, [key]: save }))
+              }
               onSubmit={submit}
+              saveAsDefault={saveAsDefault}
               submitLabel={`Set up ${name}`}
             />
           ) : (
@@ -143,9 +156,7 @@ function ConnectorSetupCard({
             // A sign-in completes its row; with nothing else to fill, the call continues.
             const others = unfilled.filter((need) => need.kind !== 'sign-in');
             if (!others.length && offered('submit'))
-              respondFromControl(
-                onResponse(interaction, { action: 'submit', values: draftValues(rows, draft) }),
-              );
+              respondFromControl(onResponse(interaction, answer()));
           }}
           title={name}
         />

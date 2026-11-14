@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repository = vi.hoisted(() => ({
   connectors: vi.fn(),
+  sessionConnector: vi.fn(),
   connectorLogo: vi.fn(),
   capabilities: vi.fn(async () => ({ capabilities: {} })),
   agents: vi.fn(async () => []),
@@ -29,7 +30,6 @@ const viewer = (value: Partial<Record<string, unknown>> = {}): Connector =>
     logo_url: null,
     source: 'catalog',
     enabled: false,
-    scope: 'all',
     tool_count: null,
     state: { status: 'ready', needs: [], reason: null },
     needs: [
@@ -45,7 +45,7 @@ const offer: PendingInteraction = {
   owner_session_id: 'sess_root',
   attended_session_id: 'sess_root',
   status: 'pending',
-  title: 'Turn on Fixture viewer',
+  title: 'Add Fixture viewer to this conversation',
   prompt: 'The agent offers Fixture viewer: Show the dataset in 3D.',
   source: { protocol: 'mcp', tool_name: 'offer_connector', invocation_id: 'call_1' },
   created_at: '2026-11-13T00:00:00Z',
@@ -89,6 +89,9 @@ function renderDock(onResponse = vi.fn(async () => undefined)) {
 
 beforeEach(() => {
   repository.connectors.mockResolvedValue([viewer()]);
+  repository.sessionConnector.mockImplementation(async (id: string) =>
+    ((await repository.connectors()) as Connector[]).find((row) => row.id === id),
+  );
   repository.connectorLogo.mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg"/>');
 });
 
@@ -97,10 +100,12 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('the agent offers a connector that is off', () => {
+describe('the agent offers to add a connector to this conversation', () => {
   it('shows what it is, why the agent asks, its needs and its state in words', async () => {
     renderDock();
-    expect(await screen.findByText(/Turn on Fixture viewer for very large/u)).toBeTruthy();
+    expect(
+      await screen.findByText(/Add Fixture viewer for very large.* to this conversation/u),
+    ).toBeTruthy();
     expect(screen.getByText(offer.payload!.reason as string)).toBeTruthy();
     expect(screen.getByText(offer.payload!.description as string)).toBeTruthy();
     expect(screen.getByText('Not enabled')).toBeTruthy();
@@ -109,36 +114,33 @@ describe('the agent offers a connector that is off', () => {
     const more = screen.getByRole('button', { name: 'Optional settings (1)' });
     expect(more.getAttribute('aria-expanded')).toBe('false');
     expect(screen.getByText(/asks for the first time the agent uses it/u)).toBeTruthy();
-    // A required row keeps Turn on disabled until it is typed.
-    expect(screen.getByRole('button', { name: /Turn on/u }).hasAttribute('disabled')).toBe(true);
+    expect(
+      screen.getByText(/Adding turns .* on, then its tools join this conversation only/u),
+    ).toBeTruthy();
+    expect(screen.queryByRole('switch')).toBeNull();
+    // A required row keeps Add disabled until it is typed.
+    expect(screen.getByRole('button', { name: /^1?\s*Add$/u }).hasAttribute('disabled')).toBe(true);
   });
 
-  it('turns it on for every conversation with the rows typed', async () => {
+  it('adds it to this conversation with the rows typed, sending no scope', async () => {
     const user = userEvent.setup();
     const onResponse = renderDock();
     await user.type(await screen.findByLabelText(/Access token/u), 'zz-token');
     await user.click(screen.getByRole('button', { name: 'Optional settings (1)' }));
     await user.type(screen.getByLabelText(/Where it runs/u), 'node08');
-    await user.click(screen.getByRole('button', { name: /^1?\s*Turn on/u }));
+    await user.click(screen.getByRole('button', { name: /^1?\s*Add$/u }));
     expect(onResponse).toHaveBeenCalledWith(offer, {
       action: 'submit',
       values: { token: 'zz-token', address: 'node08' },
-      metadata: { scope: 'all' },
+      metadata: { save_as_default: [] },
     });
   });
 
-  it('turns it on for this conversation’s agent only', async () => {
-    const user = userEvent.setup();
-    const onResponse = renderDock();
-    await user.type(await screen.findByLabelText(/Access token/u), 't');
-    await user.click(screen.getByRole('switch'));
-    expect(screen.getByText('Only Standard can use it.')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: /^1?\s*Turn on/u }));
-    expect(onResponse).toHaveBeenCalledWith(offer, {
-      action: 'submit',
-      values: { token: 't' },
-      metadata: { scope: 'agent' },
-    });
+  it('says a connector that is on only joins this conversation', async () => {
+    repository.connectors.mockResolvedValue([viewer({ enabled: true })]);
+    renderDock();
+    expect(await screen.findByText('Its tools join this conversation only.')).toBeTruthy();
+    expect(screen.getByText('Enabled')).toBeTruthy();
   });
 
   it('says Not now', async () => {
@@ -148,17 +150,18 @@ describe('the agent offers a connector that is off', () => {
     expect(onResponse).toHaveBeenCalledWith(offer, { action: 'decline' });
   });
 
-  it('reads "Turn on …" in its line, waiting for you, then turned on or not now', () => {
+  it('reads "Add … to this conversation" in its line, waiting for you, then added or not now', () => {
     const { rerender } = renderWith(
       <ConversationInteractionActivity artifacts={{}} interaction={offer} />,
     );
     const line = () => document.querySelector('[data-slot="connector-setup-activity"]');
-    expect(line()?.textContent).toContain('Turn on');
+    expect(line()?.textContent).toContain('Add');
+    expect(line()?.textContent).toContain('to this conversation');
     expect(screen.getByRole('button', { name: /Choose below/u }).textContent).toBe(
       'waiting for you',
     );
     for (const [status, words] of [
-      ['answered', 'turned on'],
+      ['answered', 'added'],
       ['denied', 'not now'],
     ] as const) {
       rerender(
