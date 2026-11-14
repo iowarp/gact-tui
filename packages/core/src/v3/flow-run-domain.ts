@@ -93,6 +93,12 @@ export const flowOutcomeSchema = z
     predicate: z.string().nullish(),
     observed: z.unknown().optional(),
     handle: z.string().nullish(),
+    /** A run stopped on request (reason `stopped`): who asked, `person`, `agent` or `unknown`. */
+    stopped_by: z.string().nullish(),
+    /** Why, when the request named it (`conversation_stop`). */
+    stop_reason: z.string().nullish(),
+    /** What the flow's own code saw when the stop reached it (a cancelled call). */
+    ended_by: z.object({ message: z.string().nullish() }).passthrough().nullish(),
   })
   .passthrough();
 
@@ -163,6 +169,8 @@ export const flowRunSchema = z.object({
     })
     .nullable(),
   result: z.unknown().optional(),
+  /** The newest restart that continues this run, when it was restarted. */
+  restarted_as: z.string().nullish(),
   /** Which models the run used, with token shares, account windows and each call's model. */
   usage: z
     .object({

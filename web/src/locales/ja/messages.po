@@ -1688,6 +1688,10 @@ msgstr "{count, plural, one {#件のコメントを送信} other {#件のコメ�
 msgid "{count, plural, one {Study: {name}, # entry} other {Study: {name}, # entries}}"
 msgstr "{count, plural, one {研究：{name}、#件のエントリー} other {研究：{name}、#件のエントリー}}"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "{count, plural, one {This conversation started # task that is still open. Stopping everything cancels it and anything it started; finished results are kept, and you can restart it later.} other {This conversation started # tasks that are still open. Stopping everything cancels them and anything they started; finished results are kept, and you can restart them later.}}"
+msgstr "{count, plural, one {この会話が開始した # 件のタスクがまだ開いています。すべて停止すると、そのタスクと、そこから開始されたものがキャンセルされます。完了した結果は保持され、後で再開できます。} other {この会話が開始した # 件のタスクがまだ開いています。すべて停止すると、それらのタスクと、そこから開始されたものがキャンセルされます。完了した結果は保持され、後で再開できます。}}"
+
 #: src/components/clio/memory-used-action.tsx
 msgid "{count, plural, one {Used # memory document} other {Used # memory documents}}"
 msgstr "{count, plural, one {#件のメモリードキュメントを使用} other {#件のメモリードキュメントを使用}}"
@@ -1960,6 +1964,10 @@ msgstr "{flow}のフォローアップ"
 #: src/routes/runs-rows.ts
 msgid "{flow} run"
 msgstr "{flow}の実行"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "{flow} run, restarted"
+msgstr "{flow} の実行（再開済み）"
 
 #: src/components/clio/a2ui-data-table.tsx
 msgid "{format} (current view)"
@@ -4345,6 +4353,10 @@ msgstr "読み取り専用のスナップショットです。リンクを知っ
 msgid "A repository URL, or a folder on the agent host."
 msgstr "リポジトリのURL、またはエージェントホスト上のフォルダー。"
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "A restart keeps the steps that finished."
+msgstr "再開しても、完了したステップは保持されます。"
+
 #: src/components/clio/clio-menu.tsx
 msgid "A saved host, or add one"
 msgstr "保存済みのホスト、または新規追加"
@@ -5397,6 +5409,7 @@ msgstr "エージェント"
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/private-local-library.tsx
 #: src/components/clio/settings-session-defaults.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/use-workbench-strip.tsx
@@ -5980,6 +5993,10 @@ msgstr "エージェントが選択を記録せずに回答しました"
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "An agent answered: {answer}"
 msgstr "エージェントの回答：{answer}"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "An agent stopped this run"
+msgstr "エージェントがこの実行を停止しました"
 
 #: src/components/clio/session-behavior-options.ts
 msgid "An AI agent watches the session."
@@ -9673,6 +9690,7 @@ msgstr "インストール済みの機能と保存済みの接続を組み合わ
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/mcp-connection-dialog.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Command"
@@ -13229,6 +13247,7 @@ msgstr "ドットファイルとフォルダー"
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/settings-app-updates.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/surface-toolbar.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -17257,6 +17276,7 @@ msgstr "ファイルを共有する独立した会話"
 msgid "Index more sessions"
 msgstr "さらにセッションをインデックス"
 
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Indexing"
 msgstr "インデックス作成中"
@@ -18309,6 +18329,10 @@ msgstr "{product}を閉じてもこのリモートエージェントを実行し
 #: src/components/clio/async-task-list.tsx
 msgid "Keep this run"
 msgstr "この実行を残す"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Keep working"
+msgstr "作業を続ける"
 
 #: src/components/clio/settings-schedule-row.tsx
 msgid "Keep<0> schedule</0>"
@@ -24039,6 +24063,10 @@ msgstr "システム設定を開く"
 msgid "Open task"
 msgstr "タスクを開く"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Open tasks"
+msgstr "開いているタスク"
+
 #: src/lib/global-search-commands.ts
 msgid "Open terminal"
 msgstr "ターミナルを開く"
@@ -24126,6 +24154,10 @@ msgstr "SPOTTERのレビュー会話を開く"
 #: src/components/clio/flow-run-parts.tsx
 msgid "Open the stalled step"
 msgstr "停滞したステップを開く"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Open the step it stopped at"
+msgstr "停止したステップを開く"
 
 #: src/components/clio/artifact-card.tsx
 msgid "Open this artifact to read the full {size} result."
@@ -24870,6 +24902,7 @@ msgstr "一時停止"
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-schedule-row.tsx
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Paused"
 msgstr "一時停止"
@@ -26232,6 +26265,7 @@ msgstr "質問"
 #: src/components/clio/question-answer-reader.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/science-log-model.ts
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/study-tree.tsx
 #: src/components/clio/surface-question-notice.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -26316,6 +26350,7 @@ msgstr "待機中"
 #: src/components/clio/resource-processing-presentation.ts
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Queued"
 msgstr "待機中"
@@ -29365,6 +29400,7 @@ msgstr "実行中"
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -30184,6 +30220,7 @@ msgstr "スコア{score}"
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/science-log-sources.tsx
 #: src/components/clio/script-run-body.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/routes/workspace-page.tsx
 msgid "Script"
@@ -31961,9 +31998,17 @@ msgstr "左バーを表示"
 msgid "Show the original answer"
 msgstr "元の回答を表示"
 
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the restarted run"
+msgstr "再開した実行を表示"
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Show the script in Work"
 msgstr "スクリプトを作業で表示"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the stopped run"
+msgstr "停止した実行を表示"
 
 #: src/components/clio/script-run-body.tsx
 msgid "Show the task in Work"
@@ -33124,6 +33169,10 @@ msgstr "状態"
 msgid "State not recognized"
 msgstr "認識できない状態"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "State unconfirmed"
+msgstr "状態未確認"
+
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
 msgid "state unknown"
@@ -33335,6 +33384,10 @@ msgstr "回答をやめる"
 msgid "Stop connecting"
 msgstr "接続を中止"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop everything"
+msgstr "すべて停止"
+
 #: src/components/clio/ndp-sdk-stream-actions.tsx
 msgid "Stop reader"
 msgstr "リーダーを停止"
@@ -33342,6 +33395,10 @@ msgstr "リーダーを停止"
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Stop replay"
 msgstr "再生を停止"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop reply only"
+msgstr "返信のみ停止"
 
 #: src/components/clio/rail-runs.tsx
 msgid "Stop run"
@@ -33362,6 +33419,10 @@ msgstr "同期を停止"
 #: src/components/clio/work-record-controls.tsx
 msgid "Stop text"
 msgstr "停止テキスト"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop the work this conversation started?"
+msgstr "この会話が開始した作業を停止しますか？"
 
 #: src/components/clio/rail-runs.tsx
 msgid "Stop this run?"
@@ -33422,6 +33483,10 @@ msgstr "エージェントにより停止"
 #: src/components/clio/flow-run-parts.tsx
 msgid "stopped or rejected"
 msgstr "停止または拒否"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Stopped with this conversation's Stop. A restart keeps the steps that finished."
+msgstr "この会話の停止で停止しました。再開しても、完了したステップは保持されます。"
 
 #: src/components/clio/flow-run-presentation.ts
 msgid "Stopped: {status}"
@@ -34036,6 +34101,7 @@ msgstr "対象は報告されていません"
 #: src/components/clio/model-picker-anchors.tsx
 #: src/components/clio/registry-model-details.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-task-row.tsx
@@ -34884,6 +34950,10 @@ msgstr "フローはまだ受け付けられていません。"
 #: src/components/clio/flow-track.tsx
 msgid "The flow has not started any task yet."
 msgstr "フローはまだタスクを開始していません。"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "The flow saw"
+msgstr "フローが受け取った結果"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "The flow stalled"
@@ -36771,6 +36841,18 @@ msgstr "この経路はこのデプロイでのみ使用されます。OpenSSH�
 msgid "This rule"
 msgstr "このルール"
 
+#: src/components/clio/flow-run-card.tsx
+msgid "This run continues one that was stopped. Steps that finished were kept; only unfinished steps run again."
+msgstr "この実行は停止した実行の続きです。完了したステップは保持され、未完了のステップだけが再実行されます。"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "This run was stopped"
+msgstr "この実行は停止しました"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "This run was stopped and later restarted."
+msgstr "この実行は停止され、その後再開されました。"
+
 #: src/offline-review.tsx
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
 msgstr "この保存されたビューはデコードできませんでした。正確な記録は「エビデンス」に残っています。"
@@ -37288,6 +37370,10 @@ msgstr "ツールのアクション"
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Tool audio result"
 msgstr "ツールの音声結果"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Tool call"
+msgstr "ツール呼び出し"
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/context-composition-model.ts
@@ -39504,6 +39590,10 @@ msgstr "ブラウザーでのサインインを待っています…"
 msgid "Waiting for converter activity."
 msgstr "コンバーターのアクティビティを待機中です。"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Waiting for input"
+msgstr "入力待ち"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "Waiting for more conversation messages"
 msgstr "会話のメッセージがさらに届くのを待っています"
@@ -40579,6 +40669,10 @@ msgstr "あなたの発言"
 #: src/lib/variant-runs.ts
 msgid "You sent a new message instead of picking. {unused}"
 msgstr "選択せずに新しいメッセージを送信しました。{unused}"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "You stopped this run"
+msgstr "この実行を停止しました"
 
 #: src/lib/provider-availability.ts
 msgid "Your {providerLabel} API key was rejected."

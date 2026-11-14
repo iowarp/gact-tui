@@ -1688,6 +1688,10 @@ msgstr "{count, plural, one {Enviar # comentario} other {Enviar # comentarios}}"
 msgid "{count, plural, one {Study: {name}, # entry} other {Study: {name}, # entries}}"
 msgstr "{count, plural, one {Estudio: {name}, # entrada} other {Estudio: {name}, # entradas}}"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "{count, plural, one {This conversation started # task that is still open. Stopping everything cancels it and anything it started; finished results are kept, and you can restart it later.} other {This conversation started # tasks that are still open. Stopping everything cancels them and anything they started; finished results are kept, and you can restart them later.}}"
+msgstr "{count, plural, one {Esta conversación inició # tarea que sigue abierta. Detener todo la cancela junto con lo que haya iniciado; los resultados terminados se conservan y puede reiniciarla más tarde.} other {Esta conversación inició # tareas que siguen abiertas. Detener todo las cancela junto con lo que hayan iniciado; los resultados terminados se conservan y puede reiniciarlas más tarde.}}"
+
 #: src/components/clio/memory-used-action.tsx
 msgid "{count, plural, one {Used # memory document} other {Used # memory documents}}"
 msgstr "{count, plural, one {Se usó # documento de memoria} other {Se usaron # documentos de memoria}}"
@@ -1960,6 +1964,10 @@ msgstr "Seguimiento de {flow}"
 #: src/routes/runs-rows.ts
 msgid "{flow} run"
 msgstr "Ejecución de {flow}"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "{flow} run, restarted"
+msgstr "Ejecución de {flow}, reiniciada"
 
 #: src/components/clio/a2ui-data-table.tsx
 msgid "{format} (current view)"
@@ -4345,6 +4353,10 @@ msgstr "Una instantánea de solo lectura. Cualquiera con el enlace puede verla h
 msgid "A repository URL, or a folder on the agent host."
 msgstr "Una URL de repositorio o una carpeta en el host del agente."
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "A restart keeps the steps that finished."
+msgstr "Un reinicio conserva los pasos que terminaron."
+
 #: src/components/clio/clio-menu.tsx
 msgid "A saved host, or add one"
 msgstr "Un host guardado, o añade uno"
@@ -5397,6 +5409,7 @@ msgstr "agente"
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/private-local-library.tsx
 #: src/components/clio/settings-session-defaults.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/use-workbench-strip.tsx
@@ -5980,6 +5993,10 @@ msgstr "Un agente respondió sin una elección registrada"
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "An agent answered: {answer}"
 msgstr "Un agente respondió: {answer}"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "An agent stopped this run"
+msgstr "Un agente detuvo esta ejecución"
 
 #: src/components/clio/session-behavior-options.ts
 msgid "An AI agent watches the session."
@@ -9673,6 +9690,7 @@ msgstr "Combina capacidades instaladas y conexiones guardadas. Las credenciales 
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/mcp-connection-dialog.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Command"
@@ -13229,6 +13247,7 @@ msgstr "Archivos y carpetas ocultos (con punto)"
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/settings-app-updates.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/surface-toolbar.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -17257,6 +17276,7 @@ msgstr "Conversación independiente con archivos compartidos"
 msgid "Index more sessions"
 msgstr "Indexar más sesiones"
 
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Indexing"
 msgstr "Indexando"
@@ -18309,6 +18329,10 @@ msgstr "Mantener este agente remoto en ejecución cuando se cierre {product}"
 #: src/components/clio/async-task-list.tsx
 msgid "Keep this run"
 msgstr "Conservar esta ejecución"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Keep working"
+msgstr "Seguir trabajando"
 
 #: src/components/clio/settings-schedule-row.tsx
 msgid "Keep<0> schedule</0>"
@@ -24039,6 +24063,10 @@ msgstr "Abrir Configuración del sistema"
 msgid "Open task"
 msgstr "Abrir tarea"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Open tasks"
+msgstr "Tareas abiertas"
+
 #: src/lib/global-search-commands.ts
 msgid "Open terminal"
 msgstr "Abrir terminal"
@@ -24126,6 +24154,10 @@ msgstr "Abrir la conversación de revisión de SPOTTER"
 #: src/components/clio/flow-run-parts.tsx
 msgid "Open the stalled step"
 msgstr "Abrir el paso estancado"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Open the step it stopped at"
+msgstr "Abrir el paso donde se detuvo"
 
 #: src/components/clio/artifact-card.tsx
 msgid "Open this artifact to read the full {size} result."
@@ -24870,6 +24902,7 @@ msgstr "en pausa"
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-schedule-row.tsx
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Paused"
 msgstr "En pausa"
@@ -26232,6 +26265,7 @@ msgstr "pregunta"
 #: src/components/clio/question-answer-reader.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/science-log-model.ts
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/study-tree.tsx
 #: src/components/clio/surface-question-notice.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -26316,6 +26350,7 @@ msgstr "en cola"
 #: src/components/clio/resource-processing-presentation.ts
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Queued"
 msgstr "En cola"
@@ -29365,6 +29400,7 @@ msgstr "en ejecución"
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -30184,6 +30220,7 @@ msgstr "puntuación {score}"
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/science-log-sources.tsx
 #: src/components/clio/script-run-body.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/routes/workspace-page.tsx
 msgid "Script"
@@ -31961,9 +31998,17 @@ msgstr "Mostrar la barra izquierda"
 msgid "Show the original answer"
 msgstr "Mostrar la respuesta original"
 
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the restarted run"
+msgstr "Mostrar la ejecución reiniciada"
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Show the script in Work"
 msgstr "Mostrar el script en Trabajo"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the stopped run"
+msgstr "Mostrar la ejecución detenida"
 
 #: src/components/clio/script-run-body.tsx
 msgid "Show the task in Work"
@@ -33124,6 +33169,10 @@ msgstr "Estado"
 msgid "State not recognized"
 msgstr "Estado no reconocido"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "State unconfirmed"
+msgstr "Estado sin confirmar"
+
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
 msgid "state unknown"
@@ -33335,6 +33384,10 @@ msgstr "Dejar de responder"
 msgid "Stop connecting"
 msgstr "Dejar de conectar"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop everything"
+msgstr "Detener todo"
+
 #: src/components/clio/ndp-sdk-stream-actions.tsx
 msgid "Stop reader"
 msgstr "Detener lector"
@@ -33342,6 +33395,10 @@ msgstr "Detener lector"
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Stop replay"
 msgstr "Detener reproducción"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop reply only"
+msgstr "Detener solo la respuesta"
 
 #: src/components/clio/rail-runs.tsx
 msgid "Stop run"
@@ -33362,6 +33419,10 @@ msgstr "Detener sincronización"
 #: src/components/clio/work-record-controls.tsx
 msgid "Stop text"
 msgstr "Texto de parada"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop the work this conversation started?"
+msgstr "¿Detener el trabajo que inició esta conversación?"
 
 #: src/components/clio/rail-runs.tsx
 msgid "Stop this run?"
@@ -33422,6 +33483,10 @@ msgstr "Detenido por el agente"
 #: src/components/clio/flow-run-parts.tsx
 msgid "stopped or rejected"
 msgstr "detenido o rechazado"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Stopped with this conversation's Stop. A restart keeps the steps that finished."
+msgstr "Detenida con el botón Detener de esta conversación. Un reinicio conserva los pasos que terminaron."
 
 #: src/components/clio/flow-run-presentation.ts
 msgid "Stopped: {status}"
@@ -34036,6 +34101,7 @@ msgstr "Destino no informado"
 #: src/components/clio/model-picker-anchors.tsx
 #: src/components/clio/registry-model-details.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-task-row.tsx
@@ -34884,6 +34950,10 @@ msgstr "El flujo aún no se ha aceptado."
 #: src/components/clio/flow-track.tsx
 msgid "The flow has not started any task yet."
 msgstr "El flujo aún no ha iniciado ninguna tarea."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "The flow saw"
+msgstr "Lo que vio el flujo"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "The flow stalled"
@@ -36771,6 +36841,18 @@ msgstr "Esta ruta se usa solo para esta implementación; tu configuración de Op
 msgid "This rule"
 msgstr "Esta regla"
 
+#: src/components/clio/flow-run-card.tsx
+msgid "This run continues one that was stopped. Steps that finished were kept; only unfinished steps run again."
+msgstr "Esta ejecución continúa una que se detuvo. Se conservaron los pasos terminados; solo se vuelven a ejecutar los pendientes."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "This run was stopped"
+msgstr "Esta ejecución se detuvo"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "This run was stopped and later restarted."
+msgstr "Esta ejecución se detuvo y después se reinició."
+
 #: src/offline-review.tsx
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
 msgstr "Esta vista guardada no se pudo decodificar. Su registro exacto permanece en Evidencia."
@@ -37288,6 +37370,10 @@ msgstr "Acción de herramienta"
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Tool audio result"
 msgstr "Resultado de audio de la herramienta"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Tool call"
+msgstr "Llamada a herramienta"
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/context-composition-model.ts
@@ -39504,6 +39590,10 @@ msgstr "Esperando el inicio de sesión en el navegador…"
 msgid "Waiting for converter activity."
 msgstr "Esperando la actividad del convertidor."
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Waiting for input"
+msgstr "Esperando una respuesta"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "Waiting for more conversation messages"
 msgstr "Esperando más mensajes de la conversación"
@@ -40579,6 +40669,10 @@ msgstr "Tú dijiste esto"
 #: src/lib/variant-runs.ts
 msgid "You sent a new message instead of picking. {unused}"
 msgstr "Enviaste un mensaje nuevo en lugar de elegir. {unused}"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "You stopped this run"
+msgstr "Detuviste esta ejecución"
 
 #: src/lib/provider-availability.ts
 msgid "Your {providerLabel} API key was rejected."

@@ -330,4 +330,78 @@ describe('FlowRunCard', () => {
     await waitFor(() => expect(screen.queryByText('Not started yet')).toBeNull());
     expect(repository.taskFlow.mock.calls.length).toBeGreaterThan(1);
   });
+
+  it('says who stopped a run, not which call the stop cancelled', async () => {
+    repository.taskFlow.mockResolvedValue(
+      flowRunSchema.parse({
+        flow: 'deep-research',
+        status: 'cancelled',
+        view: null,
+        calls: [{ invocation: 'a', target: 'critic', status: 'cancelled', handle: 'task_critic' }],
+        outcome: {
+          reason: 'stopped',
+          stopped_by: 'person',
+          stop_reason: 'conversation_stop',
+          message: "Stopped from the conversation's Stop.",
+          handle: 'task_critic',
+          ended_by: { status: 'cancelled', message: "subagent 'critic' ended cancelled" },
+        },
+      }),
+    );
+    repository.agentTask.mockResolvedValue({ task_id: 'x', created_at: '', updated_at: '' });
+    wrap(
+      <FlowRunCard
+        flow={{ flow: 'deep-research', label: 'Deep research', handle: 'task_flow', args: {} }}
+        sessionId="sess_1"
+      />,
+    );
+
+    expect(await screen.findByText(/You stopped this run/u)).toBeVisible();
+    expect(
+      screen.getByText(
+        "Stopped with this conversation's Stop. A restart keeps the steps that finished.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Open the step it stopped at' })).toBeVisible();
+    // The cancelled call stays a detail, not the headline.
+    expect(screen.queryByText('The flow was cancelled')).toBeNull();
+  });
+
+  it('follows a stopped run to the restart that continues it, and back', async () => {
+    const stopped = flowRunSchema.parse({
+      flow: 'deep-research',
+      status: 'cancelled',
+      view: null,
+      calls: [{ invocation: 'a', target: 'researcher', status: 'completed', handle: 'task_r' }],
+      outcome: { reason: 'stopped', stopped_by: 'person', message: 'Stopped on request.' },
+      restarted_as: 'task_restart',
+    });
+    const restarted = flowRunSchema.parse({
+      flow: 'deep-research',
+      status: 'running',
+      view: null,
+      calls: [{ invocation: 'a', target: 'researcher', status: 'completed', handle: 'task_r' }],
+    });
+    repository.taskFlow.mockImplementation((_sid: string, handle: string) =>
+      Promise.resolve(handle === 'task_restart' ? restarted : stopped),
+    );
+    repository.agentTask.mockResolvedValue({ task_id: 'x', created_at: '', updated_at: '' });
+    wrap(
+      <FlowRunCard
+        flow={{ flow: 'deep-research', label: 'Deep research', handle: 'task_flow', args: {} }}
+        sessionId="sess_1"
+      />,
+    );
+
+    expect(await screen.findByText('Deep research run, restarted')).toBeVisible();
+    expect(screen.getByText('Running')).toBeVisible();
+    expect(screen.getByText(/This run continues one that was stopped/u)).toBeVisible();
+    expect(repository.taskFlow).toHaveBeenCalledWith('sess_1', 'task_restart', expect.anything());
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show the stopped run' }));
+    expect(await screen.findByText('This run was stopped and later restarted.')).toBeVisible();
+    expect(screen.getByText('Deep research run')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Show the restarted run' }));
+    expect(await screen.findByText('Deep research run, restarted')).toBeVisible();
+  });
 });
