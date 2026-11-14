@@ -19,6 +19,14 @@ import { cn } from '@/lib/utils';
 import { interfaceScale, useInterfaceScale } from '@/theme/runtime';
 import { NamedTooltip } from './icon-button';
 import { MenuRow } from './menu-row';
+import {
+  CLOSED_TAB,
+  LIST_TRIGGER,
+  OPEN_TAB_CHROME,
+  OPEN_TAB_ICON,
+  nameFloor,
+  oneLineWidth,
+} from './nav-tabs-measure';
 import { t, ph } from '@lingui/core/macro';
 
 export interface NavTab {
@@ -30,21 +38,16 @@ export interface NavTab {
   state?: unknown;
 }
 
-// Widths drawn by the classes below: a closed tab is 7 + 14 + 7, plus the 2px gap;
-// the open tab adds its name, the 6px icon gap and 10px right padding. Px at the
-// default interface size; scaled by it, as the rem icons and gaps grow.
-const CLOSED_TAB = 30;
-const OPEN_TAB_CHROME = 37;
-const LIST_TRIGGER = 44;
-
 /**
  * Places within one page, as links: icon only, and the open tab adds its
  * name over a 2px primary underline; tabs fill the bar's height. Every closed tab keeps its name on hover and as its accessible name,
  * so the strip never wraps and nothing is unexplained. When the strip is squeezed,
- * closed tabs furthest from the open one go into an "N â–¾" list at its end, so the
+ * closed tabs furthest from the open one go into an "N ▾" list at its end, so the
  * open tab keeps its whole name (spec: "Icons past the edge go into a list. The
- * open tab stays"). Pair it with the catalog's previous-tab and next-tab keys on
- * the page that owns it.
+ * open tab stays"). Only when even the folded strip is too narrow does the name
+ * wrap, whole, between its words, with the list under it; it never gets narrower
+ * than its longest word. Pair it with the catalog's previous-tab and next-tab keys
+ * on the page that owns it.
  */
 export const NavTabs = memo(function NavTabs({
   label,
@@ -82,7 +85,22 @@ export const NavTabs = memo(function NavTabs({
       const name = nav.querySelector<HTMLElement>('[data-tab-name]');
       const scale = interfaceScale();
       const closed = CLOSED_TAB * scale;
-      const open = name ? OPEN_TAB_CHROME * scale + name.scrollWidth + 1 : 0;
+      // The name wraps between words, never letter by letter. When it cannot stay on one
+      // line beside the "N ▾" list, the list goes under it and the name has the width.
+      const open = name ? OPEN_TAB_CHROME * scale + oneLineWidth(name) + 1 : 0;
+      const wraps = closedCount > 0 && open + LIST_TRIGGER * scale > width;
+      nav.toggleAttribute('data-name-wraps', wraps);
+      let tight = false;
+      if (name) {
+        const chrome =
+          OPEN_TAB_CHROME * scale + 1 + (wraps || !closedCount ? 0 : LIST_TRIGGER * scale);
+        const floor = nameFloor(name);
+        // A longest word that cannot fit beside the open tab's icon takes the icon's room.
+        tight = floor > width - chrome;
+        const room = width - chrome + (tight ? OPEN_TAB_ICON * scale : 0);
+        name.style.minWidth = `${Math.min(floor, Math.max(0, room))}px`;
+      }
+      nav.toggleAttribute('data-name-tight', tight);
       if (open + closedCount * closed <= width) return setFit(closedCount);
       setFit(Math.max(0, Math.floor((width - open - LIST_TRIGGER * scale) / closed)));
     };
@@ -103,7 +121,7 @@ export const NavTabs = memo(function NavTabs({
       data-slot="nav-tabs"
       ref={navRef}
       className={cn(
-        'flex min-w-0 shrink-0 items-stretch gap-0.5 self-stretch whitespace-nowrap',
+        'flex min-w-0 shrink-0 items-stretch gap-0.5 self-stretch whitespace-nowrap data-name-wraps:flex-wrap',
         className,
       )}
     >
@@ -123,9 +141,15 @@ export const NavTabs = memo(function NavTabs({
             state={state}
             to={to}
           >
-            <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+            <Icon
+              aria-hidden="true"
+              className={cn('size-3.5 shrink-0', current && 'in-data-name-tight:hidden')}
+            />
             {current ? (
-              <span className="truncate" data-tab-name="">
+              <span
+                className="min-w-0 py-1 leading-tight break-words whitespace-normal"
+                data-tab-name=""
+              >
                 {tabLabel}
               </span>
             ) : null}
@@ -143,6 +167,7 @@ export const NavTabs = memo(function NavTabs({
         <DropdownMenu modal={false}>
           <NamedTooltip label={t`${ph({ count: listed.length })} more`}>
             <DropdownMenuTrigger
+              data-tab-list=""
               aria-label={t`${ph({ count: listed.length })} more: ${ph({ tabs: listed.map((tab) => tab.label).join(', ') })}`}
               className="ml-auto flex h-[26px] shrink-0 items-center gap-[3px] self-center rounded-md px-1.5 text-label text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground"
             >
