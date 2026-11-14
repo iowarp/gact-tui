@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentType,
-  type ReactNode,
-} from 'react';
+import { useCallback, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { GitBranchIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -39,6 +32,8 @@ import {
   type FileViewerTitle,
 } from './file-viewer-facts';
 import { fileViewerReference } from './file-viewer-location';
+import { hdf5ObjectReference, isHdf5File } from './composer-hdf5-references';
+import { useHdf5Selection } from './hdf5-selection-store';
 import { fileViewerIdentity, type FileViewerSource } from './file-viewer-source';
 import { useAddToMessage, useFileViewerCrumbs } from './file-viewer-take-hooks';
 import { useElementFullscreen } from './use-element-fullscreen';
@@ -262,7 +257,17 @@ export function FileViewerShell({
     [pathCrumbs, titled],
   );
   const { fullscreenHost, fullscreen, toggle: toggleFullscreen } = useElementFullscreen(hostRef);
-  const addToMessage = useAddToMessage(fileViewerReference(source), source.workspaceId, hostRef);
+  const hdf5Object = useHdf5Selection(
+    source.kind === 'workspace' ? source.workspaceId : undefined,
+    source.kind === 'workspace' && isHdf5File(source.path) ? source.path : undefined,
+  );
+  const addToMessage = useAddToMessage(
+    hdf5Object && source.kind === 'workspace'
+      ? hdf5ObjectReference(source.path, hdf5Object, 'Selected in the viewer')
+      : fileViewerReference(source),
+    source.workspaceId,
+    hostRef,
+  );
   const rendererFacts = (
     selectedValue === LINEAGE_VIEW ? [...lineageFacts.values()].flat() : [...facts.values()].flat()
   ).flatMap((fact) =>

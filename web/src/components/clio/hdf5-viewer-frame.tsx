@@ -23,6 +23,7 @@ import type { ColorToken } from '@/theme/contract';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { HDF5_LOCATOR_SEPARATOR } from './composer-hdf5-references';
+import { hdf5FileKey, setHdf5Selection } from './hdf5-selection-store';
 import { useFileViewerContentsRegistry } from './file-viewer-action-context';
 import { useFileViewerFacts } from './file-viewer-facts';
 import { entityFacts, valuesAsTsv, type ViewerEntity } from './hdf5-viewer-facts';
@@ -113,7 +114,7 @@ export function Hdf5ViewerFrame({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const palette = useMemo(() => hostPalette(), [themeName]);
   const viewer = useMemo(() => currentViewerLocation(), []);
-  const fileKey = `${workspaceId}\u0000${path}`;
+  const fileKey = hdf5FileKey(workspaceId, path);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
   const initRef = useRef<InitState>({
@@ -195,6 +196,7 @@ export function Hdf5ViewerFrame({
           return;
         case 'select':
           remember(selectionRef.current.fileKey, selectionRef.current.locator, message.locator);
+          setHdf5Selection(selectionRef.current.fileKey, message.locator);
           onSelectRef.current?.(message.locator);
           return;
         case 'view':

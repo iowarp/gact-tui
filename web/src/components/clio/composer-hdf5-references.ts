@@ -14,7 +14,8 @@ import { useConnectionSettings } from '@/providers/connection-provider';
  * workspace (clio-agent `gact/context_reference_hdf5.py`).
  */
 export const HDF5_LOCATOR_SEPARATOR = '::';
-const HDF5_EXTENSIONS = ['h5', 'hdf5', 'he5', 'nxs'];
+// NetCDF-4 files are HDF5 files; a classic NetCDF file fails the drill with the reader's reason.
+const HDF5_EXTENSIONS = ['h5', 'hdf5', 'he5', 'nxs', 'nc', 'nc4'];
 const HDF5_MEDIA_TYPE = 'application/x-hdf5';
 
 export function isHdf5File(path: string): boolean {
@@ -76,18 +77,28 @@ function childDetail(child: GroupChild): string {
   return child.kind;
 }
 
-function childReference(mention: Hdf5Mention, child: GroupChild): WorkspaceReference {
-  const locator = `${mention.group === '/' ? '' : mention.group}/${child.name}`;
-  const name = mention.file.split('/').at(-1) ?? mention.file;
+/** The reference to one object inside an HDF5 file, as the composer and the viewer make it. */
+export function hdf5ObjectReference(
+  file: string,
+  locator: string,
+  detail: string,
+  objectKind?: string,
+): WorkspaceReference {
+  const name = file.split('/').at(-1) ?? file;
   return {
     kind: 'workspace_file',
-    id: `${mention.file}${HDF5_LOCATOR_SEPARATOR}${locator}`,
+    id: `${file}${HDF5_LOCATOR_SEPARATOR}${locator}`,
     label: `${name} › ${locator}`,
-    detail: childDetail(child),
+    detail,
     media_type: HDF5_MEDIA_TYPE,
     revision: '',
-    navigation: { path: mention.file, locator, hdf5_kind: child.kind },
+    navigation: { path: file, locator, ...(objectKind ? { hdf5_kind: objectKind } : {}) },
   };
+}
+
+function childReference(mention: Hdf5Mention, child: GroupChild): WorkspaceReference {
+  const locator = `${mention.group === '/' ? '' : mention.group}/${child.name}`;
+  return hdf5ObjectReference(mention.file, locator, childDetail(child), child.kind);
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { CreateSourceInput, SourceProvider } from '@clio/core/v3';
 import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useEffect } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { renderWithTooltips } from '@/test/render-with-tooltips';
 import { SourceS3Fields } from './source-s3-fields';
@@ -20,7 +21,11 @@ let latest: { ready: boolean; input: CreateSourceInput } | undefined;
 
 function Harness() {
   const fields = useSourceFields(s3);
-  latest = { ready: fields.ready, input: fields.input('read_only') };
+  const ready = fields.ready;
+  const input = fields.input('read_only');
+  useEffect(() => {
+    latest = { ready, input };
+  });
   return (
     <>
       <input
