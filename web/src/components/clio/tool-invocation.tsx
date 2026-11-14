@@ -143,7 +143,9 @@ export function ClioToolInvocation({
     };
   }, [attentionFields]);
   const hiddenViewLook = useWaitingViewLook(
-    tool?.name === 'look_at_view' && surface !== 'evidence' ? { sessionId } : undefined,
+    tool?.name === 'look_at_view' && surface !== 'evidence'
+      ? { sessionId, view: String(asRecord(tool.input)?.view ?? '') || undefined }
+      : undefined,
   );
   if (!tool) return <p className="text-sm text-muted-foreground">{t`Tool details unavailable`}</p>;
   const flow = flowToolDescriptor(tool);

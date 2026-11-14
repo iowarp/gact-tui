@@ -103,7 +103,7 @@ function subscribe(listener: () => void): () => void {
  * view. `undefined` when no look waits on a hidden view (or `scope` is undefined).
  */
 export function useWaitingViewLook(
-  scope: { sessionId?: string; appInstanceId?: string } | undefined,
+  scope: { sessionId?: string; appInstanceId?: string; view?: string } | undefined,
 ): WaitingViewLook | undefined {
   const all = useSyncExternalStore(
     subscribe,
@@ -111,12 +111,14 @@ export function useWaitingViewLook(
     () => looks,
   );
   if (!scope) return undefined;
-  return all.findLast(
+  const mine = all.filter(
     (look) =>
-      !look.visible &&
       (!scope.sessionId || look.sessionId === scope.sessionId) &&
       (!scope.appInstanceId || look.appInstanceId === scope.appInstanceId),
   );
+  // A row that names its view by id reads that view's look only.
+  const named = scope.view ? mine.filter((look) => look.appInstanceId === scope.view) : [];
+  return (named.length ? named : mine).findLast((look) => !look.visible);
 }
 
 /**

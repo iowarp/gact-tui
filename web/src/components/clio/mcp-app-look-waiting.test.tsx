@@ -57,9 +57,23 @@ function frameOnScreen(shown = true): Element {
   } as unknown as Element;
 }
 
-function Probe({ sessionId, appInstanceId }: { sessionId?: string; appInstanceId?: string }) {
-  const look = useWaitingViewLook({ sessionId, appInstanceId });
-  return look ? <ViewLookWaiting look={look} /> : <span>nothing hidden</span>;
+function Probe({
+  sessionId,
+  appInstanceId,
+  view,
+}: {
+  sessionId?: string;
+  appInstanceId?: string;
+  view?: string;
+}) {
+  const look = useWaitingViewLook({ sessionId, appInstanceId, view });
+  return look ? (
+    <span data-look={look.appInstanceId}>
+      <ViewLookWaiting look={look} />
+    </span>
+  ) : (
+    <span>nothing hidden</span>
+  );
 }
 
 beforeEach(() => {
@@ -95,6 +109,26 @@ describe('a look that waits on a view the person cannot see (DOCS-F2)', () => {
     act(() => done());
     expect(screen.getByText('nothing hidden')).toBeTruthy();
     expect(FakeObserver.last!.disconnect).toHaveBeenCalled();
+  });
+
+  it('a row that names its view follows that view’s look', () => {
+    render(
+      <>
+        <Probe sessionId="s1" view="app1" />
+        <Probe sessionId="s1" view="app2" />
+      </>,
+    );
+    act(() => {
+      for (const app of ['app1', 'app2']) {
+        trackViewLook(
+          { callId: app, sessionId: 's1', appInstanceId: app, reveal: vi.fn() },
+          frameOnScreen(false),
+        );
+      }
+    });
+    expect(
+      [...document.querySelectorAll('[data-look]')].map((el) => el.getAttribute('data-look')),
+    ).toEqual(['app1', 'app2']);
   });
 
   it('keeps another conversation’s look out of this one', () => {
