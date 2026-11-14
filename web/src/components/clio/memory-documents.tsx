@@ -90,12 +90,14 @@ function MemorySearchField({
     <div className="py-2">
       {/* The spec's search field (.xsr): 30 px, outlined, 12.5 px faint text, 14 px icon. */}
       <InputGroup className="@container/memory-search h-[1.875rem] rounded-[7px] dark:bg-transparent">
-        <InputGroupAddon className="[&>svg:not([class*='size-'])]:size-3.5">
+        {/* In a narrow field the placeholder needs the room more than the icons do: it names
+            the search itself, and the shortcut stays listed in the keyboard shortcuts. */}
+        <InputGroupAddon className="@max-[12rem]/memory-search:hidden [&>svg:not([class*='size-'])]:size-3.5">
           <SearchIcon aria-hidden="true" />
         </InputGroupAddon>
         <InputGroupInput
           aria-label={t`Search memories`}
-          className="text-menu placeholder:text-faint md:text-menu"
+          className="text-menu placeholder:text-faint md:text-menu @max-[12rem]/memory-search:pl-2"
           // The window's Esc listener runs first; while there is a query, Esc only clears it.
           data-escape-scope={text ? '' : undefined}
           onChange={(event) => setText(event.target.value)}
@@ -110,8 +112,6 @@ function MemorySearchField({
           ref={inputRef}
           value={text}
         />
-        {/* In a narrow field the placeholder needs the room more than the "/" hint does;
-            the shortcut stays listed in the keyboard shortcuts. */}
         <InputGroupAddon align="inline-end" className="@max-[12rem]/memory-search:hidden">
           <ShortcutKeys id="memory-search" variant="inline" />
         </InputGroupAddon>
