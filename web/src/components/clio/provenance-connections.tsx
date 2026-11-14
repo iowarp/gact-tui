@@ -226,7 +226,7 @@ function ConnectionRow({
       title={
         <button
           aria-expanded={expanded}
-          className="max-w-full truncate text-left font-medium outline-none focus-visible:underline @max-[480px]/infra:break-words @max-[480px]/infra:whitespace-normal @max-[480px]/infra:[word-break:auto-phrase]"
+          className="max-w-full truncate text-left font-medium outline-none focus-visible:underline @max-[480px]/infra:break-words @max-[480px]/infra:whitespace-normal @max-[480px]/infra:[word-break:auto-phrase] @max-[480px]/infra:[line-break:strict]"
           onClick={(event) => {
             event.stopPropagation();
             setExpanded((open) => !open);

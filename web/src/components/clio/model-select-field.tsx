@@ -66,7 +66,7 @@ export const SettingsSelectField = forwardRef<HTMLButtonElement, SettingsSelectF
         <span
           className={cn(
             'min-w-0 flex-1 text-left',
-            wrap ? 'break-words [word-break:auto-phrase]' : 'truncate',
+            wrap ? 'break-words [word-break:auto-phrase] [line-break:strict]' : 'truncate',
             !value && 'text-muted-foreground',
           )}
         >
