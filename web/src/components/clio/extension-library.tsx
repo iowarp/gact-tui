@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BoxIcon, CopyIcon, GlobeIcon, KeyRoundIcon, PlugIcon, SparklesIcon } from 'lucide-react';
 import { useState, type CSSProperties } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import {
   useConnectorChanges,
@@ -41,6 +40,7 @@ import { ConnectorPane } from './connector-pane';
 import { ExtensionAddDialog, type ExtensionAdd } from './extension-add-dialog';
 import { useDiscoverItems, type DiscoverItem } from './extension-discover';
 import { BackupDialog, DiscoverPane, McpConnectionPane } from './extension-library-panes';
+import { McpRegistrySection } from './extension-registry-section';
 import { ExtensionToolbar, type ExtensionView } from './extension-library-toolbar';
 import { ExtensionRow, SlotButton } from './extension-parts';
 import { PluginIcon } from './installed-plugin-list';
@@ -578,7 +578,14 @@ function ExtensionLibraryContents({
     );
   };
 
-  const suggestions = curated.filter((item) => item.suggested && !item.installed && matches(item));
+  // FP-D4: under Connectors, suggest catalog connectors; other MCP servers keep their heading.
+  const suggestions =
+    type === 'mcp'
+      ? []
+      : curated.filter((item) => item.suggested && !item.installed && matches(item));
+  const catalogOff = entries.filter(
+    (entry) => entry.kind === 'connector' && !entry.connector.enabled,
+  );
   const yours = loadError ? (
     <div title={loadError.message}>
       <StateView
@@ -631,54 +638,28 @@ function ExtensionLibraryContents({
   const showRegistry = type === 'all' || type === 'mcp';
   const discover = (
     <>
+      {type === 'mcp' && catalogOff.length ? (
+        <>
+          <SettingsGroupLabel>Connector catalog</SettingsGroupLabel>
+          <ItemList label="Connectors to enable">{catalogOff.map(row)}</ItemList>
+        </>
+      ) : null}
       {shownCurated.length ? (
         <>
-          <SettingsGroupLabel>Suggested</SettingsGroupLabel>
+          <SettingsGroupLabel>
+            {type === 'mcp' ? 'MCP servers you add yourself' : 'Suggested'}
+          </SettingsGroupLabel>
           <ItemList label="Suggested extensions">{shownCurated.map(discoverRow)}</ItemList>
         </>
       ) : null}
       {showRegistry ? (
-        <section aria-label="MCP Registry">
-          <SettingsGroupLabel>MCP Registry</SettingsGroupLabel>
-          {registry.isPending ? (
-            <StateView kind="loading" size="row" title="Searching the MCP Registry…" />
-          ) : null}
-          {registry.error ? (
-            <div title={registry.error.message}>
-              <StateView
-                action={{ label: 'Retry', onClick: () => void registry.refetch() }}
-                kind="error"
-                size="row"
-                title="The MCP Registry couldn’t be searched."
-              />
-            </div>
-          ) : null}
-          {registryItems.length ? (
-            <ItemList label="MCP Registry servers">{registryItems.map(discoverRow)}</ItemList>
-          ) : null}
-          {registry.data && !registry.data.servers.length ? (
-            <StateView kind="empty" size="row" title="No servers match." />
-          ) : null}
-          <div className="mt-2 flex items-center gap-2">
-            {registry.data?.next_cursor ? (
-              <Button
-                onClick={() => setCursor(registry.data!.next_cursor)}
-                size="sm"
-                variant="outline"
-              >
-                Next page
-              </Button>
-            ) : null}
-            {cursor ? (
-              <Button onClick={() => setCursor('')} size="sm" variant="ghost">
-                Back to first page
-              </Button>
-            ) : null}
-            <span className="min-w-0 truncate text-xs text-faint">
-              Public server metadata. Browsing starts no servers.
-            </span>
-          </div>
-        </section>
+        <McpRegistrySection
+          cursor={cursor}
+          items={registryItems}
+          onCursor={setCursor}
+          registry={registry}
+          renderItem={discoverRow}
+        />
       ) : null}
       {!shownCurated.length && !showRegistry ? (
         <StateView kind="empty" size="row" title="No suggestions match." />

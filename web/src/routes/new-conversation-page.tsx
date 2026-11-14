@@ -11,6 +11,7 @@ import type { ObsidianChoice } from '@/components/clio/obsidian-source-form';
 import { DraftAgentCompositionView } from '@/components/clio/agent-composition-view';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioComposer } from '@/components/clio/composer';
+import { agentDisplayName } from '@/lib/plugin-presentation';
 import {
   DraftAgentChip,
   DraftCustomizeChip,
@@ -56,7 +57,7 @@ import { useWorkspaceWarmup } from '@/hooks/use-workspace-warmup';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { queryKeys } from '@/lib/query-keys';
 import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
-import { capitalize, vocab } from '@/lib/brand-vocabulary';
+import { capitalize, vocab, welcomePlaceholder } from '@/lib/brand-vocabulary';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
@@ -490,6 +491,11 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
             }}
             resources={data.workspaceResources.data ?? []}
             variant="welcome"
+            placeholder={welcomePlaceholder(
+              draftRef && data.installedAgents.data
+                ? agentDisplayName(draftRef, data.installedAgents.data)
+                : undefined,
+            )}
             workspaceId={workspaceId}
           />
         </NewConversationDraft>

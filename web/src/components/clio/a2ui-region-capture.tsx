@@ -277,7 +277,8 @@ export function A2uiRegionCaptureProvider({
       // ordinary popovers, so the controls must also stack above that dialog.
       setControlPosition({
         x: clamp(rect.right - 265, 8, window.innerWidth - 260),
-        y: clamp(rect.top + 56, 8, window.innerHeight - 90),
+        // Room for the controls with their whole-dashboard choice (FP-D6).
+        y: clamp(rect.top + 56, 8, window.innerHeight - (next.wider ? 150 : 90)),
       });
     },
     [allowed, target?.element],
@@ -538,6 +539,18 @@ export function A2uiRegionCaptureProvider({
               }
               title={target.title}
             >
+              {target.wider && !regions.length ? (
+                <Button
+                  className="mt-2 w-full"
+                  data-capture-wider="true"
+                  onClick={() => target.wider && start(target.wider)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  Mark across the whole dashboard
+                </Button>
+              ) : null}
               {attention && regions.length ? (
                 <div className="mt-2 flex items-center gap-2">
                   <Button

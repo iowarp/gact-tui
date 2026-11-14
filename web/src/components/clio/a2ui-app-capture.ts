@@ -1,3 +1,4 @@
+import { readThemeColor } from '@/theme/runtime';
 import { viewSnapshotFor } from './mcp-app-look';
 
 /**
@@ -24,9 +25,9 @@ function paintGapNote(
 ): void {
   const height = 22 * scale;
   context.save();
-  context.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  context.fillStyle = readThemeColor('media-backdrop');
   context.fillRect(box.x, box.y + box.height - height, box.width, height);
-  context.fillStyle = '#ffffff';
+  context.fillStyle = readThemeColor('media-foreground');
   context.font = `${Math.round(12 * scale)}px sans-serif`;
   context.textBaseline = 'middle';
   context.fillText(
@@ -51,12 +52,12 @@ function paintRefusal(
   scale: number,
 ): void {
   context.save();
-  context.fillStyle = 'rgba(127, 127, 127, 0.18)';
+  context.fillStyle = readThemeColor('muted');
   context.fillRect(box.x, box.y, box.width, box.height);
-  context.strokeStyle = 'rgba(127, 127, 127, 0.7)';
+  context.strokeStyle = readThemeColor('border');
   context.lineWidth = Math.max(1, scale);
   context.strokeRect(box.x, box.y, box.width, box.height);
-  context.fillStyle = getComputedStyle(document.documentElement).color || '#888';
+  context.fillStyle = readThemeColor('foreground');
   context.font = `${Math.round(13 * scale)}px sans-serif`;
   context.textBaseline = 'top';
   context.fillText(text, box.x + 10 * scale, box.y + 10 * scale, box.width - 20 * scale);

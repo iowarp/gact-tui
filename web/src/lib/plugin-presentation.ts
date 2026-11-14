@@ -2,6 +2,8 @@ import {
   sessionAgentRef,
   type AgentEntry,
   type AgentResolution,
+  type Connector,
+  type PluginEntry,
   pluginReferenceId,
   type PluginDiagnostic,
   type PluginProvenance,
@@ -305,10 +307,43 @@ export function pluginChangeTools(text: string): string[] {
   return tools;
 }
 
-/** "Plugins changed: +shell, −document-runtime (2 new tools)", or "Plugins changed". */
-export function pluginChangeLabel(text: string): string {
+/** A plugin id read as words: "document-runtime" → "Document runtime". */
+export function humanizePluginId(id: string): string {
+  const words = id.replace(/[-_]+/gu, ' ').trim();
+  return words ? words[0]!.toUpperCase() + words.slice(1) : id;
+}
+
+/**
+ * Person-facing names for plugin ids (FP-D5). A plugin that follows a connector, the
+ * plugin a connector brings, and the carrier CLIO builds for a connector without one
+ * (`connector-<id>`) are all named after the connector; any other plugin is its id read
+ * as words.
+ */
+export function pluginNameResolver(
+  plugins: readonly Pick<PluginEntry, 'id' | 'follows'>[] | undefined,
+  connectors: readonly Pick<Connector, 'id' | 'name' | 'plugin'>[] | undefined,
+): (id: string) => string {
+  const names = new Map<string, string>();
+  for (const connector of connectors ?? []) {
+    names.set(`connector-${connector.id}`, connector.name);
+    if (connector.plugin) names.set(connector.plugin, connector.name);
+  }
+  for (const plugin of plugins ?? []) {
+    const followed = connectors?.find((connector) => connector.id === plugin.follows);
+    if (followed) names.set(plugin.id, followed.name);
+  }
+  return (id) => names.get(id) ?? humanizePluginId(id);
+}
+
+/** "Plugins changed: +Shell, −Document runtime (2 new tools)", or "Plugins changed". */
+export function pluginChangeLabel(
+  text: string,
+  nameOf: (id: string) => string = humanizePluginId,
+): string {
   const { added, removed } = pluginChangeSummary(text);
-  const items = [...added.map((id) => `+${id}`), ...removed.map((id) => `−${id}`)];
+  const items = [
+    ...new Set([...added.map((id) => `+${nameOf(id)}`), ...removed.map((id) => `−${nameOf(id)}`)]),
+  ];
   const tools = pluginChangeTools(text).length;
   const reach = tools ? ` (${tools} new ${tools === 1 ? 'tool' : 'tools'})` : '';
   return (items.length ? `Plugins changed: ${items.join(', ')}` : 'Plugins changed') + reach;

@@ -1,7 +1,7 @@
 import { brand } from '@brand';
 import { describe, expect, it } from 'vitest';
 
-import { PROTOCOL, capitalize, vocab, withArticle } from './brand-vocabulary';
+import { PROTOCOL, capitalize, vocab, welcomePlaceholder, withArticle } from './brand-vocabulary';
 
 describe('withArticle', () => {
   it('picks A or An from the noun', () => {
@@ -40,5 +40,16 @@ describe('PROTOCOL', () => {
   it('names both protocols explicitly, never a bare acronym', () => {
     expect(PROTOCOL.a2ui).toBe('A2UI protocol');
     expect(PROTOCOL.gact).toBe('GACT protocol');
+  });
+});
+
+describe('welcomePlaceholder', () => {
+  it('names the chosen agent, so the first screen shows one name', () => {
+    expect(welcomePlaceholder('Helper')).toBe('Ask Helper anything, or describe a task…');
+  });
+
+  it('names the product until an agent is known', () => {
+    expect(welcomePlaceholder()).toBe(`Ask ${brand.name} anything, or describe a task…`);
+    expect(welcomePlaceholder('  ')).toBe(`Ask ${brand.name} anything, or describe a task…`);
   });
 });

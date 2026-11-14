@@ -6,6 +6,7 @@ import {
 } from '@clio/core/v3';
 import { AlertTriangleIcon, PanelsTopLeftIcon } from 'lucide-react';
 import { RetryIcon } from '@/lib/icon-vocabulary';
+import { splitTrailingErrorCode } from '@/lib/trailing-error-code';
 import { vocab } from '@/lib/brand-vocabulary';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -116,6 +117,7 @@ export function McpAppReopenLine(props: McpAppReopenLineProps) {
   const displayName =
     props.label || humanizeToolName(props.toolName || props.sourceServer || 'interactive_tool');
   if (state.phase === 'failed') {
+    const failure = splitTrailingErrorCode(state.detail);
     const retryable =
       state.reason === 'request_failed' || MCP_APP_RETRYABLE_REOPEN_REASONS.has(state.reason);
     return (
@@ -123,8 +125,13 @@ export function McpAppReopenLine(props: McpAppReopenLineProps) {
         <AlertTriangleIcon aria-hidden="true" />
         <AlertTitle>Could not reopen {displayName}</AlertTitle>
         <AlertDescription className="grid gap-2">
-          <p>{state.detail}</p>
+          <p>{failure.sentence}</p>
           {state.savedCall ? <SavedCallLine call={state.savedCall} /> : null}
+          {failure.code ? (
+            <p className="text-xs text-muted-foreground">
+              Technical details: <span className="font-mono">{failure.code}</span>
+            </p>
+          ) : null}
           {retryable ? (
             <Button className="justify-self-start" onClick={reopen} size="sm" variant="outline">
               <RetryIcon aria-hidden="true" />
