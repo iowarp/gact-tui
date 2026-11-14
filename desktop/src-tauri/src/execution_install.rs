@@ -297,9 +297,22 @@ fn startup_command(runtime: &Path, workspace: &Path, user: &Path) -> Result<Comm
 #[cfg(any(windows, test))]
 const PREPARE_TOOL_SERVERS: &str = "--prepare-tool-servers";
 
-/// Build the agents' clio-kit tool servers inside the install too, so a first data
-/// question does not spend minutes building them. Older runtimes reject the
-/// argument, so it is added only when their installer's `--help` lists it.
+/// The environment variable that asks an install to build the tool servers too
+/// (`install.ps1 -PrepareToolServers` sets it, for offline or air-gapped machines).
+#[cfg(any(windows, test))]
+const PREPARE_TOOL_SERVERS_ENV: &str = "CLIO_INSTALL_PREPARE_TOOL_SERVERS";
+
+/// Whether this install was asked to build the agents' tool servers. By default it is
+/// not: CLIO asks in the conversation when an agent needs a server that is not
+/// enabled, and enabling it downloads it then (clio-agent ledger LZ-D1).
+#[cfg(any(windows, test))]
+fn tool_servers_wanted(value: Option<std::ffi::OsString>) -> bool {
+    value.is_some_and(|value| value == "1")
+}
+
+/// Build the agents' clio-kit tool servers inside the install too, when asked
+/// ([`tool_servers_wanted`]). Older runtimes reject the argument, so it is added
+/// only when their installer's `--help` lists it.
 #[cfg(any(windows, test))]
 fn with_tool_servers(
     mut install: Command,
@@ -325,7 +338,7 @@ pub(crate) fn prepare_packages_for_install(
     #[allow(unused_mut)]
     let mut command = explicit_install_command(runtime, workspace, user)?;
     #[cfg(windows)]
-    {
+    if tool_servers_wanted(std::env::var_os(PREPARE_TOOL_SERVERS_ENV)) {
         let mut help = install_command(runtime, workspace, user)?;
         help.arg("--help");
         command = with_tool_servers(command, help, &boot_log_line)?;
@@ -747,6 +760,15 @@ mod tests {
     #[test]
     fn independent_fence_verification_requires_success_before_packages_may_defer() {
         assert!(check_fence(help_fixture("fence"), help_fixture("legacy"), &|_| {}).unwrap());
+    }
+
+    #[test]
+    fn installs_build_no_tool_servers_unless_asked() {
+        assert!(!tool_servers_wanted(None));
+        assert!(!tool_servers_wanted(Some("0".into())));
+        assert!(!tool_servers_wanted(Some("yes".into())));
+        assert!(tool_servers_wanted(Some("1".into())));
+        assert_eq!(PREPARE_TOOL_SERVERS_ENV, "CLIO_INSTALL_PREPARE_TOOL_SERVERS");
     }
 
     #[test]

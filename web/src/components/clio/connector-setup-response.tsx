@@ -1,5 +1,6 @@
 import {
   connectorSetupPayload,
+  isAgentNeeds,
   isConnectorOffer,
   isPluginOffer,
   type PendingInteraction,
@@ -10,6 +11,7 @@ import { useConnector, useInvalidateConnectors, useSessionConnector } from '@/ho
 import { connectorStatus } from '@/lib/connector-presentation';
 import { AskBody, AskButton, AskCard, AskError, AskOptions, AskSection } from './ask-card';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
+import { AgentNeedsResponse } from './agent-needs-response';
 import { ConnectorOfferResponse } from './connector-offer-response';
 import { conversationAnswer, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
@@ -25,6 +27,8 @@ import { Trans } from '@lingui/react/macro';
  * them continues the same call. Declining returns a refusal that names the connector.
  */
 export function ConnectorSetupResponse(props: ConnectorCardProps) {
+  // The agent-load card (LZ-D2): what this conversation's agent needs that is not ready.
+  if (isAgentNeeds(props.interaction.payload)) return <AgentNeedsResponse {...props} />;
   // The agent's offer of a connector or a plugin is the same card, in its offer form.
   return isConnectorOffer(props.interaction.payload) || isPluginOffer(props.interaction.payload) ? (
     <ConnectorOfferResponse {...props} />

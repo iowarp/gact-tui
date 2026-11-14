@@ -104,6 +104,16 @@ msgstr "{0, plural, one {(# byte)} other {(# byte)}}"
 msgid "{0, plural, one {{account}, # turn} other {{account}, # turns}}"
 msgstr "{0, plural, one {{account}, # γύρος} other {{account}, # γύροι}}"
 
+#. placeholder {0}: items.length
+#: src/lib/agent-needs.ts
+msgid "{0, plural, one {{agent} uses {names}, which is not enabled. Enable it?} other {{agent} uses {names}, which are not enabled. Enable them?}}"
+msgstr "{0, plural, one {Το {agent} χρησιμοποιεί {names}, που δεν είναι ενεργό. Να ενεργοποιηθεί;} other {Το {agent} χρησιμοποιεί {names}, που δεν είναι ενεργά. Να ενεργοποιηθούν;}}"
+
+#. placeholder {0}: items.length
+#: src/lib/agent-needs.ts
+msgid "{0, plural, one {{agent} uses {names}, which is not ready yet. Get it ready?} other {{agent} uses {names}, which are not ready yet. Get them ready?}}"
+msgstr "{0, plural, one {Το {agent} χρησιμοποιεί {names}, που δεν είναι ακόμη έτοιμο. Να ετοιμαστεί;} other {Το {agent} χρησιμοποιεί {names}, που δεν είναι ακόμη έτοιμα. Να ετοιμαστούν;}}"
+
 #. placeholder {0}: steps.length
 #: src/components/clio/a2ui-steps.tsx
 msgid "{0, plural, one {{count}/# step complete} other {{count}/# steps complete}}"
@@ -842,6 +852,11 @@ msgstr "{0, plural, one {πρόβλημα} other {προβλήματα}}"
 msgid "{0, plural, one {Publish # edit} other {Publish # edits}}"
 msgstr "{0, plural, one {Δημοσίευση # επεξεργασίας} other {Δημοσίευση # επεξεργασιών}}"
 
+#. placeholder {0}: item.tool_count
+#: src/lib/agent-needs.ts
+msgid "{0, plural, one {Ready, # tool} other {Ready, # tools}}"
+msgstr "{0, plural, one {Έτοιμο, # εργαλείο} other {Έτοιμο, # εργαλεία}}"
+
 #. placeholder {0}: Number(tag.value)
 #: src/lib/model-capability-tags.ts
 msgid "{0, plural, one {Released in the last # month.} other {Released in the last # months.}}"
@@ -956,6 +971,11 @@ msgstr "{0, select, an {Ένα {agentName} που εκτελείται ήδη} o
 #: src/components/clio/tool-operation-data.ts
 msgid "{0, select, failed {Task failed} error {Task error} denied {Task denied} cancelled {Task cancelled} other {Task interrupted}}"
 msgstr "{0, select, failed {Η εργασία απέτυχε} error {Σφάλμα εργασίας} denied {Η εργασία απορρίφθηκε} cancelled {Η εργασία ακυρώθηκε} other {Η εργασία διακόπηκε}}"
+
+#. placeholder {0}: item.name
+#: src/components/clio/agent-needs-response.tsx
+msgid "{0} settings"
+msgstr "Ρυθμίσεις {0}"
 
 #: src/components/clio/conversation-message-blocks.tsx
 msgid "{a2ui} surface"
@@ -1918,6 +1938,10 @@ msgstr "{entries, plural, one {Ευρετηρίαση φακέλου… # κατ
 #: src/lib/extension-library-entries.ts
 msgid "{errors, plural, one {# problem} other {# problems}}"
 msgstr "{errors, plural, one {# πρόβλημα} other {# προβλήματα}}"
+
+#: src/lib/agent-needs.ts
+msgid "{failed, plural, one {# could not be enabled} other {# could not be enabled}}"
+msgstr "{failed, plural, one {# δεν ενεργοποιήθηκε} other {# δεν ενεργοποιήθηκαν}}"
 
 #: src/components/clio/tool-operation.ts
 msgid "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
@@ -2997,6 +3021,10 @@ msgstr "{name}: {when}"
 #: src/tauri/native-copy.ts
 msgid "{name}: running"
 msgstr "{name}: σε εκτέλεση"
+
+#: src/lib/agent-needs.ts
+msgid "{names} enabled"
+msgstr "Ενεργό: {names}"
 
 #: src/components/clio/mcp-connection-details.tsx
 msgid "{names}. Values are hidden."
@@ -6843,6 +6871,10 @@ msgstr "Σας ρωτά"
 msgid "Asks you before each call"
 msgstr "Σας ρωτά πριν από κάθε κλήση"
 
+#: src/lib/agent-needs.ts
+msgid "asks you to sign in when first used"
+msgstr "ζητά σύνδεση την πρώτη φορά"
+
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/tool-operation-result.tsx
@@ -9564,6 +9596,7 @@ msgctxt "menu key hint"
 msgid "close"
 msgstr "κλείσιμο"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/composer-references.tsx
@@ -10708,6 +10741,7 @@ msgid "Connections from this client to the agent and managed computers"
 msgstr "Συνδέσεις από αυτόν τον πελάτη προς τον πράκτορα και τους διαχειριζόμενους υπολογιστές"
 
 #: src/components/clio/agent-plugin-menu.tsx
+#: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Connector"
 msgstr "Σύνδεσμος"
@@ -12505,6 +12539,7 @@ msgstr "Αποφασίστε: {request}"
 
 #: src/components/clio/a2ui-action-lifecycle.tsx
 #: src/components/clio/agent-answer-domain.ts
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-setup-response.tsx
 #: src/components/clio/permission-response.tsx
@@ -13676,6 +13711,10 @@ msgstr "Λήψη αρχείου…"
 msgid "Downloading folder…"
 msgstr "Λήψη φακέλου…"
 
+#: src/lib/agent-needs.ts
+msgid "Downloading its tools…"
+msgstr "Λήψη των εργαλείων του…"
+
 #: src/components/clio/browser-new-page.tsx
 msgid "Downloading the browser"
 msgstr "Λήψη του προγράμματος περιήγησης"
@@ -13721,6 +13760,14 @@ msgstr "Λήψη, {downloaded} από {total} MB"
 #: src/lib/shortcuts/catalog.ts
 msgid "Downloads"
 msgstr "Λήψεις"
+
+#: src/lib/agent-needs.ts
+msgid "downloads its tools"
+msgstr "κατεβάζει τα εργαλεία του"
+
+#: src/lib/connector-plugin.ts
+msgid "Downloads its tools when you enable it"
+msgstr "Κατεβάζει τα εργαλεία του όταν το ενεργοποιήσετε"
 
 #: src/components/clio/onboarding/tour-overlay.tsx
 msgid "Draft"
@@ -14196,9 +14243,24 @@ msgstr "Κενό κείμενο"
 msgid "Enable"
 msgstr "Ενεργοποίηση"
 
+#. placeholder {0}: item.name
+#. placeholder {0}: payload?.connector_name || t`what this agent uses`
+#: src/components/clio/agent-needs-response.tsx
+#: src/components/clio/connector-setup-activity.tsx
+msgid "Enable {0}"
+msgstr "Ενεργοποίηση: {0}"
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "Enable {count}"
+msgstr "Ενεργοποίηση {count}"
+
 #: src/components/clio/connector-pane.tsx
 msgid "Enable {name} to add it to the conversations that need it."
 msgstr "Ενεργοποιήστε το ({name}) για να το προσθέσετε στις συνομιλίες που το χρειάζονται."
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "Enable all"
+msgstr "Ενεργοποίηση όλων"
 
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/settings-health-views.tsx
@@ -14208,6 +14270,10 @@ msgstr "Ενεργοποιημένο"
 #: src/components/clio/connector-pane.tsx
 msgid "Enabled. Add {name} to a conversation from its plugins; other conversations don’t carry its tools."
 msgstr "Ενεργό. Προσθέστε το ({name}) σε μια συνομιλία από τα πρόσθετά της· οι άλλες συνομιλίες δεν φέρουν τα εργαλεία του."
+
+#: src/lib/agent-needs.ts
+msgid "Enabling {names}…"
+msgstr "Ενεργοποίηση: {names}…"
 
 #: src/components/clio/ndp-station-filters.tsx
 msgid "End time"
@@ -16687,6 +16753,7 @@ msgstr "Τα κρυφά αρχεία είναι απενεργοποιημένα
 msgid "Hidden from the agent. Calls are refused."
 msgstr "Κρυφό από τον πράκτορα. Οι κλήσεις απορρίπτονται."
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/composer-queue.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Hide"
@@ -18253,6 +18320,10 @@ msgstr "Δεν εκτελέστηκε."
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "It finished in an earlier conversation load or was removed."
 msgstr "Ολοκληρώθηκε σε προηγούμενη φόρτωση της συνομιλίας ή αφαιρέθηκε."
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "It goes on in the background."
+msgstr "Συνεχίζει στο παρασκήνιο."
 
 #: src/lib/local-servers.ts
 msgid "It has not been checked yet."
@@ -20412,6 +20483,10 @@ msgstr "Μέγιστο token"
 msgid "Maximum wait between pieces of a streamed response."
 msgstr "Μέγιστη αναμονή ανάμεσα στα τμήματα μιας ροής απάντησης."
 
+#: src/lib/agent-needs.ts
+msgid "may download its tools"
+msgstr "μπορεί να κατεβάσει τα εργαλεία του"
+
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "May have been blocked by the sandbox"
 msgstr "Ίσως αποκλείστηκε από το απομονωμένο περιβάλλον"
@@ -21451,6 +21526,10 @@ msgstr "κοντά στο όριο"
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Needed by the agent"
 msgstr "Απαιτείται από τον πράκτορα"
+
+#: src/lib/agent-needs.ts
+msgid "needs {missing}"
+msgstr "χρειάζεται {missing}"
 
 #: src/lib/connector-plugin.ts
 #: src/lib/connector-presentation.ts
@@ -23141,6 +23220,7 @@ msgid "Not connected to {agent}"
 msgstr "Δεν είναι συνδεδεμένο με {agent}"
 
 #: src/components/clio/connector-offer-response.tsx
+#: src/lib/agent-needs.ts
 #: src/lib/connector-presentation.ts
 msgid "Not enabled"
 msgstr "Ανενεργό"
@@ -23148,6 +23228,11 @@ msgstr "Ανενεργό"
 #: src/components/clio/connector-offer-response.tsx
 msgid "Not enabled (Add turns it on)"
 msgstr "Ανενεργό (η προσθήκη το ενεργοποιεί)"
+
+#. placeholder {0}: item.detail
+#: src/lib/agent-needs.ts
+msgid "Not enabled: {0}"
+msgstr "Δεν ενεργοποιήθηκε: {0}"
 
 #: src/components/clio/plan-decision-controls.tsx
 msgid "not executed"
@@ -23220,14 +23305,20 @@ msgstr "Δεν χρειάζεται: συνδέθηκε απευθείας"
 msgid "Not needed: the {agent} already running there was reused"
 msgstr "Δεν χρειάζεται: επαναχρησιμοποιήθηκε το {agent} που ήδη εκτελούνταν εκεί"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/connector-offer-response.tsx
+#: src/lib/agent-needs.ts
 msgid "Not now"
 msgstr "Όχι τώρα"
 
 #: src/tauri/native-copy.ts
 msgid "Not Now"
 msgstr "Όχι τώρα"
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "Not now: {agent} works without them and can offer them later."
+msgstr "Όχι τώρα: το {agent} λειτουργεί χωρίς αυτά και μπορεί να τα προτείνει αργότερα."
 
 #: src/components/clio/settings-models-rows.tsx
 msgid "Not offered"
@@ -24821,6 +24912,7 @@ msgstr "Αρχικά ορίσματα εργαλείου, αποτέλεσμα �
 #: src/components/clio/service-installation-method.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/lib/artifact-categories.ts
+#: src/lib/connector-groups.ts
 #: src/lib/model-facets.ts
 msgid "Other"
 msgstr "Άλλα"
@@ -25657,6 +25749,7 @@ msgstr "Τα γραφήματα, οι πίνακες και οι αναφορέ�
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
 msgstr "Πρόσθετο"
@@ -27243,6 +27336,7 @@ msgstr "Διαβάζει έως {tokens} token ταυτόχρονα. Το ίδι
 #: src/components/clio/workbench-sources-list.tsx
 #: src/hooks/use-connection-availability.ts
 #: src/hooks/use-known-connections.ts
+#: src/lib/agent-needs.ts
 #: src/lib/connector-presentation.ts
 #: src/lib/extension-library-entries.ts
 #: src/routes/infrastructure-foundation.ts
@@ -31988,6 +32082,7 @@ msgstr "Ρυθμίσεις › {group}"
 msgid "Settings › {section}"
 msgstr "Ρυθμίσεις › {section}"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/connector-offer-response.tsx
 msgid "Settings ({count})"
 msgstr "Ρυθμίσεις ({count})"
@@ -36863,6 +36958,10 @@ msgstr "Αυτή η δραστηριότητα δεν έχει φορτωθεί"
 msgid "this agent"
 msgstr "αυτός ο πράκτορας"
 
+#: src/components/clio/agent-needs-response.tsx
+msgid "This agent"
+msgstr "Αυτός ο πράκτορας"
+
 #: src/components/clio/settings-health-reason.ts
 msgid "This agent did not allow it."
 msgstr "Αυτός ο πράκτορας δεν το επέτρεψε."
@@ -37676,6 +37775,10 @@ msgstr "Δεν ήταν δυνατή η φόρτωση των φακέλων α�
 msgid "This workspace’s name could not be loaded"
 msgstr "Δεν ήταν δυνατή η φόρτωση του ονόματος αυτού του χώρου εργασίας"
 
+#: src/components/clio/agent-needs-response.tsx
+msgid "Those with an empty required value ask for it when first used."
+msgstr "Όσα έχουν κενή υποχρεωτική τιμή τη ζητούν την πρώτη φορά."
+
 #: src/components/clio/transcript-reasoning-passage.tsx
 msgid "Thought"
 msgstr "Σκέψη"
@@ -38336,6 +38439,7 @@ msgstr "Προσπάθεια {number}"
 msgid "Try {number} selected"
 msgstr "Επιλέχθηκε η προσπάθεια {number}"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/browser-surface.tsx
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/github-revision-picker.tsx
@@ -38403,10 +38507,18 @@ msgstr "Ενεργοποιήστε τις οποιαδήποτε στιγμή σ
 msgid "Turned off in system settings"
 msgstr "Απενεργοποιήθηκαν στις ρυθμίσεις συστήματος"
 
+#: src/lib/agent-needs.ts
+msgid "Turning it on…"
+msgstr "Ενεργοποίηση…"
+
 #: src/components/clio/connector-pane.tsx
 #: src/lib/connector-presentation.ts
 msgid "Turning off…"
 msgstr "Απενεργοποίηση…"
+
+#: src/lib/agent-needs.ts
+msgid "turns it on"
+msgstr "το ενεργοποιεί"
 
 #: src/lib/search-source-text.ts
 msgid "Turns the source on."
@@ -40136,6 +40248,7 @@ msgstr "σε αναμονή"
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/session-work.tsx
 #: src/components/clio/tool-operation.ts
+#: src/lib/agent-needs.ts
 msgid "Waiting"
 msgstr "Αναμονή"
 
@@ -40454,6 +40567,10 @@ msgstr "Σε τι έχει πρόσβαση"
 msgid "What it can use"
 msgstr "Τι μπορεί να χρησιμοποιήσει"
 
+#: src/components/clio/agent-needs-response.tsx
+msgid "What it needs"
+msgstr "Τι χρειάζεται"
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "What should change in {label}"
 msgstr "Τι πρέπει να αλλάξει στο {label}"
@@ -40497,6 +40614,10 @@ msgstr "Τι ζητείται από τη συνεδρία όταν έρθει �
 #: src/components/clio/settings-connection.tsx
 msgid "What this agent cannot do on this connection."
 msgstr "Τι δεν μπορεί να κάνει αυτός ο πράκτορας σε αυτή τη σύνδεση."
+
+#: src/components/clio/connector-setup-activity.tsx
+msgid "what this agent uses"
+msgstr "ό,τι χρησιμοποιεί αυτός ο πράκτορας"
 
 #: src/components/clio/flow-run-usage.tsx
 msgid "What this run used"

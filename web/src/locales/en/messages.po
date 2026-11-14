@@ -104,6 +104,16 @@ msgstr "{0, plural, one {(# byte)} other {(# bytes)}}"
 msgid "{0, plural, one {{account}, # turn} other {{account}, # turns}}"
 msgstr "{0, plural, one {{account}, # turn} other {{account}, # turns}}"
 
+#. placeholder {0}: items.length
+#: src/lib/agent-needs.ts
+msgid "{0, plural, one {{agent} uses {names}, which is not enabled. Enable it?} other {{agent} uses {names}, which are not enabled. Enable them?}}"
+msgstr "{0, plural, one {{agent} uses {names}, which is not enabled. Enable it?} other {{agent} uses {names}, which are not enabled. Enable them?}}"
+
+#. placeholder {0}: items.length
+#: src/lib/agent-needs.ts
+msgid "{0, plural, one {{agent} uses {names}, which is not ready yet. Get it ready?} other {{agent} uses {names}, which are not ready yet. Get them ready?}}"
+msgstr "{0, plural, one {{agent} uses {names}, which is not ready yet. Get it ready?} other {{agent} uses {names}, which are not ready yet. Get them ready?}}"
+
 #. placeholder {0}: steps.length
 #: src/components/clio/a2ui-steps.tsx
 msgid "{0, plural, one {{count}/# step complete} other {{count}/# steps complete}}"
@@ -842,6 +852,11 @@ msgstr "{0, plural, one {problem} other {problems}}"
 msgid "{0, plural, one {Publish # edit} other {Publish # edits}}"
 msgstr "{0, plural, one {Publish # edit} other {Publish # edits}}"
 
+#. placeholder {0}: item.tool_count
+#: src/lib/agent-needs.ts
+msgid "{0, plural, one {Ready, # tool} other {Ready, # tools}}"
+msgstr "{0, plural, one {Ready, # tool} other {Ready, # tools}}"
+
 #. placeholder {0}: Number(tag.value)
 #: src/lib/model-capability-tags.ts
 msgid "{0, plural, one {Released in the last # month.} other {Released in the last # months.}}"
@@ -956,6 +971,11 @@ msgstr "{0, select, an {An {agentName} that is already running} other {A {agentN
 #: src/components/clio/tool-operation-data.ts
 msgid "{0, select, failed {Task failed} error {Task error} denied {Task denied} cancelled {Task cancelled} other {Task interrupted}}"
 msgstr "{0, select, failed {Task failed} error {Task error} denied {Task denied} cancelled {Task cancelled} other {Task interrupted}}"
+
+#. placeholder {0}: item.name
+#: src/components/clio/agent-needs-response.tsx
+msgid "{0} settings"
+msgstr "{0} settings"
 
 #: src/components/clio/conversation-message-blocks.tsx
 msgid "{a2ui} surface"
@@ -1918,6 +1938,10 @@ msgstr "{entries, plural, one {Indexing folder… # entry} other {Indexing folde
 #: src/lib/extension-library-entries.ts
 msgid "{errors, plural, one {# problem} other {# problems}}"
 msgstr "{errors, plural, one {# problem} other {# problems}}"
+
+#: src/lib/agent-needs.ts
+msgid "{failed, plural, one {# could not be enabled} other {# could not be enabled}}"
+msgstr "{failed, plural, one {# could not be enabled} other {# could not be enabled}}"
 
 #: src/components/clio/tool-operation.ts
 msgid "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
@@ -2997,6 +3021,10 @@ msgstr "{name}: {when}"
 #: src/tauri/native-copy.ts
 msgid "{name}: running"
 msgstr "{name}: running"
+
+#: src/lib/agent-needs.ts
+msgid "{names} enabled"
+msgstr "{names} enabled"
 
 #: src/components/clio/mcp-connection-details.tsx
 msgid "{names}. Values are hidden."
@@ -6843,6 +6871,10 @@ msgstr "Asks you"
 msgid "Asks you before each call"
 msgstr "Asks you before each call"
 
+#: src/lib/agent-needs.ts
+msgid "asks you to sign in when first used"
+msgstr "asks you to sign in when first used"
+
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/tool-operation-result.tsx
@@ -9564,6 +9596,7 @@ msgctxt "menu key hint"
 msgid "close"
 msgstr "close"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/composer-references.tsx
@@ -10708,6 +10741,7 @@ msgid "Connections from this client to the agent and managed computers"
 msgstr "Connections from this client to the agent and managed computers"
 
 #: src/components/clio/agent-plugin-menu.tsx
+#: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Connector"
 msgstr "Connector"
@@ -12505,6 +12539,7 @@ msgstr "Decide: {request}"
 
 #: src/components/clio/a2ui-action-lifecycle.tsx
 #: src/components/clio/agent-answer-domain.ts
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-setup-response.tsx
 #: src/components/clio/permission-response.tsx
@@ -13676,6 +13711,10 @@ msgstr "Downloading file…"
 msgid "Downloading folder…"
 msgstr "Downloading folder…"
 
+#: src/lib/agent-needs.ts
+msgid "Downloading its tools…"
+msgstr "Downloading its tools…"
+
 #: src/components/clio/browser-new-page.tsx
 msgid "Downloading the browser"
 msgstr "Downloading the browser"
@@ -13721,6 +13760,14 @@ msgstr "Downloading, {downloaded} of {total} MB"
 #: src/lib/shortcuts/catalog.ts
 msgid "Downloads"
 msgstr "Downloads"
+
+#: src/lib/agent-needs.ts
+msgid "downloads its tools"
+msgstr "downloads its tools"
+
+#: src/lib/connector-plugin.ts
+msgid "Downloads its tools when you enable it"
+msgstr "Downloads its tools when you enable it"
 
 #: src/components/clio/onboarding/tour-overlay.tsx
 msgid "Draft"
@@ -14196,9 +14243,24 @@ msgstr "Empty text"
 msgid "Enable"
 msgstr "Enable"
 
+#. placeholder {0}: item.name
+#. placeholder {0}: payload?.connector_name || t`what this agent uses`
+#: src/components/clio/agent-needs-response.tsx
+#: src/components/clio/connector-setup-activity.tsx
+msgid "Enable {0}"
+msgstr "Enable {0}"
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "Enable {count}"
+msgstr "Enable {count}"
+
 #: src/components/clio/connector-pane.tsx
 msgid "Enable {name} to add it to the conversations that need it."
 msgstr "Enable {name} to add it to the conversations that need it."
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "Enable all"
+msgstr "Enable all"
 
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/settings-health-views.tsx
@@ -14208,6 +14270,10 @@ msgstr "Enabled"
 #: src/components/clio/connector-pane.tsx
 msgid "Enabled. Add {name} to a conversation from its plugins; other conversations don’t carry its tools."
 msgstr "Enabled. Add {name} to a conversation from its plugins; other conversations don’t carry its tools."
+
+#: src/lib/agent-needs.ts
+msgid "Enabling {names}…"
+msgstr "Enabling {names}…"
 
 #: src/components/clio/ndp-station-filters.tsx
 msgid "End time"
@@ -16687,6 +16753,7 @@ msgstr "Hidden files are off in Settings > Appearance; there may be dot files."
 msgid "Hidden from the agent. Calls are refused."
 msgstr "Hidden from the agent. Calls are refused."
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/composer-queue.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Hide"
@@ -18253,6 +18320,10 @@ msgstr "It did not run."
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "It finished in an earlier conversation load or was removed."
 msgstr "It finished in an earlier conversation load or was removed."
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "It goes on in the background."
+msgstr "It goes on in the background."
 
 #: src/lib/local-servers.ts
 msgid "It has not been checked yet."
@@ -20412,6 +20483,10 @@ msgstr "Maximum token"
 msgid "Maximum wait between pieces of a streamed response."
 msgstr "Maximum wait between pieces of a streamed response."
 
+#: src/lib/agent-needs.ts
+msgid "may download its tools"
+msgstr "may download its tools"
+
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "May have been blocked by the sandbox"
 msgstr "May have been blocked by the sandbox"
@@ -21451,6 +21526,10 @@ msgstr "near limit"
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Needed by the agent"
 msgstr "Needed by the agent"
+
+#: src/lib/agent-needs.ts
+msgid "needs {missing}"
+msgstr "needs {missing}"
 
 #: src/lib/connector-plugin.ts
 #: src/lib/connector-presentation.ts
@@ -23141,6 +23220,7 @@ msgid "Not connected to {agent}"
 msgstr "Not connected to {agent}"
 
 #: src/components/clio/connector-offer-response.tsx
+#: src/lib/agent-needs.ts
 #: src/lib/connector-presentation.ts
 msgid "Not enabled"
 msgstr "Not enabled"
@@ -23148,6 +23228,11 @@ msgstr "Not enabled"
 #: src/components/clio/connector-offer-response.tsx
 msgid "Not enabled (Add turns it on)"
 msgstr "Not enabled (Add turns it on)"
+
+#. placeholder {0}: item.detail
+#: src/lib/agent-needs.ts
+msgid "Not enabled: {0}"
+msgstr "Not enabled: {0}"
 
 #: src/components/clio/plan-decision-controls.tsx
 msgid "not executed"
@@ -23220,14 +23305,20 @@ msgstr "Not needed: connected directly"
 msgid "Not needed: the {agent} already running there was reused"
 msgstr "Not needed: the {agent} already running there was reused"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/connector-offer-response.tsx
+#: src/lib/agent-needs.ts
 msgid "Not now"
 msgstr "Not now"
 
 #: src/tauri/native-copy.ts
 msgid "Not Now"
 msgstr "Not Now"
+
+#: src/components/clio/agent-needs-response.tsx
+msgid "Not now: {agent} works without them and can offer them later."
+msgstr "Not now: {agent} works without them and can offer them later."
 
 #: src/components/clio/settings-models-rows.tsx
 msgid "Not offered"
@@ -24821,6 +24912,7 @@ msgstr "Original tool arguments, result, and diagnostics."
 #: src/components/clio/service-installation-method.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/lib/artifact-categories.ts
+#: src/lib/connector-groups.ts
 #: src/lib/model-facets.ts
 msgid "Other"
 msgstr "Other"
@@ -25657,6 +25749,7 @@ msgstr "Plots, tables and reports show up as file cards in the conversation."
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
 msgstr "Plugin"
@@ -27243,6 +27336,7 @@ msgstr "Reads up to {tokens} tokens at once. The model itself reads up to {nativ
 #: src/components/clio/workbench-sources-list.tsx
 #: src/hooks/use-connection-availability.ts
 #: src/hooks/use-known-connections.ts
+#: src/lib/agent-needs.ts
 #: src/lib/connector-presentation.ts
 #: src/lib/extension-library-entries.ts
 #: src/routes/infrastructure-foundation.ts
@@ -31988,6 +32082,7 @@ msgstr "Settings › {group}"
 msgid "Settings › {section}"
 msgstr "Settings › {section}"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/connector-offer-response.tsx
 msgid "Settings ({count})"
 msgstr "Settings ({count})"
@@ -36863,6 +36958,10 @@ msgstr "This activity is not loaded"
 msgid "this agent"
 msgstr "this agent"
 
+#: src/components/clio/agent-needs-response.tsx
+msgid "This agent"
+msgstr "This agent"
+
 #: src/components/clio/settings-health-reason.ts
 msgid "This agent did not allow it."
 msgstr "This agent did not allow it."
@@ -37676,6 +37775,10 @@ msgstr "This workspace’s folders could not be loaded."
 msgid "This workspace’s name could not be loaded"
 msgstr "This workspace’s name could not be loaded"
 
+#: src/components/clio/agent-needs-response.tsx
+msgid "Those with an empty required value ask for it when first used."
+msgstr "Those with an empty required value ask for it when first used."
+
 #: src/components/clio/transcript-reasoning-passage.tsx
 msgid "Thought"
 msgstr "Thought"
@@ -38336,6 +38439,7 @@ msgstr "Try {number}"
 msgid "Try {number} selected"
 msgstr "Try {number} selected"
 
+#: src/components/clio/agent-needs-response.tsx
 #: src/components/clio/browser-surface.tsx
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/github-revision-picker.tsx
@@ -38403,10 +38507,18 @@ msgstr "Turn them on in Settings › Notifications at any time."
 msgid "Turned off in system settings"
 msgstr "Turned off in system settings"
 
+#: src/lib/agent-needs.ts
+msgid "Turning it on…"
+msgstr "Turning it on…"
+
 #: src/components/clio/connector-pane.tsx
 #: src/lib/connector-presentation.ts
 msgid "Turning off…"
 msgstr "Turning off…"
+
+#: src/lib/agent-needs.ts
+msgid "turns it on"
+msgstr "turns it on"
 
 #: src/lib/search-source-text.ts
 msgid "Turns the source on."
@@ -40136,6 +40248,7 @@ msgstr "waiting"
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/session-work.tsx
 #: src/components/clio/tool-operation.ts
+#: src/lib/agent-needs.ts
 msgid "Waiting"
 msgstr "Waiting"
 
@@ -40454,6 +40567,10 @@ msgstr "What it can reach"
 msgid "What it can use"
 msgstr "What it can use"
 
+#: src/components/clio/agent-needs-response.tsx
+msgid "What it needs"
+msgstr "What it needs"
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "What should change in {label}"
 msgstr "What should change in {label}"
@@ -40497,6 +40614,10 @@ msgstr "What the session is asked to do when the time comes."
 #: src/components/clio/settings-connection.tsx
 msgid "What this agent cannot do on this connection."
 msgstr "What this agent cannot do on this connection."
+
+#: src/components/clio/connector-setup-activity.tsx
+msgid "what this agent uses"
+msgstr "what this agent uses"
 
 #: src/components/clio/flow-run-usage.tsx
 msgid "What this run used"

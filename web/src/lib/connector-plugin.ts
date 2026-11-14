@@ -81,5 +81,7 @@ function unmet(needs: readonly ConnectorNeed[]): ConnectorNeed[] {
 export function connectorSetupWords(connector: Connector): string {
   if (connector.enabled) return '';
   const needs = listNeeds(unmet(connector.needs));
-  return needs ? t`Needs ${needs}` : '';
+  if (needs) return t`Needs ${needs}`;
+  // A clio-kit server is downloaded when it is first enabled, not at install (LZ-D1).
+  return connector.kit ? t`Downloads its tools when you enable it` : '';
 }

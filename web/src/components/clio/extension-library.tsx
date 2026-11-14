@@ -40,6 +40,7 @@ import { ConnectorPane } from './connector-pane';
 import { ExtensionAddDialog, type ExtensionAdd } from './extension-add-dialog';
 import { ExtensionScopeHeading } from './extension-scope-heading';
 import { useDiscoverItems, type DiscoverItem } from './extension-discover';
+import { groupCatalogEntries, listedInYours } from '@/lib/connector-groups';
 import { BackupDialog, DiscoverPane, McpConnectionPane } from './extension-library-panes';
 import { McpRegistrySection } from './extension-registry-section';
 import { ExtensionToolbar, type ExtensionView } from './extension-library-toolbar';
@@ -593,8 +594,12 @@ function ExtensionLibraryContents({
 
   // FP-D4, PL-D1: Discover suggests the catalog's plugins that are off; other MCP servers keep their heading.
   const catalogOff = entries.filter(
-    (entry) =>
+    (entry): entry is Extract<ExtensionEntry, { kind: 'connector' }> =>
       entry.kind === 'connector' && !entry.connector.enabled && entry.connector.source !== 'custom',
+  );
+  // A clio-kit connector is in Discover until it is enabled (LZ-D9).
+  const yoursEntries = entries.filter(
+    (entry) => entry.kind !== 'connector' || listedInYours(entry.connector),
   );
   const yours = loadError ? (
     <div title={loadError.message}>
@@ -623,8 +628,8 @@ function ExtensionLibraryContents({
     />
   ) : (
     <>
-      {entries.length ? (
-        <ItemList label={t`Extensions`}>{entries.map(row)}</ItemList>
+      {yoursEntries.length ? (
+        <ItemList label={t`Extensions`}>{yoursEntries.map(row)}</ItemList>
       ) : (
         <StateView
           kind="empty"
@@ -647,7 +652,16 @@ function ExtensionLibraryContents({
       {type !== 'marketplaces' && type !== 'skills' && catalogOff.length ? (
         <>
           <SettingsGroupLabel>{catalogHeading}</SettingsGroupLabel>
-          <ItemList label={catalogHeading}>{catalogOff.map(row)}</ItemList>
+          <div aria-label={catalogHeading} role="group">
+            {groupCatalogEntries(catalogOff).map((group) => (
+              <div data-group={group.key} data-slot="discover-group" key={group.key}>
+                <p className="mt-2 mb-1 px-1 text-xs font-medium text-muted-foreground">
+                  {group.label}
+                </p>
+                <ItemList label={group.label}>{group.entries.map(row)}</ItemList>
+              </div>
+            ))}
+          </div>
         </>
       ) : null}
       {shownCurated.length ? (
