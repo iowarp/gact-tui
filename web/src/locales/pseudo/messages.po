@@ -424,6 +424,11 @@ msgstr ""
 msgid "{0, plural, one {# package} other {# packages}}"
 msgstr ""
 
+#. placeholder {0}: parts.length
+#: src/components/clio/cad-file-view.tsx
+msgid "{0, plural, one {# part} other {# parts}}"
+msgstr ""
+
 #. placeholder {0}: pending.length
 #: src/components/clio/pending-interactions.tsx
 msgid "{0, plural, one {# pending response} other {# pending responses}}"
@@ -4071,6 +4076,10 @@ msgstr ""
 msgid "{workspace}, archived {when}"
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
+msgid "{x} × {y} × {z} mm"
+msgstr ""
+
 #: src/components/clio/dashboard-presentation.ts
 msgid "{y} against {x}"
 msgstr ""
@@ -4201,6 +4210,14 @@ msgstr ""
 
 #: src/lib/model-range-scales.ts
 msgid "30 days"
+msgstr ""
+
+#: src/components/clio/cad-file-view.tsx
+msgid "3D view needs WebGL"
+msgstr ""
+
+#: src/components/clio/cad-file-view.tsx
+msgid "3D view of {name}, {size}. Drag to orbit, right-drag to pan, scroll or pinch to zoom."
 msgstr ""
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
@@ -14454,6 +14471,10 @@ msgstr ""
 msgid "Every Monday"
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Every part's triangles, for a slicer"
+msgstr ""
+
 #: src/components/clio/settings-schedule-time.ts
 msgid "Every Saturday"
 msgstr ""
@@ -15516,6 +15537,10 @@ msgstr ""
 msgid "Fit to GPU."
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Fit to view"
+msgstr ""
+
 #: src/components/clio/graph-controls.tsx
 msgid "Fit view"
 msgstr ""
@@ -16129,6 +16154,10 @@ msgstr ""
 msgid "From your OpenSSH configuration (read-only)"
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Front"
+msgstr ""
+
 #: src/offline-review.tsx
 msgid "Full"
 msgstr ""
@@ -16274,6 +16303,10 @@ msgstr ""
 
 #: src/components/clio/variant-try-steps.tsx
 msgid "Given to this try"
+msgstr ""
+
+#: src/components/clio/cad-file-view.tsx
+msgid "GLB"
 msgstr ""
 
 #: src/components/clio/ndp-endpoint-browser.tsx
@@ -16570,6 +16603,7 @@ msgid "Hi Morgan,\n"
 "Alex"
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Hidden"
 msgstr ""
@@ -16599,6 +16633,7 @@ msgstr ""
 msgid "Hide {label} from pickers"
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Hide {name}"
@@ -18122,6 +18157,10 @@ msgstr ""
 #: src/components/reui/date-selector.tsx
 msgctxt "date filter"
 msgid "is"
+msgstr ""
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Isometric"
 msgstr ""
 
 #: src/components/clio/browser-certificate-notice.tsx
@@ -24472,6 +24511,7 @@ msgstr ""
 msgid "Opening"
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/resource-viewers.tsx
 msgid "Opening {name}"
 msgstr ""
@@ -24993,6 +25033,10 @@ msgctxt "mesh part"
 msgid "Part"
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Part {number}"
+msgstr ""
+
 #: src/hooks/use-execution-provenance.ts
 msgid "Partial {provider} provenance: {reasons}."
 msgstr ""
@@ -25007,6 +25051,14 @@ msgstr ""
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "partially selected"
+msgstr ""
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Parts"
+msgstr ""
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Parts list"
 msgstr ""
 
 #: src/components/clio/plugin-check-report.tsx
@@ -25665,6 +25717,10 @@ msgstr ""
 
 #: src/components/clio/dashboard-view.tsx
 msgid "PNG image (displayed view)"
+msgstr ""
+
+#: src/components/clio/cad-file-view.tsx
+msgid "PNG image of this view"
 msgstr ""
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
@@ -29468,6 +29524,10 @@ msgstr ""
 msgid "Rich results"
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Right"
+msgstr ""
+
 #: src/lib/shortcuts/catalog.ts
 msgid "Right pocket"
 msgstr ""
@@ -31984,6 +32044,7 @@ msgstr ""
 msgid "Show {label} in Work"
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Show {name}"
@@ -32003,6 +32064,7 @@ msgid "Show {title}"
 msgstr ""
 
 #: src/components/clio/ask-card.tsx
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/conversation-list-groups.tsx
 #: src/components/clio/data-table.tsx
 #: src/components/clio/flow-run-parts.tsx
@@ -32085,6 +32147,10 @@ msgstr ""
 #: src/components/clio/settings-schema-copy.ts
 #: src/lib/settings-search-rows.ts
 msgid "Show diffusion"
+msgstr ""
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Show edges"
 msgstr ""
 
 #: src/components/clio/ndp-endpoint-actions.tsx
@@ -33223,6 +33289,10 @@ msgid "Standard error:\n"
 "{stderr}"
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Standard views"
+msgstr ""
+
 #: src/components/clio/a2ui-steps.tsx
 #: src/components/clio/obsidian-source-form.tsx
 msgid "Start"
@@ -33641,6 +33711,10 @@ msgstr ""
 
 #: src/widget-gallery-demos.ts
 msgid "Stir occasionally until slightly thickened."
+msgstr ""
+
+#: src/components/clio/cad-file-view.tsx
+msgid "STL (binary)"
 msgstr ""
 
 #: src/components/clio/composer-submit-controls.tsx
@@ -35583,6 +35657,10 @@ msgstr ""
 msgid "The parent's original assignment."
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
+msgid "The parts with their names and colours, for other 3D viewers"
+msgstr ""
+
 #: src/components/clio/managed-service-form.tsx
 msgid "The path to an existing GGUF model file on this computer. Choose a model before starting the server. Installing the runtime does not need one."
 msgstr ""
@@ -36238,8 +36316,22 @@ msgstr ""
 msgid "The starting thinking depth for new sessions. You can change it again from the composer."
 msgstr ""
 
+#. placeholder {0}: error instanceof Error ? error.message : String(error)
+#: src/components/clio/cad-step.ts
+msgid "The STEP file could not be read: {0}"
+msgstr ""
+
+#: src/components/clio/cad-step.ts
+msgid "The STEP file could not be read."
+msgstr ""
+
 #: src/components/clio/flow-run-edits.ts
 msgid "the step had already started"
+msgstr ""
+
+#. placeholder {0}: error instanceof Error ? error.message : String(error)
+#: src/components/clio/cad-step.ts
+msgid "The STEP reader could not start here: {0}"
 msgstr ""
 
 #: src/components/clio/flow-run-edits.ts
@@ -36760,6 +36852,10 @@ msgstr ""
 
 #: src/offline-review.tsx
 msgid "This archive is read-only. Open a live session to ask the agent."
+msgstr ""
+
+#: src/components/clio/cad-file-view.tsx
+msgid "This browser can't draw 3D graphics, so the model can't be shown here."
 msgstr ""
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
@@ -37900,6 +37996,7 @@ msgstr ""
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
 msgstr ""
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Top"
 msgstr ""

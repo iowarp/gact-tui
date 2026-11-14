@@ -424,6 +424,11 @@ msgstr "{0, plural, one {# έξοδος} other {# έξοδοι}}"
 msgid "{0, plural, one {# package} other {# packages}}"
 msgstr "{0, plural, one {# πακέτο} other {# πακέτα}}"
 
+#. placeholder {0}: parts.length
+#: src/components/clio/cad-file-view.tsx
+msgid "{0, plural, one {# part} other {# parts}}"
+msgstr "{0, plural, one {# τμήμα} other {# τμήματα}}"
+
 #. placeholder {0}: pending.length
 #: src/components/clio/pending-interactions.tsx
 msgid "{0, plural, one {# pending response} other {# pending responses}}"
@@ -4079,6 +4084,10 @@ msgstr "{workspace}: μη διαθέσιμο"
 msgid "{workspace}, archived {when}"
 msgstr "{workspace}, αρχειοθετήθηκε {when}"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "{x} × {y} × {z} mm"
+msgstr "{x} × {y} × {z} mm"
+
 #: src/components/clio/dashboard-presentation.ts
 msgid "{y} against {x}"
 msgstr "{y} ως προς {x}"
@@ -4210,6 +4219,14 @@ msgstr "3 μήνες"
 #: src/lib/model-range-scales.ts
 msgid "30 days"
 msgstr "30 ημέρες"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "3D view needs WebGL"
+msgstr "Η τρισδιάστατη προβολή χρειάζεται WebGL"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "3D view of {name}, {size}. Drag to orbit, right-drag to pan, scroll or pinch to zoom."
+msgstr "Τρισδιάστατη προβολή του {name}, {size}. Σύρετε για περιστροφή, σύρετε με δεξί κλικ για μετατόπιση και κάντε κύλιση ή τσίμπημα για ζουμ."
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "3D view unavailable: {failure}"
@@ -14462,6 +14479,10 @@ msgstr "Όλα τα πλήκτρα, ομαδοποιημένα ανάλογα μ
 msgid "Every Monday"
 msgstr "Κάθε Δευτέρα"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Every part's triangles, for a slicer"
+msgstr "Τα τρίγωνα όλων των τμημάτων, για slicer"
+
 #: src/components/clio/settings-schedule-time.ts
 msgid "Every Saturday"
 msgstr "Κάθε Σάββατο"
@@ -15524,6 +15545,10 @@ msgstr "Προσαρμογή στη GPU: {strategy}."
 msgid "Fit to GPU."
 msgstr "Προσαρμογή στη GPU."
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Fit to view"
+msgstr "Προσαρμογή στην προβολή"
+
 #: src/components/clio/graph-controls.tsx
 msgid "Fit view"
 msgstr "Προσαρμογή προβολής"
@@ -16137,6 +16162,10 @@ msgstr "Από τον υπολογιστή σας"
 msgid "From your OpenSSH configuration (read-only)"
 msgstr "Από τη διαμόρφωση OpenSSH σας (μόνο για ανάγνωση)"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Front"
+msgstr "Εμπρός"
+
 #: src/offline-review.tsx
 msgid "Full"
 msgstr "Πλήρες"
@@ -16283,6 +16312,10 @@ msgstr "Δώστε όνομα σε αυτή την υπηρεσία."
 #: src/components/clio/variant-try-steps.tsx
 msgid "Given to this try"
 msgstr "Δόθηκε σε αυτήν την απόπειρα"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "GLB"
+msgstr "GLB"
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Global"
@@ -16587,6 +16620,7 @@ msgstr "Γεια σου Morgan,\n"
 "Ευχαριστώ,\n"
 "Alex"
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Hidden"
 msgstr "Κρυφό"
@@ -16616,6 +16650,7 @@ msgstr "Απόκρυψη {label}"
 msgid "Hide {label} from pickers"
 msgstr "Απόκρυψη {label} από τις λίστες επιλογής"
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Hide {name}"
@@ -18140,6 +18175,10 @@ msgstr "Διερευνά"
 msgctxt "date filter"
 msgid "is"
 msgstr "είναι"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Isometric"
+msgstr "Ισομετρική"
 
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "Issued by: {issuer}"
@@ -24489,6 +24528,7 @@ msgstr "Ανοίχτηκε ένα τοπικό αντίγραφο του αρχ�
 msgid "Opening"
 msgstr "Άνοιγμα"
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/resource-viewers.tsx
 msgid "Opening {name}"
 msgstr "Άνοιγμα {name}"
@@ -25010,6 +25050,10 @@ msgctxt "mesh part"
 msgid "Part"
 msgstr "Τμήμα"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Part {number}"
+msgstr "Τμήμα {number}"
+
 #: src/hooks/use-execution-provenance.ts
 msgid "Partial {provider} provenance: {reasons}."
 msgstr "Μερική προέλευση {provider}: {reasons}."
@@ -25025,6 +25069,14 @@ msgstr "Μερικό αποτέλεσμα"
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "partially selected"
 msgstr "μερικώς επιλεγμένο"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Parts"
+msgstr "Τμήματα"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Parts list"
+msgstr "Λίστα τμημάτων"
 
 #: src/components/clio/plugin-check-report.tsx
 msgid "Passed"
@@ -25683,6 +25735,10 @@ msgstr "Εικόνα PNG"
 #: src/components/clio/dashboard-view.tsx
 msgid "PNG image (displayed view)"
 msgstr "Εικόνα PNG (εμφανιζόμενη προβολή)"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "PNG image of this view"
+msgstr "Εικόνα PNG αυτής της προβολής"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "PNG snapshot"
@@ -29485,6 +29541,10 @@ msgstr "Επαναφορά…"
 msgid "Rich results"
 msgstr "Εμπλουτισμένα αποτελέσματα"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Right"
+msgstr "Δεξιά"
+
 #: src/lib/shortcuts/catalog.ts
 msgid "Right pocket"
 msgstr "Δεξιά θήκη"
@@ -32001,6 +32061,7 @@ msgstr "Εμφάνιση {label} στις λίστες επιλογής"
 msgid "Show {label} in Work"
 msgstr "Εμφάνιση {label} στην Εργασία"
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Show {name}"
@@ -32020,6 +32081,7 @@ msgid "Show {title}"
 msgstr "Εμφάνιση {title}"
 
 #: src/components/clio/ask-card.tsx
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/conversation-list-groups.tsx
 #: src/components/clio/data-table.tsx
 #: src/components/clio/flow-run-parts.tsx
@@ -32103,6 +32165,10 @@ msgstr "Εμφάνιση λεπτομερειών"
 #: src/lib/settings-search-rows.ts
 msgid "Show diffusion"
 msgstr "Εμφάνιση διάχυσης"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Show edges"
+msgstr "Εμφάνιση ακμών"
 
 #: src/components/clio/ndp-endpoint-actions.tsx
 msgid "Show endpoint"
@@ -33241,6 +33307,10 @@ msgid "Standard error:\n"
 msgstr "Τυπικό σφάλμα:\n"
 "{stderr}"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Standard views"
+msgstr "Τυπικές προβολές"
+
 #: src/components/clio/a2ui-steps.tsx
 #: src/components/clio/obsidian-source-form.tsx
 msgid "Start"
@@ -33660,6 +33730,10 @@ msgstr "Ακόμη σε εξέλιξη."
 #: src/widget-gallery-demos.ts
 msgid "Stir occasionally until slightly thickened."
 msgstr "Ανακατεύετε κατά διαστήματα μέχρι να πήξει ελαφρώς."
+
+#: src/components/clio/cad-file-view.tsx
+msgid "STL (binary)"
+msgstr "STL (δυαδικό)"
 
 #: src/components/clio/composer-submit-controls.tsx
 #: src/components/clio/ndp-endpoint-browser.tsx
@@ -35601,6 +35675,10 @@ msgstr "Δεν ήταν δυνατή η μεταγλώττιση της εργα
 msgid "The parent's original assignment."
 msgstr "Η αρχική ανάθεση του γονικού πράκτορα."
 
+#: src/components/clio/cad-file-view.tsx
+msgid "The parts with their names and colours, for other 3D viewers"
+msgstr "Τα τμήματα με τα ονόματα και τα χρώματά τους, για άλλα προγράμματα προβολής 3D"
+
 #: src/components/clio/managed-service-form.tsx
 msgid "The path to an existing GGUF model file on this computer. Choose a model before starting the server. Installing the runtime does not need one."
 msgstr "Η διαδρομή προς ένα υπάρχον αρχείο μοντέλου GGUF σε αυτόν τον υπολογιστή. Επιλέξτε μοντέλο πριν από την εκκίνηση του διακομιστή. Η εγκατάσταση του περιβάλλοντος εκτέλεσης δεν το χρειάζεται."
@@ -36256,9 +36334,23 @@ msgstr "Η σύνθετη προτροπή του τυπικού πράκτορ�
 msgid "The starting thinking depth for new sessions. You can change it again from the composer."
 msgstr "Το αρχικό βάθος σκέψης για τις νέες συνεδρίες. Μπορείτε να το αλλάξετε ξανά από το πεδίο σύνταξης."
 
+#. placeholder {0}: error instanceof Error ? error.message : String(error)
+#: src/components/clio/cad-step.ts
+msgid "The STEP file could not be read: {0}"
+msgstr "Δεν ήταν δυνατή η ανάγνωση του αρχείου STEP: {0}"
+
+#: src/components/clio/cad-step.ts
+msgid "The STEP file could not be read."
+msgstr "Δεν ήταν δυνατή η ανάγνωση του αρχείου STEP."
+
 #: src/components/clio/flow-run-edits.ts
 msgid "the step had already started"
 msgstr "το βήμα είχε ήδη ξεκινήσει"
+
+#. placeholder {0}: error instanceof Error ? error.message : String(error)
+#: src/components/clio/cad-step.ts
+msgid "The STEP reader could not start here: {0}"
+msgstr "Ο αναγνώστης STEP δεν μπόρεσε να ξεκινήσει εδώ: {0}"
 
 #: src/components/clio/flow-run-edits.ts
 msgid "the step was invalid ({detail})"
@@ -36779,6 +36871,10 @@ msgstr "Η έκδοση {tag} αυτής της εφαρμογής δεν έχε
 #: src/offline-review.tsx
 msgid "This archive is read-only. Open a live session to ask the agent."
 msgstr "Αυτή η αρχειοθήκη είναι μόνο για ανάγνωση. Ανοίξτε μια ενεργή συνεδρία για να ρωτήσετε τον πράκτορα."
+
+#: src/components/clio/cad-file-view.tsx
+msgid "This browser can't draw 3D graphics, so the model can't be shown here."
+msgstr "Αυτό το πρόγραμμα περιήγησης δεν μπορεί να σχεδιάσει τρισδιάστατα γραφικά, οπότε το μοντέλο δεν μπορεί να εμφανιστεί εδώ."
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "this browser cannot draw 3D graphics (WebGL is off)."
@@ -37918,6 +38014,7 @@ msgstr "Εργαλεία που φεύγουν"
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
 msgstr "Εργαλεία: αν κάθε εργαλείο πρόσθετου εκτελείται, ζητά πρώτα επιβεβαίωση ή αποκλείεται, και αν ο πράκτορας το καλεί απευθείας, από σενάριο ή και με τους δύο τρόπους. Οι διακομιστές MCP δίνουν στους πράκτορες εργαλεία, δεδομένα και επαναχρησιμοποιήσιμες προτροπές. Τα απομακρυσμένα εργαλεία προέρχονται από διακομιστές MCP στους οποίους η πρόσβαση γίνεται μέσω URL και εκτελούνται σε εκείνο το μηχάνημα."
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Top"
 msgstr "Πάνω"

@@ -86,7 +86,9 @@ export class MeshViewportScene {
   private data?: ParsedFeaMesh;
   private geometry?: THREE.BufferGeometry;
   private mesh?: THREE.Mesh;
-  private edges?: THREE.LineSegments;
+  /** Feature edges, one set per part when the model names parts, so hiding a part hides its edges. */
+  private edges: THREE.LineSegments[] = [];
+  private edgesShown = true;
   private selectedPoints?: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial>;
   private selection?: MeshSelection;
   private view: MeshViewState = { frame: 0 };
@@ -134,8 +136,23 @@ export class MeshViewportScene {
     // Feature edges help read a smooth surface; a cell mesh already shades each face flat.
     if (data.topology === 'surface') {
       this.edgeMaterial.color.set(edgeColor);
-      this.edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 35), this.edgeMaterial);
-      this.scene.add(this.edges);
+      const parts = data.parts?.length
+        ? data.parts
+        : [{ triangleStart: 0, triangleCount: data.triangles.length / 3 }];
+      for (const part of parts) {
+        const outline = new THREE.BufferGeometry();
+        outline.setAttribute('position', geometry.getAttribute('position'));
+        outline.setIndex(
+          new THREE.BufferAttribute(
+            data.triangles.slice(part.triangleStart * 3, (part.triangleStart + part.triangleCount) * 3),
+            1,
+          ),
+        );
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(outline, 35), this.edgeMaterial);
+        outline.dispose();
+        this.edges.push(edges);
+        this.scene.add(edges);
+      }
     }
     this.setView(this.view);
   }
@@ -182,9 +199,17 @@ export class MeshViewportScene {
     }
     colors.needsUpdate = true;
     // Feature edges belong to the whole surface; hide them while a threshold cuts it.
-    if (this.edges) this.edges.visible = !view.threshold;
+    this.edges.forEach((edges, part) => {
+      edges.visible = this.edgesShown && !view.threshold && !view.hiddenParts?.has(part);
+    });
     this.requestRender();
     return selection;
+  }
+
+  /** Show or hide the feature edges drawn over the faces. */
+  public setEdgesShown(shown: boolean): void {
+    this.edgesShown = shown;
+    this.setView(this.view);
   }
 
   /** Frame `bounds` from an isometric direction relative to `up`. */
@@ -196,6 +221,14 @@ export class MeshViewportScene {
       .multiplyScalar(0.9)
       .add(upVector.clone().multiplyScalar(0.45))
       .normalize();
+    this.frameFrom(bounds, direction, upVector);
+  }
+
+  /**
+   * Frame `bounds` looking along `-direction` (unit, from the centre towards the camera)
+   * with `up` as the screen's up. The camera moves at once: there is no animation.
+   */
+  public frameFrom(bounds: MeshBounds, direction: THREE.Vector3, upVector: THREE.Vector3): void {
     const { center, distance, radius } = fitBoxDistance(
       bounds,
       direction,
@@ -218,6 +251,12 @@ export class MeshViewportScene {
       this.applyingRemote = false;
     }
     this.requestRender();
+  }
+
+  /** Frame `bounds` again from where the camera looks now. */
+  public fit(bounds: MeshBounds): void {
+    const direction = this.camera.position.clone().sub(this.controls.target).normalize();
+    this.frameFrom(bounds, direction, this.camera.up.clone());
   }
 
   /** Keep the current orbit direction while moving into a dragged screen region. */
@@ -396,11 +435,11 @@ export class MeshViewportScene {
     }
     this.geometry?.dispose();
     this.geometry = undefined;
-    if (this.edges) {
-      this.scene.remove(this.edges);
-      this.edges.geometry.dispose();
-      this.edges = undefined;
+    for (const edges of this.edges) {
+      this.scene.remove(edges);
+      edges.geometry.dispose();
     }
+    this.edges = [];
   }
 
   private fitCanvas(): void {

@@ -424,6 +424,11 @@ msgstr "{0, plural, one {#件の出力} other {#件の出力}}"
 msgid "{0, plural, one {# package} other {# packages}}"
 msgstr "{0, plural, one {#個のパッケージ} other {#個のパッケージ}}"
 
+#. placeholder {0}: parts.length
+#: src/components/clio/cad-file-view.tsx
+msgid "{0, plural, one {# part} other {# parts}}"
+msgstr "{0, plural, other {# 個の部品}}"
+
 #. placeholder {0}: pending.length
 #: src/components/clio/pending-interactions.tsx
 msgid "{0, plural, one {# pending response} other {# pending responses}}"
@@ -4079,6 +4084,10 @@ msgstr "{workspace}は利用できません"
 msgid "{workspace}, archived {when}"
 msgstr "{workspace}、{when}にアーカイブ"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "{x} × {y} × {z} mm"
+msgstr "{x} × {y} × {z} mm"
+
 #: src/components/clio/dashboard-presentation.ts
 msgid "{y} against {x}"
 msgstr "{x}に対する{y}"
@@ -4210,6 +4219,14 @@ msgstr "3か月"
 #: src/lib/model-range-scales.ts
 msgid "30 days"
 msgstr "30日"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "3D view needs WebGL"
+msgstr "3D 表示には WebGL が必要です"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "3D view of {name}, {size}. Drag to orbit, right-drag to pan, scroll or pinch to zoom."
+msgstr "{name} の 3D 表示、{size}。ドラッグで回転、右ドラッグで移動、スクロールまたはピンチでズームします。"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "3D view unavailable: {failure}"
@@ -14462,6 +14479,10 @@ msgstr "すべてのキーを、使える場所ごとにまとめています。
 msgid "Every Monday"
 msgstr "毎週月曜日"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Every part's triangles, for a slicer"
+msgstr "すべての部品の三角形(スライサー用)"
+
 #: src/components/clio/settings-schedule-time.ts
 msgid "Every Saturday"
 msgstr "毎週土曜日"
@@ -15524,6 +15545,10 @@ msgstr "GPUに合わせる: {strategy}。"
 msgid "Fit to GPU."
 msgstr "GPUに合わせる。"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Fit to view"
+msgstr "全体を表示"
+
 #: src/components/clio/graph-controls.tsx
 msgid "Fit view"
 msgstr "全体を表示"
@@ -16137,6 +16162,10 @@ msgstr "お使いのコンピューターから"
 msgid "From your OpenSSH configuration (read-only)"
 msgstr "OpenSSHの構成から（読み取り専用）"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Front"
+msgstr "正面"
+
 #: src/offline-review.tsx
 msgid "Full"
 msgstr "完全"
@@ -16283,6 +16312,10 @@ msgstr "このサービスに名前を付けてください。"
 #: src/components/clio/variant-try-steps.tsx
 msgid "Given to this try"
 msgstr "この試行に渡されたもの"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "GLB"
+msgstr "GLB"
 
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Global"
@@ -16587,6 +16620,7 @@ msgstr "Morganさん\n"
 "よろしくお願いします。\n"
 "Alex"
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Hidden"
 msgstr "非表示"
@@ -16616,6 +16650,7 @@ msgstr "{label}を非表示"
 msgid "Hide {label} from pickers"
 msgstr "{label}を選択リストで非表示にする"
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Hide {name}"
@@ -18140,6 +18175,10 @@ msgstr "調査内容"
 msgctxt "date filter"
 msgid "is"
 msgstr "が次の日"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Isometric"
+msgstr "等角"
 
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "Issued by: {issuer}"
@@ -24489,6 +24528,7 @@ msgstr "ファイルのデスクトップ用コピーを開きました。"
 msgid "Opening"
 msgstr "開いています"
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/resource-viewers.tsx
 msgid "Opening {name}"
 msgstr "{name}を開いています"
@@ -25010,6 +25050,10 @@ msgctxt "mesh part"
 msgid "Part"
 msgstr "パーツ"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Part {number}"
+msgstr "部品 {number}"
+
 #: src/hooks/use-execution-provenance.ts
 msgid "Partial {provider} provenance: {reasons}."
 msgstr "{provider}の来歴は一部のみです: {reasons}。"
@@ -25025,6 +25069,14 @@ msgstr "部分的な結果"
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "partially selected"
 msgstr "一部選択"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Parts"
+msgstr "部品"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Parts list"
+msgstr "部品リスト"
 
 #: src/components/clio/plugin-check-report.tsx
 msgid "Passed"
@@ -25683,6 +25735,10 @@ msgstr "PNG画像"
 #: src/components/clio/dashboard-view.tsx
 msgid "PNG image (displayed view)"
 msgstr "PNG画像（表示中のビュー）"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "PNG image of this view"
+msgstr "この表示の PNG 画像"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "PNG snapshot"
@@ -29485,6 +29541,10 @@ msgstr "巻き戻し中…"
 msgid "Rich results"
 msgstr "リッチな結果"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Right"
+msgstr "右"
+
 #: src/lib/shortcuts/catalog.ts
 msgid "Right pocket"
 msgstr "右ポケット"
@@ -32001,6 +32061,7 @@ msgstr "{label}を選択リストに表示"
 msgid "Show {label} in Work"
 msgstr "{label}を作業で表示"
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Show {name}"
@@ -32020,6 +32081,7 @@ msgid "Show {title}"
 msgstr "{title}を表示"
 
 #: src/components/clio/ask-card.tsx
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/conversation-list-groups.tsx
 #: src/components/clio/data-table.tsx
 #: src/components/clio/flow-run-parts.tsx
@@ -32103,6 +32165,10 @@ msgstr "詳細を表示"
 #: src/lib/settings-search-rows.ts
 msgid "Show diffusion"
 msgstr "拡散を表示"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "Show edges"
+msgstr "稜線を表示"
 
 #: src/components/clio/ndp-endpoint-actions.tsx
 msgid "Show endpoint"
@@ -33241,6 +33307,10 @@ msgid "Standard error:\n"
 msgstr "標準エラー：\n"
 "{stderr}"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "Standard views"
+msgstr "標準ビュー"
+
 #: src/components/clio/a2ui-steps.tsx
 #: src/components/clio/obsidian-source-form.tsx
 msgid "Start"
@@ -33660,6 +33730,10 @@ msgstr "まだ処理中です。"
 #: src/widget-gallery-demos.ts
 msgid "Stir occasionally until slightly thickened."
 msgstr "少しとろみがつくまで、ときどき混ぜます。"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "STL (binary)"
+msgstr "STL(バイナリ)"
 
 #: src/components/clio/composer-submit-controls.tsx
 #: src/components/clio/ndp-endpoint-browser.tsx
@@ -35601,6 +35675,10 @@ msgstr "論文をビルドできませんでした"
 msgid "The parent's original assignment."
 msgstr "親による元の割り当て。"
 
+#: src/components/clio/cad-file-view.tsx
+msgid "The parts with their names and colours, for other 3D viewers"
+msgstr "名前と色付きの部品(他の 3D ビューア用)"
+
 #: src/components/clio/managed-service-form.tsx
 msgid "The path to an existing GGUF model file on this computer. Choose a model before starting the server. Installing the runtime does not need one."
 msgstr "このコンピューター上にある既存のGGUFモデルファイルへのパス。サーバーを起動する前にモデルを選択してください。ランタイムのインストールには不要です。"
@@ -36256,9 +36334,23 @@ msgstr "標準エージェントの合成プロンプト、{agent}のプレゼ�
 msgid "The starting thinking depth for new sessions. You can change it again from the composer."
 msgstr "新しいセッションの初期の思考の深さです。入力欄からいつでも変更できます。"
 
+#. placeholder {0}: error instanceof Error ? error.message : String(error)
+#: src/components/clio/cad-step.ts
+msgid "The STEP file could not be read: {0}"
+msgstr "STEP ファイルを読み込めませんでした: {0}"
+
+#: src/components/clio/cad-step.ts
+msgid "The STEP file could not be read."
+msgstr "STEP ファイルを読み込めませんでした。"
+
 #: src/components/clio/flow-run-edits.ts
 msgid "the step had already started"
 msgstr "ステップはすでに開始されていました"
+
+#. placeholder {0}: error instanceof Error ? error.message : String(error)
+#: src/components/clio/cad-step.ts
+msgid "The STEP reader could not start here: {0}"
+msgstr "ここでは STEP リーダーを起動できませんでした: {0}"
 
 #: src/components/clio/flow-run-edits.ts
 msgid "the step was invalid ({detail})"
@@ -36779,6 +36871,10 @@ msgstr "このアプリのリリース{tag}は公開されていないため、�
 #: src/offline-review.tsx
 msgid "This archive is read-only. Open a live session to ask the agent."
 msgstr "このアーカイブは読み取り専用です。エージェントに質問するにはライブセッションを開いてください。"
+
+#: src/components/clio/cad-file-view.tsx
+msgid "This browser can't draw 3D graphics, so the model can't be shown here."
+msgstr "このブラウザーは 3D グラフィックスを描画できないため、ここではモデルを表示できません。"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "this browser cannot draw 3D graphics (WebGL is off)."
@@ -37918,6 +38014,7 @@ msgstr "削除されるツール"
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
 msgstr "ツール：各プラグインツールを実行するか、事前に確認するか、ブロックするか、またエージェントが直接呼び出すか、スクリプトから呼び出すか、その両方かを設定します。MCPサーバーはエージェントにツール、データ、再利用可能なプロンプトを提供します。リモートツールはURLで接続するMCPサーバーから提供され、そのマシン上で実行されます。"
 
+#: src/components/clio/cad-file-view.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Top"
 msgstr "上"
