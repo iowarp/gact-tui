@@ -20,6 +20,13 @@ const OFFER_OUTCOME: Record<string, string> = {
   denied: 'not now',
 };
 
+/** The agent-load card's outcomes (LZ-D2): enabled, or Not now. */
+const NEEDS_OUTCOME: Record<string, string> = {
+  ...OUTCOME,
+  answered: 'enabled',
+  denied: 'not now',
+};
+
 /**
  * The conversation's line for a connector setup request: which connector, and whether
  * it waits for you. The card itself is above the composer; the line jumps to it.
@@ -33,6 +40,7 @@ export function ConnectorSetupActivity({ interaction }: { interaction: PendingIn
     ? humanizePluginId(payload?.plugin_id || 'a plugin')
     : (connector?.name ?? payload?.connector_name ?? (id || 'a connector'));
   const offer = payload?.intent === 'enable' || plugin;
+  const needs = payload?.intent === 'agent_needs';
   return (
     <div
       className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground"
@@ -48,12 +56,19 @@ export function ConnectorSetupActivity({ interaction }: { interaction: PendingIn
         />
       )}
       <span className="min-w-0 truncate text-foreground/80">
-        {offer ? t`Add ${name} to this conversation` : t`Set up ${name}`}
+        {needs
+          ? t`Enable ${payload?.connector_name || t`what this agent uses`}`
+          : offer
+            ? t`Add ${name} to this conversation`
+            : t`Set up ${name}`}
       </span>
       {interaction.status === 'pending' ? (
         <WaitingForYou interaction={interaction} />
       ) : (
-        <span>{(offer ? OFFER_OUTCOME : OUTCOME)[interaction.status] ?? interaction.status}</span>
+        <span>
+          {(needs ? NEEDS_OUTCOME : offer ? OFFER_OUTCOME : OUTCOME)[interaction.status] ??
+            interaction.status}
+        </span>
       )}
     </div>
   );
