@@ -1,6 +1,7 @@
 import {
   createContext,
   forwardRef,
+  Fragment,
   memo,
   useContext,
   useId,
@@ -187,6 +188,23 @@ const NARROW_ACTIONS =
 const NARROW_TEXT =
   '@max-[480px]/infra:[&_[data-slot=list-row-text]>span]:whitespace-normal @max-[480px]/infra:[&_[data-slot=list-row-text]>span]:break-words';
 
+/**
+ * Offers a line break after the separators inside a host, address or path
+ * ("ares.cluster.example.edu"), so a narrow row wraps at a dot or hyphen rather than
+ * mid-name. Prose punctuation followed by a space is left alone.
+ */
+function withAddressBreaks(text: string): ReactNode {
+  const parts = text.split(/(?<=\S[./\\:@-])(?=\S)/u);
+  if (parts.length < 2) return text;
+  const keys = parts.map((_, index) => parts.slice(0, index + 1).join(''));
+  return parts.map((part, index) => (
+    <Fragment key={keys[index]}>
+      {index ? <wbr /> : null}
+      {part}
+    </Fragment>
+  ));
+}
+
 /** Shift+F10 (or the menu key) anywhere in a row opens its ⋯, as the keyboard opens a menu. */
 function openInfraRowMenu(event: KeyboardEvent<HTMLDivElement>) {
   if (!isRowMenuKey(event)) return;
@@ -222,6 +240,7 @@ export const InfraRow = memo(
   ) {
     const columns = useContext(InfraColumnsContext);
     const metaTitle = typeof meta === 'string' ? meta : undefined;
+    const text = typeof description === 'string' ? withAddressBreaks(description) : description;
     // The word is read once, from the status column. A narrow row shows it again here as
     // generated content, so it is neither announced nor found twice.
     const subLine = status ? (
@@ -236,10 +255,10 @@ export const InfraRow = memo(
         />
         {/* A line may break after the status word, not inside the next one. */}
         <wbr />
-        {description}
+        {text}
       </>
     ) : (
-      description
+      text
     );
     return (
       <div className="min-w-0" role="listitem">
