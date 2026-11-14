@@ -425,7 +425,8 @@ msgid "{0, plural, one {# package} other {# packages}}"
 msgstr "{0, plural, one {# πακέτο} other {# πακέτα}}"
 
 #. placeholder {0}: parts.length
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 msgid "{0, plural, one {# part} other {# parts}}"
 msgstr "{0, plural, one {# τμήμα} other {# τμήματα}}"
 
@@ -646,6 +647,11 @@ msgstr "{0, plural, one {# τροχιά στον χάρτη. Τα χρώματα
 msgid "{0, plural, one {# track on the map. Colours repeat; filter to compare them.} other {# tracks on the map. Colours repeat; filter to compare them.}}"
 msgstr "{0, plural, one {# τροχιά στον χάρτη. Τα χρώματα επαναλαμβάνονται· φιλτράρετε για να τις συγκρίνετε.} other {# τροχιές στον χάρτη. Τα χρώματα επαναλαμβάνονται· φιλτράρετε για να τις συγκρίνετε.}}"
 
+#. placeholder {0}: part.triangles
+#: src/components/clio/cad-tool-panels.tsx
+msgid "{0, plural, one {# triangle} other {# triangles}}"
+msgstr "{0, plural, one {# τρίγωνο} other {# τρίγωνα}}"
+
 #. placeholder {0}: total.turns
 #: src/components/clio/settings-usage.tsx
 msgid "{0, plural, one {# turn, no cost recorded} other {# turns, no cost recorded}}"
@@ -741,6 +747,11 @@ msgstr "{0, plural, one {Κλήθηκε # φορά, {span}} other {Κλήθηκ�
 #: src/components/clio/nested-tool-calls.tsx
 msgid "{0, plural, one {Called # time} other {Called # times}}"
 msgstr "{0, plural, one {Κλήθηκε # φορά} other {Κλήθηκε # φορές}}"
+
+#. placeholder {0}: items.length
+#: src/components/clio/cad-measure-tool.tsx
+msgid "{0, plural, one {Clear the measurement} other {Clear all # measurements}}"
+msgstr "{0, plural, one {Διαγραφή της μέτρησης} other {Διαγραφή και των # μετρήσεων}}"
 
 #. placeholder {0}: compacted.length
 #: src/components/clio/conversation-summarization.tsx
@@ -1388,6 +1399,10 @@ msgstr "{attention, plural, one {# χρειάζεται προσοχή} other {#
 #: src/components/clio/flow-trust-details.tsx
 msgid "{author}, not trusted yet"
 msgstr "{author}, δεν είναι ακόμη αξιόπιστος"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "{axis} at {position}"
+msgstr "{axis} στο {position}"
 
 #: src/components/clio/composer-queue.tsx
 msgid "{below} more"
@@ -3049,6 +3064,10 @@ msgstr "{path}\n"
 msgid "{pendingUpdates, plural, one {# update waits for trust} other {# updates wait for trust}}"
 msgstr "{pendingUpdates, plural, one {# ενημέρωση αναμένει εμπιστοσύνη} other {# ενημερώσεις αναμένουν εμπιστοσύνη}}"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "{percent} %"
+msgstr "{percent} %"
+
 #: src/components/clio/transcript-outline.tsx
 msgid "{percent} of attention"
 msgstr "{percent} της προσοχής"
@@ -4045,9 +4064,21 @@ msgstr "{usedText} από {limitText}"
 msgid "{usedText} used"
 msgstr "{usedText} σε χρήση"
 
+#: src/components/clio/cad-units.ts
+msgid "{value} in"
+msgstr "{value} in"
+
+#: src/components/clio/cad-units.ts
+msgid "{value} mm"
+msgstr "{value} mm"
+
 #: src/lib/model-capability-tags.ts
 msgid "{value} parameters."
 msgstr "{value} παράμετροι."
+
+#: src/components/clio/cad-units.ts
+msgid "{value}°"
+msgstr "{value}°"
 
 #: src/components/clio/map-legend.tsx
 msgid "{valueLabel} colour scale"
@@ -4114,7 +4145,11 @@ msgstr "{workspace}: μη διαθέσιμο"
 msgid "{workspace}, archived {when}"
 msgstr "{workspace}, αρχειοθετήθηκε {when}"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-units.ts
+msgid "{x} × {y} × {z} in"
+msgstr "{x} × {y} × {z} in"
+
+#: src/components/clio/cad-units.ts
 msgid "{x} × {y} × {z} mm"
 msgstr "{x} × {y} × {z} mm"
 
@@ -4254,9 +4289,9 @@ msgstr "30 ημέρες"
 msgid "3D view needs WebGL"
 msgstr "Η τρισδιάστατη προβολή χρειάζεται WebGL"
 
-#: src/components/clio/cad-file-view.tsx
-msgid "3D view of {name}, {size}. Drag to orbit, right-drag to pan, scroll or pinch to zoom."
-msgstr "Τρισδιάστατη προβολή του {name}, {size}. Σύρετε για περιστροφή, σύρετε με δεξί κλικ για μετατόπιση και κάντε κύλιση ή τσίμπημα για ζουμ."
+#: src/components/clio/cad-model-view.tsx
+msgid "3D view of {name}, {size}. Drag to orbit, right-drag to pan, scroll or pinch to zoom. Click a part to select it. Keys: M measure, S section, E explode, F fit, Esc cancel."
+msgstr "Τρισδιάστατη προβολή του {name}, {size}. Σύρετε για περιστροφή, σύρετε με το δεξί κουμπί για μετακίνηση, κυλήστε ή τσιμπήστε για ζουμ. Κάντε κλικ σε ένα εξάρτημα για να το επιλέξετε. Πλήκτρα: M μέτρηση, S τομή, E ανάπτυξη, F προσαρμογή, Esc ακύρωση."
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "3D view unavailable: {failure}"
@@ -6185,6 +6220,10 @@ msgstr "Ανάλυση"
 msgid "Analysis: <0>{0}</0>"
 msgstr "Ανάλυση: <0>{0}</0>"
 
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Angle"
+msgstr "Γωνία"
+
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "Announced to the agent"
 msgstr "Ανακοινώθηκε στον πράκτορα"
@@ -7807,6 +7846,10 @@ msgstr "Προβλήματα μεταγλώττισης"
 #: src/components/clio/latex-workspace.tsx
 msgid "Build this paper"
 msgstr "Μεταγλώττιση αυτής της εργασίας"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Build volume {size}"
+msgstr "Όγκος εκτύπωσης {size}"
 
 #: src/components/clio/latex-workspace.tsx
 msgid "Building the paper…"
@@ -9479,6 +9522,10 @@ msgstr "Εκκαθάριση φίλτρου"
 msgid "Clear filters"
 msgstr "Εκκαθάριση φίλτρων"
 
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Clear measurement {number}"
+msgstr "Διαγραφή μέτρησης {number}"
+
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -9503,6 +9550,10 @@ msgstr "Καθαρίστε την αναζήτηση ή εμφανίστε όλ�
 msgid "Clear the search or show more kinds."
 msgstr "Εκκαθαρίστε την αναζήτηση ή εμφανίστε περισσότερα είδη."
 
+#: src/components/clio/cad-parts-panel.tsx
+msgid "Clear the selection"
+msgstr "Κατάργηση επιλογής"
+
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Clear the terminal"
 msgstr "Εκκαθάριση τερματικού"
@@ -9519,6 +9570,11 @@ msgstr "Κάντε κλικ σε ένα σημείο για να το επιλέ
 msgid "Click a point to select it. {primary}-click selects its track. Shift-click toggles a point; {primaryShift}-click merges or removes a track. Drag selects points; {primary}-drag selects tracks."
 msgstr "Κάντε κλικ σε ένα σημείο για να το επιλέξετε. Το {primary}+κλικ επιλέγει τη διαδρομή του. Το Shift+κλικ εναλλάσσει ένα σημείο· το {primaryShift}+κλικ συγχωνεύει ή αφαιρεί μια διαδρομή. Η μεταφορά επιλέγει σημεία· η μεταφορά με {primary} επιλέγει διαδρομές."
 
+#: src/components/clio/cad-measure-state.ts
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click a round edge, such as the rim of a hole."
+msgstr "Κάντε κλικ σε μια στρογγυλή ακμή, όπως το χείλος μιας οπής."
+
 #: src/lib/onboarding/tour-script.ts
 msgid "Click a table row, Shift+click another, then choose Reference this."
 msgstr "Κάντε κλικ σε μια γραμμή του πίνακα, Shift+κλικ σε μια άλλη και, στη συνέχεια, επιλέξτε Αναφορά σε αυτό."
@@ -9526,6 +9582,18 @@ msgstr "Κάντε κλικ σε μια γραμμή του πίνακα, Shift+
 #: src/components/clio/comments/comment-session.tsx
 msgid "Click an element to pick it."
 msgstr "Κάντε κλικ σε ένα στοιχείο για να το επιλέξετε."
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click the second face. Esc cancels."
+msgstr "Κάντε κλικ στη δεύτερη έδρα. Το Esc ακυρώνει."
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click two faces."
+msgstr "Κάντε κλικ σε δύο έδρες."
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click two points. Vertices and edges snap."
+msgstr "Κάντε κλικ σε δύο σημεία. Κουμπώνουν σε κορυφές και ακμές."
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Client {version} is managed by {agent}."
@@ -9604,6 +9672,10 @@ msgstr "Κλείσιμο {label}"
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 msgid "Close {name}"
 msgstr "Κλείσιμο {name}"
+
+#: src/components/clio/cad-tool-panel.tsx
+msgid "Close {title}"
+msgstr "Κλείσιμο {title}"
 
 #: src/components/clio/comments/comment-controls.tsx
 msgid "Close capture"
@@ -12321,6 +12393,10 @@ msgstr "Τρέχων χώρος εργασίας"
 msgid "Custom repeat <0>{0}</0>"
 msgstr "Προσαρμοσμένη επανάληψη <0>{0}</0>"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Custom size"
+msgstr "Προσαρμοσμένο μέγεθος"
+
 #: src/components/clio/settings-runtime-number.tsx
 msgid "Custom…"
 msgstr "Προσαρμοσμένο…"
@@ -12349,6 +12425,14 @@ msgstr "Προσαρμογή του πράκτορα ({changes})"
 msgctxt "menu bar"
 msgid "Cut"
 msgstr "Αποκοπή"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Cut across"
+msgstr "Τομή κατά μήκος του"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Cut across {axis}"
+msgstr "Τομή κατά μήκος του {axis}"
 
 #: src/components/clio/artifact-lineage-layout.ts
 msgid "Cut short"
@@ -12883,6 +12967,10 @@ msgstr "Ανάπτυξη ως {id}@{value}"
 msgid "Deploys as {id}@name"
 msgstr "Ανάπτυξη ως {id}@όνομα"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Depth"
+msgstr "Βάθος"
+
 #: src/widget-gallery-scenarios.ts
 msgid "Depth and magnitude"
 msgstr "Βάθος και μέγεθος"
@@ -13300,6 +13388,10 @@ msgstr "Κλίμακα εμφάνισης"
 #: src/components/ui/sidebar.tsx
 msgid "Displays the mobile sidebar."
 msgstr "Εμφανίζει την πλευρική στήλη για κινητά."
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Distance"
+msgstr "Απόσταση"
 
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "Do you want to proceed?"
@@ -13874,6 +13966,10 @@ msgstr "Διάρκεια: {seconds} δευτερόλεπτα"
 msgid "Each helper runs on the fast model unless you choose one for it here."
 msgstr "Κάθε βοηθός εκτελείται με το γρήγορο μοντέλο, εκτός αν επιλέξετε άλλο για αυτόν εδώ."
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Each part moves out from the assembly's centre."
+msgstr "Κάθε εξάρτημα απομακρύνεται από το κέντρο της συναρμολόγησης."
+
 #: src/components/clio/settings-operations.tsx
 msgid "Each service the agent depends on. Open one for what to do next."
 msgstr "Κάθε υπηρεσία από την οποία εξαρτάται ο πράκτορας. Ανοίξτε μία για να δείτε τι να κάνετε στη συνέχεια."
@@ -13930,6 +14026,10 @@ msgstr "Σεισμικές μετρήσεις"
 #: src/components/clio/resource-dialogs.tsx
 msgid "EarthScope analysis"
 msgstr "Ανάλυση EarthScope"
+
+#: src/components/clio/cad-measure-state.ts
+msgid "Edge"
+msgstr "Ακμή"
 
 #: src/components/clio/composer-queue-row.tsx
 #: src/components/clio/memory-inbox.tsx
@@ -14528,7 +14628,7 @@ msgstr "Όλα τα πλήκτρα, ομαδοποιημένα ανάλογα μ
 msgid "Every Monday"
 msgstr "Κάθε Δευτέρα"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Every part's triangles, for a slicer"
 msgstr "Τα τρίγωνα όλων των τμημάτων, για slicer"
 
@@ -14815,6 +14915,22 @@ msgstr "έληξε"
 msgid "Expired"
 msgstr "Έληξε"
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Explode"
+msgstr "Ανάπτυξη"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Explode (E)"
+msgstr "Ανάπτυξη (E)"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Explode distance"
+msgstr "Απόσταση ανάπτυξης"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Exploded view"
+msgstr "Αναπτυγμένη προβολή"
+
 #: src/components/clio/settings-fleet.tsx
 msgid "Explore"
 msgstr "Explore"
@@ -14943,6 +15059,10 @@ msgstr "Ο πρόσθετος περιορισμός του λειτουργικ
 #: src/components/clio/memory-creation-log.tsx
 msgid "Extraction model"
 msgstr "Μοντέλο εξαγωγής"
+
+#: src/components/clio/cad-measure-state.ts
+msgid "Face"
+msgstr "Έδρα"
 
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Fact corrected"
@@ -15554,6 +15674,18 @@ msgstr "Πρώτα {loaded}"
 msgid "First conversation"
 msgstr "Πρώτη συνομιλία"
 
+#: src/components/clio/cad-measure-tool.tsx
+msgid "First point on a face. Click the second point; Esc cancels."
+msgstr "Πρώτο σημείο σε έδρα. Κάντε κλικ στο δεύτερο σημείο· το Esc ακυρώνει."
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "First point on a vertex. Click the second point; Esc cancels."
+msgstr "Πρώτο σημείο σε κορυφή. Κάντε κλικ στο δεύτερο σημείο· το Esc ακυρώνει."
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "First point on an edge. Click the second point; Esc cancels."
+msgstr "Πρώτο σημείο σε ακμή. Κάντε κλικ στο δεύτερο σημείο· το Esc ακυρώνει."
+
 #: src/components/clio/attention-profile-editor.tsx
 msgid "First selected step"
 msgstr "Πρώτο επιλεγμένο βήμα"
@@ -15595,13 +15727,33 @@ msgstr "Προσαρμογή στη GPU: {strategy}."
 msgid "Fit to GPU."
 msgstr "Προσαρμογή στη GPU."
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Fit to view"
 msgstr "Προσαρμογή στην προβολή"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Fit to view (F)"
+msgstr "Προσαρμογή στην προβολή (F)"
 
 #: src/components/clio/graph-controls.tsx
 msgid "Fit view"
 msgstr "Προσαρμογή προβολής"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the {name} plate"
+msgstr "Χωράει στην πλάκα του {name}"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the {name} plate when turned 90°"
+msgstr "Χωράει στην πλάκα του {name} αν περιστραφεί 90°"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the custom plate"
+msgstr "Χωράει στην προσαρμοσμένη πλάκα"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the custom plate when turned 90°"
+msgstr "Χωράει στην προσαρμοσμένη πλάκα αν περιστραφεί 90°"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Fits: {free}."
@@ -15622,6 +15774,10 @@ msgstr "Οι σημαίες δεν έχουν φορτωθεί ακόμη"
 #: src/components/clio/search-assistant.tsx
 msgid "Fleet"
 msgstr "Στόλος"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Flip"
+msgstr "Αντιστροφή"
 
 #: src/lib/composer-reference-domain.ts
 msgid "flow"
@@ -16212,7 +16368,7 @@ msgstr "Από τον υπολογιστή σας"
 msgid "From your OpenSSH configuration (read-only)"
 msgstr "Από τη διαμόρφωση OpenSSH σας (μόνο για ανάγνωση)"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Front"
 msgstr "Εμπρός"
 
@@ -16335,6 +16491,10 @@ msgstr "Λήψη περιβάλλοντος εκτέλεσης"
 msgid "Get notified when {agent} needs you"
 msgstr "Λάβετε ειδοποίηση όταν ο {agent} σας χρειάζεται"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Ghost others"
+msgstr "Διαφάνεια στα άλλα"
+
 #: src/components/clio/extension-discover.tsx
 msgid "Git repository or host folder"
 msgstr "Αποθετήριο Git ή φάκελος κεντρικού υπολογιστή"
@@ -16363,7 +16523,7 @@ msgstr "Δώστε όνομα σε αυτή την υπηρεσία."
 msgid "Given to this try"
 msgstr "Δόθηκε σε αυτήν την απόπειρα"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "GLB"
 msgstr "GLB"
 
@@ -16622,6 +16782,7 @@ msgstr "Προφίλ θερμότητας: {name}"
 msgid "Heat shown in transcript"
 msgstr "Θερμότητα που εμφανίζεται στα πρακτικά"
 
+#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Height"
 msgstr "Ύψος"
@@ -16670,7 +16831,7 @@ msgstr "Γεια σου Morgan,\n"
 "Ευχαριστώ,\n"
 "Alex"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Hidden"
 msgstr "Κρυφό"
@@ -16700,7 +16861,7 @@ msgstr "Απόκρυψη {label}"
 msgid "Hide {label} from pickers"
 msgstr "Απόκρυψη {label} από τις λίστες επιλογής"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Hide {name}"
@@ -17472,6 +17633,10 @@ msgstr "Όταν είναι σε χρήση, από εδώ διαβάζουν ε
 msgid "In your browser"
 msgstr "Στο πρόγραμμα περιήγησής σας"
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Inches"
+msgstr "Ίντσες"
+
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Include a letter or number in the connection name"
 msgstr "Συμπεριλάβετε ένα γράμμα ή έναν αριθμό στο όνομα της σύνδεσης"
@@ -18214,7 +18379,11 @@ msgctxt "date filter"
 msgid "is"
 msgstr "είναι"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Isolate"
+msgstr "Απομόνωση"
+
+#: src/components/clio/cad-model-view.tsx
 msgid "Isometric"
 msgstr "Ισομετρική"
 
@@ -20533,6 +20702,16 @@ msgstr "Μέσος όρος"
 msgid "Mean per token"
 msgstr "Μέσος όρος ανά token"
 
+#: src/components/clio/cad-measure-tool.tsx
+#: src/components/clio/cad-model-view.tsx
+msgid "Measure"
+msgstr "Μέτρηση"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Measure (M)"
+msgstr "Μέτρηση (M)"
+
+#: src/components/clio/cad-measure-tool.tsx
 #: src/components/clio/science-log-panel.tsx
 msgid "Measurements"
 msgstr "Μετρήσεις"
@@ -22579,6 +22758,10 @@ msgstr "Χωρίς PDF: η μεταγλώττιση σταμάτησε πριν 
 msgid "No pending or recorded requests on this connection."
 msgstr "Δεν υπάρχουν εκκρεμή ή καταγεγραμμένα αιτήματα σε αυτή τη σύνδεση."
 
+#: src/components/clio/cad-model-view.tsx
+msgid "No perspective: parallel edges stay parallel"
+msgstr "Χωρίς προοπτική: οι παράλληλες ακμές μένουν παράλληλες"
+
 #: src/components/clio/injection-presentation.ts
 msgid "No plan text was recorded."
 msgstr "Δεν καταγράφηκε κείμενο σχεδίου."
@@ -23583,6 +23766,10 @@ msgstr "Τίποτα σε εκτέλεση"
 msgid "Nothing saved here yet."
 msgstr "Δεν έχει αποθηκευτεί τίποτα εδώ ακόμη."
 
+#: src/components/clio/cad-measure-state.ts
+msgid "Nothing there to measure. Click on the model."
+msgstr "Δεν υπάρχει τίποτα εκεί για μέτρηση. Κάντε κλικ στο μοντέλο."
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "Nothing to remember"
 msgstr "Τίποτα προς απομνημόνευση"
@@ -23657,6 +23844,10 @@ msgstr "Αριθμητικό ρυθμιστικό"
 #: src/components/clio/managed-service-target-utils.ts
 msgid "NVIDIA GPU detected."
 msgstr "Εντοπίστηκε GPU NVIDIA."
+
+#: src/components/clio/cad-measure-state.ts
+msgid "Ø {diameter}, radius {radius}"
+msgstr "Ø {diameter}, ακτίνα {radius}"
 
 #: src/components/clio/observability-dock.tsx
 msgid "Observability view"
@@ -24817,6 +25008,10 @@ msgstr "Αρχική εικόνα"
 msgid "Original tool arguments, result, and diagnostics."
 msgstr "Αρχικά ορίσματα εργαλείου, αποτέλεσμα και διαγνωστικά."
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Orthographic"
+msgstr "Ορθογραφική"
+
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/components/clio/service-installation-method.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
@@ -24844,6 +25039,10 @@ msgstr "Άλλο μοντέλο"
 #: src/lib/model-filter-tokens.ts
 msgid "Other models can't hold a conversation."
 msgstr "Τα άλλα μοντέλα δεν μπορούν να διεξάγουν συνομιλία."
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Other parts"
+msgstr "Άλλα εξαρτήματα"
 
 #: src/lib/model-facets.ts
 msgid "Other tasks"
@@ -25105,7 +25304,8 @@ msgctxt "mesh part"
 msgid "Part"
 msgstr "Τμήμα"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
+#: src/components/clio/cad-tool-panels.tsx
 msgid "Part {number}"
 msgstr "Τμήμα {number}"
 
@@ -25125,11 +25325,11 @@ msgstr "Μερικό αποτέλεσμα"
 msgid "partially selected"
 msgstr "μερικώς επιλεγμένο"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 msgid "Parts"
 msgstr "Τμήματα"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Parts list"
 msgstr "Λίστα τμημάτων"
 
@@ -25605,6 +25805,14 @@ msgstr "Το σχέδιο δεν είναι διαθέσιμο"
 msgid "Plan: {title}"
 msgstr "Σχέδιο: {title}"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Plane at {axis} = {position}, keeping the side above. Cut faces are filled."
+msgstr "Επίπεδο στο {axis} = {position}, διατηρείται η πάνω πλευρά. Οι επιφάνειες τομής γεμίζουν."
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
+msgstr "Επίπεδο στο {axis} = {position}, διατηρείται η κάτω πλευρά. Οι επιφάνειες τομής γεμίζουν."
+
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/lib/tool-domain-labels.ts
 msgid "Planning"
@@ -25800,7 +26008,7 @@ msgstr "Εικόνα PNG"
 msgid "PNG image (displayed view)"
 msgstr "Εικόνα PNG (εμφανιζόμενη προβολή)"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "PNG image of this view"
 msgstr "Εικόνα PNG αυτής της προβολής"
 
@@ -26134,9 +26342,18 @@ msgstr "Προηγούμενα<0>{count}</0>"
 msgid "Primary folder"
 msgstr "Κύριος φάκελος"
 
+#: src/components/clio/cad-model-view.tsx
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Print plate"
+msgstr "Πλάκα εκτύπωσης"
+
 #: src/components/clio/script-run-body.tsx
 msgid "Printed"
 msgstr "Εκτυπώθηκε"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Printer"
+msgstr "Εκτυπωτής"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Priority"
@@ -26592,6 +26809,10 @@ msgstr "Δημοσιευμένο URL μεταδεδομένων πελάτη"
 msgid "Publishing selected edits…"
 msgstr "Δημοσίευση επιλεγμένων επεξεργασιών…"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Put the parts back together"
+msgstr "Επανασυναρμολόγηση εξαρτημάτων"
+
 #: src/components/clio/settings-about.tsx
 msgid "Python"
 msgstr "Python"
@@ -26789,6 +27010,10 @@ msgstr "Έξοδος από το {product};"
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Quit {wordmark}"
 msgstr "Έξοδος: {wordmark}"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Radius"
+msgstr "Ακτίνα"
 
 #: src/components/clio/artifact-lineage-layout.ts
 #: src/components/clio/flow-run-parts.tsx
@@ -27069,6 +27294,10 @@ msgstr "Ανάγνωση διατηρημένου πλαισίου"
 #: src/components/clio/tool-invocation.tsx
 msgid "Read session summary"
 msgstr "Ανάγνωση σύνοψης συνεδρίας"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Read sizes and measurements in inches instead of millimetres"
+msgstr "Μεγέθη και μετρήσεις σε ίντσες αντί για χιλιοστά"
 
 #: src/components/clio/skill-tool-presentation.ts
 msgid "Read skill reference"
@@ -29616,7 +29845,7 @@ msgstr "Επαναφορά…"
 msgid "Rich results"
 msgstr "Εμπλουτισμένα αποτελέσματα"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Right"
 msgstr "Δεξιά"
 
@@ -31147,8 +31376,18 @@ msgid "Secret access key"
 msgstr ""
 
 #: src/components/clio/agent-package-item-detail.tsx
+#: src/components/clio/cad-model-view.tsx
+#: src/components/clio/cad-tool-panels.tsx
 msgid "Section"
 msgstr "Ενότητα"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Section (S)"
+msgstr "Τομή (S)"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Section position"
+msgstr "Θέση τομής"
 
 #: src/components/clio/settings-navigation.tsx
 msgid "Sections"
@@ -31199,6 +31438,10 @@ msgstr "Επιλογή"
 #: src/components/clio/scientific-map-view.tsx
 msgid "Select {label}"
 msgstr "Επιλογή {label}"
+
+#: src/components/clio/cad-parts-panel.tsx
+msgid "Select {name}"
+msgstr "Επιλογή {name}"
 
 #: src/components/clio/conversation-relationships.tsx
 msgid "Select {title}"
@@ -31318,6 +31561,7 @@ msgid "selected"
 msgstr "επιλεγμένο"
 
 #: src/components/clio/agent-answer-activity.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/capability-picker.tsx
 #: src/components/clio/model-download-search.tsx
 msgid "Selected"
@@ -31358,6 +31602,10 @@ msgstr "Επιλεγμένα στοιχεία"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Selected options"
 msgstr "Επιλεγμένες επιλογές"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Selected part"
+msgstr "Επιλεγμένο εξάρτημα"
 
 #: src/widget-preview-app.tsx
 msgid "Selected rows become a precise, reusable reference in the conversation."
@@ -32144,7 +32392,7 @@ msgstr "Εμφάνιση {label} στις λίστες επιλογής"
 msgid "Show {label} in Work"
 msgstr "Εμφάνιση {label} στην Εργασία"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Show {name}"
@@ -32164,7 +32412,8 @@ msgid "Show {title}"
 msgstr "Εμφάνιση {title}"
 
 #: src/components/clio/ask-card.tsx
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
+#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/conversation-list-groups.tsx
 #: src/components/clio/data-table.tsx
 #: src/components/clio/flow-run-parts.tsx
@@ -32249,7 +32498,7 @@ msgstr "Εμφάνιση λεπτομερειών"
 msgid "Show diffusion"
 msgstr "Εμφάνιση διάχυσης"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Show edges"
 msgstr "Εμφάνιση ακμών"
 
@@ -32585,6 +32834,10 @@ msgstr "Εμφανίζονται οι τελευταίες {rows} γραμμές
 msgid "Showing the last completed conversion"
 msgstr "Εμφανίζεται η τελευταία ολοκληρωμένη μετατροπή"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Shown parts as modelled: {size}"
+msgstr "Εμφανιζόμενα εξαρτήματα όπως σχεδιάστηκαν: {size}"
+
 #: src/components/clio/image-reach.ts
 msgid "shown to the model"
 msgstr "εμφανίστηκε στο μοντέλο"
@@ -32860,6 +33113,14 @@ msgstr "Μέγεθος"
 #: src/components/clio/file-viewer-actions.tsx
 msgid "Size unavailable"
 msgstr "Μη διαθέσιμο μέγεθος"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Sizes in inches"
+msgstr "Μεγέθη σε ίντσες"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Sizes in millimetres"
+msgstr "Μεγέθη σε χιλιοστά"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
@@ -33390,7 +33651,7 @@ msgid "Standard error:\n"
 msgstr "Τυπικό σφάλμα:\n"
 "{stderr}"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Standard views"
 msgstr "Τυπικές προβολές"
 
@@ -33814,7 +34075,7 @@ msgstr "Ακόμη σε εξέλιξη."
 msgid "Stir occasionally until slightly thickened."
 msgstr "Ανακατεύετε κατά διαστήματα μέχρι να πήξει ελαφρώς."
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "STL (binary)"
 msgstr "STL (δυαδικό)"
 
@@ -34820,6 +35081,10 @@ msgstr "Αυτό το όνομα σύνδεσης υπάρχει ήδη. Επι�
 msgid "That did not work."
 msgstr "Αυτό δεν λειτούργησε."
 
+#: src/components/clio/cad-measure-state.ts
+msgid "That edge is not round. Click a round edge, such as the rim of a hole."
+msgstr "Αυτή η ακμή δεν είναι στρογγυλή. Κάντε κλικ σε μια στρογγυλή ακμή, όπως το χείλος μιας οπής."
+
 #: src/components/clio/extension-add-dialog.tsx
 msgid "That folder couldn’t be read as an extension source on the agent host."
 msgstr "Δεν ήταν δυνατή η ανάγνωση αυτού του φακέλου ως πηγής επεκτάσεων στον κεντρικό υπολογιστή του πράκτορα."
@@ -35762,7 +36027,7 @@ msgstr "Δεν ήταν δυνατή η μεταγλώττιση της εργα
 msgid "The parent's original assignment."
 msgstr "Η αρχική ανάθεση του γονικού πράκτορα."
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "The parts with their names and colours, for other 3D viewers"
 msgstr "Τα τμήματα με τα ονόματα και τα χρώματά τους, για άλλα προγράμματα προβολής 3D"
 
@@ -37870,9 +38135,21 @@ msgstr "Η χρήση token δεν είναι διαθέσιμη"
 msgid "Tokens"
 msgstr "Tokens"
 
+#: src/components/clio/cad-plate.ts
+msgid "Too deep by {length}"
+msgstr "Πολύ βαθύ κατά {length}"
+
 #: src/components/ai-elements/prompt-input.tsx
 msgid "Too many files. Some were not added."
 msgstr "Πάρα πολλά αρχεία. Ορισμένα δεν προστέθηκαν."
+
+#: src/components/clio/cad-plate.ts
+msgid "Too tall by {length}"
+msgstr "Πολύ ψηλό κατά {length}"
+
+#: src/components/clio/cad-plate.ts
+msgid "Too wide by {length}"
+msgstr "Πολύ φαρδύ κατά {length}"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Took"
@@ -38101,7 +38378,7 @@ msgstr "Εργαλεία που φεύγουν"
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
 msgstr "Εργαλεία: αν κάθε εργαλείο πρόσθετου εκτελείται, ζητά πρώτα επιβεβαίωση ή αποκλείεται, και αν ο πράκτορας το καλεί απευθείας, από σενάριο ή και με τους δύο τρόπους. Οι διακομιστές MCP δίνουν στους πράκτορες εργαλεία, δεδομένα και επαναχρησιμοποιήσιμες προτροπές. Τα απομακρυσμένα εργαλεία προέρχονται από διακομιστές MCP στους οποίους η πρόσβαση γίνεται μέσω URL και εκτελούνται σε εκείνο το μηχάνημα."
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Top"
 msgstr "Πάνω"
@@ -39893,6 +40170,10 @@ msgstr "Εκδόσεις"
 msgid "Versions of {name}"
 msgstr "Εκδόσεις του {name}"
 
+#: src/components/clio/cad-measure-state.ts
+msgid "Vertex"
+msgstr "Κορυφή"
+
 #: src/components/clio/settings-schema-copy.ts
 msgid "Vertex region."
 msgstr "Περιοχή Vertex."
@@ -39986,6 +40267,14 @@ msgstr "Η προβολή τερματίστηκε"
 #: src/components/clio/file-viewer-actions.tsx
 msgid "View file fullscreen"
 msgstr "Προβολή αρχείου σε πλήρη οθόνη"
+
+#: src/components/clio/cad-gizmo.tsx
+msgid "View from {axis}"
+msgstr "Προβολή από {axis}"
+
+#: src/components/clio/cad-gizmo.tsx
+msgid "View from an axis"
+msgstr "Προβολή από άξονα"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "View image"
@@ -40506,6 +40795,10 @@ msgstr "Τι χρησιμοποίησε αυτή η εκτέλεση"
 msgid "What to do next"
 msgstr "Τι να κάνετε στη συνέχεια"
 
+#: src/components/clio/cad-measure-tool.tsx
+msgid "What to measure"
+msgstr "Τι να μετρηθεί"
+
 #: src/components/clio/memory-create.tsx
 msgid "What to remember"
 msgstr "Τι να απομνημονευτεί"
@@ -40591,6 +40884,10 @@ msgstr "Πού εκτελούνται οι υπηρεσίες και τα μον
 msgid "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 msgstr "Πού ξεκινούν οι συνομιλίες αυτού του χώρου εργασίας και ποιους άλλους φακέλους μπορούν να αλλάξουν οι εντολές τους. Το χρώμα και το εικονίδιο διατηρούνται σε αυτή τη συσκευή."
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Whether the shown parts fit a printer"
+msgstr "Αν τα εμφανιζόμενα εξαρτήματα χωρούν σε έναν εκτυπωτή"
+
 #: src/components/clio/settings-schema-copy.ts
 msgid "Which browser"
 msgstr "Ποιο πρόγραμμα περιήγησης"
@@ -40655,6 +40952,7 @@ msgstr "Ο κατάλογος γραφικών στοιχείων φορτώθη
 msgid "Widget gallery"
 msgstr "Συλλογή γραφικών στοιχείων"
 
+#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Width"
 msgstr "Πλάτος"
@@ -41505,3 +41803,7 @@ msgstr "Μεγέθυνση, σχολιασμός και λήψη από τη γ�
 #: src/components/clio/image-resource-view.tsx
 msgid "Zoomable image {name}"
 msgstr "Εικόνα με δυνατότητα μεγέθυνσης {name}"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "ΔX {x}  ΔY {y}  ΔZ {z}"
+msgstr "ΔX {x}  ΔY {y}  ΔZ {z}"

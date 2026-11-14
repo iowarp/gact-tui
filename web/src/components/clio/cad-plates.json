@@ -1,0 +1,13 @@
+{
+  "$comment": "Common printer build volumes (width x depth x height, mm) for the CAD view's print-plate check.",
+  "plates": [
+    { "id": "bambu-a1", "name": "Bambu Lab A1", "size": [256, 256, 256] },
+    { "id": "bambu-a1-mini", "name": "Bambu Lab A1 mini", "size": [180, 180, 180] },
+    { "id": "bambu-x1-p1", "name": "Bambu Lab X1 / P1", "size": [256, 256, 256] },
+    { "id": "prusa-mk4", "name": "Prusa MK4", "size": [250, 210, 220] },
+    { "id": "prusa-mini", "name": "Prusa MINI+", "size": [180, 180, 180] },
+    { "id": "prusa-core-one", "name": "Prusa CORE One", "size": [250, 220, 270] },
+    { "id": "ender-3", "name": "Creality Ender-3", "size": [220, 220, 250] },
+    { "id": "voron-350", "name": "Voron 2.4 (350)", "size": [350, 350, 340] }
+  ]
+}

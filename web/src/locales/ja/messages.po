@@ -425,7 +425,8 @@ msgid "{0, plural, one {# package} other {# packages}}"
 msgstr "{0, plural, one {#個のパッケージ} other {#個のパッケージ}}"
 
 #. placeholder {0}: parts.length
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 msgid "{0, plural, one {# part} other {# parts}}"
 msgstr "{0, plural, other {# 個の部品}}"
 
@@ -646,6 +647,11 @@ msgstr "{0, plural, one {地図上に#本の航跡があります。色が重複
 msgid "{0, plural, one {# track on the map. Colours repeat; filter to compare them.} other {# tracks on the map. Colours repeat; filter to compare them.}}"
 msgstr "{0, plural, one {地図上に#本の航跡があります。色が重複しているため、比較するにはフィルターを使用してください。} other {地図上に#本の航跡があります。色が重複しているため、比較するにはフィルターを使用してください。}}"
 
+#. placeholder {0}: part.triangles
+#: src/components/clio/cad-tool-panels.tsx
+msgid "{0, plural, one {# triangle} other {# triangles}}"
+msgstr "{0, plural, other {# 個の三角形}}"
+
 #. placeholder {0}: total.turns
 #: src/components/clio/settings-usage.tsx
 msgid "{0, plural, one {# turn, no cost recorded} other {# turns, no cost recorded}}"
@@ -741,6 +747,11 @@ msgstr "{0, plural, one {#回呼び出し、{span}} other {#回呼び出し、{s
 #: src/components/clio/nested-tool-calls.tsx
 msgid "{0, plural, one {Called # time} other {Called # times}}"
 msgstr "{0, plural, one {#回呼び出し} other {#回呼び出し}}"
+
+#. placeholder {0}: items.length
+#: src/components/clio/cad-measure-tool.tsx
+msgid "{0, plural, one {Clear the measurement} other {Clear all # measurements}}"
+msgstr "{0, plural, other {# 件の測定をすべて消去}}"
 
 #. placeholder {0}: compacted.length
 #: src/components/clio/conversation-summarization.tsx
@@ -1388,6 +1399,10 @@ msgstr "{attention, plural, one {#件に対応が必要} other {#件に対応が
 #: src/components/clio/flow-trust-details.tsx
 msgid "{author}, not trusted yet"
 msgstr "{author}、まだ信頼されていません"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "{axis} at {position}"
+msgstr "{axis} = {position}"
 
 #: src/components/clio/composer-queue.tsx
 msgid "{below} more"
@@ -3049,6 +3064,10 @@ msgstr "{path}\n"
 msgid "{pendingUpdates, plural, one {# update waits for trust} other {# updates wait for trust}}"
 msgstr "{pendingUpdates, plural, one {#件のアップデートが信頼待ち} other {#件のアップデートが信頼待ち}}"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "{percent} %"
+msgstr "{percent} %"
+
 #: src/components/clio/transcript-outline.tsx
 msgid "{percent} of attention"
 msgstr "アテンションの{percent}"
@@ -4045,9 +4064,21 @@ msgstr "{usedText} / {limitText}"
 msgid "{usedText} used"
 msgstr "{usedText}使用"
 
+#: src/components/clio/cad-units.ts
+msgid "{value} in"
+msgstr "{value} in"
+
+#: src/components/clio/cad-units.ts
+msgid "{value} mm"
+msgstr "{value} mm"
+
 #: src/lib/model-capability-tags.ts
 msgid "{value} parameters."
 msgstr "パラメーター数{value}。"
+
+#: src/components/clio/cad-units.ts
+msgid "{value}°"
+msgstr "{value}°"
 
 #: src/components/clio/map-legend.tsx
 msgid "{valueLabel} colour scale"
@@ -4114,7 +4145,11 @@ msgstr "{workspace}は利用できません"
 msgid "{workspace}, archived {when}"
 msgstr "{workspace}、{when}にアーカイブ"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-units.ts
+msgid "{x} × {y} × {z} in"
+msgstr "{x} × {y} × {z} in"
+
+#: src/components/clio/cad-units.ts
 msgid "{x} × {y} × {z} mm"
 msgstr "{x} × {y} × {z} mm"
 
@@ -4254,9 +4289,9 @@ msgstr "30日"
 msgid "3D view needs WebGL"
 msgstr "3D 表示には WebGL が必要です"
 
-#: src/components/clio/cad-file-view.tsx
-msgid "3D view of {name}, {size}. Drag to orbit, right-drag to pan, scroll or pinch to zoom."
-msgstr "{name} の 3D 表示、{size}。ドラッグで回転、右ドラッグで移動、スクロールまたはピンチでズームします。"
+#: src/components/clio/cad-model-view.tsx
+msgid "3D view of {name}, {size}. Drag to orbit, right-drag to pan, scroll or pinch to zoom. Click a part to select it. Keys: M measure, S section, E explode, F fit, Esc cancel."
+msgstr "{name} の 3D ビュー、{size}。ドラッグで回転、右ドラッグで移動、スクロールまたはピンチでズーム。部品をクリックすると選択します。キー: M 測定、S 断面、E 分解、F 全体表示、Esc 取り消し。"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "3D view unavailable: {failure}"
@@ -6185,6 +6220,10 @@ msgstr "解析"
 msgid "Analysis: <0>{0}</0>"
 msgstr "解析：<0>{0}</0>"
 
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Angle"
+msgstr "角度"
+
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "Announced to the agent"
 msgstr "エージェントに通知済み"
@@ -7807,6 +7846,10 @@ msgstr "ビルドの問題"
 #: src/components/clio/latex-workspace.tsx
 msgid "Build this paper"
 msgstr "この論文をビルド"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Build volume {size}"
+msgstr "造形サイズ {size}"
 
 #: src/components/clio/latex-workspace.tsx
 msgid "Building the paper…"
@@ -9479,6 +9522,10 @@ msgstr "フィルターをクリア"
 msgid "Clear filters"
 msgstr "フィルターをクリア"
 
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Clear measurement {number}"
+msgstr "測定 {number} を消去"
+
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/settings-navigation.tsx
@@ -9503,6 +9550,10 @@ msgstr "検索をクリアするか、すべての種類を表示してくださ
 msgid "Clear the search or show more kinds."
 msgstr "検索をクリアするか、表示する種類を増やしてください。"
 
+#: src/components/clio/cad-parts-panel.tsx
+msgid "Clear the selection"
+msgstr "選択を解除"
+
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Clear the terminal"
 msgstr "ターミナルをクリア"
@@ -9519,6 +9570,11 @@ msgstr "ポイントをクリックすると選択されます。{primary}+ク�
 msgid "Click a point to select it. {primary}-click selects its track. Shift-click toggles a point; {primaryShift}-click merges or removes a track. Drag selects points; {primary}-drag selects tracks."
 msgstr "ポイントをクリックすると選択されます。{primary}+クリックでそのトラックを選択します。Shift+クリックでポイントの選択を切り替え、{primaryShift}+クリックでトラックを結合または削除します。ドラッグでポイントを、{primary}+ドラッグでトラックを選択します。"
 
+#: src/components/clio/cad-measure-state.ts
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click a round edge, such as the rim of a hole."
+msgstr "穴の縁のような円形のエッジをクリックしてください。"
+
 #: src/lib/onboarding/tour-script.ts
 msgid "Click a table row, Shift+click another, then choose Reference this."
 msgstr "表の行をクリックし、別の行をShift+クリックしてから「これを参照」を選択してください。"
@@ -9526,6 +9582,18 @@ msgstr "表の行をクリックし、別の行をShift+クリックしてから
 #: src/components/clio/comments/comment-session.tsx
 msgid "Click an element to pick it."
 msgstr "要素をクリックして選択します。"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click the second face. Esc cancels."
+msgstr "2 つ目の面をクリックしてください。Esc で取り消します。"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click two faces."
+msgstr "2 つの面をクリックしてください。"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Click two points. Vertices and edges snap."
+msgstr "2 点をクリックしてください。頂点とエッジにスナップします。"
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Client {version} is managed by {agent}."
@@ -9604,6 +9672,10 @@ msgstr "{label}を閉じる"
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 msgid "Close {name}"
 msgstr "{name}を閉じる"
+
+#: src/components/clio/cad-tool-panel.tsx
+msgid "Close {title}"
+msgstr "{title} を閉じる"
 
 #: src/components/clio/comments/comment-controls.tsx
 msgid "Close capture"
@@ -12321,6 +12393,10 @@ msgstr "現在のワークスペース"
 msgid "Custom repeat <0>{0}</0>"
 msgstr "カスタムの繰り返し<0>{0}</0>"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Custom size"
+msgstr "カスタムサイズ"
+
 #: src/components/clio/settings-runtime-number.tsx
 msgid "Custom…"
 msgstr "カスタム…"
@@ -12349,6 +12425,14 @@ msgstr "エージェントをカスタマイズ ({changes})"
 msgctxt "menu bar"
 msgid "Cut"
 msgstr "カット"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Cut across"
+msgstr "切断軸"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Cut across {axis}"
+msgstr "{axis} 軸で切断"
 
 #: src/components/clio/artifact-lineage-layout.ts
 msgid "Cut short"
@@ -12883,6 +12967,10 @@ msgstr "{id}@{value}としてデプロイ"
 msgid "Deploys as {id}@name"
 msgstr "{id}@名前 としてデプロイ"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Depth"
+msgstr "奥行き"
+
 #: src/widget-gallery-scenarios.ts
 msgid "Depth and magnitude"
 msgstr "深さとマグニチュード"
@@ -13300,6 +13388,10 @@ msgstr "表示スケール"
 #: src/components/ui/sidebar.tsx
 msgid "Displays the mobile sidebar."
 msgstr "モバイル用のサイドバーを表示します。"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Distance"
+msgstr "距離"
 
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "Do you want to proceed?"
@@ -13874,6 +13966,10 @@ msgstr "所要時間：{seconds}秒"
 msgid "Each helper runs on the fast model unless you choose one for it here."
 msgstr "ここで個別に選択しない限り、各ヘルパーは高速モデルで実行されます。"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Each part moves out from the assembly's centre."
+msgstr "各部品がアセンブリの中心から外側へ移動します。"
+
 #: src/components/clio/settings-operations.tsx
 msgid "Each service the agent depends on. Open one for what to do next."
 msgstr "エージェントが依存する各サービスです。開くと次に行うことを確認できます。"
@@ -13930,6 +14026,10 @@ msgstr "地震の観測値"
 #: src/components/clio/resource-dialogs.tsx
 msgid "EarthScope analysis"
 msgstr "EarthScope解析"
+
+#: src/components/clio/cad-measure-state.ts
+msgid "Edge"
+msgstr "エッジ"
 
 #: src/components/clio/composer-queue-row.tsx
 #: src/components/clio/memory-inbox.tsx
@@ -14528,7 +14628,7 @@ msgstr "すべてのキーを、使える場所ごとにまとめています。
 msgid "Every Monday"
 msgstr "毎週月曜日"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Every part's triangles, for a slicer"
 msgstr "すべての部品の三角形(スライサー用)"
 
@@ -14815,6 +14915,22 @@ msgstr "期限切れ"
 msgid "Expired"
 msgstr "期限切れ"
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Explode"
+msgstr "分解"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Explode (E)"
+msgstr "分解 (E)"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Explode distance"
+msgstr "分解の距離"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Exploded view"
+msgstr "分解図"
+
 #: src/components/clio/settings-fleet.tsx
 msgid "Explore"
 msgstr "Explore"
@@ -14943,6 +15059,10 @@ msgstr "OSによる追加の隔離は有効になっていません。{agent}は
 #: src/components/clio/memory-creation-log.tsx
 msgid "Extraction model"
 msgstr "抽出モデル"
+
+#: src/components/clio/cad-measure-state.ts
+msgid "Face"
+msgstr "面"
 
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Fact corrected"
@@ -15554,6 +15674,18 @@ msgstr "先頭{loaded}"
 msgid "First conversation"
 msgstr "最初の会話"
 
+#: src/components/clio/cad-measure-tool.tsx
+msgid "First point on a face. Click the second point; Esc cancels."
+msgstr "1 点目は面上です。2 点目をクリックしてください。Esc で取り消します。"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "First point on a vertex. Click the second point; Esc cancels."
+msgstr "1 点目は頂点上です。2 点目をクリックしてください。Esc で取り消します。"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "First point on an edge. Click the second point; Esc cancels."
+msgstr "1 点目はエッジ上です。2 点目をクリックしてください。Esc で取り消します。"
+
 #: src/components/clio/attention-profile-editor.tsx
 msgid "First selected step"
 msgstr "最初に選択したステップ"
@@ -15595,13 +15727,33 @@ msgstr "GPUに合わせる: {strategy}。"
 msgid "Fit to GPU."
 msgstr "GPUに合わせる。"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Fit to view"
 msgstr "全体を表示"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Fit to view (F)"
+msgstr "全体表示 (F)"
 
 #: src/components/clio/graph-controls.tsx
 msgid "Fit view"
 msgstr "全体を表示"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the {name} plate"
+msgstr "{name} のプレートに収まります"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the {name} plate when turned 90°"
+msgstr "90° 回転させると {name} のプレートに収まります"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the custom plate"
+msgstr "カスタムプレートに収まります"
+
+#: src/components/clio/cad-plate.ts
+msgid "Fits the custom plate when turned 90°"
+msgstr "90° 回転させるとカスタムプレートに収まります"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Fits: {free}."
@@ -15622,6 +15774,10 @@ msgstr "フラグはまだ読み込まれていません"
 #: src/components/clio/search-assistant.tsx
 msgid "Fleet"
 msgstr "フリート"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Flip"
+msgstr "反転"
 
 #: src/lib/composer-reference-domain.ts
 msgid "flow"
@@ -16212,7 +16368,7 @@ msgstr "お使いのコンピューターから"
 msgid "From your OpenSSH configuration (read-only)"
 msgstr "OpenSSHの構成から（読み取り専用）"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Front"
 msgstr "正面"
 
@@ -16335,6 +16491,10 @@ msgstr "実行環境を取得"
 msgid "Get notified when {agent} needs you"
 msgstr "{agent}の対応が必要なときに通知を受け取る"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Ghost others"
+msgstr "他を半透明に"
+
 #: src/components/clio/extension-discover.tsx
 msgid "Git repository or host folder"
 msgstr "Gitリポジトリまたはホストのフォルダー"
@@ -16363,7 +16523,7 @@ msgstr "このサービスに名前を付けてください。"
 msgid "Given to this try"
 msgstr "この試行に渡されたもの"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "GLB"
 msgstr "GLB"
 
@@ -16622,6 +16782,7 @@ msgstr "ヒートプロファイル: {name}"
 msgid "Heat shown in transcript"
 msgstr "トランスクリプトに表示されたヒート"
 
+#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Height"
 msgstr "高さ"
@@ -16670,7 +16831,7 @@ msgstr "Morganさん\n"
 "よろしくお願いします。\n"
 "Alex"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/ssh-hosts-manager-dialog.tsx
 msgid "Hidden"
 msgstr "非表示"
@@ -16700,7 +16861,7 @@ msgstr "{label}を非表示"
 msgid "Hide {label} from pickers"
 msgstr "{label}を選択リストで非表示にする"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Hide {name}"
@@ -17472,6 +17633,10 @@ msgstr "使用中の場合、SPOTTERと来歴ビューもここから読み取�
 msgid "In your browser"
 msgstr "お使いのブラウザーで"
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Inches"
+msgstr "インチ"
+
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Include a letter or number in the connection name"
 msgstr "接続名には文字または数字を含めてください"
@@ -18214,7 +18379,11 @@ msgctxt "date filter"
 msgid "is"
 msgstr "が次の日"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Isolate"
+msgstr "単独表示"
+
+#: src/components/clio/cad-model-view.tsx
 msgid "Isometric"
 msgstr "等角"
 
@@ -20533,6 +20702,16 @@ msgstr "平均"
 msgid "Mean per token"
 msgstr "トークンあたりの平均"
 
+#: src/components/clio/cad-measure-tool.tsx
+#: src/components/clio/cad-model-view.tsx
+msgid "Measure"
+msgstr "測定"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Measure (M)"
+msgstr "測定 (M)"
+
+#: src/components/clio/cad-measure-tool.tsx
 #: src/components/clio/science-log-panel.tsx
 msgid "Measurements"
 msgstr "測定値"
@@ -22579,6 +22758,10 @@ msgstr "PDFなし：PDFを作成する前にビルドが停止しました"
 msgid "No pending or recorded requests on this connection."
 msgstr "この接続には保留中または記録済みのリクエストはありません。"
 
+#: src/components/clio/cad-model-view.tsx
+msgid "No perspective: parallel edges stay parallel"
+msgstr "遠近感なし: 平行なエッジは平行のまま"
+
 #: src/components/clio/injection-presentation.ts
 msgid "No plan text was recorded."
 msgstr "プランのテキストは記録されていません。"
@@ -23583,6 +23766,10 @@ msgstr "実行中のものはありません"
 msgid "Nothing saved here yet."
 msgstr "まだ何も保存されていません。"
 
+#: src/components/clio/cad-measure-state.ts
+msgid "Nothing there to measure. Click on the model."
+msgstr "そこには測定するものがありません。モデルをクリックしてください。"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "Nothing to remember"
 msgstr "記憶する内容はありません"
@@ -23657,6 +23844,10 @@ msgstr "数値スライダー"
 #: src/components/clio/managed-service-target-utils.ts
 msgid "NVIDIA GPU detected."
 msgstr "NVIDIA GPUが検出されました。"
+
+#: src/components/clio/cad-measure-state.ts
+msgid "Ø {diameter}, radius {radius}"
+msgstr "Ø {diameter}、半径 {radius}"
 
 #: src/components/clio/observability-dock.tsx
 msgid "Observability view"
@@ -24817,6 +25008,10 @@ msgstr "元の画像"
 msgid "Original tool arguments, result, and diagnostics."
 msgstr "元のツール引数、結果、診断情報。"
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Orthographic"
+msgstr "平行投影"
+
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/components/clio/service-installation-method.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
@@ -24844,6 +25039,10 @@ msgstr "その他のモデル"
 #: src/lib/model-filter-tokens.ts
 msgid "Other models can't hold a conversation."
 msgstr "その他のモデルは会話できません。"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Other parts"
+msgstr "他の部品"
 
 #: src/lib/model-facets.ts
 msgid "Other tasks"
@@ -25105,7 +25304,8 @@ msgctxt "mesh part"
 msgid "Part"
 msgstr "パーツ"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
+#: src/components/clio/cad-tool-panels.tsx
 msgid "Part {number}"
 msgstr "部品 {number}"
 
@@ -25125,11 +25325,11 @@ msgstr "部分的な結果"
 msgid "partially selected"
 msgstr "一部選択"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 msgid "Parts"
 msgstr "部品"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Parts list"
 msgstr "部品リスト"
 
@@ -25605,6 +25805,14 @@ msgstr "プランを利用できません"
 msgid "Plan: {title}"
 msgstr "計画：{title}"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Plane at {axis} = {position}, keeping the side above. Cut faces are filled."
+msgstr "{axis} = {position} の平面。上側を残します。断面は塗りつぶされます。"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
+msgstr "{axis} = {position} の平面。下側を残します。断面は塗りつぶされます。"
+
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/lib/tool-domain-labels.ts
 msgid "Planning"
@@ -25800,7 +26008,7 @@ msgstr "PNG画像"
 msgid "PNG image (displayed view)"
 msgstr "PNG画像（表示中のビュー）"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "PNG image of this view"
 msgstr "この表示の PNG 画像"
 
@@ -26134,9 +26342,18 @@ msgstr "以前<0>{count}</0>"
 msgid "Primary folder"
 msgstr "プライマリフォルダー"
 
+#: src/components/clio/cad-model-view.tsx
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Print plate"
+msgstr "造形プレート"
+
 #: src/components/clio/script-run-body.tsx
 msgid "Printed"
 msgstr "出力"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Printer"
+msgstr "プリンター"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Priority"
@@ -26592,6 +26809,10 @@ msgstr "公開されたクライアントメタデータURL"
 msgid "Publishing selected edits…"
 msgstr "選択した編集を公開中…"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Put the parts back together"
+msgstr "部品を元の位置に戻す"
+
 #: src/components/clio/settings-about.tsx
 msgid "Python"
 msgstr "Python"
@@ -26789,6 +27010,10 @@ msgstr "{product}を終了しますか？"
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Quit {wordmark}"
 msgstr "{wordmark}を終了"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "Radius"
+msgstr "半径"
 
 #: src/components/clio/artifact-lineage-layout.ts
 #: src/components/clio/flow-run-parts.tsx
@@ -27069,6 +27294,10 @@ msgstr "保持されたコンテキストを読み取り"
 #: src/components/clio/tool-invocation.tsx
 msgid "Read session summary"
 msgstr "セッションの要約を読み取り"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Read sizes and measurements in inches instead of millimetres"
+msgstr "サイズと測定値をミリではなくインチで表示"
 
 #: src/components/clio/skill-tool-presentation.ts
 msgid "Read skill reference"
@@ -29616,7 +29845,7 @@ msgstr "巻き戻し中…"
 msgid "Rich results"
 msgstr "リッチな結果"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Right"
 msgstr "右"
 
@@ -31147,8 +31376,18 @@ msgid "Secret access key"
 msgstr ""
 
 #: src/components/clio/agent-package-item-detail.tsx
+#: src/components/clio/cad-model-view.tsx
+#: src/components/clio/cad-tool-panels.tsx
 msgid "Section"
 msgstr "セクション"
+
+#: src/components/clio/cad-model-view.tsx
+msgid "Section (S)"
+msgstr "断面 (S)"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Section position"
+msgstr "断面の位置"
 
 #: src/components/clio/settings-navigation.tsx
 msgid "Sections"
@@ -31199,6 +31438,10 @@ msgstr "選択"
 #: src/components/clio/scientific-map-view.tsx
 msgid "Select {label}"
 msgstr "{label}を選択"
+
+#: src/components/clio/cad-parts-panel.tsx
+msgid "Select {name}"
+msgstr "{name} を選択"
 
 #: src/components/clio/conversation-relationships.tsx
 msgid "Select {title}"
@@ -31318,6 +31561,7 @@ msgid "selected"
 msgstr "選択済み"
 
 #: src/components/clio/agent-answer-activity.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/capability-picker.tsx
 #: src/components/clio/model-download-search.tsx
 msgid "Selected"
@@ -31358,6 +31602,10 @@ msgstr "選択した項目"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Selected options"
 msgstr "選択したオプション"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Selected part"
+msgstr "選択した部品"
 
 #: src/widget-preview-app.tsx
 msgid "Selected rows become a precise, reusable reference in the conversation."
@@ -32144,7 +32392,7 @@ msgstr "{label}を選択リストに表示"
 msgid "Show {label} in Work"
 msgstr "{label}を作業で表示"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/provider-eye-toggle.tsx
 #: src/tauri/native-copy.ts
 msgid "Show {name}"
@@ -32164,7 +32412,8 @@ msgid "Show {title}"
 msgstr "{title}を表示"
 
 #: src/components/clio/ask-card.tsx
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-parts-panel.tsx
+#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/conversation-list-groups.tsx
 #: src/components/clio/data-table.tsx
 #: src/components/clio/flow-run-parts.tsx
@@ -32249,7 +32498,7 @@ msgstr "詳細を表示"
 msgid "Show diffusion"
 msgstr "拡散を表示"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Show edges"
 msgstr "稜線を表示"
 
@@ -32585,6 +32834,10 @@ msgstr "最後の{rows}行を表示しています。"
 msgid "Showing the last completed conversion"
 msgstr "最後に完了した変換を表示しています"
 
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Shown parts as modelled: {size}"
+msgstr "表示中の部品 (モデルどおり): {size}"
+
 #: src/components/clio/image-reach.ts
 msgid "shown to the model"
 msgstr "モデルに表示済み"
@@ -32860,6 +33113,14 @@ msgstr "サイズ"
 #: src/components/clio/file-viewer-actions.tsx
 msgid "Size unavailable"
 msgstr "サイズ不明"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Sizes in inches"
+msgstr "サイズはインチ"
+
+#: src/components/clio/cad-tool-panels.tsx
+msgid "Sizes in millimetres"
+msgstr "サイズはミリメートル"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
@@ -33390,7 +33651,7 @@ msgid "Standard error:\n"
 msgstr "標準エラー：\n"
 "{stderr}"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "Standard views"
 msgstr "標準ビュー"
 
@@ -33814,7 +34075,7 @@ msgstr "まだ処理中です。"
 msgid "Stir occasionally until slightly thickened."
 msgstr "少しとろみがつくまで、ときどき混ぜます。"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "STL (binary)"
 msgstr "STL(バイナリ)"
 
@@ -34820,6 +35081,10 @@ msgstr "その接続名は既に存在します。別の名前を選択してく
 msgid "That did not work."
 msgstr "うまくいきませんでした。"
 
+#: src/components/clio/cad-measure-state.ts
+msgid "That edge is not round. Click a round edge, such as the rim of a hole."
+msgstr "そのエッジは円形ではありません。穴の縁のような円形のエッジをクリックしてください。"
+
 #: src/components/clio/extension-add-dialog.tsx
 msgid "That folder couldn’t be read as an extension source on the agent host."
 msgstr "そのフォルダーをエージェントホスト上の拡張機能ソースとして読み取れませんでした。"
@@ -35762,7 +36027,7 @@ msgstr "論文をビルドできませんでした"
 msgid "The parent's original assignment."
 msgstr "親による元の割り当て。"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 msgid "The parts with their names and colours, for other 3D viewers"
 msgstr "名前と色付きの部品(他の 3D ビューア用)"
 
@@ -37870,9 +38135,21 @@ msgstr "トークン使用量を利用できません"
 msgid "Tokens"
 msgstr "トークン"
 
+#: src/components/clio/cad-plate.ts
+msgid "Too deep by {length}"
+msgstr "奥行きが {length} 超過"
+
 #: src/components/ai-elements/prompt-input.tsx
 msgid "Too many files. Some were not added."
 msgstr "ファイルが多すぎます。一部は追加されませんでした。"
+
+#: src/components/clio/cad-plate.ts
+msgid "Too tall by {length}"
+msgstr "高さが {length} 超過"
+
+#: src/components/clio/cad-plate.ts
+msgid "Too wide by {length}"
+msgstr "幅が {length} 超過"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Took"
@@ -38101,7 +38378,7 @@ msgstr "削除されるツール"
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
 msgstr "ツール：各プラグインツールを実行するか、事前に確認するか、ブロックするか、またエージェントが直接呼び出すか、スクリプトから呼び出すか、その両方かを設定します。MCPサーバーはエージェントにツール、データ、再利用可能なプロンプトを提供します。リモートツールはURLで接続するMCPサーバーから提供され、そのマシン上で実行されます。"
 
-#: src/components/clio/cad-file-view.tsx
+#: src/components/clio/cad-model-view.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Top"
 msgstr "上"
@@ -39893,6 +40170,10 @@ msgstr "バージョン"
 msgid "Versions of {name}"
 msgstr "{name}のバージョン"
 
+#: src/components/clio/cad-measure-state.ts
+msgid "Vertex"
+msgstr "頂点"
+
 #: src/components/clio/settings-schema-copy.ts
 msgid "Vertex region."
 msgstr "Vertexのリージョン。"
@@ -39986,6 +40267,14 @@ msgstr "ビューが終了しました"
 #: src/components/clio/file-viewer-actions.tsx
 msgid "View file fullscreen"
 msgstr "ファイルを全画面表示"
+
+#: src/components/clio/cad-gizmo.tsx
+msgid "View from {axis}"
+msgstr "{axis} から見る"
+
+#: src/components/clio/cad-gizmo.tsx
+msgid "View from an axis"
+msgstr "軸から見る"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "View image"
@@ -40506,6 +40795,10 @@ msgstr "この実行の使用量"
 msgid "What to do next"
 msgstr "次に行うこと"
 
+#: src/components/clio/cad-measure-tool.tsx
+msgid "What to measure"
+msgstr "測定の種類"
+
 #: src/components/clio/memory-create.tsx
 msgid "What to remember"
 msgstr "記憶する内容"
@@ -40591,6 +40884,10 @@ msgstr "このタブのサービスとモデルが実行される場所です。
 msgid "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 msgstr "このワークスペースの会話を開始する場所と、そのコマンドが変更できる他のフォルダー。色とアイコンはこのデバイスに保存されます。"
 
+#: src/components/clio/cad-model-view.tsx
+msgid "Whether the shown parts fit a printer"
+msgstr "表示中の部品がプリンターに収まるか"
+
 #: src/components/clio/settings-schema-copy.ts
 msgid "Which browser"
 msgstr "使用するブラウザー"
@@ -40655,6 +40952,7 @@ msgstr "ウィジェットカタログを読み込みました。カタログ全
 msgid "Widget gallery"
 msgstr "ウィジェットギャラリー"
 
+#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Width"
 msgstr "幅"
@@ -41505,3 +41803,7 @@ msgstr "ツールバーからズーム、コメント、ダウンロードがで
 #: src/components/clio/image-resource-view.tsx
 msgid "Zoomable image {name}"
 msgstr "ズーム可能な画像{name}"
+
+#: src/components/clio/cad-measure-tool.tsx
+msgid "ΔX {x}  ΔY {y}  ΔZ {z}"
+msgstr "ΔX {x}  ΔY {y}  ΔZ {z}"
