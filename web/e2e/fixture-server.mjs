@@ -4314,6 +4314,11 @@ const server = createServer(async (request, response) => {
     response.end();
     return;
   }
+  // Stop asks about started work only when some is open; the fixture has none.
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/stop-scope`) {
+    sendJson(response, { session_id: sessionId, open_children: [] });
+    return;
+  }
 
   if (scienceViews.fallback(request, response, url)) return;
   sendJson(response, { error: 'not_found', path: url.pathname }, 404);
