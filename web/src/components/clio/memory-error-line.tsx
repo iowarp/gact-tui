@@ -3,7 +3,8 @@ import { t } from '@lingui/core/macro';
 
 /**
  * A failed read in one plain red line, with Retry as an inline text action. Below
- * 600 px the sentence wraps (Retry stays on its first line) so the reason survives.
+ * 600 px the sentence wraps across the full width with whole words, and Retry drops
+ * under it when it no longer fits beside it, so the reason survives.
  */
 export function MemoryErrorLine({
   what,
@@ -19,11 +20,14 @@ export function MemoryErrorLine({
   const text = `${what} ${reason}`;
   return (
     <p
-      className="flex h-7 min-w-0 items-center gap-2 text-label whitespace-nowrap text-destructive max-[599px]:h-auto max-[599px]:min-h-7 max-[599px]:items-start max-[599px]:py-1 max-[599px]:whitespace-normal"
+      className="flex h-7 min-w-0 items-center gap-2 text-label whitespace-nowrap text-destructive max-[599px]:h-auto max-[599px]:min-h-7 max-[599px]:flex-wrap max-[599px]:items-baseline max-[599px]:gap-y-0.5 max-[599px]:py-1 max-[599px]:whitespace-normal"
       data-slot="memory-error"
       role="alert"
     >
-      <span className="min-w-0 truncate max-[599px]:whitespace-normal" title={text}>
+      <span
+        className="min-w-0 truncate max-[599px]:overflow-visible max-[599px]:whitespace-normal max-[599px]:[overflow-wrap:break-word] @max-[12rem]:hyphens-auto @max-[12rem]:[hyphenate-limit-chars:10_4_4]"
+        title={text}
+      >
         {text}
       </span>
       {onRetry ? (

@@ -155,10 +155,10 @@ export function SettingsLoadError({
       role="alert"
     >
       <span className="flex min-w-0 items-baseline gap-1.5 @max-sm:flex-wrap" title={technical}>
-        <span className="min-w-0 shrink-0 font-medium text-destructive @max-sm:shrink @max-sm:[overflow-wrap:break-word] @max-sm:hyphens-auto @max-sm:[hyphenate-limit-chars:10_4_4]">
+        <span className="min-w-0 shrink-0 font-medium text-destructive @max-sm:shrink @max-sm:[overflow-wrap:break-word] @max-[12rem]:hyphens-auto @max-[12rem]:[hyphenate-limit-chars:10_4_4]">
           {title}
         </span>
-        <span className="min-w-0 truncate text-destructive/90 max-[599px]:whitespace-normal @max-sm:whitespace-normal @max-sm:[overflow-wrap:break-word] @max-sm:hyphens-auto @max-sm:[hyphenate-limit-chars:10_4_4]">
+        <span className="min-w-0 truncate text-destructive/90 max-[599px]:whitespace-normal @max-sm:whitespace-normal @max-sm:[overflow-wrap:break-word] @max-[12rem]:hyphens-auto @max-[12rem]:[hyphenate-limit-chars:10_4_4]">
           {plainReason(error)}
         </span>
       </span>
