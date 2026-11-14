@@ -374,3 +374,20 @@ describe('snapping behind the surface', () => {
     expect(behind.kind).toBe('face');
   });
 });
+
+describe('snapping to overlapping lines', () => {
+  it('takes the nearer of two edges that overlap on screen', () => {
+    // A cut line at depth 0 and a far edge at depth 9 project onto the same screen line.
+    const segments = Float32Array.from([0, 9, 0, 10, 9, 0, 0, 0, 0, 10, 0, 0]);
+    const snap = snapPoint({
+      hit: [5, 12, 0],
+      segments,
+      project: (p) => [p[0] * 10, 0],
+      pointer: [50, 0],
+      radius: 8,
+      occlusion: { depth: (p) => p[1], tolerance: 1 },
+    });
+    expect(snap.kind).toBe('edge');
+    expect(snap.point[1]).toBe(0);
+  });
+});

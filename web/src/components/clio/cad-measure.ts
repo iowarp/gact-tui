@@ -63,10 +63,15 @@ export function snapPoint({ hit, segments, project, pointer, radius, occlusion }
   const limit = occlusion ? occlusion.depth(hit) + occlusion.tolerance : Infinity;
   const hidden = (point: Vec3) => (occlusion ? occlusion.depth(point) > limit : false);
   const [px, py] = pointer;
+  const depth = (point: Vec3) => (occlusion ? occlusion.depth(point) : 0);
+  // Of candidates the same distance from the pointer (within a pixel: lines that overlap on
+  // screen), the one nearer the camera wins: what is in front is what the person points at.
+  const better = (distance: number, point: Vec3, best?: { distance: number; depth: number }) =>
+    !best || distance < best.distance - 1 || (distance <= best.distance + 1 && depth(point) < best.depth);
   let vertex: SnapPoint | undefined;
-  let vertexDistance = radius;
+  let vertexBest: { distance: number; depth: number } | undefined;
   let edge: SnapPoint | undefined;
-  let edgeDistance = radius;
+  let edgeBest: { distance: number; depth: number } | undefined;
   for (let s = 0; s < count; s += 1) {
     const [a, b] = segmentAt(segments, s);
     const sa = project(a);
@@ -77,8 +82,8 @@ export function snapPoint({ hit, segments, project, pointer, radius, occlusion }
       [b, sb],
     ] as const) {
       const distance = Math.hypot(screen[0] - px, screen[1] - py);
-      if (distance <= vertexDistance && !hidden(point)) {
-        vertexDistance = distance;
+      if (distance <= radius && !hidden(point) && better(distance, point, vertexBest)) {
+        vertexBest = { distance, depth: depth(point) };
         vertex = { kind: 'vertex', point, segment: s };
       }
     }
@@ -88,8 +93,8 @@ export function snapPoint({ hit, segments, project, pointer, radius, occlusion }
     const along = span > 0 ? Math.min(1, Math.max(0, ((px - sa[0]) * dx + (py - sa[1]) * dy) / span)) : 0;
     const distance = Math.hypot(sa[0] + dx * along - px, sa[1] + dy * along - py);
     const point = lerp(a, b, along);
-    if (distance <= edgeDistance && !hidden(point)) {
-      edgeDistance = distance;
+    if (distance <= radius && !hidden(point) && better(distance, point, edgeBest)) {
+      edgeBest = { distance, depth: depth(point) };
       edge = { kind: 'edge', point, segment: s };
     }
   }
