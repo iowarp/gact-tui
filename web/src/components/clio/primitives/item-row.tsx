@@ -54,6 +54,11 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * for descriptions that run long in some languages (Greek, Japanese).
    */
   wrapMeta?: boolean;
+  /**
+   * Stacked (below 24rem of list width), the name wraps whole instead of ending
+   * in an ellipsis, for long localized names a phone can't hover to read.
+   */
+  wrapTitle?: boolean;
 }
 
 /**
@@ -88,6 +93,7 @@ export const ItemRow = memo(
       selected = false,
       size = 'default',
       wrapMeta = false,
+      wrapTitle = false,
       className,
       style,
       ...rest
@@ -184,6 +190,9 @@ export const ItemRow = memo(
             className={cn(
               'min-w-0 truncate text-foreground',
               size === 'line' ? 'max-w-full shrink-0 text-menu' : 'text-ui font-medium',
+              wrapTitle &&
+                stacks &&
+                '@max-sm:leading-snug @max-sm:break-words @max-sm:whitespace-normal @max-sm:[word-break:auto-phrase] @max-sm:[line-break:strict]',
             )}
             data-slot="item-row-title"
           >

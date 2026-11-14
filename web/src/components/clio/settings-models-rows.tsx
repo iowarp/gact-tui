@@ -125,7 +125,8 @@ export function ShowDiffusionRow({
       note={field ? undefined : t`Not offered by the current provider`}
       title={t`Show diffusion`}
     >
-      <span className="flex items-center gap-2">
+      {/* In a narrow row the switch drops under the word rather than past the edge. */}
+      <span className="flex min-w-0 flex-wrap items-center gap-2">
         {field ? marker : <NotOffered />}
         <Switch
           aria-label={t`Show diffusion`}
