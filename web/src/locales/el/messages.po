@@ -3052,6 +3052,10 @@ msgstr "{permissionCount, plural, =1 {Έγκριση} other {# εγκρίσει�
 msgid "{place}, applies to the selected conversation"
 msgstr "{place}, ισχύει για την επιλεγμένη συνομιλία"
 
+#: src/components/clio/extension-scope-heading.tsx
+msgid "{place}, installed for this agent; each conversation adds what it uses"
+msgstr "{place}, εγκατεστημένα για αυτόν τον πράκτορα. Κάθε συνομιλία προσθέτει ό,τι χρησιμοποιεί"
+
 #: src/components/clio/agent-packages.tsx
 msgid "{plugin} brings"
 msgstr "Το {plugin} φέρνει"
@@ -10714,7 +10718,7 @@ msgstr "Σύνδεσμοι"
 msgid "Connectors to enable"
 msgstr "Σύνδεσμοι προς ενεργοποίηση"
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Connectors, plugins, marketplaces and skills for your agents."
 msgstr "Σύνδεσμοι, πρόσθετα, αγορές και δεξιότητες για τους πράκτορές σας."
 
@@ -14888,6 +14892,7 @@ msgstr "Τύπος επέκτασης"
 
 #: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Extensions"
 msgstr "Επεκτάσεις"
 

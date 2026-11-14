@@ -3045,6 +3045,10 @@ msgstr ""
 msgid "{place}, applies to the selected conversation"
 msgstr ""
 
+#: src/components/clio/extension-scope-heading.tsx
+msgid "{place}, installed for this agent; each conversation adds what it uses"
+msgstr ""
+
 #: src/components/clio/agent-packages.tsx
 msgid "{plugin} brings"
 msgstr ""
@@ -10706,7 +10710,7 @@ msgstr ""
 msgid "Connectors to enable"
 msgstr ""
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Connectors, plugins, marketplaces and skills for your agents."
 msgstr ""
 
@@ -14880,6 +14884,7 @@ msgstr ""
 
 #: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Extensions"
 msgstr ""
 

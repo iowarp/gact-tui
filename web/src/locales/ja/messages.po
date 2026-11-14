@@ -3052,6 +3052,10 @@ msgstr "{permissionCount, plural, =1 {承認} other {#件の承認}}"
 msgid "{place}, applies to the selected conversation"
 msgstr "{place}、選択中の会話に適用"
 
+#: src/components/clio/extension-scope-heading.tsx
+msgid "{place}, installed for this agent; each conversation adds what it uses"
+msgstr "{place}、このエージェントにインストール済み。各会話は使うものを追加します"
+
 #: src/components/clio/agent-packages.tsx
 msgid "{plugin} brings"
 msgstr "{plugin}が提供するもの"
@@ -10714,7 +10718,7 @@ msgstr "コネクター"
 msgid "Connectors to enable"
 msgstr "有効にできるコネクター"
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Connectors, plugins, marketplaces and skills for your agents."
 msgstr "エージェント向けのコネクター、プラグイン、マーケットプレイス、スキル。"
 
@@ -14888,6 +14892,7 @@ msgstr "拡張機能の種類"
 
 #: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Extensions"
 msgstr "拡張機能"
 

@@ -3052,6 +3052,10 @@ msgstr "{permissionCount, plural, =1 {Aprobación} other {# aprobaciones}}"
 msgid "{place}, applies to the selected conversation"
 msgstr "{place}, se aplica a la conversación seleccionada"
 
+#: src/components/clio/extension-scope-heading.tsx
+msgid "{place}, installed for this agent; each conversation adds what it uses"
+msgstr "{place}, instalado para este agente; cada conversación añade lo que usa"
+
 #: src/components/clio/agent-packages.tsx
 msgid "{plugin} brings"
 msgstr "{plugin} aporta"
@@ -10714,7 +10718,7 @@ msgstr "Conectores"
 msgid "Connectors to enable"
 msgstr "Conectores para activar"
 
-#: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Connectors, plugins, marketplaces and skills for your agents."
 msgstr "Conectores, plugins, marketplaces y habilidades para tus agentes."
 
@@ -14888,6 +14892,7 @@ msgstr "Tipo de extensión"
 
 #: src/components/clio/extension-library-toolbar.tsx
 #: src/components/clio/extension-library.tsx
+#: src/components/clio/extension-scope-heading.tsx
 msgid "Extensions"
 msgstr "Extensiones"
 
