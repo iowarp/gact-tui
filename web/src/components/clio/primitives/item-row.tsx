@@ -184,6 +184,11 @@ export const ItemRow = memo(
           className={cn(
             'flex min-w-0',
             size === 'line' ? 'items-baseline gap-[0.5625rem]' : 'flex-col gap-0.5',
+            // With the slot button on its own line, the name also takes the emptied tracks' gaps.
+            stacks &&
+              !floats &&
+              !folds &&
+              '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1]',
           )}
         >
           <span
@@ -203,7 +208,7 @@ export const ItemRow = memo(
               className={cn(
                 'min-w-0 text-muted-foreground',
                 wrapMeta && size !== 'line'
-                  ? 'line-clamp-2 leading-snug break-words whitespace-normal'
+                  ? 'line-clamp-2 leading-snug break-words whitespace-normal [word-break:auto-phrase]'
                   : 'truncate',
                 size === 'line' ? 'shrink-[100] text-label' : 'text-xs',
               )}
@@ -300,9 +305,13 @@ export const ItemRow = memo(
                     ? '@max-sm:col-end-[-1] @max-sm:row-start-1'
                     : '@max-sm:row-span-2'),
                 // A labelled button ("Update", "Change") gets a line of its own, start-aligned
-                // under the name and meta, so a localized label never squeezes the name.
+                // under the name and meta, so a localized label never squeezes the name. Its
+                // indent is a spacer that gives way first, so a label wider than the name column
+                // ("Εγκατάσταση" at 260 px and 150%) moves left under the icon instead of overflowing.
                 stacks &&
-                  '@max-sm:has-[[data-slot=button]]:col-[2/-1] @max-sm:has-[[data-slot=button]]:row-[3] @max-sm:has-[[data-slot=button]]:justify-self-start @max-sm:has-[[data-slot=button]]:pt-1',
+                  '@max-sm:has-[[data-slot=button]]:col-[1/-1] @max-sm:has-[[data-slot=button]]:row-[3] @max-sm:has-[[data-slot=button]]:max-w-full @max-sm:has-[[data-slot=button]]:justify-self-start @max-sm:has-[[data-slot=button]]:justify-start @max-sm:has-[[data-slot=button]]:pt-1',
+                stacks &&
+                  "@max-sm:has-[[data-slot=button]]:before:w-[calc(var(--item-icon)+0.125rem)] @max-sm:has-[[data-slot=button]]:before:min-w-0 @max-sm:has-[[data-slot=button]]:before:shrink @max-sm:has-[[data-slot=button]]:before:content-['']",
               )}
               data-slot="item-row-slot"
             >
