@@ -24724,6 +24724,10 @@ msgstr "Open the flagged records or continue the review."
 msgid "Open the folder of {name}"
 msgstr "Open the folder of {name}"
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "Open the live view"
+msgstr "Open the live view"
+
 #: src/lib/shortcuts/catalog.ts
 msgid "Open the model picker"
 msgstr "Open the model picker"
@@ -35909,9 +35913,17 @@ msgstr "The linked view belongs to another conversation."
 msgid "The linked view is unavailable."
 msgstr "The linked view is unavailable."
 
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The live view could not open ({detail}); this is its recording."
+msgstr "The live view could not open ({detail}); this is its recording."
+
 #: src/components/clio/browser-live-socket.ts
 msgid "The live view ended."
 msgstr "The live view ended."
+
+#: src/components/clio/a2ui-mcp-app.tsx
+msgid "The live view opens only in a conversation; this is its recording."
+msgstr "The live view opens only in a conversation; this is its recording."
 
 #: src/tauri/clio-update-verification.ts
 msgid "The local {agent} service did not report its running version."

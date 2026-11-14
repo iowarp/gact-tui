@@ -27,6 +27,11 @@ const repository = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('./a2ui-media', () => ({
+  A2uiMedia: (props: { url: string; kind: string }) => (
+    <video data-kind={props.kind} data-testid="recording" data-url={props.url} />
+  ),
+}));
 vi.mock('./mcp-app-surface', () => ({
   McpAppSurface: forwardRef(function FakeSurface(
     props: Record<string, unknown>,
@@ -196,5 +201,60 @@ describe('ClioMcpApp', () => {
     await screen.findByTestId('frame');
     act(() => context.set('/selection/time', { field: 'time', values: [99] }));
     expect(await screen.findByText('Could not change time: time out of range')).toBeVisible();
+  });
+
+  it('plays its recording when the live view cannot open, and can still retry', async () => {
+    repository.openMcpAppFromCall
+      .mockResolvedValueOnce({
+        ok: false,
+        reason: 'tool_unavailable',
+        detail: 'The timeline service is not connected.',
+        savedCall: null,
+        serverTools: [],
+      })
+      .mockResolvedValueOnce(OPENED);
+    render(
+      <A2uiReferenceSessionProvider value="sess_1">
+        <ClioMcpApp
+          args={{ steps: 24 }}
+          channels={[]}
+          componentId="app"
+          dataContext={dataContext()}
+          recordingUri="artifact://artifact_clip"
+          server="timeline"
+          surfaceId="recorded"
+          tool="open_timeline"
+        />
+      </A2uiReferenceSessionProvider>,
+    );
+    const video = await screen.findByTestId('recording');
+    expect(video).toHaveAttribute('data-url', 'artifact://artifact_clip');
+    expect(
+      screen.getByText(
+        'The live view could not open (The timeline service is not connected.); this is its recording.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText('The view could not open')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open the live view' }));
+    await screen.findByTestId('frame');
+  });
+
+  it('plays its recording outside a conversation, saying why', () => {
+    render(
+      <ClioMcpApp
+        args={{}}
+        channels={[]}
+        componentId="app"
+        dataContext={dataContext()}
+        recordingUri="artifact://artifact_clip"
+        server="timeline"
+        surfaceId="shared"
+        tool="open_timeline"
+      />,
+    );
+    expect(screen.getByTestId('recording')).toBeVisible();
+    expect(
+      screen.getByText('The live view opens only in a conversation; this is its recording.'),
+    ).toBeVisible();
   });
 });
