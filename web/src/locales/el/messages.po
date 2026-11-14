@@ -1965,6 +1965,10 @@ msgstr "Συνέχεια ροής {flow}"
 msgid "{flow} run"
 msgstr "Εκτέλεση {flow}"
 
+#: src/components/clio/flow-run-card.tsx
+msgid "{flow} run, restarted"
+msgstr "Εκτέλεση {flow}, επανεκκινήθηκε"
+
 #: src/components/clio/a2ui-data-table.tsx
 msgid "{format} (current view)"
 msgstr "{format} (τρέχουσα προβολή)"
@@ -4349,6 +4353,10 @@ msgstr "Ένα στιγμιότυπο μόνο για ανάγνωση. Όποι
 msgid "A repository URL, or a folder on the agent host."
 msgstr "Μια URL αποθετηρίου ή ένας φάκελος στον κεντρικό υπολογιστή του πράκτορα."
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "A restart keeps the steps that finished."
+msgstr "Μια επανεκκίνηση διατηρεί τα βήματα που ολοκληρώθηκαν."
+
 #: src/components/clio/clio-menu.tsx
 msgid "A saved host, or add one"
 msgstr "Ένας αποθηκευμένος κεντρικός υπολογιστής ή προσθέστε έναν"
@@ -5985,6 +5993,10 @@ msgstr "Ένας πράκτορας απάντησε χωρίς καταγεγρ
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "An agent answered: {answer}"
 msgstr "Ένας πράκτορας απάντησε: {answer}"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "An agent stopped this run"
+msgstr "Ένας πράκτορας σταμάτησε αυτή την εκτέλεση"
 
 #: src/components/clio/session-behavior-options.ts
 msgid "An AI agent watches the session."
@@ -24143,6 +24155,10 @@ msgstr "Άνοιγμα της συνομιλίας αξιολόγησης SPOTTE
 msgid "Open the stalled step"
 msgstr "Άνοιγμα του βήματος που κόλλησε"
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "Open the step it stopped at"
+msgstr "Άνοιγμα του βήματος όπου σταμάτησε"
+
 #: src/components/clio/artifact-card.tsx
 msgid "Open this artifact to read the full {size} result."
 msgstr "Ανοίξτε αυτό το τεχνούργημα για να διαβάσετε ολόκληρο το αποτέλεσμα των {size}."
@@ -31982,9 +31998,17 @@ msgstr "Εμφάνιση της αριστερής γραμμής"
 msgid "Show the original answer"
 msgstr "Εμφάνιση της αρχικής απάντησης"
 
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the restarted run"
+msgstr "Εμφάνιση της εκτέλεσης μετά την επανεκκίνηση"
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Show the script in Work"
 msgstr "Εμφάνιση του σεναρίου στην Εργασία"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the stopped run"
+msgstr "Εμφάνιση της εκτέλεσης που σταμάτησε"
 
 #: src/components/clio/script-run-body.tsx
 msgid "Show the task in Work"
@@ -33460,6 +33484,10 @@ msgstr "Σταμάτησε από τον πράκτορα"
 msgid "stopped or rejected"
 msgstr "σταμάτησε ή απορρίφθηκε"
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "Stopped with this conversation's Stop. A restart keeps the steps that finished."
+msgstr "Σταμάτησε με τη Διακοπή αυτής της συνομιλίας. Μια επανεκκίνηση διατηρεί τα βήματα που ολοκληρώθηκαν."
+
 #: src/components/clio/flow-run-presentation.ts
 msgid "Stopped: {status}"
 msgstr "Σταμάτησε: {status}"
@@ -34922,6 +34950,10 @@ msgstr "Η ροή δεν έχει γίνει ακόμη αποδεκτή."
 #: src/components/clio/flow-track.tsx
 msgid "The flow has not started any task yet."
 msgstr "Η ροή δεν έχει ξεκινήσει ακόμη καμία εργασία."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "The flow saw"
+msgstr "Τι είδε η ροή"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "The flow stalled"
@@ -36808,6 +36840,18 @@ msgstr "Αυτή η διαδρομή χρησιμοποιείται μόνο γ�
 #: src/components/clio/settings-access-rule-model.ts
 msgid "This rule"
 msgstr "Αυτός ο κανόνας"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "This run continues one that was stopped. Steps that finished were kept; only unfinished steps run again."
+msgstr "Αυτή η εκτέλεση συνεχίζει μία που σταμάτησε. Τα ολοκληρωμένα βήματα διατηρήθηκαν· εκτελούνται ξανά μόνο τα ημιτελή."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "This run was stopped"
+msgstr "Αυτή η εκτέλεση σταμάτησε"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "This run was stopped and later restarted."
+msgstr "Αυτή η εκτέλεση σταμάτησε και αργότερα επανεκκινήθηκε."
 
 #: src/offline-review.tsx
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
@@ -40625,6 +40669,10 @@ msgstr "Το είπατε εσείς"
 #: src/lib/variant-runs.ts
 msgid "You sent a new message instead of picking. {unused}"
 msgstr "Στείλατε νέο μήνυμα αντί να επιλέξετε. {unused}"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "You stopped this run"
+msgstr "Σταματήσατε αυτή την εκτέλεση"
 
 #: src/lib/provider-availability.ts
 msgid "Your {providerLabel} API key was rejected."

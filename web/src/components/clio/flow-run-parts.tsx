@@ -591,8 +591,16 @@ export function FlowStall({
   /** Add a disclosure with the typed reason and what the flow observed. */
   details?: boolean;
 }) {
+  // A run stopped on request names who stopped it, not the call the stop cancelled.
+  const stopped = outcome.reason === 'stopped';
   // A cancelled run ended because someone asked it to: no fault to repair.
-  const title = cancelled
+  const title = stopped
+    ? outcome.stopped_by === 'person'
+      ? t`You stopped this run`
+      : outcome.stopped_by === 'agent'
+        ? t`An agent stopped this run`
+        : t`This run was stopped`
+    : cancelled
     ? t`The flow was cancelled`
     : outcome.stall === 'research_blocked'
       ? t`Research was blocked`
@@ -606,7 +614,11 @@ export function FlowStall({
       size="xs"
       variant="outline"
     >
-      {cancelled ? t`Open the cancelled step` : t`Open the stalled step`}
+      {stopped
+        ? t`Open the step it stopped at`
+        : cancelled
+          ? t`Open the cancelled step`
+          : t`Open the stalled step`}
     </Button>
   ) : null;
   const facts = (
@@ -617,6 +629,12 @@ export function FlowStall({
         <>
           <dt className="text-muted-foreground">{t`Stall`}</dt>
           <dd className="font-mono">{outcome.stall}</dd>
+        </>
+      ) : null}
+      {stopped && outcome.ended_by?.message ? (
+        <>
+          <dt className="text-muted-foreground">{t`The flow saw`}</dt>
+          <dd>{outcome.ended_by.message}</dd>
         </>
       ) : null}
       {outcome.step ? (
@@ -647,7 +665,11 @@ export function FlowStall({
           {outcome.step ? ` at ${outcome.step}` : ''}:
         </span>
         <span className="min-w-[min(100%,14rem)] flex-1 [overflow-wrap:anywhere]">
-          {outcome.message || t`No message was recorded.`}
+          {stopped
+            ? outcome.stop_reason === 'conversation_stop'
+              ? t`Stopped with this conversation's Stop. A restart keeps the steps that finished.`
+              : t`A restart keeps the steps that finished.`
+            : outcome.message || t`No message was recorded.`}
         </span>
         {open}
       </div>

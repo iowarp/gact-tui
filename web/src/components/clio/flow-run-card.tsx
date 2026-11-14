@@ -21,6 +21,7 @@ import {
   useFlowPresentation,
   useSessionAgentRef,
 } from '@/hooks/use-flow-presentation';
+import { Button } from '@/components/ui/button';
 import { FlowEdits } from './flow-run-edit-list';
 import { FlowScript, FlowStall, FlowVerdictView } from './flow-run-parts';
 import {
@@ -52,6 +53,29 @@ export function FlowRunCard({
   flow: FlowToolDescriptor & { handle: string };
   sessionId: string;
 }) {
+  return <FlowRunCardBody flow={flow} sessionId={sessionId} />;
+}
+
+/** How a card that follows a restart links back to the run that was stopped. */
+interface RestartLink {
+  /** Show the stopped run in place of the restart that continues it. */
+  onShowStopped: () => void;
+}
+
+/**
+ * One run's card. A stopped run that was restarted shows the run that continues it,
+ * live, with a way back to the stopped one; that one offers the way forward again.
+ */
+function FlowRunCardBody({
+  flow,
+  sessionId,
+  restartOf,
+}: {
+  flow: FlowToolDescriptor & { handle: string };
+  sessionId: string;
+  restartOf?: RestartLink;
+}) {
+  const [showStopped, setShowStopped] = useState(false);
   const viewport = useRef<HTMLDivElement>(null);
   const near = useNearViewport(viewport);
   const navigation = useContext(PresentationNavigation);
@@ -67,7 +91,9 @@ export function FlowRunCard({
   const agentRef = useSessionAgentRef(sessionId);
   const presentation = useFlowPresentation(run.data, agentRef, flow.args, sessionId, near);
   const [fullScreen, setFullScreen] = useState(false);
-  const title = t`${ph({ flow: flow.label })} run`;
+  const title = restartOf
+    ? t`${ph({ flow: flow.label })} run, restarted`
+    : t`${ph({ flow: flow.label })} run`;
   const data = run.data;
   const questions = useFlowQuestions(sessionId, data, near || fullScreen);
   // No checkpoint: a flow that ended before writing one reads from its task, not as unstarted.
@@ -105,6 +131,32 @@ export function FlowRunCard({
   const openPanel = navigation?.onOpenFlow
     ? () => navigation.onOpenFlow?.(flow.handle, title)
     : undefined;
+  const successor = data?.restarted_as;
+  // The wrapper keeps this card's viewport observed while it shows the restart, so
+  // switching back draws the stopped run's track at once.
+  if (successor && !showStopped)
+    return (
+      <div ref={viewport} className="min-w-0">
+        <FlowRunCardBody
+          flow={{ ...flow, handle: successor }}
+          restartOf={{ onShowStopped: () => setShowStopped(true) }}
+          sessionId={sessionId}
+        />
+      </div>
+    );
+  const restartNote = restartOf ? (
+    <RestartNotice
+      action={t`Show the stopped run`}
+      message={t`This run continues one that was stopped. Steps that finished were kept; only unfinished steps run again.`}
+      onAction={restartOf.onShowStopped}
+    />
+  ) : successor ? (
+    <RestartNotice
+      action={t`Show the restarted run`}
+      message={t`This run was stopped and later restarted.`}
+      onAction={() => setShowStopped(false)}
+    />
+  ) : null;
   return (
     <div ref={viewport} className="min-w-0">
       <Artifact className="w-full min-w-0 shadow-none" data-slot="flow-run-card">
@@ -144,6 +196,7 @@ export function FlowRunCard({
         </ArtifactHeader>
         {data ? (
           <ArtifactContent className="grid min-w-0 gap-2 p-3">
+            {restartNote}
             <FlowTrack
               active={near || fullScreen}
               flow={data.flow}
@@ -214,6 +267,29 @@ export function FlowRunCard({
           </FlowRunFullScreen>
         ) : null}
       </Artifact>
+    </div>
+  );
+}
+
+/** One line linking a restarted run and the run it continues, with the way to the other. */
+function RestartNotice({
+  message,
+  action,
+  onAction,
+}: {
+  message: string;
+  action: string;
+  onAction: () => void;
+}) {
+  return (
+    <div
+      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md border bg-muted/40 px-2 py-1.5 text-xs"
+      role="status"
+    >
+      <span className="min-w-[min(100%,14rem)] flex-1">{message}</span>
+      <Button className="h-6 w-fit px-2 text-xs" onClick={onAction} size="xs" variant="outline">
+        {action}
+      </Button>
     </div>
   );
 }

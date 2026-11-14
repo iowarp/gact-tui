@@ -1965,6 +1965,10 @@ msgstr ""
 msgid "{flow} run"
 msgstr ""
 
+#: src/components/clio/flow-run-card.tsx
+msgid "{flow} run, restarted"
+msgstr ""
+
 #: src/components/clio/a2ui-data-table.tsx
 msgid "{format} (current view)"
 msgstr ""
@@ -4341,6 +4345,10 @@ msgstr ""
 msgid "A repository URL, or a folder on the agent host."
 msgstr ""
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "A restart keeps the steps that finished."
+msgstr ""
+
 #: src/components/clio/clio-menu.tsx
 msgid "A saved host, or add one"
 msgstr ""
@@ -5976,6 +5984,10 @@ msgstr ""
 
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "An agent answered: {answer}"
+msgstr ""
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "An agent stopped this run"
 msgstr ""
 
 #: src/components/clio/session-behavior-options.ts
@@ -24126,6 +24138,10 @@ msgstr ""
 msgid "Open the stalled step"
 msgstr ""
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "Open the step it stopped at"
+msgstr ""
+
 #: src/components/clio/artifact-card.tsx
 msgid "Open this artifact to read the full {size} result."
 msgstr ""
@@ -31965,8 +31981,16 @@ msgstr ""
 msgid "Show the original answer"
 msgstr ""
 
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the restarted run"
+msgstr ""
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Show the script in Work"
+msgstr ""
+
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the stopped run"
 msgstr ""
 
 #: src/components/clio/script-run-body.tsx
@@ -33442,6 +33466,10 @@ msgstr ""
 msgid "stopped or rejected"
 msgstr ""
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "Stopped with this conversation's Stop. A restart keeps the steps that finished."
+msgstr ""
+
 #: src/components/clio/flow-run-presentation.ts
 msgid "Stopped: {status}"
 msgstr ""
@@ -34903,6 +34931,10 @@ msgstr ""
 
 #: src/components/clio/flow-track.tsx
 msgid "The flow has not started any task yet."
+msgstr ""
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "The flow saw"
 msgstr ""
 
 #: src/components/clio/flow-run-parts.tsx
@@ -36789,6 +36821,18 @@ msgstr ""
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "This rule"
+msgstr ""
+
+#: src/components/clio/flow-run-card.tsx
+msgid "This run continues one that was stopped. Steps that finished were kept; only unfinished steps run again."
+msgstr ""
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "This run was stopped"
+msgstr ""
+
+#: src/components/clio/flow-run-card.tsx
+msgid "This run was stopped and later restarted."
 msgstr ""
 
 #: src/offline-review.tsx
@@ -40606,6 +40650,10 @@ msgstr ""
 
 #: src/lib/variant-runs.ts
 msgid "You sent a new message instead of picking. {unused}"
+msgstr ""
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "You stopped this run"
 msgstr ""
 
 #: src/lib/provider-availability.ts

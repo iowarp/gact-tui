@@ -1965,6 +1965,10 @@ msgstr "Seguimiento de {flow}"
 msgid "{flow} run"
 msgstr "Ejecución de {flow}"
 
+#: src/components/clio/flow-run-card.tsx
+msgid "{flow} run, restarted"
+msgstr "Ejecución de {flow}, reiniciada"
+
 #: src/components/clio/a2ui-data-table.tsx
 msgid "{format} (current view)"
 msgstr "{format} (vista actual)"
@@ -4349,6 +4353,10 @@ msgstr "Una instantánea de solo lectura. Cualquiera con el enlace puede verla h
 msgid "A repository URL, or a folder on the agent host."
 msgstr "Una URL de repositorio o una carpeta en el host del agente."
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "A restart keeps the steps that finished."
+msgstr "Un reinicio conserva los pasos que terminaron."
+
 #: src/components/clio/clio-menu.tsx
 msgid "A saved host, or add one"
 msgstr "Un host guardado, o añade uno"
@@ -5985,6 +5993,10 @@ msgstr "Un agente respondió sin una elección registrada"
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "An agent answered: {answer}"
 msgstr "Un agente respondió: {answer}"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "An agent stopped this run"
+msgstr "Un agente detuvo esta ejecución"
 
 #: src/components/clio/session-behavior-options.ts
 msgid "An AI agent watches the session."
@@ -24143,6 +24155,10 @@ msgstr "Abrir la conversación de revisión de SPOTTER"
 msgid "Open the stalled step"
 msgstr "Abrir el paso estancado"
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "Open the step it stopped at"
+msgstr "Abrir el paso donde se detuvo"
+
 #: src/components/clio/artifact-card.tsx
 msgid "Open this artifact to read the full {size} result."
 msgstr "Abre este artefacto para leer el resultado completo de {size}."
@@ -31982,9 +31998,17 @@ msgstr "Mostrar la barra izquierda"
 msgid "Show the original answer"
 msgstr "Mostrar la respuesta original"
 
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the restarted run"
+msgstr "Mostrar la ejecución reiniciada"
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Show the script in Work"
 msgstr "Mostrar el script en Trabajo"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the stopped run"
+msgstr "Mostrar la ejecución detenida"
 
 #: src/components/clio/script-run-body.tsx
 msgid "Show the task in Work"
@@ -33460,6 +33484,10 @@ msgstr "Detenido por el agente"
 msgid "stopped or rejected"
 msgstr "detenido o rechazado"
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "Stopped with this conversation's Stop. A restart keeps the steps that finished."
+msgstr "Detenida con el botón Detener de esta conversación. Un reinicio conserva los pasos que terminaron."
+
 #: src/components/clio/flow-run-presentation.ts
 msgid "Stopped: {status}"
 msgstr "Detenido: {status}"
@@ -34922,6 +34950,10 @@ msgstr "El flujo aún no se ha aceptado."
 #: src/components/clio/flow-track.tsx
 msgid "The flow has not started any task yet."
 msgstr "El flujo aún no ha iniciado ninguna tarea."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "The flow saw"
+msgstr "Lo que vio el flujo"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "The flow stalled"
@@ -36808,6 +36840,18 @@ msgstr "Esta ruta se usa solo para esta implementación; tu configuración de Op
 #: src/components/clio/settings-access-rule-model.ts
 msgid "This rule"
 msgstr "Esta regla"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "This run continues one that was stopped. Steps that finished were kept; only unfinished steps run again."
+msgstr "Esta ejecución continúa una que se detuvo. Se conservaron los pasos terminados; solo se vuelven a ejecutar los pendientes."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "This run was stopped"
+msgstr "Esta ejecución se detuvo"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "This run was stopped and later restarted."
+msgstr "Esta ejecución se detuvo y después se reinició."
 
 #: src/offline-review.tsx
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
@@ -40625,6 +40669,10 @@ msgstr "Tú dijiste esto"
 #: src/lib/variant-runs.ts
 msgid "You sent a new message instead of picking. {unused}"
 msgstr "Enviaste un mensaje nuevo en lugar de elegir. {unused}"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "You stopped this run"
+msgstr "Detuviste esta ejecución"
 
 #: src/lib/provider-availability.ts
 msgid "Your {providerLabel} API key was rejected."
