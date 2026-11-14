@@ -135,6 +135,7 @@ export function AgentRow({
       floatActions
       tabIndex={0}
       title={<span title={name}>{name}</span>}
+      wrapTitle
       actions={
         <>
           <IconButton
