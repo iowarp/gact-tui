@@ -3,6 +3,11 @@ import { ScanEyeIcon } from 'lucide-react';
 import { useNearViewport } from '@/hooks/use-near-viewport';
 import { cn } from '@/lib/utils';
 import { StateView, type StateAction } from './primitives/state-view';
+import {
+  VIEWER_CAPTURE_MOUNT,
+  VIEWER_CAPTURE_RELEASE,
+  VIEWER_DEFERRED_ATTRIBUTE,
+} from './viewer-capture-mount';
 import { VIEWER_ARTIFACT_URI } from './viewer-file-schema';
 
 export interface ViewerFileGateProps {
@@ -22,7 +27,7 @@ export interface ViewerFileGateProps {
  * so a dashboard of many viewers holds a scene or graphics context only for those in
  * view. A file a binding resolved to something other than a registered artifact is
  * said in words and nothing loads; a lost WebGL context is said in words with a way
- * to reload the view.
+ * to reload the view. A capture of the surface mounts it while the capture runs.
  */
 export function ViewerFileGate({
   noun,
@@ -34,6 +39,7 @@ export function ViewerFileGate({
   const frame = useRef<HTMLDivElement>(null);
   // One viewport height ahead, so a view is ready by the time it scrolls in.
   const near = useNearViewport(frame, '100%');
+  const [captured, setCaptured] = useState(0);
   const [lost, setLost] = useState(false);
   const [mount, setMount] = useState(0);
   const reload = useCallback(() => {
@@ -45,8 +51,17 @@ export function ViewerFileGate({
     if (!element) return;
     // The event does not bubble; a capturing listener on the frame still hears it.
     const onLost = () => setLost(true);
+    // Captures can overlap; the viewer stays mounted until the last one releases it.
+    const onMount = () => setCaptured((count) => count + 1);
+    const onRelease = () => setCaptured((count) => Math.max(0, count - 1));
     element.addEventListener('webglcontextlost', onLost, true);
-    return () => element.removeEventListener('webglcontextlost', onLost, true);
+    element.addEventListener(VIEWER_CAPTURE_MOUNT, onMount);
+    element.addEventListener(VIEWER_CAPTURE_RELEASE, onRelease);
+    return () => {
+      element.removeEventListener('webglcontextlost', onLost, true);
+      element.removeEventListener(VIEWER_CAPTURE_MOUNT, onMount);
+      element.removeEventListener(VIEWER_CAPTURE_RELEASE, onRelease);
+    };
   }, []);
   const invalid = files.find(
     (file) => file !== undefined && file !== '' && !VIEWER_ARTIFACT_URI.test(file),
@@ -73,7 +88,7 @@ export function ViewerFileGate({
         title={`This ${noun} lost its graphics context; the browser keeps only a few open at once.`}
       />
     );
-  else if (!near)
+  else if (!near && captured === 0)
     body = (
       <Message
         {...size}
@@ -82,8 +97,14 @@ export function ViewerFileGate({
       />
     );
   else body = <div key={mount}>{children}</div>;
+  const deferred = invalid === undefined && !missing && !lost && !near && captured === 0;
   return (
-    <div className="min-w-0" data-slot="viewer-file-gate" ref={frame}>
+    <div
+      className="min-w-0"
+      data-slot="viewer-file-gate"
+      ref={frame}
+      {...{ [VIEWER_DEFERRED_ATTRIBUTE]: deferred ? '' : undefined }}
+    >
       {body}
     </div>
   );
