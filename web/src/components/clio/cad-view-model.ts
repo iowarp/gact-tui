@@ -56,10 +56,15 @@ export function shownBounds(
   return Number.isFinite(min[0]) ? { min, max } : undefined;
 }
 
-/** The box's extent along x, y and z, to one decimal: what a print plate is measured in. */
+/** The box's extent along x, y and z, to one decimal. */
 export function boxSize(bounds: MeshBounds): [string, string, string] {
   const extent = (axis: number) => (bounds.max[axis]! - bounds.min[axis]!).toFixed(1);
   return [extent(0), extent(1), extent(2)];
+}
+
+/** The model's indices across its ground (width, depth) and up from it, for its up axis. */
+export function groundAxes(up: MeshUpAxis): [number, number, number] {
+  return up === 'y' ? [0, 2, 1] : up === 'x' ? [1, 2, 0] : [0, 1, 2];
 }
 
 /** CAD exchange formats are Z-up; scene formats (glTF, OBJ, PLY) are Y-up. */

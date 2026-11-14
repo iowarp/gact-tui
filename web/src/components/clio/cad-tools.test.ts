@@ -4,17 +4,8 @@ import * as THREE from 'three';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { explodeOffsets, isExploded } from './cad-explode';
 import { edgeChain, faceAngle, fitCircle, measureDistance, snapPoint } from './cad-measure';
-import { partFacts, unionBounds, unionBox, type PartFacts, type Vec3 } from './cad-parts';
-import {
-  footprint,
-  parsePlateChoice,
-  plateBounds,
-  plateCenter,
-  plateFit,
-  plateOf,
-  plateVerdict,
-  PRINTER_PLATES,
-} from './cad-plate';
+import { partFacts, unionBounds, type PartFacts, type Vec3 } from './cad-parts';
+import { groundAxes } from './cad-view-model';
 import {
   clampSection,
   cutSegments,
@@ -267,72 +258,10 @@ describe('section cut outline', () => {
   });
 });
 
-describe('print plate', () => {
-  it('lists common plates by name and size', () => {
-    expect(plateOf({ kind: 'preset', id: 'bambu-a1' })).toEqual({
-      name: 'Bambu Lab A1',
-      size: [256, 256, 256],
-    });
-    expect(plateOf({ kind: 'preset', id: 'prusa-mk4' }).size).toEqual([250, 210, 220]);
-    expect(plateOf({ kind: 'custom', size: [50, 40, 30] })).toEqual({ size: [50, 40, 30] });
-    expect(new Set(PRINTER_PLATES.map((plate) => plate.id)).size).toBe(PRINTER_PLATES.length);
-  });
-
-  it('says a model fits', () => {
-    const fit = plateFit([63, 20, 24], [256, 256, 256]);
-    expect(fit).toEqual({ fits: true, turned: false, over: [0, 0, 0] });
-    expect(plateVerdict(fit, 'Bambu Lab A1', 'mm')).toBe('Fits the Bambu Lab A1 plate');
-    expect(plateVerdict(fit, undefined, 'mm')).toBe('Fits the custom plate');
-  });
-
-  it('says by how much a model is too tall, wide or deep', () => {
-    const fit = plateFit([63, 20, 24], [50, 30, 12]);
-    expect(fit.fits).toBe(false);
-    expect(fit.over).toEqual([13, 0, 12]);
-    expect(plateVerdict(fit, undefined, 'mm')).toBe('Too wide by 13.0 mm; Too tall by 12.0 mm');
-    expect(plateVerdict(plateFit([10, 10, 262], [256, 256, 256]), 'A', 'in')).toBe(
-      'Too tall by 0.24 in',
-    );
-  });
-
-  it('says when a model fits only turned 90° on the plate', () => {
-    const fit = plateFit([240, 100, 50], [210, 250, 220]);
-    expect(fit.fits).toBe(false);
-    expect(fit.turned).toBe(true);
-    expect(plateVerdict(fit, 'Prusa MK4', 'mm')).toBe('Fits the Prusa MK4 plate when turned 90°');
-  });
-
-  it('reads the footprint and places the plate under a Y-up model', () => {
-    expect(footprint([10, 30, 20], 'y')).toEqual([10, 20, 30]);
-    expect(footprint([10, 30, 20], 'z')).toEqual([10, 30, 20]);
-    const bounds = { min: [-5, 2, 0] as Vec3, max: [5, 32, 20] as Vec3 };
-    expect(plateCenter(bounds, 'y')).toEqual([0, 2, 10]);
-    expect(plateCenter(bounds, 'z')).toEqual([0, 17, 0]);
-  });
-
-  it('boxes the build volume over the plate centre, and joins it with the model', () => {
-    const bed = plateBounds([0, 17, 0], [256, 256, 256], 'z');
-    expect(bed).toEqual({ min: [-128, -111, 0], max: [128, 145, 256] });
-    expect(plateBounds([0, 2, 10], [100, 50, 30], 'y')).toEqual({ min: [-50, 2, -15], max: [50, 32, 35] });
-    expect(unionBox(bed, { min: [-200, 0, -5], max: [0, 0, 0] })).toEqual({
-      min: [-200, -111, -5],
-      max: [128, 145, 256],
-    });
-  });
-
-  it('reads back only a choice it understands', () => {
-    expect(parsePlateChoice('{"kind":"preset","id":"ender-3"}')).toEqual({
-      kind: 'preset',
-      id: 'ender-3',
-    });
-    expect(parsePlateChoice('{"kind":"custom","size":[120,120,100]}')).toEqual({
-      kind: 'custom',
-      size: [120, 120, 100],
-    });
-    expect(parsePlateChoice('{"kind":"preset","id":"unknown"}')).toBeUndefined();
-    expect(parsePlateChoice('{"kind":"custom","size":[0,1,2]}')).toBeUndefined();
-    expect(parsePlateChoice('not json')).toBeUndefined();
-    expect(parsePlateChoice(null)).toBeUndefined();
+describe('ground axes', () => {
+  it('reads width, depth and up for Z-up and Y-up models', () => {
+    expect(groundAxes('z')).toEqual([0, 1, 2]);
+    expect(groundAxes('y')).toEqual([0, 2, 1]);
   });
 });
 

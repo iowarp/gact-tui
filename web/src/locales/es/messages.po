@@ -7884,10 +7884,6 @@ msgstr "Problemas de compilación"
 msgid "Build this paper"
 msgstr "Compilar este artículo"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Build volume {size}"
-msgstr "Volumen de impresión {size}"
-
 #: src/components/clio/latex-workspace.tsx
 msgid "Building the paper…"
 msgstr "Compilando el artículo…"
@@ -10024,6 +10020,10 @@ msgstr "Comentar {label}"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Comment on {optionLabel}"
 msgstr "Comentario sobre {optionLabel}"
+
+#: src/components/clio/composer-annotations.tsx
+msgid "Comment on a file view"
+msgstr "Comentar una vista de archivo"
 
 #: src/components/clio/composer-annotations.tsx
 msgid "Comment on a page"
@@ -12432,10 +12432,6 @@ msgstr "Espacio de trabajo actual"
 msgid "Custom repeat <0>{0}</0>"
 msgstr "Repetición personalizada <0>{0}</0>"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Custom size"
-msgstr "Tamaño personalizado"
-
 #: src/components/clio/settings-runtime-number.tsx
 msgid "Custom…"
 msgstr "Personalizado…"
@@ -13006,10 +13002,6 @@ msgstr "Se despliega como {id}@{value}"
 #: src/components/clio/managed-service-instance.tsx
 msgid "Deploys as {id}@name"
 msgstr "Se despliega como {id}@nombre"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Depth"
-msgstr "Fondo"
 
 #: src/widget-gallery-scenarios.ts
 msgid "Depth and magnitude"
@@ -13918,7 +13910,7 @@ msgstr "Arrastra sobre la página para marcar una región"
 msgid "Drag over the surface to add a region."
 msgstr "Arrastra sobre la superficie para añadir una región."
 
-#: src/components/clio/comments/mcp-app-comments.tsx
+#: src/components/clio/comments/snapshot-comments.tsx
 msgid "Drag over the view to mark a region, or click a point"
 msgstr "Arrastra sobre la vista para marcar una región o haz clic en un punto"
 
@@ -15810,22 +15802,6 @@ msgstr "Encuadrar (F)"
 msgid "Fit view"
 msgstr "Ajustar vista"
 
-#: src/components/clio/cad-plate.ts
-msgid "Fits the {name} plate"
-msgstr "Cabe en la cama de {name}"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the {name} plate when turned 90°"
-msgstr "Cabe en la cama de {name} girado 90°"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the custom plate"
-msgstr "Cabe en la cama personalizada"
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the custom plate when turned 90°"
-msgstr "Cabe en la cama personalizada girado 90°"
-
 #: src/components/clio/model-acquisition.tsx
 msgid "Fits: {free}."
 msgstr "Cabe: {free}."
@@ -16853,7 +16829,6 @@ msgstr "Perfil de calor: {name}"
 msgid "Heat shown in transcript"
 msgstr "Calor mostrado en la transcripción"
 
-#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Height"
 msgstr "Alto"
@@ -24395,6 +24370,7 @@ msgstr "Abre una conversación en este espacio de trabajo para ver este archivo.
 msgid "Open a conversation to add it to a message"
 msgstr "Abre una conversación para añadirlo a un mensaje"
 
+#: src/components/clio/client-file-view.tsx
 #: src/components/clio/comments/file-comments.tsx
 msgid "Open a conversation to comment"
 msgstr "Abre una conversación para comentar"
@@ -26436,18 +26412,9 @@ msgstr "Anteriores<0>{count}</0>"
 msgid "Primary folder"
 msgstr "Carpeta principal"
 
-#: src/components/clio/cad-model-view.tsx
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Print plate"
-msgstr "Cama de impresión"
-
 #: src/components/clio/script-run-body.tsx
 msgid "Printed"
 msgstr "Impreso"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Printer"
-msgstr "Impresora"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Priority"
@@ -28479,6 +28446,10 @@ msgstr "Quitar adjunto"
 #: src/components/clio/composer-source-attachments.tsx
 msgid "Remove attachment {label}"
 msgstr "Quitar el adjunto {label}"
+
+#: src/components/clio/composer-annotations.tsx
+msgid "Remove comment on a file view"
+msgstr "Quitar el comentario de una vista de archivo"
 
 #: src/components/clio/composer-annotations.tsx
 msgid "Remove comment on a page"
@@ -32934,10 +32905,6 @@ msgstr "Mostrando las últimas {rows} filas."
 msgid "Showing the last completed conversion"
 msgstr "Mostrando la última conversión completada"
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Shown parts as modelled: {size}"
-msgstr "Piezas visibles tal como están modeladas: {size}"
-
 #: src/components/clio/image-reach.ts
 msgid "shown to the model"
 msgstr "se mostró al modelo"
@@ -33213,14 +33180,6 @@ msgstr "Tamaño"
 #: src/components/clio/file-viewer-actions.tsx
 msgid "Size unavailable"
 msgstr "Tamaño no disponible"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Sizes in inches"
-msgstr "Tamaños en pulgadas"
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Sizes in millimetres"
-msgstr "Tamaños en milímetros"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
@@ -38251,21 +38210,9 @@ msgstr "Uso de tokens no disponible"
 msgid "Tokens"
 msgstr "Tokens"
 
-#: src/components/clio/cad-plate.ts
-msgid "Too deep by {length}"
-msgstr "Demasiado profundo por {length}"
-
 #: src/components/ai-elements/prompt-input.tsx
 msgid "Too many files. Some were not added."
 msgstr "Demasiados archivos. Algunos no se añadieron."
-
-#: src/components/clio/cad-plate.ts
-msgid "Too tall by {length}"
-msgstr "Demasiado alto por {length}"
-
-#: src/components/clio/cad-plate.ts
-msgid "Too wide by {length}"
-msgstr "Demasiado ancho por {length}"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Took"
@@ -41022,10 +40969,6 @@ msgstr "Dónde se ejecutan los servicios y modelos de esta pestaña."
 msgid "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 msgstr "Dónde empiezan las conversaciones de este espacio de trabajo y qué otras carpetas pueden cambiar sus comandos. El color y el icono se guardan en este dispositivo."
 
-#: src/components/clio/cad-model-view.tsx
-msgid "Whether the shown parts fit a printer"
-msgstr "Si las piezas visibles caben en una impresora"
-
 #: src/components/clio/settings-schema-copy.ts
 msgid "Which browser"
 msgstr "Qué navegador"
@@ -41090,7 +41033,6 @@ msgstr "Catálogo de widgets cargado. Usa los detalles técnicos para inspeccion
 msgid "Widget gallery"
 msgstr "Galería de widgets"
 
-#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Width"
 msgstr "Ancho"

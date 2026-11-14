@@ -1,29 +1,13 @@
 import { ph, plural, t } from '@lingui/core/macro';
-import { CircleCheckIcon, FlipHorizontal2Icon, TriangleAlertIcon } from 'lucide-react';
-import { useId, useState } from 'react';
+import { FlipHorizontal2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { RetryIcon } from '@/lib/icon-vocabulary';
-import type { PartFacts, Vec3 } from './cad-parts';
-import {
-  plateFit,
-  plateOf,
-  plateVerdict,
-  PRINTER_PLATES,
-  type PlateChoice,
-} from './cad-plate';
+import type { PartFacts } from './cad-parts';
 import type { PartFocus } from './cad-scene';
 import type { SectionAxis, SectionState } from './cad-section';
-import { formatBox, formatLength, formatNumber, MM_PER_INCH, type LengthUnit } from './cad-units';
+import { formatBox, formatLength, type LengthUnit } from './cad-units';
 import { CadToolPanel } from './cad-tool-panel';
 
 const AXES: SectionAxis[] = ['x', 'y', 'z'];
@@ -141,102 +125,6 @@ export function CadExplodePanel({
       </div>
       <p className="text-caption text-muted-foreground">
         {t`Each part moves out from the assembly's centre.`}
-      </p>
-    </CadToolPanel>
-  );
-}
-
-const CUSTOM = 'custom';
-
-/** Print plate: a printer (or custom size), and whether the shown model fits, in words. */
-export function CadPlatePanel({
-  choice,
-  model,
-  unit,
-  onChoice,
-  onClose,
-}: {
-  choice: PlateChoice;
-  /** The shown model as width × depth × height on the plate, mm. */
-  model: Vec3;
-  unit: LengthUnit;
-  onChoice: (choice: PlateChoice) => void;
-  onClose: () => void;
-}) {
-  const id = useId();
-  const plate = plateOf(choice);
-  const fit = plateFit(model, plate.size);
-  const verdict = plateVerdict(fit, plate.name, unit);
-  const ok = fit.fits || fit.turned;
-  const [draft, setDraft] = useState<string[]>(() =>
-    plate.size.map((value) => formatNumber(value, unit, 'size')),
-  );
-  const custom = choice.kind === 'custom';
-  const commit = (index: number, text: string) => {
-    const next = [...draft];
-    next[index] = text;
-    setDraft(next);
-    const sizes = next.map((value) => Number(value) * (unit === 'in' ? MM_PER_INCH : 1));
-    if (sizes.every((value) => Number.isFinite(value) && value > 0))
-      onChoice({ kind: 'custom', size: sizes as Vec3 });
-  };
-  const sides = [t`Width`, t`Depth`, t`Height`];
-  return (
-    <CadToolPanel onClose={onClose} slot="cad-plate" title={t`Print plate`}>
-      <Select
-        onValueChange={(value) => {
-          if (value === CUSTOM) {
-            setDraft(plate.size.map((side) => formatNumber(side, unit, 'size')));
-            onChoice({ kind: 'custom', size: plate.size });
-          } else onChoice({ kind: 'preset', id: value });
-        }}
-        value={custom ? CUSTOM : choice.id}
-      >
-        <SelectTrigger aria-label={t`Printer`} className="w-full" size="sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {PRINTER_PLATES.map((item) => (
-            <SelectItem key={item.id} value={item.id}>
-              {item.name}
-            </SelectItem>
-          ))}
-          <SelectItem value={CUSTOM}>{t`Custom size`}</SelectItem>
-        </SelectContent>
-      </Select>
-      {custom ? (
-        <div className="grid grid-cols-3 gap-1.5">
-          {sides.map((side, index) => (
-            <label className="flex flex-col gap-0.5 text-caption text-muted-foreground" htmlFor={`${id}-${index}`} key={side}>
-              {side}
-              <Input
-                className="h-7 px-1.5 text-sm tabular-nums"
-                id={`${id}-${index}`}
-                inputMode="decimal"
-                onChange={(event) => commit(index, event.target.value)}
-                value={draft[index] ?? ''}
-              />
-            </label>
-          ))}
-          <span className="col-span-3 text-caption text-muted-foreground">
-            {unit === 'in' ? t`Sizes in inches` : t`Sizes in millimetres`}
-          </span>
-        </div>
-      ) : (
-        <p className="text-caption text-muted-foreground tabular-nums">
-          {t`Build volume ${ph({ size: formatBox(plate.size, unit) })}`}
-        </p>
-      )}
-      <p className="flex items-start gap-1.5 font-medium" data-fits={ok ? 'yes' : 'no'} role="status">
-        {ok ? (
-          <CircleCheckIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-success" />
-        ) : (
-          <TriangleAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
-        )}
-        <span>{verdict}</span>
-      </p>
-      <p className="text-caption text-muted-foreground tabular-nums">
-        {t`Shown parts as modelled: ${ph({ size: formatBox(model, unit) })}`}
       </p>
     </CadToolPanel>
   );

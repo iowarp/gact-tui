@@ -11,6 +11,7 @@ import type {
   McpAppSavedDownload,
   McpAppSnapshot,
   McpAppOpenFromCallResult,
+  FileViewFile,
 } from './mcp-app-domain.js';
 import { InteractionRepository } from './interaction-repository.js';
 import { decodeMcpAppReopen, type McpAppReopenResult } from './mcp-app-reopen.js';
@@ -70,6 +71,10 @@ function appPath(identity: McpAppIdentity, suffix = ''): string {
   const app = encodeURIComponent(identity.appInstanceId);
   const dataRef = encodeURIComponent(identity.dataRef);
   return `/v1/sessions/${session}/mcp-apps/${app}${suffix}?data_ref=${dataRef}`;
+}
+
+function fileViewPath(sessionId: string, viewId: string, suffix = ''): string {
+  return `/v1/sessions/${encodeURIComponent(sessionId)}/file-views/${encodeURIComponent(viewId)}${suffix}`;
 }
 
 /** Typed access to one server-owned MCP App capability. */
@@ -295,6 +300,40 @@ export class McpAppRepository extends InteractionRepository {
       method: 'POST',
       path: appPath(identity, `/looks/${encodeURIComponent(callId)}`),
       body: snapshot,
+      decode: (value) => value,
+      signal,
+    });
+  }
+
+  /** A mount of a client-rendered file view loaded (or let it go), with its view state
+   * as readable lines; the agent can look at it while a mount holds it (FV-D3). */
+  public setFileViewShown(
+    sessionId: string,
+    viewId: string,
+    body: { holder: string; shown: boolean; file?: FileViewFile; state?: string[] },
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    return this.transport.request({
+      method: 'PUT',
+      path: fileViewPath(sessionId, viewId),
+      body,
+      decode: (value) => value,
+      signal,
+    });
+  }
+
+  /** The snapshot, and the view state then, for one agent look at a file view (FV-D3). */
+  public postFileViewLook(
+    sessionId: string,
+    viewId: string,
+    callId: string,
+    answer: McpAppSnapshot & { state?: string[] },
+    signal?: AbortSignal,
+  ): Promise<unknown> {
+    return this.transport.request({
+      method: 'POST',
+      path: fileViewPath(sessionId, viewId, `/looks/${encodeURIComponent(callId)}`),
+      body: answer,
       decode: (value) => value,
       signal,
     });

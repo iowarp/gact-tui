@@ -1,5 +1,5 @@
 import type { CommentAttachment } from '@clio/core/v3';
-import { BoxIcon, CameraIcon, ChartLineIcon, QuoteIcon } from 'lucide-react';
+import { BoxIcon, CameraIcon, ChartLineIcon, FileBoxIcon, QuoteIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RemoveIcon } from '@/lib/icon-vocabulary';
 import { anchorPreview } from './comments/comment-model';
@@ -10,6 +10,7 @@ const ICONS = {
   'a2ui-surface': ChartLineIcon,
   'browser-page': CameraIcon,
   'mcp-app': BoxIcon,
+  'file-view': FileBoxIcon,
 } as const;
 
 const KIND_LABELS = {
@@ -17,6 +18,7 @@ const KIND_LABELS = {
   'a2ui-surface': t`Comment on a view`,
   'browser-page': t`Comment on a page`,
   'mcp-app': t`Comment on an app view`,
+  'file-view': t`Comment on a file view`,
 } as const;
 
 const REMOVE_LABELS = {
@@ -24,6 +26,7 @@ const REMOVE_LABELS = {
   'a2ui-surface': t`Remove comment on a view`,
   'browser-page': t`Remove comment on a page`,
   'mcp-app': t`Remove comment on an app view`,
+  'file-view': t`Remove comment on a file view`,
 } as const;
 
 /**

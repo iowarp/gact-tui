@@ -7876,10 +7876,6 @@ msgstr ""
 msgid "Build this paper"
 msgstr ""
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Build volume {size}"
-msgstr ""
-
 #: src/components/clio/latex-workspace.tsx
 msgid "Building the paper…"
 msgstr ""
@@ -10015,6 +10011,10 @@ msgstr ""
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Comment on {optionLabel}"
+msgstr ""
+
+#: src/components/clio/composer-annotations.tsx
+msgid "Comment on a file view"
 msgstr ""
 
 #: src/components/clio/composer-annotations.tsx
@@ -12424,10 +12424,6 @@ msgstr ""
 msgid "Custom repeat <0>{0}</0>"
 msgstr ""
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Custom size"
-msgstr ""
-
 #: src/components/clio/settings-runtime-number.tsx
 msgid "Custom…"
 msgstr ""
@@ -12997,10 +12993,6 @@ msgstr ""
 
 #: src/components/clio/managed-service-instance.tsx
 msgid "Deploys as {id}@name"
-msgstr ""
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Depth"
 msgstr ""
 
 #: src/widget-gallery-scenarios.ts
@@ -13910,7 +13902,7 @@ msgstr ""
 msgid "Drag over the surface to add a region."
 msgstr ""
 
-#: src/components/clio/comments/mcp-app-comments.tsx
+#: src/components/clio/comments/snapshot-comments.tsx
 msgid "Drag over the view to mark a region, or click a point"
 msgstr ""
 
@@ -15802,22 +15794,6 @@ msgstr ""
 msgid "Fit view"
 msgstr ""
 
-#: src/components/clio/cad-plate.ts
-msgid "Fits the {name} plate"
-msgstr ""
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the {name} plate when turned 90°"
-msgstr ""
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the custom plate"
-msgstr ""
-
-#: src/components/clio/cad-plate.ts
-msgid "Fits the custom plate when turned 90°"
-msgstr ""
-
 #: src/components/clio/model-acquisition.tsx
 msgid "Fits: {free}."
 msgstr ""
@@ -16845,7 +16821,6 @@ msgstr ""
 msgid "Heat shown in transcript"
 msgstr ""
 
-#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Height"
 msgstr ""
@@ -24378,6 +24353,7 @@ msgstr ""
 msgid "Open a conversation to add it to a message"
 msgstr ""
 
+#: src/components/clio/client-file-view.tsx
 #: src/components/clio/comments/file-comments.tsx
 msgid "Open a conversation to comment"
 msgstr ""
@@ -26419,17 +26395,8 @@ msgstr ""
 msgid "Primary folder"
 msgstr ""
 
-#: src/components/clio/cad-model-view.tsx
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Print plate"
-msgstr ""
-
 #: src/components/clio/script-run-body.tsx
 msgid "Printed"
-msgstr ""
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Printer"
 msgstr ""
 
 #: src/components/clio/settings-access-rule-dialog.tsx
@@ -28461,6 +28428,10 @@ msgstr ""
 
 #: src/components/clio/composer-source-attachments.tsx
 msgid "Remove attachment {label}"
+msgstr ""
+
+#: src/components/clio/composer-annotations.tsx
+msgid "Remove comment on a file view"
 msgstr ""
 
 #: src/components/clio/composer-annotations.tsx
@@ -32917,10 +32888,6 @@ msgstr ""
 msgid "Showing the last completed conversion"
 msgstr ""
 
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Shown parts as modelled: {size}"
-msgstr ""
-
 #: src/components/clio/image-reach.ts
 msgid "shown to the model"
 msgstr ""
@@ -33195,14 +33162,6 @@ msgstr ""
 
 #: src/components/clio/file-viewer-actions.tsx
 msgid "Size unavailable"
-msgstr ""
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Sizes in inches"
-msgstr ""
-
-#: src/components/clio/cad-tool-panels.tsx
-msgid "Sizes in millimetres"
 msgstr ""
 
 #: src/components/clio/agent-package-items.ts
@@ -38233,20 +38192,8 @@ msgstr ""
 msgid "Tokens"
 msgstr ""
 
-#: src/components/clio/cad-plate.ts
-msgid "Too deep by {length}"
-msgstr ""
-
 #: src/components/ai-elements/prompt-input.tsx
 msgid "Too many files. Some were not added."
-msgstr ""
-
-#: src/components/clio/cad-plate.ts
-msgid "Too tall by {length}"
-msgstr ""
-
-#: src/components/clio/cad-plate.ts
-msgid "Too wide by {length}"
 msgstr ""
 
 #: src/components/clio/workbench-activity-detail.tsx
@@ -41004,10 +40951,6 @@ msgstr ""
 msgid "Where this workspace’s conversations start and which other folders their commands may change. Colour and icon are kept on this device."
 msgstr ""
 
-#: src/components/clio/cad-model-view.tsx
-msgid "Whether the shown parts fit a printer"
-msgstr ""
-
 #: src/components/clio/settings-schema-copy.ts
 msgid "Which browser"
 msgstr ""
@@ -41072,7 +41015,6 @@ msgstr ""
 msgid "Widget gallery"
 msgstr ""
 
-#: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/region-coordinate-inputs.tsx
 msgid "Width"
 msgstr ""
