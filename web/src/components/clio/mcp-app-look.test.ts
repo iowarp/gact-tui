@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { markMcpAppEnded, noteMcpApp, resetMcpAppLiveSet } from './mcp-app-live-set';
 import {
   dispatchMcpAppLookFrame,
+  HOLDER_RENEW_MS,
   McpAppLooks,
   SNAPSHOT_ANSWER_MS,
   snapshotAnswer,
@@ -173,5 +174,28 @@ describe('McpAppLooks', () => {
     await vi.waitFor(() => expect(hidden).toHaveBeenCalledTimes(1));
     older.stop();
     newer.stop();
+  });
+
+  it('renews its claim on the view while mounted, and stops when it unloads', async () => {
+    vi.useFakeTimers();
+    try {
+      const setMcpAppShown = vi.fn().mockResolvedValue({});
+      const looks = new McpAppLooks(
+        { setMcpAppShown, postMcpAppLook: vi.fn().mockResolvedValue({}) },
+        identity,
+        () => Promise.resolve(snapshotAnswer({ image: PNG })),
+      );
+      looks.start();
+      expect(setMcpAppShown).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(HOLDER_RENEW_MS * 2);
+      expect(setMcpAppShown).toHaveBeenCalledTimes(3);
+      expect(setMcpAppShown.mock.calls.every((call) => call[2] === true)).toBe(true);
+      looks.stop();
+      const after = setMcpAppShown.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(HOLDER_RENEW_MS * 2);
+      expect(setMcpAppShown).toHaveBeenCalledTimes(after);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

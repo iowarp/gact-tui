@@ -36,6 +36,9 @@ export type TakeSnapshot = (options: SnapshotOptions) => Promise<McpAppSnapshot>
  * or still loading) must be answered here, typed, rather than hold the agent's turn. */
 export const SNAPSHOT_ANSWER_MS = 30_000;
 
+/** How often a mount renews its claim on the view; CLIO lets a claim lapse after 60 s. */
+export const HOLDER_RENEW_MS = 20_000;
+
 /** The snapshot of each mounted view, by its frame: a capture of a surface or a page that
  * holds the view paints the view from it (CM2), since a sandboxed frame cannot be cloned. */
 const viewSnapshots = new WeakMap<Element, TakeSnapshot>();
@@ -153,6 +156,7 @@ export class McpAppLooks {
   private readonly handled = new Set<string>();
   private stopped = false;
   private started = false;
+  private renewal: ReturnType<typeof setInterval> | undefined;
   private readonly mount: LookMount;
 
   constructor(
@@ -171,17 +175,23 @@ export class McpAppLooks {
     this.started = true;
     const handlerKey = key(this.identity.sessionId, this.identity.appInstanceId);
     lookHandlers.set(handlerKey, [...(lookHandlers.get(handlerKey) ?? []), this.mount]);
-    void this.repository
-      .setMcpAppShown(this.identity, this.holder, true)
-      .catch((error: unknown) =>
-        console.warn('The view could not be offered to the agent:', error),
-      );
+    const offer = () =>
+      void this.repository
+        .setMcpAppShown?.(this.identity, this.holder, true)
+        .catch((error: unknown) =>
+          console.warn('The view could not be offered to the agent:', error),
+        );
+    offer();
+    // The claim is a lease CLIO lets lapse unless renewed, so a window that goes away
+    // without unloading its frames does not leave the agent's looks waiting on it.
+    this.renewal = setInterval(offer, HOLDER_RENEW_MS);
   }
 
   /** The frame is going: let the view go, unless a newer mount took it. */
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
+    clearInterval(this.renewal);
     if (!this.started) return;
     // Another mount of the same view (card to tab) may hold it too: only this one goes.
     const handlerKey = key(this.identity.sessionId, this.identity.appInstanceId);
