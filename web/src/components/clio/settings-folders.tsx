@@ -23,6 +23,7 @@ import { SettingsScopeContext } from '@/lib/settings-scope-context';
 import { workspaceScopeLine } from '@/lib/settings-workspace-name';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { SettingsSelectField } from './model-select-field';
+import { PathText } from './path-text';
 import { IconButton } from './primitives/icon-button';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { SaveBar } from './primitives/save-bar';
@@ -144,8 +145,9 @@ interface Draft {
 
 function FolderTitle({ folder }: { folder: WorkspaceSourceFolder }) {
   return (
-    <span className="font-mono text-menu font-normal" title={folder.path}>
-      {folder.path}
+    // Wraps after its separators rather than ending in an ellipsis, so the leaf folder shows.
+    <span className="block font-mono text-menu font-normal whitespace-normal" title={folder.path}>
+      <PathText path={folder.path} />
     </span>
   );
 }
