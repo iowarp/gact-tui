@@ -21,6 +21,8 @@ function stops(row: HTMLElement): HTMLElement[] {
  */
 export function rowArrowKeyDown(event: KeyboardEvent<HTMLElement>) {
   const { key } = event;
+  // An inner list already moved focus; a section-level handler leaves it alone.
+  if (event.defaultPrevented) return;
   if (key !== 'ArrowDown' && key !== 'ArrowUp' && key !== 'Home' && key !== 'End') return;
   if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
   const target = event.target as HTMLElement;

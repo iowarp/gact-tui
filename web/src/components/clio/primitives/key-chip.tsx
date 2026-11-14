@@ -10,6 +10,7 @@ import {
   shortcutText,
 } from '@/lib/shortcuts/registry';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
 
 export type KeyCapSize = 'md' | 'row' | 'sm';
 
@@ -32,10 +33,10 @@ export function KeyCap({
       className={cn(
         'inline-flex shrink-0 items-center justify-center rounded-[5px] border border-b-2 border-key-border bg-key font-mono leading-none font-normal whitespace-nowrap text-foreground',
         size === 'sm'
-          ? 'h-[18px] min-w-[18px] px-1 text-[10px]'
+          ? 'h-[18px] min-w-[18px] px-1 text-[0.625rem]'
           : size === 'row'
-            ? 'h-5 min-w-5 px-1.5 text-[11px]'
-            : 'h-[22px] min-w-[22px] px-1.5 text-[11px]',
+            ? 'h-5 min-w-5 px-1.5 text-caption'
+            : 'h-[22px] min-w-[22px] px-1.5 text-caption',
         className,
       )}
     >
@@ -98,7 +99,7 @@ export const ShortcutKeys = memo(function ShortcutKeys({
         {chords.map((caps, chordIndex) => (
           <span key={chordIndex} className="inline-flex items-center gap-1">
             {chordIndex > 0 && (definition.joiner ?? 'or') === 'or' ? (
-              <span className="px-0.5 text-[11px] text-faint">or</span>
+              <span className="px-0.5 text-caption text-faint">{t`or`}</span>
             ) : null}
             {caps.map((cap, capIndex) => (
               <KeyCap key={capIndex} size={capSize}>
@@ -116,7 +117,7 @@ export const ShortcutKeys = memo(function ShortcutKeys({
       <kbd
         data-slot="shortcut-keys"
         className={cn(
-          'shrink-0 font-mono text-[10.5px] font-normal whitespace-nowrap text-faint',
+          'shrink-0 font-mono text-[0.65625rem] font-normal whitespace-nowrap text-faint',
           className,
         )}
       >
@@ -136,7 +137,7 @@ export const ShortcutKeys = memo(function ShortcutKeys({
       <kbd
         data-slot="shortcut-keys"
         className={cn(
-          'inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-[4px] border border-key-border px-1 font-mono text-[10.5px] leading-none font-normal whitespace-nowrap opacity-90',
+          'inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-[4px] border border-key-border px-1 font-mono text-[0.65625rem] leading-none font-normal whitespace-nowrap opacity-90',
           className,
         )}
       >
@@ -148,7 +149,7 @@ export const ShortcutKeys = memo(function ShortcutKeys({
     <kbd
       data-slot="shortcut-keys"
       className={cn(
-        'shrink-0 font-sans text-[11.5px] font-normal whitespace-nowrap text-muted-foreground tabular-nums',
+        'shrink-0 font-sans text-label font-normal whitespace-nowrap text-muted-foreground tabular-nums',
         className,
       )}
     >
@@ -386,7 +387,7 @@ export function HeldKeyBadge({
           data-side={side}
           style={{ visibility: 'hidden' }}
           className={cn(
-            'pointer-events-none fixed top-0 left-0 z-[61] rounded-[4px] bg-foreground px-[5px] py-[3px] font-mono text-[10.5px] leading-none font-semibold whitespace-nowrap text-background shadow-sm',
+            'pointer-events-none fixed top-0 left-0 z-[61] rounded-[4px] bg-tooltip px-[5px] py-[3px] font-mono text-[0.65625rem] leading-none font-semibold whitespace-nowrap text-tooltip-foreground shadow-sm',
             className,
           )}
         >

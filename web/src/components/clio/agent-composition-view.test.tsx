@@ -9,6 +9,7 @@ import {
   agentTranscript as transcript,
   emptyDelta,
   openUse,
+  plugin,
   renderAgentView,
   resolution,
   seedAgentRepository,
@@ -565,6 +566,38 @@ describe('the agent of a conversation not yet started', () => {
     expect(repository.updateSessionAgent).not.toHaveBeenCalled();
   });
 
+  it('names a connector plugin by its connector in the summary and the removal dialog', async () => {
+    const user = userEvent.setup();
+    const connector = { id: 'burette', name: 'Burette', logo_url: null };
+    const burette = plugin(
+      'connector-burette',
+      { source: 'user', via: '', label: 'you' },
+      { marketplace: 'clio-connectors', follows: 'burette', connector },
+    );
+    repository.sessionAgent.mockResolvedValue({
+      ...sessionAgent,
+      delta: { add: ['clio-connectors/connector-burette'], remove: [] },
+      resolution: { ...resolution, plugins: [...resolution.plugins, burette] },
+    });
+    repository.previewPluginRemoval.mockResolvedValue({
+      plugin: 'connector-burette',
+      removes: [{ id: 'connector-burette', reason: { reason: 'removed', because: '' } }],
+      tools_removed: [],
+    });
+    renderView();
+    expect(
+      await screen.findByText('This conversation changes Standard: adds Burette.'),
+    ).toBeVisible();
+    await openUse(user);
+    await user.click(
+      await screen.findByRole('button', { name: /Remove (Burette|connector-burette)/u }),
+    );
+    const dialog = await screen.findByRole('alertdialog');
+    expect(within(dialog).getByText('Removes Burette from this conversation.')).toBeVisible();
+    expect(await within(dialog).findByText('No other plugin depends on Burette.')).toBeVisible();
+    expect(within(dialog).queryByText(/connector-burette/u)).toBeNull();
+  });
+
   it('shows what leaves with a removal before it applies', async () => {
     const user = userEvent.setup();
     repository.previewPluginRemoval.mockResolvedValue({
@@ -615,10 +648,22 @@ describe('an agent explored from the library', () => {
     const packages = await screen.findByRole('group', { name: 'Packages' });
     for (const id of ['shell', 'documents', 'pdf'])
       expect(within(packages).getByRole('button', { name: id })).toBeVisible();
-    expect(screen.queryByRole('button', { name: /^Tools:/u })).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Prompt' }));
+    expect(screen.getByRole('button', { name: /^Tools:/u })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /^Instructions:/u }));
     expect(await screen.findByText('You are the standard agent.')).toBeVisible();
     expect(screen.queryByRole('group', { name: 'Packages' })).toBeNull();
+  });
+
+  it('lists its subagents by name, each opening its own details', async () => {
+    const user = userEvent.setup();
+    renderLibrary();
+    await user.click(await screen.findByRole('button', { name: /^Subagents:/u }));
+    await user.click(await screen.findByRole('button', { name: 'pdf-reviewer' }));
+    const detail = await screen.findByRole('region', { name: 'Subagent pdf-reviewer' });
+    expect(within(detail).getByText('Reviews a PDF page by page.')).toBeVisible();
+    expect(within(detail).getByRole('button', { name: 'Package: pdf, open it' })).toBeVisible();
+    await user.click(within(detail).getByRole('button', { name: 'Back to Subagents' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'pdf-reviewer' })).toHaveFocus());
   });
 
   it('shows only what a package brings in the chosen category, each opening its details', async () => {
@@ -666,7 +711,7 @@ describe('an agent explored from the library', () => {
           .getAllByRole('radio')
           .map((radio) => radio.textContent),
       ).toEqual(['All']);
-      await user.click(screen.getByRole('button', { name: 'Other categories' }));
+      await user.click(screen.getByRole('button', { name: 'More categories' }));
       await user.click(await screen.findByRole('menuitemradio', { name: 'Subagents' }));
       expect(await screen.findByRole('radio', { name: 'Subagents' })).toBeChecked();
       expect(
@@ -689,7 +734,7 @@ describe('an agent explored from the library', () => {
         onChange={vi.fn()}
       />,
     );
-    await user.click(await screen.findByRole('button', { name: 'Prompt' }));
+    await user.click(await screen.findByRole('button', { name: /^Instructions:/u }));
     expect(await screen.findByText('You are the standard agent.')).toBeVisible();
     expect(screen.queryByText('Changed settings are teal')).toBeNull();
     expect(screen.getByRole('button', { name: 'Back to the agent' })).toHaveFocus();

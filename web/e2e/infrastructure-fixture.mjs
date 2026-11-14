@@ -79,12 +79,11 @@ export function createInfrastructureFixture({
       connection_url: serviceUrls.llamaCpp,
       configuration: { port: '8088' },
     }),
-    service('local', 'web_search', 'running', { connection_url: serviceUrls.webSearch }),
     service('ares', 'vllm@spotter', 'running', {
       connection_url: 'http://ares.cluster.example.edu:8000',
       configuration: { model: 'Qwen/Qwen3-8B', port: '8000' },
     }),
-    service('ares', 'searxng', 'starting', { configuration: { port: '8888' } }),
+    service('ares', 'flowcept', 'starting', { configuration: { port: '8888' } }),
     service('ares', 'relay', 'running'),
   ];
   const step = (id, label, state) => ({ id, label, state, message: '' });
@@ -105,14 +104,14 @@ export function createInfrastructureFixture({
     ...extra,
   });
   const operations = [
-    operation('op_start_searxng', 'searxng', 'local', 'start', 'failed', 5, {
+    operation('op_start_flowcept', 'flowcept', 'local', 'start', 'failed', 5, {
       error: 'Port 8888 is already in use on this computer.',
       logs: [
-        '$ apptainer run searxng.sif --port 8888',
-        'starting SearXNG',
+        '$ flowcept --port 8888',
+        'starting Flowcept',
         'error: bind 0.0.0.0:8888: address already in use',
       ].join('\n'),
-      steps: [step('launch', 'Start the search engine', 'failed')],
+      steps: [step('launch', 'Start the provenance service', 'failed')],
     }),
     operation('op_install_vllm', 'vllm@spotter', 'ares', 'install', 'succeeded', 12, {
       progress: 'Installed',
@@ -229,7 +228,7 @@ export function createInfrastructureFixture({
   const aresStates = {
     vllm: { state: 'running', connection_url: 'http://ares.cluster.example.edu:8000' },
     ollama: { state: 'stopped' },
-    searxng: { state: 'running', observation: observation('starting') },
+    flowcept: { state: 'running', observation: observation('starting') },
     relay: { state: 'running' },
   };
   const catalogs = {

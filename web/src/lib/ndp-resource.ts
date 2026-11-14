@@ -1,4 +1,5 @@
 import type { NDPDataset } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 type NDPResource = NDPDataset['resources'][number];
 
@@ -24,7 +25,7 @@ export function ndpResourceMeta(
   resource: Pick<NDPResource, 'format' | 'size'>,
 ): string | undefined {
   const kind = ndpResourceKind(resource);
-  if (kind === 'service') return 'Service';
+  if (kind === 'service') return t`Service`;
   if (kind === 'stream' || resource.size > 0) return undefined;
   return resource.format.trim() || undefined;
 }
@@ -40,5 +41,6 @@ export function ndpResourceIconName(resource: Pick<NDPResource, 'format' | 'name
 export function ndpResourceMessageText(resource: NDPResource, dataset: NDPDataset): string {
   const format = resource.format.trim();
   const where = dataset.title || dataset.name;
+  // i18n-ignore: a reference the agent reads, kept in English
   return `NDP resource "${resource.name}"${format ? ` (${format})` : ''} from dataset "${where}": ${resource.path}`;
 }

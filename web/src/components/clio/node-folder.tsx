@@ -3,6 +3,7 @@ import { useContext } from 'react';
 import { useTaskChildSession } from '@/hooks/use-flow-run';
 import { cn } from '@/lib/utils';
 import { PresentationNavigation } from './presentation-navigation';
+import { t } from '@lingui/core/macro';
 
 /**
  * The folder a node of an isolated run worked in, written as its path. The
@@ -23,15 +24,15 @@ export function NodeFolder({
 }) {
   return (
     <p
-      className={cn('flex min-w-0 items-baseline gap-1.5 text-[11px] leading-4', className)}
+      className={cn('flex min-w-0 items-baseline gap-1.5 text-caption leading-4', className)}
       data-slot="node-folder"
     >
       <span className="inline-flex shrink-0 items-center gap-1 text-muted-foreground">
-        <FolderIcon aria-hidden="true" className="size-3 self-center" /> Folder
+        <FolderIcon aria-hidden="true" className="size-3 self-center" /> {t`Folder`}
       </span>
       {onOpen ? (
         <button
-          aria-label={`Open the folder of ${name}`}
+          aria-label={t`Open the folder of ${name}`}
           className="min-w-0 text-left font-mono underline decoration-border underline-offset-2 [overflow-wrap:anywhere] hover:text-primary"
           onClick={() => onOpen(path)}
           title={path}

@@ -12,6 +12,7 @@ import { PresentationNavigation } from './presentation-navigation';
 import { ScopedDocumentNavigation, SCOPED_DOCUMENT_LINK } from './scoped-document-navigation';
 import { SourceCitation } from './source-citation';
 import { messageSearchHash } from '@/lib/search-matches';
+import { t, ph } from '@lingui/core/macro';
 
 type ContentLinkProps = ComponentProps<'a'> & ExtraProps & { presentation?: 'citation' | 'source' };
 
@@ -93,14 +94,14 @@ export function MarkdownContentLink({
           <Link {...props} className={style} to={href} target={undefined}>
             {linkText}
           </Link>,
-          label ?? 'Conversation',
+          label ?? t`Conversation`,
           href,
         )
       ) : (
         <span
           aria-disabled="true"
           className={className}
-          title="Conversation navigation unavailable"
+          title={t`Conversation navigation unavailable`}
         >
           {children}
         </span>
@@ -113,13 +114,25 @@ export function MarkdownContentLink({
         {...props}
         className={style}
         href={href}
-        title={openHere && sessionId ? 'Opens in the shared browser; shift-click opens it outside' : props.title}
+        title={
+          openHere && sessionId
+            ? t`Opens in the shared browser; shift-click opens it outside`
+            : props.title
+        }
         onClick={(event) => {
           props.onClick?.(event);
           // A plain click opens a web link in the shared browser, so the agent can see the
           // page the person is reading; shift, ctrl or cmd keeps the external browser.
-          if (event.defaultPrevented || !openHere || !sessionId || !/^https?:\/\//iu.test(href)) return;
-          if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey || event.button !== 0) return;
+          if (event.defaultPrevented || !openHere || !sessionId || !/^https?:\/\//iu.test(href))
+            return;
+          if (
+            event.shiftKey ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.altKey ||
+            event.button !== 0
+          )
+            return;
           event.preventDefault();
           openHere(href, sessionId);
         }}
@@ -138,7 +151,7 @@ export function MarkdownContentLink({
   }
   const reference = parseMarkdownContentReference(uri);
   let open: (() => void) | undefined;
-  let title = label ?? 'Source';
+  let title = label ?? t`Source`;
   let detail = '';
   if (
     reference?.kind === 'file' &&
@@ -158,7 +171,7 @@ export function MarkdownContentLink({
             locator: reference.locator,
           })
         : navigation.onOpenFile?.(reference.path);
-    title = label ?? reference.path.split(/[\\/]/u).at(-1) ?? 'Workspace file';
+    title = label ?? reference.path.split(/[\\/]/u).at(-1) ?? t`Workspace file`;
     detail = reference.locator ? `${reference.path} › ${reference.locator}` : reference.path;
   } else if (reference?.kind === 'artifact' && navigation?.onOpenArtifact) {
     const artifacts = Object.values(navigation.artifacts);
@@ -173,14 +186,14 @@ export function MarkdownContentLink({
     if (artifact) {
       open = () => navigation.onOpenArtifact?.(artifact);
       title = artifact.name;
-      detail = `Saved artifact, version ${artifact.version}`;
+      detail = t`Saved artifact, version ${ph({ version: artifact.version ?? '' })}`;
     }
   } else if (reference?.kind === 'resource' && navigation?.onOpenResource) {
     const resource = navigation.resources?.[reference.id];
     if (resource && (!reference.workspaceId || resource.workspace_id === reference.workspaceId)) {
       open = () => navigation.onOpenResource?.(resource);
       title = resource.name;
-      detail = 'Registered workspace resource';
+      detail = t`Registered workspace resource`;
     }
   } else if (reference?.kind === 'session' && inRouter) {
     const route =
@@ -192,8 +205,8 @@ export function MarkdownContentLink({
       <Link {...props} className={style} to={route} target={undefined}>
         {linkText}
       </Link>,
-      label ?? 'Conversation',
-      reference.messageId ? 'Referenced conversation message' : 'Conversation',
+      label ?? t`Conversation`,
+      reference.messageId ? t`Referenced conversation message` : t`Conversation`,
     );
   }
   if (!open) {
@@ -201,7 +214,7 @@ export function MarkdownContentLink({
       <span
         aria-disabled="true"
         className={className}
-        title="Source unavailable in this conversation"
+        title={t`Source unavailable in this conversation`}
       >
         {children}
       </span>

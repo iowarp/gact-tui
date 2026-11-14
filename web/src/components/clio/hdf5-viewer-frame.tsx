@@ -32,6 +32,7 @@ import { NamedTooltip } from './primitives/icon-button';
 import { useFrameModes } from './primitives/frame-modes';
 import { ResourceLoading } from './resource-states';
 import { ToolbarAction, ViewerToolbarContent } from './viewer-toolbar';
+import { ph, t } from '@lingui/core/macro';
 
 /** Most files whose last selection is remembered. */
 const REMEMBERED_FILES = 50;
@@ -282,12 +283,12 @@ export function Hdf5ViewerFrame({
           data-hdf5-viewer={path}
           ref={iframeRef}
           src={viewer.src}
-          title={`HDF5 viewer: ${path}`}
+          title={t`HDF5 viewer: ${path}`}
         />
         {settled === fileKey ? null : (
           <ResourceLoading
             className="absolute inset-0 bg-background"
-            label={`Loading ${path.split('/').at(-1) ?? path}`}
+            label={t`Loading ${ph({ name: path.split('/').at(-1) ?? path })}`}
           />
         )}
       </div>
@@ -298,10 +299,10 @@ export function Hdf5ViewerFrame({
 type ViewerView = Omit<Extract<ViewerMessage, { type: 'modes' }>, 'source' | 'type'>;
 
 const MODES: Record<Hdf5Mode, { label: string; icon: LucideIcon }> = {
-  table: { label: 'Table', icon: TableIcon },
-  plot: { label: 'Plot', icon: ChartLineIcon },
-  image: { label: 'Image', icon: ImageIcon },
-  attributes: { label: 'Attributes', icon: TagsIcon },
+  table: { label: t`Table`, icon: TableIcon },
+  plot: { label: t`Plot`, icon: ChartLineIcon },
+  image: { label: t`Image`, icon: ImageIcon },
+  attributes: { label: t`Attributes`, icon: TagsIcon },
 };
 
 // FileModeControls' segmented look; these modes live in the viewer page, not in shell tabs.
@@ -333,7 +334,7 @@ function Hdf5Modes({
     group,
     view.modes.length
       ? {
-          label: 'Show as',
+          label: t`Show as`,
           modes,
           value: view.mode ?? '',
           onChange: (mode) => onShow({ mode: mode as Hdf5Mode }),
@@ -345,7 +346,7 @@ function Hdf5Modes({
       <TooltipProvider delayDuration={200}>
         {view.modes.length ? (
           <div
-            aria-label="Show as"
+            aria-label={t`Show as`}
             className={MODES_CLASS}
             data-slot="viewer-modes"
             ref={group}
@@ -375,7 +376,7 @@ function Hdf5Modes({
         ) : null}
         <ToolbarAction
           aria-pressed={view.explorer}
-          label="Explorer"
+          label={t`Explorer`}
           onClick={() => onShow({ explorer: !view.explorer })}
         >
           <PanelLeftIcon aria-hidden="true" />

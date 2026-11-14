@@ -33,6 +33,7 @@ export const rasterViewportSchema = refinedStrictObject(
       context.addIssue({
         code: 'custom',
         path: ['selectionField'],
+        // i18n-ignore: validation message returned to the agent
         message: 'selectionField is required when selection is bound',
       });
     }

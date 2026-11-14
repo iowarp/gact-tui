@@ -1,12 +1,7 @@
-import { createComponentImplementation } from '@a2ui/react/v0_9';
-import { CommonSchemas } from '@a2ui/web_core/v0_9';
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
-import { z } from 'zod';
 import { useRepository } from '@/hooks/use-repository';
 import { useAutoDatasetSelection } from '@/lib/a2ui/auto-dataset-selection';
 import { inlineSelectionKey } from '@/lib/a2ui/inline-selection-key';
-import { dataViewFlexStyle } from './data-view-layout';
-import { BoundDataQuery } from './bound-data-query';
 import { LoadingFeedback } from './loading-feedback';
 import { DataTableRequestState } from './data-table-request-state';
 import {
@@ -14,7 +9,6 @@ import {
   a2uiAccessibilityLabel,
   type A2UIAccessibility,
 } from './a2ui-accessibility';
-import { refinedStrictObject } from './a2ui-refined-schema';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
 import {
   applyClientFilters,
@@ -24,10 +18,8 @@ import {
   mergeFilters,
 } from './data-query-filters';
 import type { ClioDataColumn, ClioDataRow, ClioDataTableServerControl } from './data-table';
-import { dataQuerySchema, fieldNameSchema } from './data-query-schema';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import {
-  isBoundToPath,
   isSelectionValue,
   parseSelectionState,
   selectionForField,
@@ -46,11 +38,11 @@ import {
 } from './table-export-client';
 import {
   artifactIdFromDataUri,
-  TABLE_DATA_URI,
   type QueryRow,
   type TableDataQuery,
   useTableQueryRows,
 } from './table-query-rows';
+import { ph, plural, t } from '@lingui/core/macro';
 
 // The grid (TanStack Table) loads with the first table instead of with the app.
 const ClioDataTable = lazy(() =>
@@ -212,7 +204,7 @@ export function ClioSelectableDataTable({
       return next;
     });
   };
-  const heading = a2uiAccessibilityLabel(accessibility) ?? 'Data table';
+  const heading = a2uiAccessibilityLabel(accessibility) ?? t`Data table`;
   // The G0 default for a table used directly with inline rows (no dataUri,
   // so no server route to export through and no live page/filter to
   // describe as a "zone"): a plain client-side CSV/JSON of exactly what is
@@ -231,20 +223,22 @@ export function ClioSelectableDataTable({
     const exportFormats: SurfaceExportFormat[] = [
       {
         id: 'csv',
-        label: 'CSV data',
+        label: t`CSV data`,
         run: () => downloadInlineRowsAsCsv(keys, exportRows, filenameStem),
       },
       {
         id: 'json',
-        label: 'JSON data',
+        label: t`JSON data`,
         run: () => downloadInlineRowsAsJson(keys, exportRows, filenameStem),
       },
       // No Parquet entry here: this repo has no client-side Parquet encoder
       // for inline rows — only the server's table-export route produces one,
       // and inline rows (no dataUri) never reach the server.
     ];
-    const buildReference = (): DataZoneReference =>
-      buildZoneReference({
+    const buildReference = (): DataZoneReference => {
+      const selectedCount = selectedFilteredValues.length;
+      const totalText = filteredRows.length.toLocaleString();
+      return buildZoneReference({
         componentLabel: heading,
         datasetLabel: 'inline data',
         filters: mergeFilters(undefined, inlineFilters).map(describeQueryFilter),
@@ -260,10 +254,17 @@ export function ClioSelectableDataTable({
             ? { selection: { field: keyColumn, values: selectedFilteredValues } }
             : {}),
         },
-        zoneDescription: selectedFilteredValues.length
-          ? `${selectedFilteredValues.length.toLocaleString()} selected ${selectedFilteredValues.length === 1 ? 'row' : 'rows'} of ${filteredRows.length.toLocaleString()}`
-          : `the filtered current view (${filteredRows.length.toLocaleString()} rows)`,
+        zoneDescription: selectedCount
+          ? plural(selectedCount, {
+              one: `# selected row of ${totalText}`,
+              other: `# selected rows of ${totalText}`,
+            })
+          : plural(filteredRows.length, {
+              one: 'the filtered current view (# row)',
+              other: 'the filtered current view (# rows)',
+            }),
       });
+    };
     return { buildReference, exportFormats };
   }, [
     filteredRows,
@@ -327,7 +328,7 @@ export function ClioSelectableDataTable({
   };
 
   return (
-    <Suspense fallback={<LoadingFeedback label="Loading table…" variant="skeleton" />}>
+    <Suspense fallback={<LoadingFeedback label={t`Loading table…`} variant="skeleton" />}>
       <ClioDataTable
         capabilities={toolbarCapabilities}
         columns={columns}
@@ -400,7 +401,7 @@ export function resolveEffectiveSort(
  * every column of the referenced table. `limit` becomes the viewer's own
  * page size once paging takes over a static one-shot request.
  */
-function ClioDataTableArtifactSource({
+export function ClioDataTableArtifactSource({
   accessibility,
   action,
   columns,
@@ -588,7 +589,7 @@ function ClioDataTableArtifactSource({
       />
     );
   }
-  const heading = a2uiAccessibilityLabel(accessibility) ?? 'Data table';
+  const heading = a2uiAccessibilityLabel(accessibility) ?? t`Data table`;
   const buildReference = (): DataZoneReference => {
     const selectionState = selectionForField(
       parseSelectionState(effectiveSelection),
@@ -612,14 +613,28 @@ function ClioDataTableArtifactSource({
     const start = pageIndex * pageSize + 1;
     const end = start + rows.length - 1;
     const previewColumns = renderColumns.slice(0, selectedValues.length ? 12 : 5).map(columnKey);
-    const sortSuffix = effectiveSort[0]
-      ? `, sorted by ${effectiveSort[0].column} ${effectiveSort[0].desc ? 'desc' : 'asc'}`
+    const sort = effectiveSort[0];
+    const sortColumn = sort?.column ?? '';
+    const sortSuffix = sort
+      ? sort.desc
+        ? t`, sorted by ${sortColumn} desc`
+        : t`, sorted by ${sortColumn} asc`
       : '';
-    const zoneDescription = selectedValues.length
-      ? `${selectedValues.length.toLocaleString()} selected ${selectedValues.length === 1 ? 'row' : 'rows'} of ${total.toLocaleString()}${sortSuffix}`
+    const selectedCount = selectedValues.length;
+    const totalText = total.toLocaleString();
+    const startText = start.toLocaleString();
+    const endText = end.toLocaleString();
+    const zoneDescription = selectedCount
+      ? plural(selectedCount, {
+          one: `# selected row of ${totalText}${sortSuffix}`,
+          other: `# selected rows of ${totalText}${sortSuffix}`,
+        })
       : start === 1 && end === total
-        ? `the filtered current view (${total.toLocaleString()} rows)${sortSuffix}`
-        : `filtered rows ${start.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}${sortSuffix}`;
+        ? plural(total, {
+            one: `the filtered current view (# row)${sortSuffix}`,
+            other: `the filtered current view (# rows)${sortSuffix}`,
+          })
+        : t`filtered rows ${startText}–${endText} of ${totalText}${sortSuffix}`;
     return buildZoneReference({
       componentLabel: heading,
       datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri,
@@ -652,7 +667,7 @@ function ClioDataTableArtifactSource({
   const exportFormats: SurfaceExportFormat[] = EXPORT_FORMATS.flatMap((format) => [
     {
       id: format,
-      label: `${EXPORT_FORMAT_LABELS[format]} (current view)`,
+      label: t`${ph({ format: EXPORT_FORMAT_LABELS[format] })} (current view)`,
       run: () =>
         downloadServerTableExport({
           dataUri,
@@ -665,7 +680,7 @@ function ClioDataTableArtifactSource({
     },
     {
       id: `${format}-full`,
-      label: `${EXPORT_FORMAT_LABELS[format]} (full dataset)`,
+      label: t`${ph({ format: EXPORT_FORMAT_LABELS[format] })} (full dataset)`,
       run: () =>
         downloadServerTableExport({
           dataUri,
@@ -680,7 +695,7 @@ function ClioDataTableArtifactSource({
   const tableCapabilities: SurfaceCapabilities = { buildReference, exportFormats };
   return (
     <div className="grid min-w-0 gap-2">
-      {refreshing ? <LoadingFeedback label="Updating rows…" /> : null}
+      {refreshing ? <LoadingFeedback label={t`Updating rows…`} /> : null}
       <ClioSelectableDataTable
         accessibility={accessibility}
         action={action}
@@ -696,97 +711,3 @@ function ClioDataTableArtifactSource({
     </div>
   );
 }
-
-const dataTableDataProperties = {
-  columns: z
-    .array(z.union([z.string(), z.object({ key: z.string(), label: z.string() }).strict()]))
-    .optional(),
-  rows: z.array(z.record(z.unknown())).optional(),
-  dataUri: z.string().regex(TABLE_DATA_URI).optional(),
-  dataQuery: dataQuerySchema.optional(),
-  // clio-schemas 0.5.1: a DynamicValue (a plain string, the old form, still parses).
-  selection: CommonSchemas.DynamicValue.optional(),
-  // A dataset column name; required when `selection` is bound (mirrors the chart's selectionField).
-  selectionField: fieldNameSchema.optional(),
-  action: CommonSchemas.Action.optional(),
-  pageSize: z
-    .union([z.literal(10), z.literal(25), z.literal(50), z.literal(100), z.literal(500)])
-    .optional(),
-  accessibility: CommonSchemas.AccessibilityAttributes.optional(),
-  weight: z.number().optional(),
-};
-
-type DataTableShape = z.infer<z.ZodObject<typeof dataTableDataProperties>>;
-
-/** `clio.data-table.v1`'s cross-field rules: exactly one of `rows` or `dataUri`. */
-function checkDataTableComponent(value: DataTableShape, context: z.RefinementCtx): void {
-  if (Boolean(value.rows) === Boolean(value.dataUri)) {
-    context.addIssue({ code: 'custom', message: 'Provide exactly one of rows or dataUri' });
-  }
-  if (value.rows && !value.columns) {
-    context.addIssue({ code: 'custom', message: 'columns is required with inline rows' });
-  }
-  if (value.dataQuery && !value.dataUri) {
-    context.addIssue({ code: 'custom', message: 'dataQuery applies only to dataUri' });
-  }
-  if (isBoundToPath(value.selection) && !value.selectionField) {
-    context.addIssue({
-      code: 'custom',
-      message: 'selectionField is required when selection is bound',
-    });
-  }
-}
-
-// The catalog adapter shares the validated schema with the selectable table above.
-// oxlint-disable-next-line react/only-export-components
-export const dataTableComponentSchema = refinedStrictObject(
-  dataTableDataProperties,
-  checkDataTableComponent,
-);
-
-// oxlint-disable-next-line react/only-export-components
-export const ClioDataTableCatalogComponent = createComponentImplementation(
-  { name: 'clio.data-table.v1', schema: dataTableComponentSchema },
-  ({ props, context }) => {
-    const setSelection = isBoundToPath(context.componentModel.properties.selection)
-      ? (props.setSelection as unknown as SelectionWriter)
-      : undefined;
-    return (
-      <div style={dataViewFlexStyle(props.weight)}>
-        {props.dataUri ? (
-          <BoundDataQuery
-            dataContext={context.dataContext}
-            query={props.dataQuery as TableDataQuery | undefined}
-          >
-            {(resolvedQuery) => (
-              <ClioDataTableArtifactSource
-                accessibility={props.accessibility}
-                action={props.action ? () => void props.action?.() : undefined}
-                columns={props.columns as ClioDataColumn[] | undefined}
-                componentId={context.componentModel.id}
-                dataQuery={resolvedQuery}
-                dataUri={props.dataUri!}
-                selection={props.selection}
-                selectionField={props.selectionField}
-                setSelection={setSelection}
-                pageSize={props.pageSize}
-              />
-            )}
-          </BoundDataQuery>
-        ) : (
-          <ClioSelectableDataTable
-            accessibility={props.accessibility}
-            action={props.action ? () => void props.action?.() : undefined}
-            columns={props.columns as ClioDataColumn[]}
-            componentId={context.componentModel.id}
-            rows={props.rows as ClioDataRow[]}
-            selection={props.selection}
-            selectionField={props.selectionField}
-            setSelection={setSelection}
-            pageSize={props.pageSize}
-          />
-        )}
-      </div>
-    );
-  },
-);

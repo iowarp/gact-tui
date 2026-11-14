@@ -1,6 +1,8 @@
 import { createContext, useContext, useMemo } from 'react';
 import { readThemeColor, useThemeKey } from '@/theme/runtime';
 import { isJsonObject } from './chart-spec-guard';
+import type { CaptureTarget } from './a2ui-region-evidence';
+import { t } from '@lingui/core/macro';
 
 /**
  * Set by a saved dashboard. Its metrics read as one compact stat row, and its
@@ -9,6 +11,12 @@ import { isJsonObject } from './chart-spec-guard';
  * shared presentation.
  */
 export const DashboardPresentationContext = createContext(false);
+
+/**
+ * The whole dashboard as a capture target, for a chart inside it: the chart's own capture
+ * marks that chart, and offers this one instead (FP-D6).
+ */
+export const DashboardCaptureTargetContext = createContext<CaptureTarget | undefined>(undefined);
 
 export function useDashboardPresentation(): boolean {
   return useContext(DashboardPresentationContext);
@@ -99,7 +107,7 @@ export function dashboardChartSpec(
   const next = withoutAxisTitles(spec, titles, referenceColor);
   const y = titles.y.join(', ');
   const x = titles.x.join(', ');
-  const caption = y && x ? `${y} against ${x}` : y || x || undefined;
+  const caption = y && x ? t`${y} against ${x}` : y || x || undefined;
   return { spec: next, caption };
 }
 

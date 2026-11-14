@@ -31,9 +31,11 @@ export function turboGradientCss(direction = 'to right', stops = 12): string {
     const t = index / stops;
     const [r, g, b] = turbo(t);
     parts.push(
+      // i18n-ignore: CSS color syntax
       `rgb(${Math.round(r * 255)} ${Math.round(g * 255)} ${Math.round(b * 255)}) ${(t * 100).toFixed(1)}%`,
     );
   }
+  // i18n-ignore: CSS gradient syntax
   return `linear-gradient(${direction}, ${parts.join(', ')})`;
 }
 

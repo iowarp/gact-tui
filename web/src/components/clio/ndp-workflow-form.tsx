@@ -16,6 +16,8 @@ import { NDPCaptureResult } from './ndp-capture-result';
 import { NDPQueryFields } from './ndp-query-fields';
 import { NDPNestedFields } from './ndp-nested-fields';
 import { NDPStationFilters } from './ndp-station-filters';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 export type NDPWorkflow = {
   title: string;
@@ -24,26 +26,29 @@ export type NDPWorkflow = {
   body?: NDPRecord;
   stationService?: boolean;
 };
+// i18n-ignore: NDP operation ids
+const STREAM_OPEN_IDS = ['POST /streams', 'SDK streaming_v2.open'];
+
 const labels: Record<string, string> = {
-  sncl_codes: 'Station codes',
-  owner_org: 'Organization',
-  max_msgs: 'Rows to sample',
-  filename: 'File',
-  max_seconds: 'Sample duration (seconds)',
-  interval: 'Seconds between records',
-  service_identifier: 'Service',
-  source_topic: 'Source topic',
-  keep_source_resource: 'Keep source resource',
-  target_dataset: 'Output dataset',
-  dataset_name: 'Dataset name',
-  session_id: 'Stream session',
-  resource_id: 'Catalog resource',
-  topic: 'Kafka topic',
-  start: 'Start reading',
-  max_records: 'Records to capture',
-  seconds: 'Wait for records (seconds)',
-  delete_stream: 'Delete stream data',
-  delete_source_resource: 'Delete source resource',
+  sncl_codes: t`Station codes`,
+  owner_org: t`Organization`,
+  max_msgs: t`Rows to sample`,
+  filename: t`File`,
+  max_seconds: t`Sample duration (seconds)`,
+  interval: t`Seconds between records`,
+  service_identifier: t`Service`,
+  source_topic: t`Source topic`,
+  keep_source_resource: t`Keep source resource`,
+  target_dataset: t`Output dataset`,
+  dataset_name: t`Dataset name`,
+  session_id: t`Stream session`,
+  resource_id: t`Catalog resource`,
+  topic: t`Kafka topic`,
+  start: t`Start reading`,
+  max_records: t`Records to capture`,
+  seconds: t`Wait for records (seconds)`,
+  delete_stream: t`Delete stream data`,
+  delete_source_resource: t`Delete source resource`,
 };
 const privateField = (name: string) =>
   /password|token|secret|authorization|api_key|username/i.test(name);
@@ -86,8 +91,10 @@ export function NDPWorkflowForm({
 }) {
   const repository = useRepository();
   const client = useQueryClient();
-  const { operation } = workflow;
+  const { operation, title: workflowTitle } = workflow;
+  const endpointName = endpoint.name;
   const archivedUrl = ['GET /stream/segment/url', 'GET /pull/url'].includes(operation.id);
+  // i18n-ignore: NDP operation ids
   const kafkaSegment = ['GET /streams/{stream_id}/segment', 'SDK streaming_v2.read'].includes(
     operation.id,
   );
@@ -102,6 +109,7 @@ export function NDPWorkflowForm({
         workspaceId,
         endpoint.id,
         {
+          // i18n-ignore: NDP operation ids
           operation_id: 'GET /resources/search',
           parameters: { server: 'local', format: 'kafka', limit: 1000 },
         },
@@ -145,7 +153,7 @@ export function NDPWorkflowForm({
         workflow.parameters?.[row.name] !== undefined
       ) &&
       !(
-        ['POST /streams', 'SDK streaming_v2.open'].includes(operation.id) &&
+        STREAM_OPEN_IDS.includes(operation.id) &&
         row.name === 'resource_id' &&
         (workflow.body?.resource_id || workflow.parameters?.resource_id)
       ),
@@ -182,9 +190,9 @@ export function NDPWorkflowForm({
     const kind = fieldType(field.schema);
     const title =
       archivedUrl && field.name === 'url'
-        ? 'CSV URL'
+        ? t`CSV URL`
         : archivedUrl && field.name === 'cursor'
-          ? 'Resume cursor'
+          ? t`Resume cursor`
           : (labels[field.name] ?? String(field.schema.title ?? field.name.replaceAll('_', ' ')));
     return (
       <div key={`${field.body}/${field.name}`} className="space-y-1">
@@ -192,8 +200,7 @@ export function NDPWorkflowForm({
           {title}
           {field.required ? ' *' : ''}
         </Label>
-        {['POST /streams', 'SDK streaming_v2.open'].includes(operation.id) &&
-        field.name === 'resource_id' ? (
+        {STREAM_OPEN_IDS.includes(operation.id) && field.name === 'resource_id' ? (
           <>
             <select
               id={`ndp-workflow-${field.name}`}
@@ -201,7 +208,7 @@ export function NDPWorkflowForm({
               value={String(value ?? '')}
               onChange={(event) => change(event.target.value)}
             >
-              <option value="">Choose a cataloged stream</option>
+              <option value="">{t`Choose a cataloged stream`}</option>
               {records(sourceChoices.data).map((source) => (
                 <option key={String(source.id)} value={String(source.id)}>
                   {recordName(source)}
@@ -234,15 +241,14 @@ export function NDPWorkflowForm({
               )
             }
           >
-            <option value="">Default</option>
+            <option value="">{t`Default`}</option>
             {(kind === 'boolean' ? [true, false] : (field.schema.enum as unknown[])).map(
               (option) => (
                 <option key={String(option)} value={String(option)}>
-                  {['POST /streams', 'SDK streaming_v2.open'].includes(operation.id) &&
-                  field.name === 'start'
+                  {STREAM_OPEN_IDS.includes(operation.id) && field.name === 'start'
                     ? option === 'earliest'
-                      ? 'Retained history'
-                      : 'New arrivals'
+                      ? t`Retained history`
+                      : t`New arrivals`
                     : String(option)}
                 </option>
               ),
@@ -258,7 +264,7 @@ export function NDPWorkflowForm({
             max={typeof field.schema.maximum === 'number' ? field.schema.maximum : undefined}
             value={Array.isArray(value) ? value.join(', ') : String(value ?? '')}
             placeholder={String(
-              field.schema.default ?? (kind === 'array' ? 'Separate values with commas' : ''),
+              field.schema.default ?? (kind === 'array' ? t`Separate values with commas` : ''),
             )}
             onChange={(event) => {
               const text = event.target.value;
@@ -297,8 +303,7 @@ export function NDPWorkflowForm({
       <h4 className="font-medium">{workflow.title}</h4>
       {operation.id === 'GET /stream/segment/url' ? (
         <p className="text-xs text-muted-foreground">
-          Save a finite segment, then use its completion cursor under Options to continue from the
-          next record. Between requests the read connection is closed; no remote producer is paused.
+          {t`Save a finite segment, then use its completion cursor under Options to continue from the next record. Between requests the read connection is closed; no remote producer is paused.`}
         </p>
       ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
@@ -324,7 +329,7 @@ export function NDPWorkflowForm({
       ) : null}
       {fields.some((field) => !field.required && !primaryFields.has(field.name)) ? (
         <details className="text-xs">
-          <summary className="cursor-pointer text-muted-foreground">Options</summary>
+          <summary className="cursor-pointer text-muted-foreground">{t`Options`}</summary>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {fields.filter((field) => !field.required && !primaryFields.has(field.name)).map(input)}
           </div>
@@ -332,10 +337,10 @@ export function NDPWorkflowForm({
       ) : null}
       {operation.read_only ? (
         <details className="text-xs">
-          <summary className="cursor-pointer text-muted-foreground">Sample limits</summary>
+          <summary className="cursor-pointer text-muted-foreground">{t`Sample limits`}</summary>
           <div className="mt-2 flex gap-3">
             <Label>
-              Seconds
+              {t`Seconds`}
               <Input
                 type="number"
                 min={1}
@@ -345,7 +350,7 @@ export function NDPWorkflowForm({
               />
             </Label>
             <Label>
-              Events
+              {t`Events`}
               <Input
                 type="number"
                 min={1}
@@ -360,7 +365,9 @@ export function NDPWorkflowForm({
       {review ? (
         <div role="alert" className="space-y-1 text-sm">
           <p>
-            {workflow.title} on <strong>{endpoint.name}</strong>?
+            <Trans>
+              {workflowTitle} on <strong>{endpointName}</strong>?
+            </Trans>
           </p>
           <div className="space-y-1 text-xs text-muted-foreground break-all">
             {Object.entries({ ...values, ...body }).map(([name, value]) => (
@@ -374,21 +381,21 @@ export function NDPWorkflowForm({
       <div className="flex gap-2">
         <Button disabled={request.isPending}>
           {request.isPending
-            ? 'Working…'
+            ? t`Working…`
             : review
-              ? 'Confirm'
+              ? t`Confirm`
               : operation.read_only
                 ? kafkaSegment
                   ? request.data?.continuation
-                    ? 'Capture next records'
-                    : 'Capture records'
+                    ? t`Capture next records`
+                    : t`Capture records`
                   : operation.method === 'SDK'
                     ? workflow.title
-                    : 'Save sample'
-                : 'Review'}
+                    : t`Save sample`
+                : t`Review`}
         </Button>
         <Button type="button" variant="ghost" onClick={onClose}>
-          Cancel
+          {t`Cancel`}
         </Button>
       </div>
       {request.error ? (

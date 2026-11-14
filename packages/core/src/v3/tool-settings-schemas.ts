@@ -31,6 +31,8 @@ export const toolSettingSchema = z.object({
   kind: z.string(),
   server: z.string().default(''),
   description: z.string().default(''),
+  /** An MCP tool's declared inputs, as its server lists them; absent from older agents. */
+  input_schema: z.record(z.string(), z.unknown()).optional(),
   read_only: z.boolean(),
   destructive: z.boolean().default(false),
   flags_known: z.boolean().default(true),

@@ -412,7 +412,7 @@ describe('clio.map.v1 dataUri rendering', () => {
     ]);
 
     render(wrap(<A2uiSurface surface={surface} />));
-    await expectMapCount(user, '1 locations');
+    await expectMapCount(user, '1 location');
     await waitFor(() => expect(repository.artifactTableQuery).toHaveBeenCalledTimes(1));
 
     await user.click(screen.getByRole('button', { name: /^filters/iu }));
@@ -467,7 +467,7 @@ describe('clio.map.v1 dataUri rendering', () => {
         </WithComposer>,
       ),
     );
-    await expectMapCount(user, '1 locations');
+    await expectMapCount(user, '1 location');
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 

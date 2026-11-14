@@ -67,6 +67,9 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { historyIndex, settingsCloseStep } from '@/lib/settings-window-route';
 import { DIALOG_FULL_WINDOW_LAYOUT } from '@/lib/dialog-sheet';
 import { cn } from '@/lib/utils';
+import { t, ph } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 /** The spec's row glyphs: this computer, a CLIO reached over SSH, or a service by address. */
 function connectionSourceIcon(connection: KnownConnection) {
@@ -217,13 +220,13 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
       rootPath?: string;
       sessionTitle: string;
     }) => {
-      if (!mutation.data) throw new Error('Connect to the service first.');
+      if (!mutation.data) throw new Error(t`Connect to the service first.`);
       const repository = createRepository(mutation.data.next);
       const workspaceId =
         input.workspaceId ??
         (
           await repository.createWorkspace({
-            name: input.workspaceName ?? 'My workspace',
+            name: input.workspaceName ?? t`My workspace`,
             root_path: input.rootPath ?? '',
           })
         ).id;
@@ -349,7 +352,7 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
           endpoint: connectingEndpoint,
           label: mutation.variables?.label,
           source: 'recent',
-          availability: { state: 'checking', label: 'Connecting', detail: 'Connecting…' },
+          availability: { state: 'checking', label: t`Connecting`, detail: t`Connecting…` },
         }
       : undefined;
   const rows = connectingRow ? [connectingRow, ...knownConnections] : knownConnections;
@@ -378,9 +381,9 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
   // In the list, progress shows only in the connecting row; the manual form has no row.
   const submitLabel = showManualForm
     ? mutation.isPending
-      ? 'Connecting…'
-      : 'Connect'
-    : 'Open workspace';
+      ? t`Connecting…`
+      : t({ message: 'Connect', context: 'verb' })
+    : t`Open workspace`;
   // A known service that does not answer cannot be opened; its row says so and offers Retry.
   const selectedFailed =
     knownMode &&
@@ -397,17 +400,17 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
   const progressAnnouncement = connectingConnection
     ? connectingConnection.availability.starting
       ? connectingConnection.availability.detail
-      : `Connecting to ${
-          agentIdentity(
+      : t`Connecting to ${ph({
+          name: agentIdentity(
             connectingConnection.endpoint,
             connectingConnection.label,
             connectingConnection.location,
-          ).name
-        }`
+          ).name,
+        })}`
     : showManualForm && mutation.isPending
-      ? `Connecting to ${mutation.variables?.endpoint ?? vocab.agent}`
+      ? t`Connecting to ${ph({ name: mutation.variables?.endpoint ?? agent })}`
       : mutation.error && waiting.waiting
-        ? 'Waiting for the service to start'
+        ? t`Waiting for the service to start`
         : '';
   const retryKnown = (connection: KnownConnection) => {
     setSelectedEndpoint(connection.endpoint);
@@ -417,313 +420,302 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
     mutation.mutate(knownCandidate(connection));
   };
 
+  const closeLabel = dialog ? t`Close` : t`Back to the agent list`;
   const frame = (
-        <ConnectFrame
-          className={
-            dialog
-              ? 'max-h-[calc(100dvh-2rem)] w-full overflow-y-auto max-[599px]:max-h-none'
-              : undefined
-          }
-          closeLabel={dialog ? 'Close' : 'Back to the agent list'}
-          dialog={dialog !== undefined}
-          narrow="window"
-          footer={
-            emptyService ? undefined : (
-              <>
-                {inTauri() ? (
-                  <Button
-                    className={buttonClass}
-                    onClick={() => setDeployOpen(true)}
-                    type="button"
-                    variant="ghost"
-                  >
-                    <ServerIcon aria-hidden="true" /> Deploy {vocab.agent}
-                  </Button>
-                ) : null}
-                <span className="flex-1" />
-                {showCancel ? (
-                  <Button
-                    className={buttonClass}
-                    onClick={cancelManual}
-                    type="button"
-                    variant="ghost"
-                  >
-                    Cancel
-                  </Button>
-                ) : null}
-                <Button
-                  aria-keyshortcuts={submitAria}
-                  className={cn(buttonClass, 'bg-clip-border')}
-                  disabled={
-                    mutation.isPending ||
-                    connectingInRow ||
-                    (knownMode && !selectedConnection) ||
-                    selectedFailed
-                  }
-                  form="connect-form"
-                  type="submit"
-                >
-                  {submitLabel}
-                  {/* The sheet under 600 px drops key hints first. */}
-                  <span aria-hidden="true" className="inline-flex max-[599px]:hidden">
-                    <ShortcutKeys
-                      className="border-current/45"
-                      keys={SUBMIT_KEYS}
-                      variant="inline"
-                    />
-                  </span>
-                </Button>
-              </>
-            )
-          }
-          icon={showManualForm ? <GlobeIcon /> : <ServerIcon />}
-          onClose={dialog ? dialog.onClose : canCancelManual ? backToKnown : undefined}
-          title={
-            emptyService
-              ? `Open ${brand.name}`
-              : showManualForm
-                ? 'Connect by address'
-                : 'Switch to'
-          }
+    <ConnectFrame
+      className={
+        dialog
+          ? 'max-h-[calc(100dvh-2rem)] w-full overflow-y-auto max-[599px]:max-h-none'
+          : undefined
+      }
+      closeLabel={closeLabel}
+      dialog={dialog !== undefined}
+      narrow="window"
+      footer={
+        emptyService ? undefined : (
+          <>
+            {inTauri() ? (
+              <Button
+                className={buttonClass}
+                onClick={() => setDeployOpen(true)}
+                type="button"
+                variant="ghost"
+              >
+                <ServerIcon aria-hidden="true" /> {t`Deploy ${agent}`}
+              </Button>
+            ) : null}
+            <span className="flex-1" />
+            {showCancel ? (
+              <Button className={buttonClass} onClick={cancelManual} type="button" variant="ghost">
+                {t`Cancel`}
+              </Button>
+            ) : null}
+            <Button
+              aria-keyshortcuts={submitAria}
+              className={cn(buttonClass, 'bg-clip-border')}
+              disabled={
+                mutation.isPending ||
+                connectingInRow ||
+                (knownMode && !selectedConnection) ||
+                selectedFailed
+              }
+              form="connect-form"
+              type="submit"
+            >
+              {submitLabel}
+              {/* The sheet under 600 px drops key hints first. */}
+              <span aria-hidden="true" className="inline-flex max-[599px]:hidden">
+                <ShortcutKeys className="border-current/45" keys={SUBMIT_KEYS} variant="inline" />
+              </span>
+            </Button>
+          </>
+        )
+      }
+      icon={showManualForm ? <GlobeIcon /> : <ServerIcon />}
+      onClose={dialog ? dialog.onClose : canCancelManual ? backToKnown : undefined}
+      title={
+        emptyService
+          ? t`Open ${ph({ name: brand.name })}`
+          : showManualForm
+            ? t`Connect by address`
+            : t`Switch to`
+      }
+    >
+      <p aria-atomic="true" aria-live="polite" className="sr-only" role="status">
+        {progressAnnouncement}
+      </p>
+      {inTauri() ? (
+        <DeployClioDialog
+          knownServices={knownConnections}
+          onOpenChange={setDeployOpen}
+          onReady={(candidate) => mutation.mutateAsync(candidate).then(() => undefined)}
+          open={deployOpen}
+        />
+      ) : null}
+      {emptyService ? (
+        <ConnectionEmptyService
+          error={setup.error?.message}
+          onCreate={(input) => setup.mutateAsync(input).then(() => undefined)}
+          pending={setup.isPending}
+          workspaces={mutation.data.workspaces}
+        />
+      ) : (
+        <form
+          className="flex min-w-0 flex-col gap-[13px]"
+          id="connect-form"
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
+            event.preventDefault();
+            event.currentTarget.requestSubmit();
+          }}
+          onSubmit={submit}
         >
-          <p aria-atomic="true" aria-live="polite" className="sr-only" role="status">
-            {progressAnnouncement}
-          </p>
-          {inTauri() ? (
-            <DeployClioDialog
-              knownServices={knownConnections}
-              onOpenChange={setDeployOpen}
-              onReady={(candidate) => mutation.mutateAsync(candidate).then(() => undefined)}
-              open={deployOpen}
+          {knownMode ? (
+            <div className="-mx-2 flex min-w-0 flex-col" role="group" aria-label={t`Switch to`}>
+              {rows.map((connection) => {
+                const selected = connection.endpoint === selectedEndpoint;
+                const Icon = connectionSourceIcon(connection);
+                // The CLIO menu's identity: the name leads; the address is secondary.
+                const identity = agentIdentity(
+                  connection.endpoint,
+                  connection.label,
+                  connection.location,
+                );
+                const name = identity.name;
+                const connecting = isConnectingRow(connection);
+                const availability = availabilityAfterAttempt(connection, mutation);
+                const failed = !connecting && availabilityFailed(availability);
+                const connectingDetail = connection.availability.starting
+                  ? connection.availability.detail
+                  : t`Connecting…`;
+                return (
+                  <ListRow
+                    className="min-h-[30px]"
+                    columns={
+                      <span className="flex w-[104px] shrink-0 justify-end">
+                        {connecting ? null : failed ? (
+                          <IconButton
+                            className="z-10"
+                            disabled={mutation.isPending}
+                            icon={<RetryIcon aria-hidden="true" />}
+                            label={t`Retry`}
+                            onClick={() => retryKnown(connection)}
+                            size="sm"
+                            type="button"
+                          />
+                        ) : (
+                          <ConnectionAvailabilityIndicator
+                            availability={{
+                              ...availability,
+                              label: agentAvailabilityLabel(
+                                availability,
+                                connection.endpoint === settings.endpoint,
+                              ),
+                            }}
+                            compact
+                            endpoint={connection.endpoint}
+                          />
+                        )}
+                      </span>
+                    }
+                    description={
+                      connecting ? (
+                        <span
+                          className="inline-flex max-w-full min-w-0 items-center gap-1.5"
+                          title={connectingDetail}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="block size-[9px] shrink-0 rounded-full border-[1.5px] border-primary border-t-transparent motion-safe:animate-spin"
+                          />
+                          <span className="min-w-0 truncate">{connectingDetail}</span>
+                        </span>
+                      ) : failed ? (
+                        <span
+                          className="inline-flex max-w-full min-w-0 items-center gap-1 text-destructive-foreground"
+                          title={
+                            availability.diagnostics
+                              ? `${availability.detail}\n\n${availability.diagnostics}`
+                              : availability.detail
+                          }
+                        >
+                          <TriangleAlertIcon
+                            aria-hidden="true"
+                            className="size-3 shrink-0 text-destructive"
+                          />
+                          <span className="min-w-0 truncate">
+                            {knownServiceFailure(connection, availability, mutation)}
+                          </span>
+                        </span>
+                      ) : (
+                        identity.address
+                      )
+                    }
+                    icon={<Icon />}
+                    key={connection.endpoint}
+                    layout="stacked"
+                    primaryAction={
+                      connecting ? (
+                        <span className="relative z-10">
+                          <IconButton
+                            icon={<CloseIcon aria-hidden="true" />}
+                            label={t`Stop connecting`}
+                            onClick={stopConnecting}
+                            size="sm"
+                            type="button"
+                          />
+                        </span>
+                      ) : (
+                        <span className="relative z-10">
+                          <KnownServiceActions
+                            canForget={connection.source !== 'managed'}
+                            known={knownConnections}
+                            name={name}
+                            onForget={() => {
+                              const next = knownConnections.find(
+                                (candidate) => candidate.endpoint !== connection.endpoint,
+                              );
+                              void forget(connection.endpoint);
+                              if (selectedEndpoint === connection.endpoint) {
+                                if (next) setSelectedEndpoint(next.endpoint);
+                                else setManualModeRequested(true);
+                              }
+                            }}
+                            onRename={(label) => rename(connection, label)}
+                            service={connection}
+                          />
+                        </span>
+                      )
+                    }
+                    selected={selected}
+                    selectedTone="accent"
+                    title={
+                      <button
+                        aria-pressed={selected}
+                        className="text-left outline-none after:absolute after:inset-0 after:rounded-[6px] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
+                        onClick={() => setSelectedEndpoint(connection.endpoint)}
+                        type="button"
+                      >
+                        {name}
+                      </button>
+                    }
+                  />
+                );
+              })}
+              <SavedHostsCheck />
+              <button
+                className="flex min-h-[30px] items-center gap-2.5 rounded-[6px] px-2 text-left text-menu text-accent-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+                onClick={() => {
+                  attemptGeneration.current += 1;
+                  setManualModeRequested(true);
+                  setEndpointDraft('');
+                  setServiceNameDraft('');
+                  setToken('');
+                  mutation.reset();
+                }}
+                type="button"
+              >
+                <AddIcon aria-hidden="true" className="size-4" />
+                {t`Add an agent…`}
+              </button>
+            </div>
+          ) : (
+            <ConnectAddressFields
+              endpoint={endpointDraft}
+              name={serviceNameDraft}
+              onEndpointChange={setEndpointDraft}
+              onNameChange={setServiceNameDraft}
+              onTokenChange={setToken}
+              token={token}
+            />
+          )}
+
+          {mutation.error && waiting.waiting && !connectingInRow ? (
+            <ConnectionWaitingNotice availability={waiting.availability} />
+          ) : null}
+          {mutation.error && !waiting.waiting && !errorShownInRow && !connectingInRow ? (
+            <ConnectErrorLine
+              error={mutation.error}
+              onRetry={mutation.variables ? () => mutation.mutate(mutation.variables) : undefined}
+              recovery={
+                mutation.error instanceof InfrastructureTargetGoneError && mutation.variables ? (
+                  <Button
+                    onClick={() => {
+                      const goneEndpoint = mutation.variables.endpoint;
+                      void forget(goneEndpoint);
+                      mutation.reset();
+                      setManualModeRequested(false);
+                      setSelectedEndpoint((current) =>
+                        current === goneEndpoint ? defaultEndpoint() : current,
+                      );
+                      setDeployOpen(true);
+                    }}
+                    size="compact"
+                    type="button"
+                    variant="outline"
+                  >
+                    {t`Remove and redeploy`}
+                  </Button>
+                ) : undefined
+              }
+              // A failed row already reads "Can't connect"; the line adds only the reason.
+              title={selectedFailed ? undefined : t`Can't connect`}
+              tokenSent={Boolean(mutation.variables?.token)}
             />
           ) : null}
-          {emptyService ? (
-            <ConnectionEmptyService
-              error={setup.error?.message}
-              onCreate={(input) => setup.mutateAsync(input).then(() => undefined)}
-              pending={setup.isPending}
-              workspaces={mutation.data.workspaces}
+          {!mutation.error && credentialError ? (
+            <ConnectErrorLine
+              error={new Error(credentialError)}
+              title={
+                managedBackendStatus?.kind === 'auth_unavailable'
+                  ? t`Can't sign in to the running ${agent}`
+                  : t`Local ${agent} could not start`
+              }
             />
-          ) : (
-            <form
-              className="flex min-w-0 flex-col gap-[13px]"
-              id="connect-form"
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
-                event.preventDefault();
-                event.currentTarget.requestSubmit();
-              }}
-              onSubmit={submit}
-            >
-              {knownMode ? (
-                <div className="-mx-2 flex min-w-0 flex-col" role="group" aria-label="Switch to">
-                  {rows.map((connection) => {
-                    const selected = connection.endpoint === selectedEndpoint;
-                    const Icon = connectionSourceIcon(connection);
-                    // The CLIO menu's identity: the name leads; the address is secondary.
-                    const identity = agentIdentity(
-                      connection.endpoint,
-                      connection.label,
-                      connection.location,
-                    );
-                    const name = identity.name;
-                    const connecting = isConnectingRow(connection);
-                    const availability = availabilityAfterAttempt(connection, mutation);
-                    const failed = !connecting && availabilityFailed(availability);
-                    const connectingDetail = connection.availability.starting
-                      ? connection.availability.detail
-                      : 'Connecting…';
-                    return (
-                      <ListRow
-                        className="min-h-[30px]"
-                        columns={
-                          <span className="flex w-[104px] shrink-0 justify-end">
-                            {connecting ? null : failed ? (
-                              <IconButton
-                                className="z-10"
-                                disabled={mutation.isPending}
-                                icon={<RetryIcon aria-hidden="true" />}
-                                label="Retry"
-                                onClick={() => retryKnown(connection)}
-                                size="sm"
-                                type="button"
-                              />
-                            ) : (
-                              <ConnectionAvailabilityIndicator
-                                availability={{
-                                  ...availability,
-                                  label: agentAvailabilityLabel(
-                                    availability,
-                                    connection.endpoint === settings.endpoint,
-                                  ),
-                                }}
-                                compact
-                                endpoint={connection.endpoint}
-                              />
-                            )}
-                          </span>
-                        }
-                        description={
-                          connecting ? (
-                            <span
-                              className="inline-flex max-w-full min-w-0 items-center gap-1.5"
-                              title={connectingDetail}
-                            >
-                              <span
-                                aria-hidden="true"
-                                className="block size-[9px] shrink-0 rounded-full border-[1.5px] border-primary border-t-transparent motion-safe:animate-spin"
-                              />
-                              <span className="min-w-0 truncate">{connectingDetail}</span>
-                            </span>
-                          ) : failed ? (
-                            <span
-                              className="inline-flex max-w-full min-w-0 items-center gap-1 text-destructive-foreground"
-                              title={
-                                availability.diagnostics
-                                  ? `${availability.detail}\n\n${availability.diagnostics}`
-                                  : availability.detail
-                              }
-                            >
-                              <TriangleAlertIcon
-                                aria-hidden="true"
-                                className="size-3 shrink-0 text-destructive"
-                              />
-                              <span className="min-w-0 truncate">
-                                {knownServiceFailure(connection, availability, mutation)}
-                              </span>
-                            </span>
-                          ) : (
-                            identity.address
-                          )
-                        }
-                        icon={<Icon />}
-                        key={connection.endpoint}
-                        layout="stacked"
-                        primaryAction={
-                          connecting ? (
-                            <span className="relative z-10">
-                              <IconButton
-                                icon={<CloseIcon aria-hidden="true" />}
-                                label="Stop connecting"
-                                onClick={stopConnecting}
-                                size="sm"
-                                type="button"
-                              />
-                            </span>
-                          ) : (
-                            <span className="relative z-10">
-                              <KnownServiceActions
-                                canForget={connection.source !== 'managed'}
-                                known={knownConnections}
-                                name={name}
-                                onForget={() => {
-                                  const next = knownConnections.find(
-                                    (candidate) => candidate.endpoint !== connection.endpoint,
-                                  );
-                                  void forget(connection.endpoint);
-                                  if (selectedEndpoint === connection.endpoint) {
-                                    if (next) setSelectedEndpoint(next.endpoint);
-                                    else setManualModeRequested(true);
-                                  }
-                                }}
-                                onRename={(label) => rename(connection, label)}
-                                service={connection}
-                              />
-                            </span>
-                          )
-                        }
-                        selected={selected}
-                        selectedTone="accent"
-                        title={
-                          <button
-                            aria-pressed={selected}
-                            className="text-left outline-none after:absolute after:inset-0 after:rounded-[6px] focus-visible:after:ring-1 focus-visible:after:ring-ring focus-visible:after:ring-inset"
-                            onClick={() => setSelectedEndpoint(connection.endpoint)}
-                            type="button"
-                          >
-                            {name}
-                          </button>
-                        }
-                      />
-                    );
-                  })}
-                  <SavedHostsCheck />
-                  <button
-                    className="flex min-h-[30px] items-center gap-2.5 rounded-[6px] px-2 text-left text-[12.5px] text-accent-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
-                    onClick={() => {
-                      attemptGeneration.current += 1;
-                      setManualModeRequested(true);
-                      setEndpointDraft('');
-                      setServiceNameDraft('');
-                      setToken('');
-                      mutation.reset();
-                    }}
-                    type="button"
-                  >
-                    <AddIcon aria-hidden="true" className="size-4" />
-                    Add an agent…
-                  </button>
-                </div>
-              ) : (
-                <ConnectAddressFields
-                  endpoint={endpointDraft}
-                  name={serviceNameDraft}
-                  onEndpointChange={setEndpointDraft}
-                  onNameChange={setServiceNameDraft}
-                  onTokenChange={setToken}
-                  token={token}
-                />
-              )}
-
-              {mutation.error && waiting.waiting && !connectingInRow ? (
-                <ConnectionWaitingNotice availability={waiting.availability} />
-              ) : null}
-              {mutation.error && !waiting.waiting && !errorShownInRow && !connectingInRow ? (
-                <ConnectErrorLine
-                  error={mutation.error}
-                  onRetry={
-                    mutation.variables ? () => mutation.mutate(mutation.variables) : undefined
-                  }
-                  recovery={
-                    mutation.error instanceof InfrastructureTargetGoneError &&
-                    mutation.variables ? (
-                      <Button
-                        onClick={() => {
-                          const goneEndpoint = mutation.variables.endpoint;
-                          void forget(goneEndpoint);
-                          mutation.reset();
-                          setManualModeRequested(false);
-                          setSelectedEndpoint((current) =>
-                            current === goneEndpoint ? defaultEndpoint() : current,
-                          );
-                          setDeployOpen(true);
-                        }}
-                        size="compact"
-                        type="button"
-                        variant="outline"
-                      >
-                        Remove and redeploy
-                      </Button>
-                    ) : undefined
-                  }
-                  // A failed row already reads "Can't connect"; the line adds only the reason.
-                  title={selectedFailed ? undefined : "Can't connect"}
-                  tokenSent={Boolean(mutation.variables?.token)}
-                />
-              ) : null}
-              {!mutation.error && credentialError ? (
-                <ConnectErrorLine
-                  error={new Error(credentialError)}
-                  title={
-                    managedBackendStatus?.kind === 'auth_unavailable'
-                      ? `Can't sign in to the running ${vocab.agent}`
-                      : `Local ${vocab.agent} could not start`
-                  }
-                />
-              ) : null}
-            </form>
-          )}
-        </ConnectFrame>
+          ) : null}
+        </form>
+      )}
+    </ConnectFrame>
   );
 
   if (dialog) {
@@ -744,7 +736,7 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
             const content = event.currentTarget as HTMLElement;
             const first = [
               ...content.querySelectorAll<HTMLElement>('input, button, [tabindex="0"]'),
-            ].find((element) => element.getAttribute('aria-label') !== 'Close');
+            ].find((element) => element.getAttribute('aria-label') !== closeLabel);
             first?.focus();
           }}
         >
@@ -757,7 +749,7 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
   return (
     <main className="relative h-full min-h-0 overflow-y-auto bg-background text-foreground">
       <div className="mx-auto flex min-h-full w-full max-w-[492px] flex-col justify-center gap-4 px-4 py-14">
-        <p className="flex items-center gap-2 font-heading text-[15px] font-semibold">
+        <p className="flex items-center gap-2 font-heading text-h3 font-semibold">
           <BrandIcon className="size-[22px] shrink-0 text-primary" />
           {brand.name}
         </p>
@@ -782,5 +774,5 @@ export function ConnectionDialog({ background }: { background: string }) {
   return <ConnectionPage dialog={{ onClose: close }} />;
 }
 
-const buttonClass = 'h-[30px] rounded-[6px] px-3 text-[12.5px] font-medium';
+const buttonClass = 'h-[30px] rounded-[6px] px-3 text-menu font-medium';
 const SUBMIT_KEYS = ['Ctrl+Enter'] as const;

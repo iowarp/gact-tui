@@ -1,5 +1,6 @@
 import { TransportError, type BrowserPage } from '@clio/core/v3';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { McpAppSurface } from './mcp-app-surface';
 
@@ -72,7 +73,7 @@ describe('McpAppSurface', () => {
     const client = repository();
     const { container } = render(<McpAppSurface {...props} repository={client} />);
     const iframe = await screen.findByTitle<HTMLIFrameElement>(
-      'vigil_open_viewer interactive view',
+      'vigil_open_viewer, interactive view',
     );
     expect(iframe).toHaveAttribute('referrerpolicy', 'origin');
     const target = iframe.contentWindow;
@@ -137,6 +138,38 @@ describe('McpAppSurface', () => {
         }),
       );
     });
+    // FP-D9: initialized is not yet drawn; the host looks before it says Ready.
+    expect(await screen.findByText('Drawing')).toBeVisible();
+    const look = await waitFor(
+      () => {
+        const call = post.mock.calls.find(
+          ([message]) => (message as { method?: string }).method === 'clio/view-snapshot',
+        );
+        expect(call).toBeDefined();
+        return call![0] as { id: string };
+      },
+      { timeout: 3000 },
+    );
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            jsonrpc: '2.0',
+            id: look.id,
+            result: {
+              image: 'data:image/png;base64,AA==',
+              width: 10,
+              height: 10,
+              scale: 0.25,
+              painted: { canvas: 1, image: 0, svg: 0, video: 0, text: 0 },
+              skipped: [],
+            },
+          },
+          origin: 'http://localhost:8788',
+          source: target,
+        }),
+      );
+    });
     expect(await screen.findByText('Ready')).toBeVisible();
     expect(post).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -157,7 +190,7 @@ describe('McpAppSurface', () => {
     const client = repository();
     const view = render(<McpAppSurface {...props} appInstanceId="app_2" repository={client} />);
     const iframe = await screen.findByTitle<HTMLIFrameElement>(
-      'vigil_open_viewer interactive view',
+      'vigil_open_viewer, interactive view',
     );
     const target = iframe.contentWindow;
 
@@ -217,7 +250,7 @@ describe('McpAppSurface', () => {
     render(<McpAppSurface {...props} appInstanceId="app_3" repository={client} />);
 
     expect(await screen.findByText('Interactive tool unavailable')).toBeVisible();
-    expect(screen.queryByTitle('vigil_open_viewer interactive view')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('vigil_open_viewer, interactive view')).not.toBeInTheDocument();
   });
 
   it('says the service is unavailable instead of Ready when its service does not answer', async () => {
@@ -251,7 +284,7 @@ describe('McpAppSurface', () => {
 
     render(<McpAppSurface {...props} appInstanceId="app_retry" repository={client} />);
 
-    expect(await screen.findByTitle('vigil_open_viewer interactive view')).toBeVisible();
+    expect(await screen.findByTitle('vigil_open_viewer, interactive view')).toBeVisible();
     expect(client.mcpAppDescriptor).toHaveBeenCalledTimes(2);
     expect(screen.queryByText('Interactive tool unavailable')).not.toBeInTheDocument();
   });
@@ -275,7 +308,9 @@ describe('McpAppSurface', () => {
   it('removes the replaced iframe without treating a render replacement as closure', async () => {
     const client = repository();
     const view = render(<McpAppSurface {...props} appInstanceId="app_4" repository={client} />);
-    const first = await screen.findByTitle<HTMLIFrameElement>('vigil_open_viewer interactive view');
+    const first = await screen.findByTitle<HTMLIFrameElement>(
+      'vigil_open_viewer, interactive view',
+    );
     expect(first).toHaveAttribute('data-mcp-app-iframe', 'app_4');
 
     view.rerender(
@@ -289,10 +324,23 @@ describe('McpAppSurface', () => {
     );
 
     const second = await screen.findByTitle<HTMLIFrameElement>(
-      'simulation_viewer interactive view',
+      'simulation_viewer, interactive view',
     );
     expect(second).toHaveAttribute('data-mcp-app-iframe', 'app_5');
     expect(document.querySelector('[data-mcp-app-iframe="app_4"]')).not.toBeInTheDocument();
+    expect(client.closeMcpApp).not.toHaveBeenCalled();
+  });
+
+  it('reloads the view from the frame menu without closing it (FP-D9)', async () => {
+    const user = userEvent.setup();
+    const client = repository();
+    render(<McpAppSurface {...props} label="Viewer: run.vti" repository={client} />);
+    const first = await screen.findByTitle('Viewer: run.vti, interactive view');
+    await user.click(screen.getByRole('button', { name: 'More actions for Viewer: run.vti' }));
+    await user.click(await screen.findByRole('menuitem', { name: /Reload view/ }));
+    await waitFor(() => expect(client.mcpAppDescriptor).toHaveBeenCalledTimes(2));
+    const second = await screen.findByTitle('Viewer: run.vti, interactive view');
+    expect(second).not.toBe(first);
     expect(client.closeMcpApp).not.toHaveBeenCalled();
   });
 });

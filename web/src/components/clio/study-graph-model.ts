@@ -6,6 +6,7 @@ import {
   outgoing,
   type ScienceState,
 } from './science-log-model';
+import { ph, plural, t } from '@lingui/core/macro';
 
 export interface StudyGraphNode {
   id: string;
@@ -62,9 +63,9 @@ export function studyGraph(study: ScienceStudy): StudyGraphModel {
     nodes.push({
       id,
       kind: 'unknown',
-      title: `Unavailable entry ${id}`,
+      title: t`Unavailable entry ${id}`,
       branch: '',
-      state: { label: 'unavailable', tone: 'neutral' },
+      state: { label: t`unavailable`, tone: 'neutral' },
       missing: true,
     });
   }
@@ -118,12 +119,15 @@ export function studyGraphOverview(
     nodes.push({
       id: key,
       kind: 'observations',
-      title: `${ids.length} observations`,
-      branch: branches.size === 1 ? (first?.branch ?? '') : `${branches.size} branches`,
+      title: plural(ids.length, { one: '# observation', other: '# observations' }),
+      branch:
+        branches.size === 1
+          ? (first?.branch ?? '')
+          : plural(branches.size, { one: '# branch', other: '# branches' }),
       state:
         labels.size === 1 && first
-          ? { ...first.state, label: `all ${first.state.label}` }
-          : { label: 'mixed', tone: 'neutral' },
+          ? { ...first.state, label: t`all ${ph({ state: first.state.label })}` }
+          : { label: t`mixed`, tone: 'neutral' },
       missing: false,
       members: ids,
     });

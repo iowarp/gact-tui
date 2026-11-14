@@ -12,6 +12,7 @@ import {
 } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
+import { t, ph } from '@lingui/core/macro';
 
 type Heard = 'offline' | 'resuming' | 'live';
 
@@ -23,9 +24,9 @@ function heardAs(state: StreamState): Heard | undefined {
 }
 
 const SPOKEN: Readonly<Record<Heard, string>> = {
-  offline: `Can't reach ${vocab.agent}, retrying`,
-  resuming: 'Resuming updates',
-  live: `Connected to ${vocab.agent} again`,
+  offline: t`Can't reach ${ph({ agent: vocab.agent })}, retrying`,
+  resuming: t`Resuming updates`,
+  live: t`Connected to ${ph({ agent: vocab.agent })} again`,
 };
 
 /**

@@ -1,5 +1,4 @@
 import { brand } from '@brand';
-import { withArticle } from '@/lib/brand-vocabulary';
 import {
   ArrowLeftIcon,
   CheckIcon,
@@ -57,6 +56,15 @@ import {
   type AgentIdentity,
 } from './connection-names';
 import { identifierInputProps } from '@/lib/identifier-input';
+import { select, t, ph } from '@lingui/core/macro';
+
+/** "A CLIO that is already running": the article follows the agent's name. */
+function alreadyRunningDetail(agentName: string): string {
+  return select(/^[aeiou]/iu.test(agentName) ? 'an' : 'a', {
+    an: `An ${agentName} that is already running`,
+    other: `A ${agentName} that is already running`,
+  });
+}
 
 interface ClioMenuContentProps {
   endpoint: string;
@@ -77,21 +85,21 @@ interface ClioMenuContentProps {
 
 const LIVE_AVAILABILITY: ConnectionAvailability = {
   state: 'healthy',
-  label: 'Ready',
-  detail: 'Connected now.',
+  label: t`Ready`,
+  detail: t`Connected now.`,
 };
 
 const MENU_HINTS = [
-  { id: 'menu-move', label: 'move' },
-  { id: 'menu-pick', label: 'switch' },
-  { id: 'menu-open', label: 'open' },
+  { id: 'menu-move', label: t({ message: 'move', context: 'menu key hint' }) },
+  { id: 'menu-pick', label: t({ message: 'switch', context: 'menu key hint' }) },
+  { id: 'menu-open', label: t({ message: 'open', context: 'menu key hint' }) },
 ] as const;
 
 /** Drilled into Add an agent at narrow widths: Enter chooses a way, Left goes back. */
 const ADD_HINTS = [
-  { id: 'menu-move', label: 'move' },
-  { id: 'menu-pick', label: 'choose' },
-  { id: 'menu-back', label: 'back' },
+  { id: 'menu-move', label: t({ message: 'move', context: 'menu key hint' }) },
+  { id: 'menu-pick', label: t({ message: 'choose', context: 'menu key hint' }) },
+  { id: 'menu-back', label: t({ message: 'back', context: 'menu key hint' }) },
 ] as const;
 
 /** A short state word for the 62px status column; the full sentence is on hover. */
@@ -105,9 +113,9 @@ function availabilityStatus(
     case 'unavailable':
       return { label: agentAvailabilityLabel(availability, active), tone };
     case 'degraded':
-      return { label: 'Limited', tone };
+      return { label: t`Limited`, tone };
     default:
-      return { label: 'Checking', tone };
+      return { label: t`Checking`, tone };
   }
 }
 
@@ -126,16 +134,20 @@ function webBuildVersion(): string | undefined {
 const GROUP_LABEL = 'pt-[9px] pb-[3px] font-semibold';
 /** The facts' columns: label 46%, value right-aligned, a 22px action. */
 const FACT_COLUMNS = 'grid-cols-[46%_minmax(0,1fr)_22px] gap-x-2.5';
-const FACT_GRID = cn(FACT_COLUMNS, 'auto-rows-[25px] gap-y-0');
+/**
+ * The facts' own grid lets a longer label ("Έκδοση χρόνου εκτέλεσης") take what its short
+ * version values leave, so labels still start and values still end on the same x.
+ */
+const FACT_GRID = 'grid-cols-[minmax(46%,max-content)_minmax(0,1fr)_22px] gap-x-2.5 auto-rows-[25px] gap-y-0';
 /** A fact row that is also a menu item: the same columns and height as the facts. */
 const FACT_ITEM = cn(
-  "-mx-1.5 grid min-h-[25px] rounded-[5px] px-1.5 py-0 text-[12px] [&_svg:not([class*='size-'])]:size-[13px]",
+  "-mx-1.5 grid min-h-[25px] rounded-[5px] px-1.5 py-0 text-meta [&_svg:not([class*='size-'])]:size-[13px]",
   FACT_COLUMNS,
 );
 /** A fact row's action column: one 22px icon at the row's end. */
 const FACT_ACTION = '-mr-1 grid size-[22px] place-items-center justify-self-end';
 const FACT_LABEL = 'flex min-w-0 items-center gap-2';
-const FACT_VALUE = 'min-w-0 truncate text-right font-mono text-[11.5px] text-foreground/85';
+const FACT_VALUE = 'min-w-0 truncate text-right font-mono text-label text-foreground/85';
 
 function addressOf(endpoint: string): string {
   try {
@@ -169,7 +181,7 @@ export function SwitchAgentItem({
   const unavailable = availability.state === 'unavailable';
   return (
     <DropdownMenuItem
-      className="min-h-[30px] py-[3px] text-[12.5px] data-disabled:opacity-100 [&_svg:not([class*='size-'])]:size-[15px]"
+      className="min-h-[30px] py-[3px] text-menu data-disabled:opacity-100 [&_svg:not([class*='size-'])]:size-[15px]"
       disabled={unavailable}
       onSelect={() => void onConnect(connection)}
       title={`${connection.endpoint}. ${agentAvailabilityLabel(availability, false)}: ${availability.detail}`}
@@ -238,11 +250,18 @@ export function ClioMenuContent({
       ({ saved }) => !needle || `${saved.name} ${saved.address}`.toLowerCase().includes(needle),
     );
   const facts: KeyValueItem[] = [
-    { label: 'Transport', icon: <PlugIcon />, value: desktop ? 'Bridge' : 'Direct', mono: true },
+    {
+      label: t`Transport`,
+      icon: <PlugIcon />,
+      value: desktop
+        ? t({ message: 'Bridge', context: 'connection transport' })
+        : t({ message: 'Direct', context: 'connection transport' }),
+      mono: true,
+    },
     ...(interfaceVersion
       ? [
           {
-            label: 'Interface version',
+            label: t`Interface version`,
             icon: <LayersIcon />,
             value: `v${interfaceVersion}`,
             mono: true,
@@ -252,7 +271,7 @@ export function ClioMenuContent({
     ...(runtime.version
       ? [
           {
-            label: 'Runtime version',
+            label: t`Runtime version`,
             icon: <ServerIcon />,
             value: `v${runtime.version}`,
             mono: true,
@@ -294,8 +313,8 @@ export function ClioMenuContent({
           <SearchIcon aria-hidden="true" className="size-[15px] shrink-0" />
           <input
             {...identifierInputProps}
-            aria-label="Search agents"
-            className="h-full min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground"
+            aria-label={t`Search agents`}
+            className="h-full min-w-0 flex-1 bg-transparent text-menu text-foreground outline-none placeholder:text-muted-foreground"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'ArrowDown') {
@@ -305,7 +324,7 @@ export function ClioMenuContent({
                 event.stopPropagation();
               }
             }}
-            placeholder="Search agents"
+            placeholder={t`Search agents`}
             ref={searchRef}
             type="search"
             value={query}
@@ -314,9 +333,9 @@ export function ClioMenuContent({
         </label>
       ) : null}
       {adding ? (
-        <div className="p-1.5 text-[12.5px]">
+        <div className="p-1.5 text-menu">
           <DropdownMenuItem
-            className="min-h-[30px] py-[3px] text-[12.5px]"
+            className="min-h-[30px] py-[3px] text-menu"
             onSelect={(event) => {
               event.preventDefault();
               setAdding(false);
@@ -328,14 +347,14 @@ export function ClioMenuContent({
             }}
             ref={backRef}
           >
-            <MenuRow className="gap-[9px]" icon={<ArrowLeftIcon />} label="Add an agent" />
+            <MenuRow className="gap-[9px]" icon={<ArrowLeftIcon />} label={t`Add an agent`} />
           </DropdownMenuItem>
           <DropdownMenuSeparator className="my-1.5" />
           <AddAgentItems desktop={desktop} />
         </div>
       ) : (
-        <div className="p-1.5 text-[12.5px]">
-          <DropdownMenuLabel className={GROUP_LABEL}>Talking to</DropdownMenuLabel>
+        <div className="p-1.5 text-menu">
+          <DropdownMenuLabel className={GROUP_LABEL}>{t`Talking to`}</DropdownMenuLabel>
           <div
             className="flex min-h-[30px] min-w-0 items-center gap-[9px] rounded-[5px] bg-accent px-2 py-[3px] text-accent-foreground"
             title={`${active.label}: ${active.detail}`}
@@ -345,11 +364,11 @@ export function ClioMenuContent({
             </span>
             <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
               <span className="truncate font-medium">{identity.name}</span>
-              <span className="truncate text-[11px] text-accent-foreground">{identity.place}</span>
+              <span className="truncate text-caption text-accent-foreground">{identity.place}</span>
             </span>
             <span className="mr-[34px] flex min-w-[62px] shrink-0">
               <StatusIndicator
-                className="text-[11px] text-accent-foreground"
+                className="text-caption text-accent-foreground"
                 label={activeStatus.label}
                 tone={activeStatus.tone}
               />
@@ -363,7 +382,7 @@ export function ClioMenuContent({
               <Link state={returnState} to="/settings/connections">
                 <span className={cn(FACT_LABEL, 'col-span-2')}>
                   <ConnectionSettingsIcon aria-hidden="true" />
-                  <span className="truncate">Connection settings</span>
+                  <span className="truncate">{t`Connection settings`}</span>
                 </span>
                 <span aria-hidden="true" className={cn(FACT_ACTION, 'text-muted-foreground')}>
                   <ChevronRightIcon />
@@ -373,14 +392,14 @@ export function ClioMenuContent({
           </div>
           <DropdownMenuSeparator className="my-1.5" />
           <div className="flex min-w-0 items-center justify-between gap-2">
-            <DropdownMenuLabel className={GROUP_LABEL}>Switch to</DropdownMenuLabel>
+            <DropdownMenuLabel className={GROUP_LABEL}>{t`Switch to`}</DropdownMenuLabel>
             <DropdownMenuItem
               asChild
-              className="mt-1.5 h-6 min-h-0 gap-[5px] px-2 text-[11px] font-medium text-link [&_svg:not([class*='size-'])]:size-[13px]"
+              className="mt-1.5 h-6 min-h-0 gap-[5px] px-2 text-caption font-medium text-link [&_svg:not([class*='size-'])]:size-[13px]"
             >
               <Link to="/?intent=connect">
                 <LayersIcon aria-hidden="true" />
-                Manage agents
+                {t`Manage agents`}
               </Link>
             </DropdownMenuItem>
           </div>
@@ -394,14 +413,14 @@ export function ClioMenuContent({
               />
             ))
           ) : (
-            <p className="truncate px-2 py-1.5 text-[12px] text-muted-foreground">
-              {needle ? 'No saved agent matches' : 'No other saved agents'}
+            <p className="truncate px-2 py-1.5 text-meta text-muted-foreground">
+              {needle ? t`No saved agent matches` : t`No other saved agents`}
             </p>
           )}
           <DropdownMenuSeparator className="my-1.5" />
           {narrow ? (
             <DropdownMenuItem
-              className="min-h-[30px] text-[12.5px] text-link"
+              className="min-h-[30px] text-menu text-link"
               onSelect={(event) => {
                 event.preventDefault();
                 setAdding(true);
@@ -417,21 +436,21 @@ export function ClioMenuContent({
               <MenuRow
                 className="gap-[9px]"
                 icon={<AddIcon className="text-link" />}
-                label="Add an agent…"
+                label={t`Add an agent…`}
                 submenu
               />
             </DropdownMenuItem>
           ) : (
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="min-h-[30px] text-[12.5px] text-link">
+              <DropdownMenuSubTrigger className="min-h-[30px] text-menu text-link">
                 <MenuRow
                   className="gap-[9px]"
                   icon={<AddIcon className="text-link" />}
-                  label="Add an agent…"
+                  label={t`Add an agent…`}
                 />
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent
-                className="w-[292px] text-[12.5px] [&_[data-slot=menu-row]_[title]]:text-muted-foreground!"
+                className="w-[292px] text-menu [&_[data-slot=menu-row]_[title]]:text-muted-foreground!"
                 alignOffset={-7}
                 sideOffset={12}
               >
@@ -457,33 +476,33 @@ export function ClioMenuContent({
 function AddAgentItems({ desktop }: { desktop: boolean }) {
   return (
     <>
-      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]">
+      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-menu">
         <Link to="/?intent=connect&mode=address">
           <MenuRow
             className="gap-[9px]"
-            detail={`${withArticle(brand.agentName)} that is already running`}
+            detail={alreadyRunningDetail(brand.agentName)}
             icon={<GlobeIcon />}
-            label="Connect by address"
+            label={t`Connect by address`}
           />
         </Link>
       </DropdownMenuItem>
-      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]" disabled={!desktop}>
+      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-menu" disabled={!desktop}>
         <Link to="/?intent=connect&mode=deploy">
           <MenuRow
             className="gap-[9px]"
-            detail={desktop ? 'A saved host, or add one' : 'In the desktop app'}
+            detail={desktop ? t`A saved host, or add one` : t`In the desktop app`}
             icon={<TerminalSquareIcon />}
-            label="Connect over SSH"
+            label={t`Connect over SSH`}
           />
         </Link>
       </DropdownMenuItem>
-      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-[12.5px]" disabled={!desktop}>
+      <DropdownMenuItem asChild className="min-h-[30px] py-[3px] text-menu" disabled={!desktop}>
         <Link to="/?intent=connect&mode=deploy">
           <MenuRow
             className="gap-[9px]"
-            detail={desktop ? 'Set it up over SSH, then connect' : 'In the desktop app'}
+            detail={desktop ? t`Set it up over SSH, then connect` : t`In the desktop app`}
             icon={<RocketIcon />}
-            label={`Install ${brand.agentName} on a computer`}
+            label={t`Install ${ph({ agentName: brand.agentName })} on a computer`}
           />
         </Link>
       </DropdownMenuItem>
@@ -499,7 +518,7 @@ function AddressFact({ address }: { address: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <DropdownMenuItem
-      aria-label={copied ? `Address ${address}. Copied` : `Address ${address}. Copy`}
+      aria-label={copied ? t`Address ${address}. Copied` : t`Address ${address}. Copy`}
       className={FACT_ITEM}
       onSelect={(event) => {
         event.preventDefault();
@@ -509,7 +528,7 @@ function AddressFact({ address }: { address: string }) {
     >
       <span className={cn(FACT_LABEL, 'text-muted-foreground')}>
         <Link2Icon aria-hidden="true" />
-        <span className="truncate">Address</span>
+        <span className="truncate">{t`Address`}</span>
       </span>
       <span className={FACT_VALUE}>{address}</span>
       <span aria-hidden="true" className={cn(FACT_ACTION, 'text-muted-foreground')}>
@@ -523,14 +542,14 @@ function AddressFact({ address }: { address: string }) {
 function InfrastructureItem({ returnState }: { returnState: { endpoint: string; from: string } }) {
   const shortcut = useShortcutPresentation('infrastructure');
   return (
-    <NamedTooltip label="Infrastructure" shortcut="infrastructure" side="top">
+    <NamedTooltip label={t`Infrastructure`} shortcut="infrastructure" side="top">
       <DropdownMenuItem
         asChild
         className="size-6 min-h-0 justify-center rounded-[5px] p-0 text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5"
       >
         <Link
           aria-keyshortcuts={shortcut?.aria}
-          aria-label="Infrastructure"
+          aria-label={t`Infrastructure`}
           state={returnState}
           to="/infrastructure"
         >
@@ -542,12 +561,12 @@ function InfrastructureItem({ returnState }: { returnState: { endpoint: string; 
 }
 
 const UPDATE_LABEL: Record<UpdateStatus['state'], string> = {
-  unknown: 'Not checked yet',
-  checking: 'Checking for updates',
-  current: 'Up to date',
-  available: 'Update available',
-  error: 'Could not check',
-  updating: 'Updating',
+  unknown: t`Not checked yet`,
+  checking: t`Checking for updates`,
+  current: t`Up to date`,
+  available: t`Update available`,
+  error: t`Could not check`,
+  updating: t`Updating`,
 };
 
 /**
@@ -560,9 +579,15 @@ function UpdateFact({ update }: { update: UpdateStatus }) {
   const installable = update.state === 'available' && update.install;
   const label =
     update.state === 'available' && update.targetVersion
-      ? `v${update.targetVersion} ${update.install ? 'ready' : 'available'}`
+      ? update.install
+        ? t`v${ph({ version: update.targetVersion })} ready`
+        : t`v${ph({ version: update.targetVersion })} available`
       : UPDATE_LABEL[update.state];
-  const action = installable ? 'Install' : update.state === 'unknown' ? 'Check now' : 'Check again';
+  const action = installable
+    ? t`Install`
+    : update.state === 'unknown'
+      ? t`Check now`
+      : t`Check again`;
   const icon =
     update.state === 'current' ? (
       <CheckIcon className="text-link" />

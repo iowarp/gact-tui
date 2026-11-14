@@ -6,6 +6,8 @@ import { TimePicker, TimePickerInput, TimePickerContent } from '@/components/reu
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { t } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 function preferredHourCycle(): 12 | 24 {
   return new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hour12 ? 12 : 24;
@@ -51,14 +53,28 @@ export function DateTimeField({
   const time = enableDate ? (parts[1]?.replace(/(?:Z|[+-]\d\d:\d\d)$/u, '') ?? '') : value;
   const parsed = day ? parseISO(day) : undefined;
   const validDay = parsed && !Number.isNaN(parsed.getTime());
-  const fullCaption = validDay
-    ? `${format(parsed, 'PPP')}${enableTime && time ? ` at ${time}` : ''}`
-    : 'Choose a date';
+  const longDate = validDay
+    ? new Intl.DateTimeFormat(formatLocale(), { dateStyle: 'long' }).format(parsed)
+    : '';
+  const fullCaption = !validDay
+    ? t`Choose a date`
+    : enableTime && time
+      ? t`${longDate} at ${time}`
+      : longDate;
+  const shortDate =
+    compact && validDay
+      ? new Intl.DateTimeFormat(
+          formatLocale(),
+          parsed.getFullYear() === new Date().getFullYear()
+            ? { month: 'short', day: 'numeric' }
+            : { dateStyle: 'medium' },
+        ).format(parsed)
+      : '';
   const caption =
     compact && validDay
-      ? `${format(parsed, parsed.getFullYear() === new Date().getFullYear() ? 'MMM d' : 'PP')}${
-          enableTime && time ? `, ${time}` : ''
-        }`
+      ? enableTime && time
+        ? t({ message: `${shortDate}, ${time}`, comment: 'Compact date and time' })
+        : shortDate
       : fullCaption;
   return (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2" data-slot="date-time-field">
@@ -73,6 +89,7 @@ export function DateTimeField({
               type="button"
               variant="outline"
               disabled={disabled}
+              // i18n-ignore: element ids
               aria-labelledby={`${id}-label ${id}-value`}
               className="w-full justify-start font-normal"
               title={compact ? fullCaption : undefined}
@@ -86,7 +103,7 @@ export function DateTimeField({
           <PopoverContent
             align="start"
             className="w-auto max-w-[calc(100vw-2rem)] max-h-[var(--radix-popover-content-available-height)] gap-0 overflow-hidden p-0"
-            aria-label={`Choose ${label}`}
+            aria-label={t`Choose ${label}`}
           >
             <DateTimePanel
               key={value}
@@ -109,6 +126,7 @@ export function DateTimeField({
           id={id}
           value={value || null}
           onValueChange={(next) => onChange(next ?? '')}
+          // i18n-ignore: element ids
           aria-labelledby={`${id}-label`}
           disabled={disabled}
           min={min}
@@ -120,7 +138,9 @@ export function DateTimeField({
           <TimePickerContent align="end" collisionPadding={12} />
         </TimePicker>
       )}
-      {timezone ? <p className="text-xs text-muted-foreground">Time zone: {timezone}</p> : null}
+      {timezone ? (
+        <p className="text-xs text-muted-foreground">{t`Time zone: ${timezone}`}</p>
+      ) : null}
     </div>
   );
 }
@@ -183,7 +203,7 @@ function DateTimePanel({
         />
         {enableTime ? (
           <div className="grid gap-2">
-            <Label id={timeLabel}>Time</Label>
+            <Label id={timeLabel}>{t`Time`}</Label>
             <TimePicker
               value={draftTime}
               onValueChange={setDraftTime}
@@ -199,22 +219,22 @@ function DateTimePanel({
         {dateText && !withinBounds ? (
           <p role="alert" className="text-xs text-destructive">
             {min && next < min
-              ? `Choose a value on or after ${min.replace('T', ' ')}.`
-              : `Choose a value on or before ${max?.replace('T', ' ')}.`}
+              ? t`Choose a value on or after ${min.replace('T', ' ')}.`
+              : t`Choose a value on or before ${(max ?? '').replace('T', ' ')}.`}
           </p>
         ) : null}
         {dateText && draftTime && !localExists ? (
           <p role="alert" className="text-xs text-destructive">
-            This time does not exist in the local time zone. Choose another time.
+            {t`This time does not exist in the local time zone. Choose another time.`}
           </p>
         ) : null}
       </div>
       <div className="flex shrink-0 justify-end gap-2 border-t bg-popover p-3">
         <Button type="button" variant="outline" size="sm" onClick={onCancel}>
-          Cancel
+          {t`Cancel`}
         </Button>
         <Button type="button" size="sm" disabled={!valid} onClick={() => onApply(next)}>
-          Apply
+          {t`Apply`}
         </Button>
       </div>
     </>

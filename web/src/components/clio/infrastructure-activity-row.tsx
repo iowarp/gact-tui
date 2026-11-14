@@ -25,6 +25,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
 import { copyText } from '@/lib/clipboard';
+import { withAddressBreaks } from '@/lib/address-breaks';
 import { CloseIcon, DeleteIcon, RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ModelDownloadProgress } from './model-download-progress';
@@ -42,6 +43,8 @@ import { IconButton } from './primitives/icon-button';
 import { StatusIndicator } from './primitives/status-indicator';
 import { StateView } from './primitives/state-view';
 import { ClioRelativeTime } from './relative-time';
+import { t, ph } from '@lingui/core/macro';
+import { formatDateTime } from '@/lib/locale-format';
 
 export interface InfrastructureActivityItem {
   id: string;
@@ -81,7 +84,7 @@ const ACTION_ICONS: Record<string, ReactNode> = {
 
 // The spec's quiet text link under an opened row's log (.lnk): muted words, no outline.
 const QUIET_ACTION =
-  'inline-flex h-6 shrink-0 items-center gap-[5px] rounded-[5px] px-1.5 text-[12px] text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring [&_svg]:size-3.5';
+  'inline-flex h-6 shrink-0 items-center gap-[5px] rounded-[5px] px-1.5 text-meta text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring [&_svg]:size-3.5';
 
 /**
  * One operation in the timeline: what ran, where, its state and when. Opening
@@ -117,9 +120,7 @@ export function InfrastructureActivityRow({
     row.detail ||
     '';
   const logLines = readableLogLines(row.logs);
-  const fullLog = logLines.some((line) => line.trim())
-    ? logLines
-    : (longDetail?.split('\n') ?? []);
+  const fullLog = logLines.some((line) => line.trim()) ? logLines : (longDetail?.split('\n') ?? []);
   // The ⚠ line already states the failure; the log under it carries only the rest.
   const stated = new Set(
     failed && outcome
@@ -129,9 +130,7 @@ export function InfrastructureActivityRow({
           .filter(Boolean)
       : [],
   );
-  const inlineLog = stated.size
-    ? fullLog.filter((line) => !stated.has(line.trim()))
-    : fullLog;
+  const inlineLog = stated.size ? fullLog.filter((line) => !stated.has(line.trim())) : fullLog;
   // A failed run stops on its last line, so that line is the error even without a keyword.
   const failureLine = failed ? inlineLog.findLastIndex((line) => line.trim()) : -1;
   const refresh = () =>
@@ -150,14 +149,14 @@ export function InfrastructureActivityRow({
   const meta =
     row.model && active && total ? (
       <InfraProgress
-        label={`Downloaded bytes for ${row.model.repository}`}
+        label={t`Downloaded bytes for ${ph({ repository: row.model.repository })}`}
         value={(row.model.bytes_done / total) * 100}
       />
     ) : Number.isFinite(row.time) ? (
       <ClioRelativeTime
-        className="text-[11px] text-muted-foreground"
+        className="text-caption text-muted-foreground"
         compact
-        label="Updated"
+        label={t`Updated`}
         timestamp={new Date(row.time).toISOString()}
       />
     ) : undefined;
@@ -166,14 +165,14 @@ export function InfrastructureActivityRow({
     <>
       <InfraRow
         className="cursor-pointer"
-        description={`${host}, ${row.model ? 'Models' : 'Services'}`}
+        description={row.model ? t`${host}, Models` : t`${host}, Services`}
         icon={row.model ? <DownloadIcon /> : (ACTION_ICONS[actionOf(row)] ?? <WrenchIcon />)}
         meta={meta}
         onClick={() => setExpanded((value) => !value)}
         status={{ tone: STATE_TONES[row.state] ?? 'idle', label: status }}
         title={
-          <InfraRowToggle expanded={expanded} label={`${title} details`}>
-            {title}
+          <InfraRowToggle expanded={expanded} label={t`${title} details`}>
+            {withAddressBreaks(title)}
           </InfraRowToggle>
         }
         actions={
@@ -183,13 +182,13 @@ export function InfrastructureActivityRow({
                 ? [
                     {
                       icon: <CopyIcon />,
-                      label: `Copy log for ${title}`,
+                      label: t`Copy log for ${title}`,
                       onSelect: () => void copyText(raw),
                     },
                   ]
                 : []
             }
-            label={`More for ${title}`}
+            label={t`More for ${title}`}
           />
         }
         primaryAction={
@@ -204,7 +203,7 @@ export function InfrastructureActivityRow({
                     <CloseIcon />
                   )
                 }
-                label={`Cancel ${title}`}
+                label={t`Cancel ${title}`}
                 onClick={() => act.mutate('cancel')}
                 size="sm"
               />
@@ -220,7 +219,7 @@ export function InfrastructureActivityRow({
                     <RetryIcon />
                   )
                 }
-                label={`Retry ${title}`}
+                label={t`Retry ${title}`}
                 onClick={() => act.mutate('retry')}
                 size="sm"
               />
@@ -236,8 +235,8 @@ export function InfrastructureActivityRow({
                 <p
                   className={
                     failed
-                      ? 'flex min-w-0 items-start gap-1.5 text-[12px] text-destructive'
-                      : 'min-w-0 text-[12px] text-muted-foreground'
+                      ? 'flex min-w-0 items-start gap-1.5 text-meta text-destructive'
+                      : 'min-w-0 text-meta text-muted-foreground'
                   }
                 >
                   {failed ? (
@@ -249,8 +248,8 @@ export function InfrastructureActivityRow({
               {row.model && active ? <ModelDownloadProgress model={row.model} /> : null}
               {inlineLog.some((line) => line.trim()) ? (
                 <pre
-                  aria-label={`Log for ${title}`}
-                  className="clio-scrollbar max-h-48 overflow-x-hidden overflow-y-auto rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-[11px] leading-[1.7] text-muted-foreground"
+                  aria-label={t`Log for ${title}`}
+                  className="clio-scrollbar max-h-48 overflow-x-hidden overflow-y-auto rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-caption leading-[1.7] text-muted-foreground"
                   tabIndex={0}
                 >
                   {/* Spec .c3log: one line each, cut with an ellipsis; the dialog keeps the full text. */}
@@ -259,8 +258,7 @@ export function InfrastructureActivityRow({
                     <span
                       className={cn(
                         'block overflow-hidden text-ellipsis whitespace-pre',
-                        (index === failureLine || isErrorLogLine(line)) &&
-                          'text-destructive-text',
+                        (index === failureLine || isErrorLogLine(line)) && 'text-destructive-text',
                       )}
                       key={index}
                     >
@@ -274,16 +272,16 @@ export function InfrastructureActivityRow({
                   kind="error"
                   size="row"
                   title={act.error instanceof Error ? act.error.message : String(act.error)}
-                  action={{ label: 'Dismiss', onClick: () => act.reset() }}
+                  action={{ label: t`Dismiss`, onClick: () => act.reset() }}
                 />
               ) : null}
               <div className="-ml-1.5 flex min-w-0 gap-0.5">
                 <button className={QUIET_ACTION} onClick={() => setOpen(true)} type="button">
-                  View operation
+                  {t`View operation`}
                 </button>
                 <Link className={QUIET_ACTION} to={destination}>
                   <ExternalLinkIcon aria-hidden="true" />
-                  {row.model ? 'Go to models' : 'Go to service'}
+                  {row.model ? t`Go to models` : t`Go to service`}
                 </Link>
               </div>
             </>
@@ -336,13 +334,13 @@ function ActivityOperationDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            {host}, {new Date(row.time).toLocaleString()}
+            {host}, {formatDateTime(row.time)}
           </DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="summary" className="flex min-h-0 flex-1 flex-col">
           <TabsList className="shrink-0">
-            <TabsTrigger value="summary">Summary</TabsTrigger>
-            <TabsTrigger value="log">Log</TabsTrigger>
+            <TabsTrigger value="summary">{t`Summary`}</TabsTrigger>
+            <TabsTrigger value="log">{t`Log`}</TabsTrigger>
           </TabsList>
           <TabsContent value="summary" className="min-h-0 flex-1 space-y-4 overflow-y-auto py-3">
             <StatusIndicator label={status} tone={STATE_TONES[row.state] ?? 'idle'} />
@@ -355,7 +353,7 @@ function ActivityOperationDialog({
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="font-medium" title={step.label}>
                         {step.id === 'inspect'
-                          ? 'Inspect computer'
+                          ? t`Inspect computer`
                           : step.id.startsWith('command-') && step.label.startsWith('Run ')
                             ? title
                             : step.label}
@@ -376,7 +374,7 @@ function ActivityOperationDialog({
             ) : null}
             {row.operation?.elapsed_seconds != null ? (
               <p className="text-sm text-muted-foreground">
-                Duration: {row.operation.elapsed_seconds.toFixed(1)} seconds
+                {t`Duration: ${ph({ seconds: row.operation.elapsed_seconds.toFixed(1) })} seconds`}
               </p>
             ) : null}
           </TabsContent>
@@ -389,7 +387,7 @@ function ActivityOperationDialog({
                 disabled={!raw}
               >
                 <CopyIcon aria-hidden="true" />
-                Copy log
+                {t`Copy log`}
               </Button>
             </div>
             {raw ? (
@@ -411,7 +409,7 @@ function ActivityOperationDialog({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No log was recorded for this operation.
+                {t`No log was recorded for this operation.`}
               </p>
             )}
           </TabsContent>

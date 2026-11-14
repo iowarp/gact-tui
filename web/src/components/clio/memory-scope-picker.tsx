@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { memoryScopeOptions, type MemoryPickerOption } from './memory-document-helpers';
 import { SettingsSelectField } from './model-select-field';
 import { PickerFooter } from './primitives/picker-footer';
+import { t } from '@lingui/core/macro';
 
 export interface MemoryScopeOptions {
   workspaces: Workspace[];
@@ -29,7 +30,7 @@ export function MemoryPicker({
   onChange,
   disabled,
   searchPlaceholder,
-  emptyLabel = 'Nothing matches',
+  emptyLabel = t`Nothing matches`,
   placeholder,
   status,
 }: {
@@ -60,6 +61,7 @@ export function MemoryPicker({
           placeholder={placeholder}
           title={chosen?.label ?? placeholder}
           value={chosen?.label}
+          wrap
         />
       </PopoverTrigger>
       <PopoverContent
@@ -107,9 +109,9 @@ export function MemoryPicker({
         </Command>
         <PickerFooter
           hints={[
-            { label: 'Move', shortcut: 'menu-move' },
-            { label: 'Choose', shortcut: 'menu-pick' },
-            { label: 'Close', shortcut: 'menu-close', onSelect: () => setOpen(false) },
+            { label: t`Move`, shortcut: 'menu-move' },
+            { label: t`Choose`, shortcut: 'menu-pick' },
+            { label: t`Close`, shortcut: 'menu-close', onSelect: () => setOpen(false) },
           ]}
         />
       </PopoverContent>
@@ -136,16 +138,16 @@ export function MemoryScopePicker({
   return (
     <MemoryPicker
       disabled={disabled}
-      emptyLabel="No workspace matches"
+      emptyLabel={t`No workspace matches`}
       id={id}
-      label="Remember in"
+      label={t`Remember in`}
       onChange={onChange}
       options={memoryScopeOptions(workspaces)}
-      searchPlaceholder="Search workspaces…"
+      searchPlaceholder={t`Search workspaces…`}
       status={
         workspacesLoading ? (
           <p className="px-3 py-1.5 text-xs text-muted-foreground" role="status">
-            Loading workspaces…
+            {t`Loading workspaces…`}
           </p>
         ) : workspacesError ? (
           <p
@@ -153,14 +155,14 @@ export function MemoryScopePicker({
             role="alert"
           >
             <span className="min-w-0 truncate" title={workspacesError}>
-              Workspaces could not be loaded. {workspacesError}
+              {t`Workspaces could not be loaded. ${workspacesError}`}
             </span>
             <button
               className="shrink-0 text-foreground underline-offset-4 hover:underline"
               onClick={onRetryWorkspaces}
               type="button"
             >
-              Retry
+              {t`Retry`}
             </button>
           </p>
         ) : null

@@ -6,6 +6,7 @@ import { Field, FieldLabel } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { vocab } from '@/lib/brand-vocabulary';
 import { InfoTip } from './info-tip';
+import { t, ph } from '@lingui/core/macro';
 
 /** Browser credentials go only to the connected CLIO, never to native Desktop commands. */
 export function SftpAuthenticationFields({
@@ -27,13 +28,9 @@ export function SftpAuthenticationFields({
   return (
     <Field>
       <FieldLabel className="flex items-center gap-2">
-        Authentication
-        <InfoTip label="About browser SFTP authentication">
-          Connects from {hostLabel}. A selected key or password is sent privately to this{' '}
-          {vocab.agent}{' '}
-          and kept in memory until disconnect or restart. It is never included in the conversation.
-          Without a selected key, this host's configured keys or SSH agent are used. Interactive
-          Duo/2FA, security-key prompts and Kerberos require {vocab.product}.
+        {t`Authentication`}
+        <InfoTip label={t`About browser SFTP authentication`}>
+          {t`Connects from ${hostLabel}. A selected key or password is sent privately to this ${ph({ agent: vocab.agent })} and kept in memory until disconnect or restart. It is never included in the conversation. Without a selected key, this host's configured keys or SSH agent are used. Interactive Duo/2FA, security-key prompts and Kerberos require ${ph({ product: vocab.product })}.`}
         </InfoTip>
       </FieldLabel>
       <RadioGroup
@@ -50,16 +47,16 @@ export function SftpAuthenticationFields({
       >
         <label className="flex items-center gap-2 text-sm">
           <RadioGroupItem value="key" />
-          SSH key
+          {t`SSH key`}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <RadioGroupItem value="password" />
-          Password
+          {t`Password`}
         </label>
       </RadioGroup>
       {password ? (
         <Input
-          aria-label="SSH password"
+          aria-label={t`SSH password`}
           type="password"
           autoComplete="off"
           value={value.password ?? ''}
@@ -72,14 +69,14 @@ export function SftpAuthenticationFields({
             id={`${id}-file`}
             className="hidden"
             type="file"
-            aria-label="SSH private key file"
+            aria-label={t`SSH private key file`}
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (!file) return;
               pendingRead.current?.abort();
               pendingRead.current = null;
               if (file.size > 1024 * 1024) {
-                setError('Choose an SSH key file smaller than 1 MB.');
+                setError(t`Choose an SSH key file smaller than 1 MB.`);
                 return;
               }
               const reader = new FileReader();
@@ -94,25 +91,25 @@ export function SftpAuthenticationFields({
               reader.onerror = () => {
                 if (pendingRead.current !== reader) return;
                 pendingRead.current = null;
-                setError('The key file could not be read. Choose it again.');
+                setError(t`The key file could not be read. Choose it again.`);
               };
               reader.readAsText(file);
             }}
           />
           <div className="flex min-w-0 items-center gap-3">
             <Button type="button" variant="outline" onClick={() => input.current?.click()}>
-              Choose key file
+              {t`Choose key file`}
             </Button>
             <span className="min-w-0 truncate text-xs text-muted-foreground">
-              {filename || `Use keys configured on ${hostLabel}`}
+              {filename || t`Use keys configured on ${hostLabel}`}
             </span>
           </div>
           {value.private_key && (
             <Input
-              aria-label="Key passphrase (optional)"
+              aria-label={t`Key passphrase (optional)`}
               type="password"
               autoComplete="off"
-              placeholder="Key passphrase (optional)"
+              placeholder={t`Key passphrase (optional)`}
               value={value.passphrase ?? ''}
               onChange={(event) => onChange({ ...value, passphrase: event.target.value })}
             />

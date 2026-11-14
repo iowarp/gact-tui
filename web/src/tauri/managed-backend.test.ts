@@ -192,6 +192,36 @@ describe('managed Tauri backend', () => {
     expect(mocks.listeners.size).toBe(0);
   });
 
+  it('says when a finished install still leaves no service to start (#739)', async () => {
+    // The QA failure: the installer succeeds, the supervisor restarts the
+    // launcher, and the launcher again reports nothing to run. The boot
+    // screen used to hold until the 15-minute preparation deadline.
+    const statuses = [
+      { kind: 'needs_install' },
+      { kind: 'starting', detail: 'checking_existing' },
+      { kind: 'starting', detail: 'installing_runtime' },
+      { kind: 'needs_install' },
+    ];
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'install_clio') {
+        mocks.listeners.get('clio:install-done')?.({ payload: undefined });
+        return undefined;
+      }
+      return { url: '', bearer_token: '', status: statuses.shift() ?? { kind: 'needs_install' } };
+    });
+
+    await expect(
+      waitForManagedBackend({ pollIntervalMs: 0, prepareTimeoutMs: 3_600_000 }),
+    ).rejects.toThrow('finished installing, but the app could not find the installed service');
+    expect(mocks.invoke.mock.calls).toEqual([
+      ['get_backend'],
+      ['install_clio'],
+      ['get_backend'],
+      ['get_backend'],
+      ['get_backend'],
+    ]);
+  });
+
   it('does not cut off a first-use install that outlasts the readiness window', async () => {
     let installed = false;
     mocks.invoke.mockImplementation(async (command: string) => {

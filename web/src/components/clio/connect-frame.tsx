@@ -5,6 +5,7 @@ import { IconButton } from '@/components/clio/primitives/icon-button';
 import { Input } from '@/components/ui/input';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
 
 /**
  * The connect dialog frame: header, body and footer. On a page (first run) it is
@@ -16,7 +17,7 @@ export function ConnectFrame({
   icon,
   title,
   onClose,
-  closeLabel = 'Close',
+  closeLabel = t`Close`,
   children,
   footer,
   className,
@@ -39,7 +40,7 @@ export function ConnectFrame({
   const fullWindow = dialog && narrow === 'window';
   const heading = (
     <h1
-      className="min-w-0 flex-1 truncate text-[14px] font-semibold text-foreground"
+      className="min-w-0 flex-1 truncate text-[0.875rem] font-semibold text-foreground"
       id="connect-frame-title"
     >
       {title}
@@ -49,7 +50,7 @@ export function ConnectFrame({
     <section
       aria-labelledby="connect-frame-title"
       className={cn(
-        'w-[460px] max-w-full rounded-[12px] border border-border bg-popover text-[12.5px] text-popover-foreground shadow-[0_20px_60px_color-mix(in_oklab,var(--shadow-color)_50%,transparent)]',
+        'w-[460px] max-w-full rounded-[12px] border border-border bg-popover text-menu text-popover-foreground shadow-[0_20px_60px_color-mix(in_oklab,var(--shadow-color)_50%,transparent)]',
         fullWindow &&
           'max-[599px]:flex max-[599px]:min-h-0 max-[599px]:flex-1 max-[599px]:flex-col max-[599px]:rounded-none max-[599px]:border-0 max-[599px]:shadow-none',
         className,
@@ -104,12 +105,16 @@ export function ConnectField({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-[5px]">
-      <span className="flex items-center gap-1.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
-        <label htmlFor={htmlFor}>{label}</label>
+    // Long localized labels wrap inside the card; beside a wrapped neighbour the input
+    // stays on the shared bottom line.
+    <div className="flex min-w-0 flex-col justify-between gap-[5px]">
+      <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-label text-muted-foreground">
+        <label className="min-w-0 [overflow-wrap:anywhere]" htmlFor={htmlFor}>
+          {label}
+        </label>
         {optional ? (
-          <span aria-hidden="true" className="text-faint">
-            optional
+          <span aria-hidden="true" className="whitespace-nowrap text-faint">
+            {t`optional`}
           </span>
         ) : null}
       </span>
@@ -127,8 +132,8 @@ export function ConnectInput({
   return (
     <Input
       className={cn(
-        'h-[30px] rounded-[7px] px-2.5 text-[12.5px] md:text-[12.5px]',
-        mono && 'font-mono text-[12px] md:text-[12px]',
+        'h-[30px] rounded-[7px] px-2.5 text-menu md:text-menu',
+        mono && 'font-mono text-meta md:text-meta',
         className,
       )}
       {...props}
@@ -171,7 +176,7 @@ export function ConnectStatusLine({
   return (
     <div
       className={cn(
-        'flex min-h-[26px] min-w-0 items-center gap-2 text-[12px] text-foreground/85',
+        'flex min-h-[26px] min-w-0 items-center gap-2 text-meta text-foreground/85',
         tone === 'error' && 'text-destructive',
         tone === 'pending' && 'text-faint',
         className,
@@ -184,7 +189,7 @@ export function ConnectStatusLine({
       </span>
       <span className="min-w-0 flex-1 text-pretty">{children}</span>
       {meta !== undefined ? (
-        <span className="shrink-0 font-mono text-[11px] text-faint tabular-nums">{meta}</span>
+        <span className="shrink-0 font-mono text-caption text-faint tabular-nums">{meta}</span>
       ) : null}
       {actions ? <span className="flex shrink-0 items-center gap-1">{actions}</span> : null}
     </div>

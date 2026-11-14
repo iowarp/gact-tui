@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 /** A service already in the connect list, for the name's uniqueness check. */
 export type KnownServiceName = {
   endpoint: string;
@@ -7,7 +8,7 @@ export type KnownServiceName = {
 };
 
 /** The default name for the desktop's own service. */
-export const LOCAL_NAME = 'This computer';
+export const LOCAL_NAME = t`This computer`;
 
 /**
  * Why `name` cannot name the service being deployed, or undefined when it
@@ -20,11 +21,11 @@ export function deployNameError(
   replaces: (service: KnownServiceName) => boolean,
 ): string | undefined {
   const trimmed = name.trim();
-  if (!trimmed) return 'Give this service a name.';
+  if (!trimmed) return t`Give this service a name.`;
   const clash = known.some(
     (service) =>
       !replaces(service) &&
       service.label?.trim().toLocaleLowerCase() === trimmed.toLocaleLowerCase(),
   );
-  return clash ? `A service named “${trimmed}” already exists.` : undefined;
+  return clash ? t`A service named “${trimmed}” already exists.` : undefined;
 }

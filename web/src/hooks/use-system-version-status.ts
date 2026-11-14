@@ -17,6 +17,7 @@ import { latestClioReleaseQuery, runDesktopUpdate } from '@/hooks/use-update-sta
 import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
 import { agentCheckIssue, desktopCheckIssue } from '@/components/clio/version-check-issue';
 import { managedClioVersion } from '@/tauri/clio-update-verification';
+import { t } from '@lingui/core/macro';
 
 // 'unknown' is a REAL state -- no check has run, or the one that ran had
 // nothing to compare against (no release feed, a failed fetch). It must
@@ -198,29 +199,28 @@ export function useSystemVersionStatus() {
     else void recheck();
   };
 
+  const { agent, product } = vocab;
   const statusLabel = {
-    unknown: 'Version status not yet checked',
-    checking: 'Checking versions',
+    unknown: t`Version status not yet checked`,
+    checking: t`Checking versions`,
     // A browser never checked the web build itself, so only the agent is
     // claimed current there.
-    current: desktopShell
-      ? `${vocab.product} and ${vocab.agent} are up to date`
-      : `${vocab.agent} is up to date`,
-    available: 'Software update available',
-    unavailable: 'Could not check for updates',
-    error: 'Version status needs attention',
+    current: desktopShell ? t`${product} and ${agent} are up to date` : t`${agent} is up to date`,
+    available: t`Software update available`,
+    unavailable: t`Could not check for updates`,
+    error: t`Version status needs attention`,
   }[state];
 
   const message: string | undefined =
     (desktopShell ? desktopIssue?.text : undefined) ??
     (agentRowState === 'unavailable' ? agentIssue?.text : undefined) ??
-    (capabilities.isError ? 'The connected runtime could not be reached.' : undefined) ??
-    (state === 'unavailable' && agentBehindLatest
-      ? `Could not check for updates: the runtime (${agentVersion}) is older than this app (${agentTargetVersion}) and no update for it was found.`
+    (capabilities.isError ? t`The connected runtime could not be reached.` : undefined) ??
+    (state === 'unavailable' && agentBehindLatest && agentVersion && agentTargetVersion
+      ? t`Could not check for updates: the runtime (${agentVersion}) is older than this app (${agentTargetVersion}) and no update for it was found.`
       : undefined);
   const versions = [
     {
-      label: 'Interface version',
+      label: t`Interface version`,
       version: displayedDesktopVersion,
       targetVersion: desktopUpdateAvailable ? desktopTargetVersion : undefined,
       releaseUrl:
@@ -230,7 +230,7 @@ export function useSystemVersionStatus() {
       testId: 'version-row-desktop',
     },
     {
-      label: 'Runtime version',
+      label: t`Runtime version`,
       version: agentVersion,
       targetVersion:
         agentBehindLatest && (!desktopShell || desktopUpdateAvailable)

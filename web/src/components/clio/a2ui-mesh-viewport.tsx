@@ -50,6 +50,7 @@ import {
   type SurfaceCapabilities,
   type SurfaceExportFormat,
 } from './surface-toolbar';
+import { plural, t, ph } from '@lingui/core/macro';
 
 export interface ClioMeshViewportProps {
   accessibility?: A2UIAccessibility;
@@ -76,8 +77,8 @@ export interface ClioMeshViewportProps {
 }
 
 const STAGE_LABEL: Record<string, string> = {
-  baseline: 'Before optimization',
-  optimized: 'After optimization',
+  baseline: t`Before optimization`,
+  optimized: t`After optimization`,
 };
 
 const MESH_MIME_TYPE: Record<MeshFormat, string> = {
@@ -91,6 +92,7 @@ const MESH_MIME_TYPE: Record<MeshFormat, string> = {
   vtk: 'application/octet-stream',
   vtp: 'application/xml',
   drc: 'application/octet-stream',
+  step: 'model/step',
 };
 
 /** An orbitable view of one registered mesh, colored, thresholded, and stepped by its fields. */
@@ -447,28 +449,31 @@ export function ClioMeshViewport({
     });
   };
 
-  const heading = title || (parsed?.stage ? STAGE_LABEL[parsed.stage] : undefined) || 'Part';
+  const heading =
+    title ||
+    (parsed?.stage ? STAGE_LABEL[parsed.stage] : undefined) ||
+    t({ message: 'Part', context: 'mesh part' });
   const description = describe(parsed, frameIndex, inputs, visibleCells, artifactId);
   const failure = !artifactId
-    ? 'The mesh source is not a registered artifact id.'
+    ? t`The mesh source is not a registered artifact id.`
     : mesh.isError
       ? mesh.error.message
       : !webgl
-        ? 'this browser cannot draw 3D graphics (WebGL is off).'
+        ? t`this browser cannot draw 3D graphics (WebGL is off).`
         : '';
   const missing = [
     parsed && field && !colorField ? `“${field}”` : '',
     parsed && thresholdField && !cutField ? `“${thresholdField}”` : '',
   ].filter(Boolean);
   const ariaSummary = legend
-    ? `${heading}, colored by ${legend.field.label} from ${formatFieldValue(legend.min)} to ${formatFieldValue(legend.max)} ${legend.field.unit}`
-    : `${heading}, geometry only`;
+    ? t`${heading}, colored by ${ph({ field: legend.field.label })} from ${ph({ min: formatFieldValue(legend.min) })} to ${ph({ max: formatFieldValue(legend.max) })} ${ph({ unit: legend.field.unit })}`
+    : t`${heading}, geometry only`;
 
   const exportFormats: SurfaceExportFormat[] = [
     {
       disabled: !parsed || !webgl,
       id: 'png',
-      label: 'PNG snapshot',
+      label: t`PNG snapshot`,
       run: async () => {
         const scene = sceneRef.current;
         if (!scene) return;
@@ -487,7 +492,7 @@ export function ClioMeshViewport({
     {
       disabled: !artifactId,
       id: 'original',
-      label: 'Original file',
+      label: t`Original file`,
       run: async () => {
         if (!artifactId) return;
         const bytes = await repository.readArtifactBytes(artifactId);
@@ -502,8 +507,11 @@ export function ClioMeshViewport({
   ];
 
   const buildReference = (): DataZoneReference => {
-    const colorLabel = inputs.color ? `colored by ${inputs.color.label}` : 'geometry only';
+    const colorLabel = inputs.color
+      ? t`colored by ${ph({ field: inputs.color.label })}`
+      : t`geometry only`;
     const frameLabel = frameCount > 1 ? parsed?.frames[frameIndex] : undefined;
+    const viewDetails = [colorLabel, frameLabel].filter(Boolean).join(', ');
     return buildZoneReference({
       componentLabel: heading,
       datasetLabel: artifactId ?? meshUri,
@@ -522,8 +530,11 @@ export function ClioMeshViewport({
         ...(selectedNodes.length ? { selection: { field: 'node', values: selectedNodes } } : {}),
       },
       zoneDescription: selectedNodes.length
-        ? `${selectedNodes.length} selected mesh ${selectedNodes.length === 1 ? 'node' : 'nodes'}`
-        : `the current view, ${[colorLabel, frameLabel].filter(Boolean).join(', ')}`,
+        ? plural(selectedNodes.length, {
+            one: '# selected mesh node',
+            other: '# selected mesh nodes',
+          })
+        : t`the current view, ${viewDetails}`,
     });
   };
 
@@ -537,7 +548,7 @@ export function ClioMeshViewport({
       <>
         <DropdownMenuItem disabled={!parsed} onSelect={() => resetRef.current?.()}>
           <RetryIcon aria-hidden="true" />
-          Reset view
+          {t`Reset view`}
         </DropdownMenuItem>
         <DropdownMenuItem
           className="max-w-72 whitespace-normal text-xs text-muted-foreground"
@@ -555,7 +566,7 @@ export function ClioMeshViewport({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            aria-label="Box select mesh nodes"
+            aria-label={t`Box select mesh nodes`}
             aria-pressed={boxMode}
             className={`shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100 ${boxMode ? 'opacity-100' : ''}`}
             onClick={() => setBoxMode((active) => !active)}
@@ -566,7 +577,7 @@ export function ClioMeshViewport({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          Drag a rectangle to select mesh nodes. Click again to orbit.
+          {t`Drag a rectangle to select mesh nodes. Click again to orbit.`}
         </TooltipContent>
       </Tooltip>
     ) : null;
@@ -574,7 +585,7 @@ export function ClioMeshViewport({
     <>
       {selectedNodes.length ? (
         <Button
-          aria-label="Zoom to selection"
+          aria-label={t`Zoom to selection`}
           onClick={() => {
             const scene = sceneRef.current;
             const box = nodeSelection?.meshUri === meshUri ? nodeSelection.box : undefined;
@@ -586,7 +597,7 @@ export function ClioMeshViewport({
             }
           }}
           size="icon-sm"
-          title="Zoom to selection"
+          title={t`Zoom to selection`}
           variant="ghost"
         >
           <ZoomInIcon aria-hidden="true" className="size-3.5" />
@@ -594,10 +605,10 @@ export function ClioMeshViewport({
       ) : null}
       {zoomActive ? (
         <Button
-          aria-label="Reset zoom"
+          aria-label={t`Reset zoom`}
           onClick={() => resetRef.current?.()}
           size="icon-sm"
-          title="Reset zoom"
+          title={t`Reset zoom`}
           variant="ghost"
         >
           <RetryIcon aria-hidden="true" className="size-3.5" />
@@ -616,17 +627,22 @@ export function ClioMeshViewport({
     >
       <section
         {...a2uiAccessibilityProps(accessibility)}
-        aria-label={a2uiAccessibilityLabel(accessibility) ?? `${heading} 3D view`}
+        aria-label={a2uiAccessibilityLabel(accessibility) ?? t`${heading} 3D view`}
         className="group relative min-w-0"
         role="group"
       >
         <div className="mb-2 flex min-w-0 items-start gap-3">
-          <h3 className="min-w-0 flex-1 truncate text-sm font-medium">{heading}</h3>
+          <h3
+            className="min-w-0 flex-1 line-clamp-2 text-sm font-medium leading-snug"
+            title={heading}
+          >
+            {heading}
+          </h3>
           {syncGroup ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span
-                  aria-label="Camera and color scale linked with other views"
+                  aria-label={t`Camera and color scale linked with other views`}
                   className="inline-flex size-6 items-center justify-center text-muted-foreground"
                   role="img"
                 >
@@ -634,7 +650,7 @@ export function ClioMeshViewport({
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                Orbiting here moves every linked view, and they share one color scale.
+                {t`Orbiting here moves every linked view, and they share one color scale.`}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -659,7 +675,7 @@ export function ClioMeshViewport({
         >
           <div className="min-w-0">
             {failure ? (
-              <p className="p-4 text-sm text-destructive">3D view unavailable: {failure}</p>
+              <p className="p-4 text-sm text-destructive">{t`3D view unavailable: ${failure}`}</p>
             ) : (
               <div
                 aria-label={ariaSummary}
@@ -678,7 +694,7 @@ export function ClioMeshViewport({
               >
                 {boxMode ? (
                   <div
-                    aria-label="Drag to select mesh nodes"
+                    aria-label={t`Drag to select mesh nodes`}
                     className="absolute inset-0 z-10 cursor-crosshair"
                     onPointerDown={onBoxPointerDown}
                     onPointerMove={onBoxPointerMove}
@@ -701,7 +717,7 @@ export function ClioMeshViewport({
                 ) : null}
                 {!parsed ? (
                   <Skeleton
-                    aria-label={`Loading ${heading} mesh`}
+                    aria-label={t`Loading ${heading} mesh`}
                     className="absolute inset-0 rounded-none motion-reduce:animate-none"
                   />
                 ) : null}
@@ -721,12 +737,14 @@ export function ClioMeshViewport({
                 className="mt-2 border-t py-2 text-xs text-muted-foreground"
                 data-reason="threshold_field_per_node"
               >
-                {`“${thresholdNeedsCells.label}” is per-node; a threshold needs per-element values, so the threshold is off.`}
+                {t`“${ph({ label: thresholdNeedsCells.label })}” is per-node; a threshold needs per-element values, so the threshold is off.`}
               </p>
             ) : null}
             {missing.length ? (
               <p className="mt-2 border-t py-2 text-xs text-muted-foreground">
-                This mesh has no {missing.join(' or ')} result, so that part of the view is off.
+                {missing.length > 1
+                  ? t`This mesh has no ${ph({ first: missing[0] ?? '' })} or ${ph({ second: missing[1] ?? '' })} result, so that part of the view is off.`
+                  : t`This mesh has no ${ph({ field: missing[0] ?? '' })} result, so that part of the view is off.`}
               </p>
             ) : null}
             {parsed?.warnings?.map((warning) => (
@@ -736,12 +754,15 @@ export function ClioMeshViewport({
             ))}
             {snapshotError ? (
               <p className="mt-2 border-t py-2 text-xs text-destructive">
-                The image was not saved: {snapshotError}
+                {t`The image was not saved: ${snapshotError}`}
               </p>
             ) : null}
             {selectedNodes.length ? (
               <p className="mt-2 text-xs text-primary">
-                {selectedNodes.length} mesh {selectedNodes.length === 1 ? 'node' : 'nodes'} selected
+                {plural(selectedNodes.length, {
+                  one: '# mesh node selected',
+                  other: '# mesh nodes selected',
+                })}
               </p>
             ) : null}
             {legend ? <MeshLegend legend={legend} /> : null}

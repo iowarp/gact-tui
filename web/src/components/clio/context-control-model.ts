@@ -6,6 +6,8 @@ import {
   type ContextControls,
   type ContextSizingSpec,
 } from '@clio/core/v3';
+import { ph, t } from '@lingui/core/macro';
+import { formatNumber } from '@/lib/locale-format';
 
 /**
  * What the person has chosen in a context control. An empty `choice` keeps
@@ -30,19 +32,20 @@ export interface EffectiveContext {
 }
 
 export function formatTokens(value: number): string {
-  return value.toLocaleString('en-US');
+  return formatNumber(value);
 }
 
 /** Why a typed context cannot be used, or undefined when it can. */
 export function contextDraftError(draft: ContextDraft, bounds: ContextBounds): string | undefined {
   if (draft.choice !== 'number') return undefined;
   const typed = draft.tokens.trim();
-  if (!typed) return 'Type a context length, or choose Max.';
-  if (!/^\d+$/u.test(typed)) return 'Type a whole number of tokens.';
+  if (!typed) return t`Type a context length, or choose Max.`;
+  if (!/^\d+$/u.test(typed)) return t`Type a whole number of tokens.`;
   const tokens = Number(typed);
-  if (tokens < bounds.minimum) return `At least ${formatTokens(bounds.minimum)} tokens.`;
+  if (tokens < bounds.minimum)
+    return t`At least ${ph({ minimum: formatTokens(bounds.minimum) })} tokens.`;
   if (bounds.maximum !== undefined && tokens > bounds.maximum) {
-    return `At most ${formatTokens(bounds.maximum)} tokens, this model’s maximum.`;
+    return t`At most ${ph({ maximum: formatTokens(bounds.maximum) })} tokens, this model’s maximum.`;
   }
   return undefined;
 }

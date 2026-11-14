@@ -7,6 +7,7 @@ import type { TurnPreparationProps } from './turn-preparation';
 import { ActivityRow } from './activity-row';
 import { infrastructurePreparationLabel } from './infrastructure-preparation-label';
 import { StatusIndicator } from './primitives/status-indicator';
+import { t } from '@lingui/core/macro';
 
 interface TurnWaitFeedbackProps extends TurnPreparationProps {
   tools: Record<string, ToolInvocation>;
@@ -30,8 +31,11 @@ export function ClioTurnWaitFeedback({
   tasks,
   subagents,
   awaitingUser,
+  sending,
 }: TurnWaitFeedbackProps) {
-  if (awaitingUser || (sessionState !== 'running' && sessionState !== 'queued')) return null;
+  // An unsent message has no turn to wait on; the preparation row says it is sending.
+  if (awaitingUser || (sending && sessionState !== 'running')) return null;
+  if (sessionState !== 'running' && sessionState !== 'queued') return null;
   const current = currentTurnAssistantMessages(messages, activeTurnId);
   const hasContent = current.some((message) =>
     message.blocks.some((block) =>
@@ -62,7 +66,7 @@ export function ClioTurnWaitFeedback({
           icon={<ServerIcon aria-hidden="true" />}
           name={infrastructurePreparationLabel(dependencies, true)}
           status={
-            <StatusIndicator tone="running" label="Preparing" display="column" mark="glyph" />
+            <StatusIndicator tone="running" label={t`Preparing`} display="column" mark="glyph" />
           }
         />
       </div>
@@ -72,7 +76,7 @@ export function ClioTurnWaitFeedback({
 
 const THINKING_ICON = <BrainIcon aria-hidden="true" />;
 const WAITING_STATUS = (
-  <StatusIndicator tone="running" label="Waiting for response" display="column" mark="glyph" />
+  <StatusIndicator tone="running" label={t`Waiting for response`} display="column" mark="glyph" />
 );
 
 /**

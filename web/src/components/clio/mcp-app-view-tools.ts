@@ -58,11 +58,13 @@ function toolCall(value: unknown): McpAppToolCallEvent | undefined {
 /** Why a view's list is not offered, or undefined when it fits the limits. */
 export function viewToolsOverLimit(tools: readonly McpAppViewTool[]): string | undefined {
   if (tools.length > MAX_VIEW_TOOLS) {
+    // i18n-ignore: developer console reason, not shown in the interface
     return `the view lists ${tools.length} tools; at most ${MAX_VIEW_TOOLS} are offered`;
   }
   for (const tool of tools) {
     const size = new TextEncoder().encode(JSON.stringify(tool.inputSchema ?? {})).length;
     if (size > MAX_VIEW_TOOL_SCHEMA_BYTES) {
+      // i18n-ignore: developer console reason, not shown in the interface
       return `the input schema of ${tool.name} is over ${MAX_VIEW_TOOL_SCHEMA_BYTES / 1024} KiB`;
     }
   }

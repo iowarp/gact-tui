@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { SegmentedControl } from './primitives/segmented-control';
 import { sourceAccessRows, type SourceAccess } from './source-access';
+import { t } from '@lingui/core/macro';
 
 /** The spec's mono provider glyphs (`#folder`, `#kterm`, `#github`, `#gdrive`, `#cloud`, `#obsidian`, `#db`). */
 const glyphPaths: Record<SourceProviderId | 'upload', ReactNode> = {
@@ -101,22 +102,22 @@ export function SourceField({
   return (
     <div className={cn('flex min-w-0 flex-col gap-[5px]', className)}>
       {/* The aside stays outside the label so its controls never join the field's name. */}
-      <div className="flex items-center gap-1.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-label whitespace-nowrap text-muted-foreground">
         <Label htmlFor={htmlFor} className="flex items-center gap-1.5">
           {label}
         </Label>
         {aside ? (
-          <span className="ml-auto flex items-center gap-1.5 text-[11px] text-faint">{aside}</span>
+          <span className="ml-auto flex items-center gap-1.5 text-caption text-faint">{aside}</span>
         ) : null}
       </div>
       {children}
-      {hint ? <p className="text-[11px] leading-[1.45] text-faint">{hint}</p> : null}
+      {hint ? <p className="text-caption leading-[1.45] text-faint">{hint}</p> : null}
     </div>
   );
 }
 
 /** The spec's `.c3in` 30px field face, applied to the shared Input. */
-export const sourceInputClass = 'h-[30px] rounded-[7px] px-2.5 text-[12.5px] md:text-[12.5px]';
+export const sourceInputClass = 'h-[30px] rounded-[7px] px-2.5 text-menu md:text-menu';
 
 /** The spec's `.c3r` radio rows: a ring, a name, and a faint second line. */
 export function ChoiceRows<T extends string>({
@@ -135,8 +136,14 @@ export function ChoiceRows<T extends string>({
   unavailable?: Partial<Record<T, string>>;
   disabled?: boolean;
 }) {
+  // One reason that covers every row it disables is said once, under the group.
+  const reasons = (Object.values(unavailable) as Array<string | undefined>).filter(
+    (reason): reason is string => Boolean(reason),
+  );
+  const shared =
+    reasons.length > 1 && reasons.every((reason) => reason === reasons[0]) ? reasons[0] : undefined;
   return (
-    <SourceField label={label}>
+    <SourceField label={label} hint={shared}>
       <RadioGroupPrimitive.Root
         aria-label={label}
         value={value}
@@ -146,13 +153,14 @@ export function ChoiceRows<T extends string>({
       >
         {rows.map((row) => {
           const reason = unavailable[row.value];
+          const second = shared ? row.detail : (reason ?? row.detail);
           return (
             <RadioGroupPrimitive.Item
               key={row.value}
               value={row.value}
               disabled={Boolean(reason)}
               title={reason ?? (row.detail ? `${row.label}: ${row.detail}` : row.label)}
-              className="group flex min-h-[30px] w-full items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-[12.5px] whitespace-nowrap text-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:text-faint disabled:hover:bg-transparent"
+              className="group flex min-h-[30px] w-full items-center gap-[9px] rounded-[6px] px-2 py-[3px] text-left text-menu whitespace-nowrap text-foreground outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:text-faint disabled:hover:bg-transparent"
             >
               <span
                 aria-hidden="true"
@@ -160,9 +168,9 @@ export function ChoiceRows<T extends string>({
               />
               <span className="flex min-w-0 flex-1 flex-col overflow-hidden leading-[1.3]">
                 <span className="truncate">{row.label}</span>
-                {row.detail || reason ? (
-                  <small className="line-clamp-2 text-[11px] whitespace-normal text-faint [overflow-wrap:anywhere]">
-                    {reason ?? row.detail}
+                {second ? (
+                  <small className="line-clamp-2 text-caption whitespace-normal text-faint [overflow-wrap:anywhere]">
+                    {second}
                   </small>
                 ) : null}
               </span>
@@ -184,7 +192,7 @@ export function AccessRows(props: {
   unavailable?: Partial<Record<SourceAccess, string>>;
   disabled?: boolean;
 }) {
-  return <ChoiceRows label="Access" rows={sourceAccessRows} {...props} />;
+  return <ChoiceRows label={t`Access`} rows={sourceAccessRows} {...props} />;
 }
 
 /**
@@ -193,7 +201,7 @@ export function AccessRows(props: {
  */
 export function FolderFace({
   path,
-  empty = 'No folder chosen',
+  empty = t`No folder chosen`,
   children,
 }: {
   path: string;
@@ -207,7 +215,7 @@ export function FolderFace({
     .split(/[/\\]/)
     .pop();
   return (
-    <div className="flex h-[30px] min-w-0 items-center gap-2 rounded-[7px] border border-input pr-1 pl-2.5 text-[12.5px] dark:bg-input/30">
+    <div className="flex h-[30px] min-w-0 items-center gap-2 rounded-[7px] border border-input pr-1 pl-2.5 text-menu dark:bg-input/30">
       <span
         role="status"
         title={path || undefined}
@@ -217,7 +225,7 @@ export function FolderFace({
           <>
             <span className="max-w-[60%] shrink-0 truncate text-foreground">{name || path}</span>
             {name && name !== path ? (
-              <span className="min-w-0 truncate font-mono text-[11px] text-faint">{path}</span>
+              <span className="min-w-0 truncate font-mono text-caption text-faint">{path}</span>
             ) : null}
           </>
         ) : (
@@ -230,7 +238,7 @@ export function FolderFace({
 }
 
 /** The quiet chooser inside a FolderFace. */
-export const folderTriggerClass = 'h-6 shrink-0 px-2 text-[12px] text-muted-foreground';
+export const folderTriggerClass = 'h-6 shrink-0 px-2 text-meta text-muted-foreground';
 
 const statusTones = {
   default: 'text-foreground/85',
@@ -263,7 +271,7 @@ export function SourceStatusLine({
       id={id}
       role={role}
       className={cn(
-        'flex min-h-[26px] min-w-0 items-center gap-2 text-[12px]',
+        'flex min-h-[26px] min-w-0 items-center gap-2 text-meta',
         statusTones[tone],
         className,
       )}
@@ -306,10 +314,10 @@ export function ProviderSwitch({
   aside?: ReactNode;
 }) {
   return (
-    <SourceField label="Source" aside={aside}>
+    <SourceField label={t`Source`} aside={aside}>
       <div className="flex min-w-0 items-center gap-1.5">
         <SegmentedControl
-          label="Source"
+          label={t`Source`}
           iconOnly
           value={value}
           onValueChange={onChange}
@@ -319,7 +327,7 @@ export function ProviderSwitch({
             icon: <SourceProviderGlyph provider={option.id} />,
           }))}
         />
-        <span className="ml-1.5 line-clamp-2 min-w-0 text-[12.5px] leading-[1.3] text-foreground">
+        <span className="ml-1.5 line-clamp-2 min-w-0 text-menu leading-[1.3] text-foreground">
           {options.find((option) => option.id === value)?.name}
         </span>
       </div>

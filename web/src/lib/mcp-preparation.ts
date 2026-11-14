@@ -8,29 +8,39 @@
  */
 import type { McpServerDefinition } from '@clio/core/v3';
 import type { ClioStatusValue } from '@/components/clio/status';
+import { ph, t } from '@lingui/core/macro';
 
 /** What the server is doing while it is prepared, in a person's words. */
-const PHASE_LABELS: Record<string, string> = {
-  provision: 'Installing',
-  launch: 'Starting',
-  connect: 'Connecting',
+/** A preparation phase's short label and the sentence that says what it is doing. */
+const PHASES: Record<string, { label: string; sentence: string }> = {
+  provision: {
+    label: t`Preparing (installing)`,
+    sentence: t`Installing the server for this conversation; its tools join when it is ready.`,
+  },
+  launch: {
+    label: t`Preparing (starting)`,
+    sentence: t`Starting the server for this conversation; its tools join when it is ready.`,
+  },
+  connect: {
+    label: t`Preparing (connecting)`,
+    sentence: t`Connecting the server for this conversation; its tools join when it is ready.`,
+  },
 };
 
 /** Why a server could not be prepared, in a person's words. */
 const REASON_SENTENCES: Record<string, string> = {
-  mcp_prepare_launcher_missing:
-    'The program that runs this server is not installed on the agent’s computer.',
-  mcp_prepare_provision_failed: 'The server’s software could not be installed.',
-  mcp_prepare_provision_no_progress: 'Installing the server’s software stopped making progress.',
-  mcp_prepare_start_failed: 'The server did not start, or it closed its connection.',
-  mcp_prepare_start_no_progress: 'The server stopped responding while it was starting.',
-  mcp_prepare_cache_lock_timeout: 'Another server’s installation held up this one for too long.',
-  launcher_cache_lock_timeout: 'Another server’s installation held up this one for too long.',
-  mcp_namespace_discovery_unreachable: 'The server could not be reached.',
-  mcp_namespace_discovery_timeout: 'The server did not answer in time.',
+  mcp_prepare_launcher_missing: t`The program that runs this server is not installed on the agent’s computer.`,
+  mcp_prepare_provision_failed: t`The server’s software could not be installed.`,
+  mcp_prepare_provision_no_progress: t`Installing the server’s software stopped making progress.`,
+  mcp_prepare_start_failed: t`The server did not start, or it closed its connection.`,
+  mcp_prepare_start_no_progress: t`The server stopped responding while it was starting.`,
+  mcp_prepare_cache_lock_timeout: t`Another server’s installation held up this one for too long.`,
+  launcher_cache_lock_timeout: t`Another server’s installation held up this one for too long.`,
+  mcp_namespace_discovery_unreachable: t`The server could not be reached.`,
+  mcp_namespace_discovery_timeout: t`The server did not answer in time.`,
 };
 
-const UNKNOWN_FAILURE = 'The server could not be prepared.';
+const UNKNOWN_FAILURE = t`The server could not be prepared.`;
 
 /** A plain sentence for a typed preparation failure (never the reason token itself). */
 export function preparationReasonSentence(reason: string | undefined): string {
@@ -62,15 +72,16 @@ export function mcpServerPreparation(
   if (!server || server.status === 'ready') return undefined;
   const preparation = server.preparation;
   if (server.status === 'preparing' || preparation?.state === 'preparing') {
-    const phase = PHASE_LABELS[preparation?.phase ?? ''];
+    const phase = PHASES[preparation?.phase ?? ''];
     const retrying = Boolean(preparation?.reason);
     return {
       state: 'preparing',
-      label: phase ? `Preparing (${phase.toLocaleLowerCase()})` : 'Preparing',
+      label: phase?.label ?? t`Preparing`,
       value: 'connecting',
       sentence: retrying
-        ? `${preparationReasonSentence(preparation?.reason)} Trying again.`
-        : `${phase ?? 'Preparing'} the server for this conversation; its tools join when it is ready.`,
+        ? t`${ph({ reason: preparationReasonSentence(preparation?.reason) })} Trying again.`
+        : (phase?.sentence ??
+          t`Preparing the server for this conversation; its tools join when it is ready.`),
       reason: preparation?.reason,
       detail: preparation?.detail,
     };
@@ -79,7 +90,7 @@ export function mcpServerPreparation(
     const reason = server.reason || preparation?.reason;
     return {
       state: 'failed',
-      label: 'Failed',
+      label: t`Failed`,
       value: 'failed',
       sentence: preparationReasonSentence(reason),
       reason,

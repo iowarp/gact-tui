@@ -18,6 +18,7 @@ import type { SessionEvidenceActions } from './session-evidence-types';
 import { RunListRow } from './run-list-row';
 import { railRuns, type RailRun } from './rail-run-rows';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
+import { t, ph } from '@lingui/core/macro';
 
 /** The rail lists a conversation's latest runs; All runs holds the rest. */
 const RAIL_RUN_LIMIT = 8;
@@ -60,10 +61,12 @@ export function RailRuns({
       if (action === 'cancel') await onCancelTask?.(task);
       else await onControlTask?.(task, 'restart');
     } catch (reason) {
+      const label = run.row.label;
+      const message = reason instanceof Error ? reason.message : String(reason);
       setError(
-        `${action === 'cancel' ? 'Could not stop' : 'Could not retry'} ${run.row.label}: ${
-          reason instanceof Error ? reason.message : String(reason)
-        }`,
+        action === 'cancel'
+          ? t`Could not stop ${label}: ${message}`
+          : t`Could not retry ${label}: ${message}`,
       );
     } finally {
       submitting.current.delete(run.row.taskId);
@@ -97,7 +100,7 @@ export function RailRuns({
   return (
     <div
       className="@container/runs min-w-0"
-      aria-label="Runs in this conversation"
+      aria-label={t`Runs in this conversation`}
       data-run-list=""
     >
       {shown.map((run) => (
@@ -113,7 +116,7 @@ export function RailRuns({
             canStop(run) ? (
               <IconButton
                 size="sm"
-                label={`Stop ${run.row.label}`}
+                label={t`Stop ${ph({ label: run.row.label })}`}
                 icon={<CircleStopIcon aria-hidden="true" />}
                 className="hover:text-destructive"
                 disabled={pending.has(run.row.taskId)}
@@ -122,7 +125,7 @@ export function RailRuns({
             ) : canRetry(run) ? (
               <IconButton
                 size="sm"
-                label={`Retry ${run.row.label}`}
+                label={t`Retry ${ph({ label: run.row.label })}`}
                 icon={<RetryIcon aria-hidden="true" />}
                 disabled={pending.has(run.row.taskId)}
                 onClick={() => void act(run, 'restart')}
@@ -135,11 +138,11 @@ export function RailRuns({
         <Link
           to="/runs"
           data-rail-row=""
-          className="flex h-7 items-center gap-2 rounded-[5px] px-2 text-[13px] hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex h-7 items-center gap-2 rounded-[5px] px-2 text-ui hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <ActivityIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
           <span className="flex-1">
-            {runs.length > shown.length ? `All runs (${runs.length})` : 'All runs'}
+            {runs.length > shown.length ? t`All runs (${ph({ count: runs.length })})` : t`All runs`}
           </span>
           <ChevronRightIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
         </Link>
@@ -157,22 +160,22 @@ export function RailRuns({
       >
         <AlertDialogContent layer="task-confirmation">
           <AlertDialogHeader>
-            <AlertDialogTitle>Stop this run?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Stop this run?`}</AlertDialogTitle>
             <p className="text-sm font-medium [overflow-wrap:anywhere]">{stopping?.row.label}</p>
             <AlertDialogDescription>
               {stopping?.row.source === 'agent_task'
-                ? 'This also stops its descendant agents, downloads and shell processes.'
-                : 'Stopping is requested from its owner and may take time to finish.'}
+                ? t`This also stops its descendant agents, downloads and shell processes.`
+                : t`Stopping is requested from its owner and may take time to finish.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep running</AlertDialogCancel>
+            <AlertDialogCancel>{t`Keep running`}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (stopping) void act(stopping, 'cancel');
               }}
             >
-              Stop run
+              {t`Stop run`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

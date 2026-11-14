@@ -1,10 +1,13 @@
 import type { RemovalPreview } from '@clio/core/v3';
 import { Badge } from '@/components/ui/badge';
 import { removalPreviewReason } from '@/lib/plugin-presentation';
+import { plural, t } from '@lingui/core/macro';
 
 export interface PluginRemovalCascadeProps {
   /** The plugin the person asked to remove. */
   plugin: string;
+  /** Its name in words (a connector's plugin: the connector's name); the id otherwise. */
+  name?: string;
   preview?: RemovalPreview;
   previewPending: boolean;
   previewError?: string;
@@ -17,27 +20,29 @@ export interface PluginRemovalCascadeProps {
  */
 export function PluginRemovalCascade({
   plugin,
+  name,
   preview,
   previewPending,
   previewError,
 }: PluginRemovalCascadeProps) {
   const dependents = (preview?.removes ?? []).filter((row) => row.id !== plugin);
+  const named = name || plugin;
   const tools = preview?.tools_removed ?? [];
   return (
     <div className="space-y-3" aria-live="polite">
-      {previewPending ? <p role="status">Checking what depends on {plugin}…</p> : null}
+      {previewPending ? <p role="status">{t`Checking what depends on ${named}…`}</p> : null}
       {previewError ? (
         <p role="alert" className="text-destructive">
-          The removal could not be previewed: {previewError}
+          {t`The removal could not be previewed: ${previewError}`}
         </p>
       ) : null}
       {preview && dependents.length ? (
-        <section aria-label="Plugins that leave too" className="space-y-2">
+        <section aria-label={t`Plugins that leave too`} className="space-y-2">
           <p className="font-medium">
-            {dependents.length === 1
-              ? 'One more plugin leaves'
-              : `${dependents.length} more plugins leave`}{' '}
-            with {plugin}:
+            {plural(dependents.length, {
+              one: `One more plugin leaves with ${named}:`,
+              other: `# more plugins leave with ${named}:`,
+            })}
           </p>
           <ul className="grid gap-1.5">
             {dependents.map((row) => (
@@ -51,13 +56,14 @@ export function PluginRemovalCascade({
           </ul>
         </section>
       ) : null}
-      {preview && !dependents.length ? <p>No other plugin depends on {plugin}.</p> : null}
+      {preview && !dependents.length ? <p>{t`No other plugin depends on ${named}.`}</p> : null}
       {preview && tools.length ? (
-        <section aria-label="Tools that leave" className="space-y-1.5">
+        <section aria-label={t`Tools that leave`} className="space-y-1.5">
           <p className="text-muted-foreground">
-            {tools.length === 1
-              ? 'This tool is no longer available:'
-              : `These ${tools.length} tools are no longer available:`}
+            {plural(tools.length, {
+              one: 'This tool is no longer available:',
+              other: 'These # tools are no longer available:',
+            })}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {tools.map((tool) => (

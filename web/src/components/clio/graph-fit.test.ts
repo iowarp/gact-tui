@@ -6,6 +6,8 @@ import {
   fitColumns,
   fitHeight,
   fitWidth,
+  flooredFit,
+  focusViewport,
   graphEdges,
 } from './graph-fit';
 
@@ -42,6 +44,46 @@ describe('graph fit', () => {
     expect(fitWidth(390, 400, 14)).toBeCloseTo(362 / 400);
     expect(fitWidth(390, 640, 14)).toBe(GRAPH_MIN_ZOOM);
     expect(fitWidth(undefined, 640, 14)).toBe(1);
+  });
+
+  it('opens a drawing on its focus, on both axes, clamped to the drawing’s edges', () => {
+    const pane = { w: 400, h: 300 };
+    // Fits: moves toward centring the focus only while the whole drawing stays in view.
+    expect(
+      focusViewport({ pane, width: 300, height: 200, focus: { x: 250, y: 50 }, zoom: 1 }),
+    ).toEqual({ x: GRAPH_MARGIN, y: 300 - GRAPH_MARGIN - 200, zoom: 1 });
+    expect(
+      focusViewport({ pane, width: 100, height: 60, focus: { x: 50, y: 30 }, zoom: 1 }),
+    ).toEqual({ x: 150, y: 120, zoom: 1 });
+    // Wider than the pane: the focus is centred across, and as near centre as fits down.
+    expect(
+      focusViewport({ pane, width: 1600, height: 200, focus: { x: 800, y: 50 }, zoom: 1 }),
+    ).toEqual({ x: -600, y: 300 - GRAPH_MARGIN - 200, zoom: 1 });
+    // Taller than the pane too: the focus sits mid-pane.
+    expect(
+      focusViewport({ pane, width: 1600, height: 1200, focus: { x: 800, y: 600 }, zoom: 1 }),
+    ).toEqual({ x: -600, y: -450, zoom: 1 });
+    // A focus at the far end stops at the drawing's last column, not past it.
+    expect(
+      focusViewport({ pane, width: 1600, height: 200, focus: { x: 1590, y: 50 }, zoom: 1 }).x,
+    ).toBe(400 - GRAPH_MARGIN - 1600);
+    expect(
+      focusViewport({ pane, width: 1600, height: 200, focus: { x: 10, y: 50 }, zoom: 1 }).x,
+    ).toBe(GRAPH_MARGIN);
+  });
+
+  it('frames a whole drawing that fits at the floor, and otherwise holds the floor on its focus', () => {
+    const pane = { w: 400, h: 300 };
+    const box = (x: number, y: number) => ({ x, y, width: 100, height: 40 });
+    const fit = { pane, floor: 0.6, padding: 0.05, margin: 14 };
+    expect(flooredFit({ ...fit, boxes: [box(0, 0), box(300, 200)], focus: undefined })).toBe(
+      undefined,
+    );
+    // Dragged far apart: the floor, scrolled so the focus box is mid-pane.
+    const boxes = [box(-500, 0), box(0, 0), box(1500, 0)];
+    const at = flooredFit({ ...fit, boxes, focus: boxes[1] });
+    expect(at?.zoom).toBe(0.6);
+    expect(at!.x + (0 + 50) * 0.6).toBeCloseTo(200, 0);
   });
 
   it('cues each pane edge the drawing continues past, level with its visible middle', () => {

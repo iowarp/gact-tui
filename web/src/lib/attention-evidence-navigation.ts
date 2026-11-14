@@ -5,6 +5,7 @@ import {
   type ContentSelection,
 } from '@clio/core/v3';
 import { z } from 'zod';
+import { t } from '@lingui/core/macro';
 
 export type AttentionEvidenceInspection = Omit<z.infer<typeof inspectionSchema>, 'selections'> & {
   selections: ContentSelection[];
@@ -53,12 +54,12 @@ export function focusAttentionEvidence(messageId: string, query: URLSearchParams
   const target = findPartElement(document, messageId, part, query.get('field') ?? 'text');
   if (!(target instanceof HTMLElement)) {
     if (!query.has('inspection'))
-      toast.info('Expand this message’s activity to inspect the referenced field.');
+      toast.info(t`Expand this message’s activity to inspect the referenced field.`);
     return false;
   }
   const revision = query.get('revision');
   if (revision && target.dataset.contentRevision !== revision) {
-    toast.error('This field is not displaying the referenced revision.');
+    toast.error(t`This field is not displaying the referenced revision.`);
     return false;
   }
   target.tabIndex = -1;

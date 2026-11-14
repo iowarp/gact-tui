@@ -1,6 +1,6 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { BoxesIcon, ClipboardPenLineIcon, MessageCircleQuestionIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { vocab } from '@/lib/brand-vocabulary';
 import { EditIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,8 @@ import { pendingInteractionDomId } from './interaction-control';
 import { OwnerAttribution } from './pending-interaction-notices';
 import { plainQuestionText, questionPrompt, useComposerAnswer } from './question-card-model';
 import { QuestionMarkdown } from './question-markdown';
+import { useScrollClipped } from './use-scroll-clipped';
+import { t, ph } from '@lingui/core/macro';
 
 const TITLE_LIMIT = 120;
 
@@ -24,7 +26,7 @@ function splitQuestion(text: string, fallback: string | undefined) {
     fallback.length <= TITLE_LIMIT &&
     !fallback.includes('\n')
       ? plainQuestionText(fallback)
-      : `${vocab.agent} asks`;
+      : t`${ph({ agent: vocab.agent })} asks`;
   return { title: label, body: trimmed };
 }
 
@@ -57,6 +59,8 @@ export function QuestionCard({
   ...props
 }: QuestionCardProps) {
   const { title, body } = splitQuestion(heading ?? questionPrompt(interaction), interaction.title);
+  const promptRef = useRef<HTMLDivElement>(null);
+  useScrollClipped(promptRef);
   return (
     <AskCard
       data-interaction-kind={interaction.kind}
@@ -76,18 +80,21 @@ export function QuestionCard({
       {body ? (
         <AskSection
           className={cn(
-            'mt-1 text-foreground/85 [&_.text-sm]:text-[12.5px]',
-            !showFullPrompt && 'clio-scrollbar max-h-28 overflow-y-auto pr-1',
+            // The prompt has its own cap; under the card's cap the options give up height.
+            'mt-1 shrink-0 text-foreground/85 [&_.text-sm]:text-menu',
+            !showFullPrompt &&
+              'clio-scrollbar max-h-28 overflow-y-auto pr-1 data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
             promptClassName,
           )}
           data-slot="question-prompt"
+          ref={promptRef}
         >
           <QuestionMarkdown>{body}</QuestionMarkdown>
         </AskSection>
       ) : null}
       {interaction.routing_state === 'agent_elicitation_fallback_to_human' ? (
-        <AskSection className="mt-1 text-[12px] text-muted-foreground">
-          The specialist could not answer this, so it needs you.
+        <AskSection className="mt-1 text-meta text-muted-foreground">
+          {t`The specialist could not answer this, so it needs you.`}
         </AskSection>
       ) : null}
       {children}
@@ -129,23 +136,25 @@ export function QuestionFooter({
         composer.answering ? (
           <span className="inline-flex min-w-0 items-center gap-1.5" data-slot="question-answering">
             <EditIcon aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="truncate">Type your answer in the message box below</span>
+            <span className="min-w-0 whitespace-normal">
+              {t`Type your answer in the message box below`}
+            </span>
           </span>
         ) : (
           <AskHint disabled={disabled} onClick={composer.start}>
             <EditIcon aria-hidden="true" className="mr-1.5 inline size-3.5 align-[-3px]" />
-            {composerOnly ? 'Type your answer below' : 'Or type your own answer below'}
+            {composerOnly ? t`Type your answer below` : t`Or type your own answer below`}
           </AskHint>
         )
       ) : null}
       {onDismiss ? (
         <AskHint
-          aria-label="Dismiss question"
+          aria-label={t`Dismiss question`}
           askKey="Escape"
           disabled={disabled}
           onClick={onDismiss}
         >
-          Dismiss
+          {t`Dismiss`}
         </AskHint>
       ) : null}
     </AskFooter>

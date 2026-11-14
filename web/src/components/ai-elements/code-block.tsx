@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { copyText } from '@/lib/clipboard';
+import { splitIndent } from '@/lib/source-indent';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import type { ComponentProps, CSSProperties, HTMLAttributes } from 'react';
 import {
@@ -15,7 +16,14 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from 'shiki';
+import type {
+  BundledLanguage,
+  BundledTheme,
+  GrammarState,
+  HighlighterGeneric,
+  ThemedToken,
+} from 'shiki';
+import { t } from '@lingui/core/macro';
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
@@ -46,7 +54,7 @@ const addKeysToTokens = (lines: ThemedToken[][]): KeyedLine[] =>
   }));
 
 // Token rendering component
-const TokenSpan = ({ token }: { token: ThemedToken }) => (
+export const TokenSpan = ({ token }: { token: ThemedToken }) => (
   <span
     style={
       {
@@ -77,7 +85,8 @@ const LINE_NUMBER_CLASSES = cn(
   'before:select-none',
 );
 
-// Line rendering component
+// Line rendering component. The indent is unbreakable and exposed as `--indent`
+// so a wrapping view can hang continuation rows at the line's own indent.
 const LineSpan = ({
   keyedLine,
   showLineNumbers,
@@ -86,18 +95,43 @@ const LineSpan = ({
   keyedLine: KeyedLine;
   showLineNumbers: boolean;
   diff: boolean;
-}) => (
-  <span
-    className={showLineNumbers ? LINE_NUMBER_CLASSES : 'block'}
-    data-diff-line={
-      diff ? diffLineKind(keyedLine.tokens.map(({ token }) => token.content).join('')) : undefined
-    }
-  >
-    {keyedLine.tokens.length === 0
-      ? '\n'
-      : keyedLine.tokens.map(({ token, key }) => <TokenSpan key={key} token={token} />)}
-  </span>
-);
+}) => {
+  const { lead, columns, rest } = splitIndent(keyedLine.tokens.map(({ token }) => token));
+  return (
+    <span
+      className={showLineNumbers ? LINE_NUMBER_CLASSES : 'block'}
+      style={columns ? ({ '--indent': `${columns}ch` } as CSSProperties) : undefined}
+      data-diff-line={
+        diff ? diffLineKind(keyedLine.tokens.map(({ token }) => token.content).join('')) : undefined
+      }
+    >
+      {keyedLine.tokens.length === 0 ? (
+        '\n'
+      ) : (
+        <>
+          {lead && (
+            <span className="whitespace-pre" data-indent="">
+              {lead}
+            </span>
+          )}
+          {rest.map((token, index) => (
+            // oxlint-disable-next-line react/no-array-index-key -- tokens are positional.
+            <TokenSpan key={`${keyedLine.key}-${index}`} token={token} />
+          ))}
+        </>
+      )}
+    </span>
+  );
+};
+
+/**
+ * Wrapped numbered lines hang past the line numbers and the line's own indent, so a
+ * number marks only its own line and continuation rows keep the indent. The number
+ * and the indent sit outside the inline flow, so a row never breaks before the
+ * line's first word.
+ */
+export const HANGING_SOURCE_WRAP =
+  '[&_pre]:whitespace-pre-wrap [&_pre]:[overflow-wrap:anywhere] [&_pre_code>span]:relative [&_pre_code>span]:min-h-[1.65em] [&_pre_code>span]:[padding-left:calc(3rem_+_var(--indent,0ch))] [&_pre_code>span]:before:absolute [&_pre_code>span]:before:left-0 [&_pre_code>span>[data-indent]]:absolute';
 
 /** Classify unified-diff syntax, not tool names or model result keys. */
 function diffLineKind(line: string): string {
@@ -155,18 +189,45 @@ const getTokensCacheKey = (code: string, language: BundledLanguage) => {
 // (web/src/theme/themes.css) without re-tokenizing.
 const createLazyHighlighter = async (language: BundledLanguage) => {
   const { createCssVariablesTheme, createHighlighter } = await import('shiki');
-  return createHighlighter({
-    langs: [language],
-    themes: [
-      createCssVariablesTheme({
-        name: 'clio-syntax',
-        variablePrefix: '--syntax-',
-        variableDefaults: {},
-        fontStyle: true,
-      }),
-    ],
+  const theme = createCssVariablesTheme({
+    name: 'clio-syntax',
+    variablePrefix: '--syntax-',
+    variableDefaults: {},
+    fontStyle: true,
   });
+  theme.tokenColors = [...(theme.tokenColors ?? []), ...MARKDOWN_TOKEN_COLORS];
+  return createHighlighter({ langs: [language], themes: [theme] });
 };
+
+/**
+ * Markdown's structure in the same syntax colours code uses. Shiki's variables
+ * theme leaves headings, list markers and quotes in the text colour.
+ */
+const MARKDOWN_TOKEN_COLORS = [
+  {
+    scope: [
+      'markup.heading',
+      'entity.name.section.markdown',
+      'punctuation.definition.heading.markdown',
+    ],
+    settings: { foreground: 'var(--syntax-token-keyword)' },
+  },
+  {
+    scope: ['punctuation.definition.list.begin.markdown'],
+    settings: { foreground: 'var(--syntax-token-constant)' },
+  },
+  { scope: ['markup.quote'], settings: { foreground: 'var(--syntax-token-comment)' } },
+  {
+    scope: [
+      'punctuation.definition.bold.markdown',
+      'punctuation.definition.italic.markdown',
+      'punctuation.definition.quote.begin.markdown',
+      'punctuation.definition.table.markdown',
+      'meta.separator.markdown',
+    ],
+    settings: { foreground: 'var(--syntax-token-punctuation)' },
+  },
+];
 
 const getHighlighter = (
   language: BundledLanguage,
@@ -260,6 +321,59 @@ export const highlightCode = (
   return null;
 };
 
+/** Lines longer than this keep one plain token; minified rows would stall the tokenizer. */
+const CHUNKED_MAX_LINE_LENGTH = 1_000;
+/** Main-thread time spent tokenizing before yielding to input and paint. Unit: ms. */
+const CHUNKED_FRAME_BUDGET_MS = 8;
+const CHUNKED_LINES = 100;
+
+export interface TokenizedChunk {
+  /** Index of the first line in `tokens`. */
+  start: number;
+  tokens: ThemedToken[][];
+  /** The grammar state after the chunk's last line, to resume tokenizing from it. */
+  state?: GrammarState;
+}
+
+/**
+ * Tokenize many lines a chunk at a time, yielding between frame budgets so a large
+ * file stays responsive. Resumes at `from` with the grammar `state` there.
+ */
+export async function tokenizeLines(
+  lines: readonly string[],
+  language: BundledLanguage,
+  // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-callbacks)
+  onChunks: (chunks: TokenizedChunk[]) => void,
+  signal: { cancelled: boolean },
+  from = 0,
+  state?: GrammarState,
+): Promise<void> {
+  const highlighter = await getHighlighter(language);
+  if (signal.cancelled || !highlighter.getLoadedLanguages().includes(language)) return;
+  let grammarState = state;
+  let pending: TokenizedChunk[] = [];
+  let frameStart = performance.now();
+  for (let start = from; start < lines.length; start += CHUNKED_LINES) {
+    if (signal.cancelled) return;
+    const result = highlighter.codeToTokens(lines.slice(start, start + CHUNKED_LINES).join('\n'), {
+      lang: language,
+      theme: 'clio-syntax',
+      grammarState,
+      tokenizeMaxLineLength: CHUNKED_MAX_LINE_LENGTH,
+    });
+    grammarState = result.grammarState;
+    pending.push({ start, tokens: result.tokens, state: grammarState });
+    if (performance.now() - frameStart >= CHUNKED_FRAME_BUDGET_MS) {
+      onChunks(pending);
+      pending = [];
+      // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      frameStart = performance.now();
+    }
+  }
+  if (!signal.cancelled && pending.length) onChunks(pending);
+}
+
 const CodeBlockBody = memo(
   ({
     tokenized,
@@ -298,7 +412,12 @@ const CodeBlockBody = memo(
             showLineNumbers && '[counter-increment:line_0] [counter-reset:line]',
           )}
           style={
-            showLineNumbers && startLine > 1 ? { counterReset: `line ${startLine - 1}` } : undefined
+            showLineNumbers && startLine > 1
+              ? {
+                  // i18n-ignore: CSS counter name
+                  counterReset: `line ${startLine - 1}`,
+                }
+              : undefined
           }
         >
           {keyedLines.map((keyedLine) => (
@@ -445,7 +564,7 @@ export const CodeBlockContent = ({
       className="relative min-h-0 flex-1 overflow-auto focus-visible:outline focus-visible:outline-ring"
       data-slot="code-block-scroll"
       role="region"
-      aria-label="Scrollable code"
+      aria-label={t`Scrollable code`}
       tabIndex={0}
     >
       <CodeBlockBody

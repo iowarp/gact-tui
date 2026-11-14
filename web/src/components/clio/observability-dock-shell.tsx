@@ -61,6 +61,7 @@ import type { ObservabilityView } from './observability-view-storage';
 import type { ProvenanceEarlier } from './observability-provenance';
 
 import type { ClioWorkbenchOpenRequest } from './workbench-open-request';
+import { ph, plural, t } from '@lingui/core/macro';
 
 export interface ClioObservabilityDockProps {
   /** Opens a shared browser page in the workbench (the Work rail's Browser pages). */
@@ -173,7 +174,10 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
   const dockStatusValue: ClioStatusValue = unresolvedWorkCount
     ? 'task_state_uncertain'
     : (props.sessionState ?? 'running');
-  const activityCountLabel = `${activityCount.toLocaleString()} background ${activityCount === 1 ? 'activity' : 'activities'}`;
+  const activityCountLabel = plural(activityCount, {
+    one: '# background activity',
+    other: '# background activities',
+  });
   const outputArtifacts = artifactDeliverables(props.artifacts).filter(
     (artifact) => artifact.session_relation !== 'used',
   );
@@ -186,21 +190,21 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         : activityCount
           ? activityCountLabel
           : outputArtifacts.length
-            ? `${outputArtifacts.length} outputs`
-            : 'Activity';
+            ? plural(outputArtifacts.length, { one: '# output', other: '# outputs' })
+            : t`Activity`;
   // The badge takes the session state's tone (red for failed), so its words must name that
   // same state: an idle fall-through label under a failed tone read as a red "Up to date".
   const dockStatus = unresolvedWorkCount
-    ? 'Needs inspection'
+    ? t`Needs inspection`
     : activeActivityCount
-      ? `${activeActivityCount} active`
+      ? t`${activeActivityCount} active`
       : sessionActive
-        ? 'Working'
+        ? t`Working`
         : sessionNeedsAttention && props.sessionState
           ? clioStatusLabel(props.sessionState)
           : activityCount
-            ? 'Settled'
-            : 'No active work';
+            ? t`Settled`
+            : t`No active work`;
 
   const openChildAgent = (subagent: SubagentRun, target: SubagentOpenTarget) => {
     props.onOpenSubagent?.(subagent, target);
@@ -236,7 +240,10 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
             {!props.toolbar && presentationOverrideCount ? (
               <ClioStatus
                 className="hidden py-0.5 @min-[65rem]/composer:inline-flex"
-                label={`${presentationOverrideCount} display ${presentationOverrideCount === 1 ? 'fallback' : 'fallbacks'}`}
+                label={plural(presentationOverrideCount, {
+                  one: '# display fallback',
+                  other: '# display fallbacks',
+                })}
                 value="degraded"
               />
             ) : null}
@@ -255,10 +262,10 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         <Popover onOpenChange={setChildAgentsOpen} open={childAgentsOpen}>
           <PopoverTrigger asChild>
             <Button
-              aria-label="Browse child conversations"
+              aria-label={t`Browse child conversations`}
               className="size-7 shrink-0 p-0 text-muted-foreground"
               size="icon-sm"
-              title="Browse child conversations"
+              title={t`Browse child conversations`}
               type="button"
               variant="ghost"
             >
@@ -271,9 +278,9 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
             side="top"
           >
             <PopoverHeader className="px-2 pb-1 pt-1">
-              <PopoverTitle>Child agents</PopoverTitle>
+              <PopoverTitle>{t`Child agents`}</PopoverTitle>
               <PopoverDescription>
-                Select one to open a workspace tab. Shift-click to open it in the center.
+                {t`Select one to open a workspace tab. Shift-click to open it in the center.`}
               </PopoverDescription>
             </PopoverHeader>
             <div className="grid gap-1">
@@ -284,13 +291,13 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
                     actions={
                       agent.child_session_id && props.onOpenSubagent ? (
                         <Button
-                          aria-label={`Open ${agent.title} in canvas`}
+                          aria-label={t`Open ${ph({ title: agent.title })} in canvas`}
                           onClick={(event) => {
                             event.stopPropagation();
                             openChildAgent(agent, 'canvas');
                           }}
                           size="icon"
-                          title="Open in canvas"
+                          title={t`Open in canvas`}
                           type="button"
                           variant="ghost"
                         >
@@ -330,7 +337,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
                           <ClioStatus className="ml-auto shrink-0 py-0.5" value={agent.state} />
                         </div>
                         <p
-                          className="mt-0.5 truncate text-[11px] text-muted-foreground"
+                          className="mt-0.5 truncate text-caption text-muted-foreground"
                           title={assignment.detail ?? assignment.label}
                         >
                           {assignment.label}
@@ -390,7 +397,7 @@ function RailButton({
   return (
     <Button
       ref={buttonRef}
-      aria-label="Conversation rail"
+      aria-label={t`Conversation rail`}
       aria-describedby={toolbar ? describedBy : undefined}
       aria-expanded={open}
       aria-controls={open ? panelId : undefined}
@@ -405,7 +412,15 @@ function RailButton({
       )}
       data-rail-look={toolbar ? current.kind : undefined}
       size="sm"
-      title={`${toolbar ? `${current.label}. ` : ''}${open ? 'Close' : 'Open'} the conversation rail`}
+      title={
+        toolbar
+          ? open
+            ? t`${ph({ status: current.label })}. Close the conversation rail`
+            : t`${ph({ status: current.label })}. Open the conversation rail`
+          : open
+            ? t`Close the conversation rail`
+            : t`Open the conversation rail`
+      }
       type="button"
       variant="ghost"
     >
@@ -429,7 +444,7 @@ function RailButton({
           <span
             aria-hidden="true"
             className={cn(
-              'w-3.5 shrink-0 text-center text-[11px] tabular-nums',
+              'w-3.5 shrink-0 text-center text-caption tabular-nums',
               current.kind === 'idle' && 'max-sm:hidden',
               current.kind === 'waiting' && 'text-warning',
               current.kind === 'failed' && 'text-destructive-text',

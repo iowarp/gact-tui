@@ -33,10 +33,11 @@ import { SegmentedControl } from './primitives/segmented-control';
 import { StateView } from './primitives/state-view';
 import { scopeLabel } from './settings-prompt-scope';
 import { SettingsRow } from './settings-row';
+import { ph, t } from '@lingui/core/macro';
 
-const FIELD = 'h-[1.875rem] text-[0.78125rem]';
-const SELECT = 'h-[1.875rem]! w-full text-[0.78125rem]';
-const INVALID = 'Fix the validation errors before saving.';
+const FIELD = 'h-[1.875rem] text-menu';
+const SELECT = 'h-[1.875rem]! w-full text-menu';
+const INVALID = t`Fix the validation errors before saving.`;
 
 interface PromptDraft {
   id: string;
@@ -110,16 +111,16 @@ export function PromptEditorDialog({
   const preview = useMutation({
     mutationFn: () => repository.renderPrompt(draft.id, { ...context, profile: draft.profile }),
     onSuccess: (result) => setRenderedText(result.text),
-    onError: () => toast.error('The prompt couldn’t be rendered. Try again.'),
+    onError: () => toast.error(t`The prompt couldn’t be rendered. Try again.`),
   });
   const validate = useMutation({
     mutationFn: () =>
       repository.validatePrompt(draft.id, { ...context, profile: draft.profile, text: draft.text }),
     onSuccess: (result) => {
       setValidationErrors(result.validation_errors);
-      if (result.enabled) toast.success('Prompt is valid');
+      if (result.enabled) toast.success(t`Prompt is valid`);
     },
-    onError: () => toast.error('The prompt couldn’t be checked. Try again.'),
+    onError: () => toast.error(t`The prompt couldn’t be checked. Try again.`),
   });
   const save = useMutation({
     mutationFn: async () => {
@@ -146,11 +147,11 @@ export function PromptEditorDialog({
         queryKey: queryKeys.key('prompts', settings.endpoint),
       });
       onClose();
-      toast.success(editing ? 'Prompt override saved' : 'Prompt created');
+      toast.success(editing ? t`Prompt override saved` : t`Prompt created`);
     },
     onError: (error) =>
-      toast.error('Prompt was not saved', {
-        description: error.message === INVALID ? INVALID : 'Try again.',
+      toast.error(t`Prompt was not saved`, {
+        description: error.message === INVALID ? INVALID : t`Try again.`,
       }),
   });
 
@@ -175,15 +176,17 @@ export function PromptEditorDialog({
     <DialogFrame
       confirm={{
         label: save.isPending
-          ? 'Saving…'
-          : `Save ${draft.scope === 'workspace' ? 'workspace override' : 'service override'}`,
+          ? t`Saving…`
+          : draft.scope === 'workspace'
+            ? t`Save workspace override`
+            : t`Save service override`,
         onConfirm: () => save.mutate(),
         disabled: save.isPending || !draft.id || !draft.text || workspaceRequired,
       }}
       description={
         editing?.scope === 'builtin'
-          ? 'The packaged definition stays untouched; saving creates an explicit override.'
-          : 'The connected service validates changes before they are saved.'
+          ? t`The packaged definition stays untouched; saving creates an explicit override.`
+          : t`The connected service validates changes before they are saved.`
       }
       icon={<FileTextIcon className="size-3.5" />}
       onOpenChange={(open) => {
@@ -198,18 +201,20 @@ export function PromptEditorDialog({
           variant="outline"
         >
           {validate.isPending ? <Spinner /> : null}
-          Validate
+          {t`Validate`}
         </Button>
       }
-      title={editing ? `Customize ${editing.title || editing.id}` : 'Create prompt'}
+      title={
+        editing ? t`Customize ${ph({ prompt: editing.title || editing.id })}` : t`Create prompt`
+      }
       titleActions={
         <SegmentedControl
           className="mr-1"
-          label="Prompt view"
+          label={t`Prompt view`}
           onValueChange={setMode}
           options={[
-            { value: 'edit', label: 'Definition' },
-            { value: 'preview', label: 'Preview' },
+            { value: 'edit', label: t`Definition` },
+            { value: 'preview', label: t`Preview` },
           ]}
           value={mode}
         />
@@ -218,7 +223,7 @@ export function PromptEditorDialog({
       <div className="clio-scrollbar -mx-[18px] -mt-3 max-h-[min(62dvh,34rem)] overflow-y-auto px-[18px] pt-1">
         {mode === 'edit' ? (
           <>
-            <SettingsRow htmlFor={`${ids}-id`} title="Prompt ID">
+            <SettingsRow htmlFor={`${ids}-id`} title={t`Prompt ID`}>
               <Input
                 autoComplete="off"
                 className={cn(FIELD, 'font-mono')}
@@ -230,11 +235,11 @@ export function PromptEditorDialog({
                 value={draft.id}
               />
             </SettingsRow>
-            <SettingsRow htmlFor={`${ids}-profile`} title="Profile">
+            <SettingsRow htmlFor={`${ids}-profile`} title={t`Profile`}>
               {profiles.length ? (
                 <Select onValueChange={chooseProfile} value={draft.profile}>
                   <SelectTrigger
-                    aria-label="Prompt profile"
+                    aria-label={t`Prompt profile`}
                     className={SELECT}
                     id={`${ids}-profile`}
                     size="sm"
@@ -258,7 +263,7 @@ export function PromptEditorDialog({
                 />
               )}
             </SettingsRow>
-            <SettingsRow htmlFor={`${ids}-title`} title="Title">
+            <SettingsRow htmlFor={`${ids}-title`} title={t`Title`}>
               <Input
                 className={FIELD}
                 data-initial-focus={editing ? '' : undefined}
@@ -267,7 +272,7 @@ export function PromptEditorDialog({
                 value={draft.title}
               />
             </SettingsRow>
-            <SettingsRow htmlFor={`${ids}-description`} title="Description">
+            <SettingsRow htmlFor={`${ids}-description`} title={t`Description`}>
               <Input
                 className={FIELD}
                 id={`${ids}-description`}
@@ -277,11 +282,11 @@ export function PromptEditorDialog({
             </SettingsRow>
             <div className="border-b border-border/70 pt-1.5 pb-2.5">
               <div className="flex h-7 items-center gap-1.5">
-                <Label className="text-[0.8125rem] font-normal" htmlFor={`${ids}-text`}>
-                  Instructions
+                <Label className="text-ui font-normal" htmlFor={`${ids}-text`}>
+                  {t`Instructions`}
                 </Label>
-                <InfoTip className="text-faint" label="About Instructions">
-                  Template placeholders are checked by the service allowlist.
+                <InfoTip className="text-faint" label={t`About Instructions`}>
+                  {t`Template placeholders are checked by the service allowlist.`}
                 </InfoTip>
               </div>
               <Textarea
@@ -298,8 +303,8 @@ export function PromptEditorDialog({
               ) : null}
             </div>
             <SettingsRow
-              error={workspaceRequired ? 'Select a workspace in the toolbar first.' : undefined}
-              title="Save for"
+              error={workspaceRequired ? t`Select a workspace in the toolbar first.` : undefined}
+              title={t`Save for`}
             >
               <Select
                 onValueChange={(value: 'global' | 'workspace') =>
@@ -307,36 +312,36 @@ export function PromptEditorDialog({
                 }
                 value={draft.scope}
               >
-                <SelectTrigger aria-label="Prompt save scope" className={SELECT} size="sm">
+                <SelectTrigger aria-label={t`Prompt save scope`} className={SELECT} size="sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="global">Entire service</SelectItem>
-                  <SelectItem value="workspace">Selected workspace</SelectItem>
+                  <SelectItem value="global">{t`Entire service`}</SelectItem>
+                  <SelectItem value="workspace">{t`Selected workspace`}</SelectItem>
                 </SelectContent>
               </Select>
             </SettingsRow>
-            <SettingsRow htmlFor={`${ids}-provider`} title="Provider">
+            <SettingsRow htmlFor={`${ids}-provider`} title={t`Provider`}>
               <Input
                 className={FIELD}
                 id={`${ids}-provider`}
                 onChange={(event) => set('provider', event.target.value)}
-                placeholder="Inherit"
+                placeholder={t`Inherit`}
                 value={draft.provider}
               />
             </SettingsRow>
-            <SettingsRow htmlFor={`${ids}-model`} title="Model">
+            <SettingsRow htmlFor={`${ids}-model`} title={t`Model`}>
               <Input
                 className={FIELD}
                 id={`${ids}-model`}
                 onChange={(event) => set('model', event.target.value)}
-                placeholder="Inherit"
+                placeholder={t`Inherit`}
                 value={draft.model}
               />
             </SettingsRow>
             {resolved.data ? (
-              <div className="grid gap-0.5 pt-2 text-[0.71875rem] text-faint">
-                <p>Effective source: {scopeLabel(resolved.data.scope)}</p>
+              <div className="grid gap-0.5 pt-2 text-label text-muted-foreground">
+                <p>{t`Effective source: ${ph({ source: scopeLabel(resolved.data.scope) })}`}</p>
                 {resolved.data.source_path ? (
                   <p className="truncate font-mono" title={resolved.data.source_path}>
                     {resolved.data.source_path}
@@ -347,9 +352,8 @@ export function PromptEditorDialog({
           </>
         ) : (
           <div className="grid gap-3 pb-1">
-            <p className="text-[0.71875rem] text-faint">
-              The preview uses the connected service’s current agents, tools, commands, memory,
-              permissions, provider and active pack.
+            <p className="text-label text-muted-foreground">
+              {t`The preview uses the connected service’s current agents, tools, commands, memory, permissions, provider and active pack.`}
             </p>
             {editing ? (
               <Button
@@ -360,13 +364,13 @@ export function PromptEditorDialog({
                 variant="outline"
               >
                 {preview.isPending ? <Spinner /> : <EyeIcon aria-hidden="true" />}
-                Render effective prompt
+                {t`Render effective prompt`}
               </Button>
             ) : (
               <StateView
                 kind="empty"
                 size="row"
-                title="Save this new prompt before rendering it against live context"
+                title={t`Save this new prompt before rendering it against live context`}
               />
             )}
             {renderedText ? (
@@ -374,10 +378,10 @@ export function PromptEditorDialog({
                 <CodeBlockHeader>
                   <CodeBlockTitle>
                     <FileTextIcon aria-hidden="true" className="size-3.5" />
-                    <CodeBlockFilename>Effective prompt</CodeBlockFilename>
+                    <CodeBlockFilename>{t`Effective prompt`}</CodeBlockFilename>
                   </CodeBlockTitle>
                   <CodeBlockActions>
-                    <CodeBlockCopyButton aria-label="Copy effective prompt" />
+                    <CodeBlockCopyButton aria-label={t`Copy effective prompt`} />
                   </CodeBlockActions>
                 </CodeBlockHeader>
               </CodeBlock>

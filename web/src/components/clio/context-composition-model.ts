@@ -1,18 +1,20 @@
 import type { ContextPromptSection, ContextSnapshot, Message } from '@clio/core/v3';
 import { humanizeProtocolValue } from './presentation-labels';
+import { t } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
 
 const LABELS: Record<string, string> = {
-  framing: 'Unattributed prompt',
-  system: 'System prompt',
-  tools: 'Tool definitions',
-  conversation: 'Messages',
-  messages: 'Messages',
-  observations: 'Tool results',
-  tool_calls: 'Tool calls',
-  reasoning: 'Reasoning',
-  summary: 'Conversation summary',
-  io: 'Messages and results',
-  other: 'Other context',
+  framing: t`Unattributed prompt`,
+  system: t`System prompt`,
+  tools: t`Tool definitions`,
+  conversation: t`Messages`,
+  messages: t`Messages`,
+  observations: t`Tool results`,
+  tool_calls: t`Tool calls`,
+  reasoning: t`Reasoning`,
+  summary: t`Conversation summary`,
+  io: t`Messages and results`,
+  other: t`Other context`,
 };
 
 export function contextComposition(
@@ -48,7 +50,7 @@ export function contextComposition(
   if (!sections.length && summaryEstimate && !context?.used_tokens && !context?.live_tokens)
     sections.push({
       id: 'summary',
-      label: 'Conversation summary',
+      label: t`Conversation summary`,
       tokens_estimated: summaryEstimate,
       count: 1,
       items: [],
@@ -57,7 +59,7 @@ export function contextComposition(
   if (used > attributed)
     sections.push({
       id: 'unattributed',
-      label: 'Unattributed prompt',
+      label: t`Unattributed prompt`,
       tokens_estimated: used - attributed,
       count: 0,
       items: [],
@@ -90,9 +92,10 @@ function promptTokens(context: ContextSnapshot, reported: number): number {
 }
 
 export function contextTokens(value: number): string {
-  return new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(
-    value,
-  );
+  return new Intl.NumberFormat(formatLocale(), {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 export function contextPercent(value: number, limit: number): string {
@@ -104,7 +107,7 @@ export function contextPercent(value: number, limit: number): string {
 /** "16.6K of 1M": the used total against the model's window. */
 export function contextUsedSummary(context?: ContextSnapshot, messages: readonly Message[] = []) {
   const { used, limit } = contextComposition(context, messages);
-  return limit
-    ? `${contextTokens(used)} of ${contextTokens(limit)}`
-    : `${contextTokens(used)} used`;
+  const usedText = contextTokens(used);
+  const limitText = contextTokens(limit);
+  return limit ? t`${usedText} of ${limitText}` : t`${usedText} used`;
 }

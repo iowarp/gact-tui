@@ -1,3 +1,4 @@
+import { readThemeColor } from '@/theme/runtime';
 import { viewSnapshotFor } from './mcp-app-look';
 
 /**
@@ -24,9 +25,9 @@ function paintGapNote(
 ): void {
   const height = 22 * scale;
   context.save();
-  context.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  context.fillStyle = readThemeColor('media-backdrop');
   context.fillRect(box.x, box.y + box.height - height, box.width, height);
-  context.fillStyle = '#ffffff';
+  context.fillStyle = readThemeColor('media-foreground');
   context.font = `${Math.round(12 * scale)}px sans-serif`;
   context.textBaseline = 'middle';
   context.fillText(
@@ -51,12 +52,12 @@ function paintRefusal(
   scale: number,
 ): void {
   context.save();
-  context.fillStyle = 'rgba(127, 127, 127, 0.18)';
+  context.fillStyle = readThemeColor('muted');
   context.fillRect(box.x, box.y, box.width, box.height);
-  context.strokeStyle = 'rgba(127, 127, 127, 0.7)';
+  context.strokeStyle = readThemeColor('border');
   context.lineWidth = Math.max(1, scale);
   context.strokeRect(box.x, box.y, box.width, box.height);
-  context.fillStyle = getComputedStyle(document.documentElement).color || '#888';
+  context.fillStyle = readThemeColor('foreground');
   context.font = `${Math.round(13 * scale)}px sans-serif`;
   context.textBaseline = 'top';
   context.fillText(text, box.x + 10 * scale, box.y + 10 * scale, box.width - 20 * scale);
@@ -81,6 +82,7 @@ export async function paintAppFrames(
       height: rect.height * scaleY,
     };
     const take = viewSnapshotFor(frame);
+    // i18n-ignore: painted into the capture the agent reads, kept in English like other text sent to the agent
     let refusal = 'View not captured: the view has not finished loading (view_not_ready).';
     if (take) {
       try {
@@ -91,12 +93,15 @@ export async function paintAppFrames(
             ...new Set(snapshot.skipped.map((row) => row.reason).filter((r) => !QUIET.has(r))),
           ];
           if (gaps.length)
+            // i18n-ignore: painted into the capture the agent reads, kept in English like other text sent to the agent
             paintGapNote(context, box, `Not in this picture: ${gaps.join(', ')}`, scaleX);
           continue;
         }
+        // i18n-ignore: painted into the capture the agent reads, kept in English like other text sent to the agent
         refusal = `View not captured: ${snapshot.error.message} (${snapshot.error.reason}).`;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        // i18n-ignore: painted into the capture the agent reads, kept in English like other text sent to the agent
         refusal = `View not captured: ${message} (snapshot_failed).`;
       }
     }

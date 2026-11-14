@@ -64,6 +64,7 @@ export * from './mcp-app-reopen.js';
 export * from './mcp-preparation-domain.js';
 export * from './mcp-app-repository.js';
 export * from './search-repository.js';
+export * from './search-settings-repository.js';
 export * from './context-repository.js';
 export * from './administration-repository.js';
 export * from './attention-domain.js';

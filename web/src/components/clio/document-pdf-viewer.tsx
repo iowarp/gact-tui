@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ViewerZoomControls } from './viewer-zoom-controls';
+import { PendingPageReadout, ViewerZoomControls } from './viewer-zoom-controls';
 import { frameKeyRegion } from './file-viewer-modes';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { FILE_SIZE_FACT, useFileViewerFacts } from './file-viewer-facts';
@@ -17,6 +17,7 @@ import {
 import { StateView } from './primitives/state-view';
 import { useCommentSession } from './comments/comment-session';
 import { useSelectionMarkCommenter, type SelectionMark } from '@/hooks/use-selection-action-file';
+import { plural, t } from '@lingui/core/macro';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -27,6 +28,17 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.15;
+
+/**
+ * The next zoom on the 100% ± 15% grid in `direction`, stopping at `limit`: from
+ * an off-grid size (a whole-page minimum) the first step lands back on the grid.
+ */
+function zoomStep(scale: number, direction: 1 | -1, limit: number) {
+  const steps = (scale - 1) / ZOOM_STEP;
+  const next =
+    1 + (direction > 0 ? Math.floor(steps + 1e-6) + 1 : Math.ceil(steps - 1e-6) - 1) * ZOOM_STEP;
+  return direction > 0 ? Math.min(limit, next) : Math.max(limit, next);
+}
 
 /** A box to show on one page: 0-based page, and x, y, width, height as fractions of it. */
 export interface PdfHighlight {
@@ -62,20 +74,27 @@ export function ClioDocumentPdfViewer({
   const [pageCount, setPageCount] = useState(0);
   const [hostWidth, setHostWidth] = useState(640);
   const [scale, setScale] = useState(1);
-  // A width-fitted viewer (LaTeX) zooms out to the whole page, where zooming out stops.
-  const [fitOverride, setFitOverride] = useState<'page'>();
-  const fitMode = fitOverride ?? fit;
-  const atFit = scale <= MIN_ZOOM && fitMode === 'page';
-  const zoomIn = useCallback(() => setScale((value) => Math.min(MAX_ZOOM, value + ZOOM_STEP)), []);
-  const zoomOut = useCallback(() => {
-    if (scale > MIN_ZOOM + 1e-6) setScale(Math.max(MIN_ZOOM, scale - ZOOM_STEP));
-    else setFitOverride('page');
-  }, [scale]);
-  const resetZoom = useCallback(() => {
-    setScale(MIN_ZOOM);
-    setFitOverride(undefined);
-  }, []);
   const [scroll, setScroll] = useState({ top: 0, viewport: 0 });
+  const fitMode = fit;
+  const readingHeight = scroll.viewport > 0 ? Math.max(1, scroll.viewport - 26) : 0;
+  const pageWidth =
+    fitMode === 'page' ? fitPdfPageWidth({ hostWidth, viewportHeight: readingHeight }) : hostWidth;
+  // A width-fitted viewer (LaTeX, a transcript card) zooms out in steps from the width
+  // the reader saw to the whole page, where zooming out stops; its % is of that width.
+  const minScale =
+    fitMode === 'width'
+      ? Math.min(
+          MIN_ZOOM,
+          fitPdfPageWidth({ hostWidth, viewportHeight: readingHeight }) / Math.max(1, hostWidth),
+        )
+      : MIN_ZOOM;
+  const atFit = scale <= minScale + 1e-6;
+  const zoomIn = useCallback(() => setScale((value) => zoomStep(value, 1, MAX_ZOOM)), []);
+  const zoomOut = useCallback(
+    () => setScale((value) => zoomStep(value, -1, minScale)),
+    [minScale],
+  );
+  const resetZoom = useCallback(() => setScale(MIN_ZOOM), []);
   const [flinging, setFlinging] = useState(false);
   const lastScrollRef = useRef({ top: 0, at: 0 });
   const settleRef = useRef<number | undefined>(undefined);
@@ -193,9 +212,6 @@ export function ClioDocumentPdfViewer({
   // A rendered page is the only honest page height. The estimate stands in
   // until one exists, and a measurement taken at a different width or zoom is
   // discarded rather than trusted at the new geometry.
-  const readingHeight = scroll.viewport > 0 ? Math.max(1, scroll.viewport - 26) : 0;
-  const pageWidth =
-    fitMode === 'page' ? fitPdfPageWidth({ hostWidth, viewportHeight: readingHeight }) : hostWidth;
   const geometry = `${fitMode}:${hostWidth}:${readingHeight}:${scale}`;
   const measurePage = useCallback(
     (element: HTMLDivElement | null) => {
@@ -343,24 +359,21 @@ export function ClioDocumentPdfViewer({
       const partway = container.scrollTop > (atTop - 1) * pageStride + 4;
       const step = event.key === 'PageUp' ? (partway ? 0 : -1) : 1;
       const target = Math.min(pageCount, Math.max(1, atTop + step));
-      container.scrollTop = (target - 1) * pageStride;
-      readScroll();
+      jumpTo(container, (target - 1) * pageStride);
     },
     { region: pageRegion, enabled: pageCount > 0 },
   );
   useFileViewerFacts(
     pageFacts && pageCount
-      ? [`${pageCount} ${pageCount === 1 ? 'page' : 'pages'}`, FILE_SIZE_FACT]
+      ? [plural(pageCount, { one: '# page', other: '# pages' }), FILE_SIZE_FACT]
       : undefined,
   );
   const zoomFact = Math.abs(scale - 1) > 1e-6 ? `${Math.round(scale * 100)}%` : undefined;
   // The page sits between zoom − and + (frame-bar 07), so the bar's fact is the size.
   const pageCounter = pageFact ? (
-    <span title={`Page ${currentPage} of ${pageCount}`}>
+    <span title={t`Page ${currentPage} of ${pageCount}`}>
       <span aria-hidden="true">{pageFact}</span>
-      <span className="sr-only">
-        Page {currentPage} of {pageCount}
-      </span>
+      <span className="sr-only">{t`Page ${currentPage} of ${pageCount}`}</span>
     </span>
   ) : null;
 
@@ -395,7 +408,7 @@ export function ClioDocumentPdfViewer({
       }}
     >
       <ViewerZoomControls
-        label="PDF zoom"
+        label={t`PDF zoom`}
         onIn={zoomIn}
         onOut={zoomOut}
         onReset={resetZoom}
@@ -405,13 +418,15 @@ export function ClioDocumentPdfViewer({
           pageCounter || zoomFact ? (
             <>
               {pageCounter}
-              {zoomFact ? <span>{zoomFact}</span> : null}
+              {zoomFact ? <span data-readout-zoom="">{zoomFact}</span> : null}
             </>
-          ) : undefined
+          ) : (
+            <PendingPageReadout />
+          )
         }
       >
         <span
-          className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-[11px] text-muted-foreground tabular-nums"
+          className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-caption text-muted-foreground tabular-nums"
           data-slot="pdf-page-counter"
         >
           {pageCounter}
@@ -424,7 +439,7 @@ export function ClioDocumentPdfViewer({
           is off: pages mounting at full size above a jump target would make
           the browser shift scrollTop and land several pages late. */}
       <div
-        aria-label={pageCount ? `${name}, page ${currentPage} of ${pageCount}` : name}
+        aria-label={pageCount ? t`${name}, page ${currentPage} of ${pageCount}` : name}
         className="min-h-0 flex-1 overflow-auto [overflow-anchor:none] px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         data-pdf-scroller=""
         onScroll={readScroll}
@@ -433,9 +448,9 @@ export function ClioDocumentPdfViewer({
         tabIndex={0}
       >
         <Document
-          error={<StateView kind="error" size="viewer" title={`Couldn't read ${name}`} />}
+          error={<StateView kind="error" size="viewer" title={t`Couldn't read ${name}`} />}
           file={file}
-          loading={<StateView kind="loading" size="viewer" title={`Loading ${name}`} />}
+          loading={<StateView kind="loading" size="viewer" title={t`Loading ${name}`} />}
           onLoadSuccess={({ numPages }) => {
             setPageCount(numPages);
             setLoadedFile(file);
@@ -443,13 +458,15 @@ export function ClioDocumentPdfViewer({
         >
           {/* No transitions on the page boxes: a spacer's height must hold the moment it
               is set, or a return to the reader's place clamps against the old extent
-              (the reduced-motion rule gives every property a 1ms duration). */}
+              (the reduced-motion rule gives every property a 1ms duration). A spacer's
+              pages each carry their gap, and the grid adds one more beside the spacer:
+              it gives that one back, so every page sits at its whole-document place. */}
           <div className="grid gap-3 [&_*]:transition-none">
             <div
               aria-hidden="true"
               data-pdf-spacer="leading"
               style={{
-                height: `${pageWindow.leadingSpacerPx}px`,
+                height: `${Math.max(0, pageWindow.leadingSpacerPx - PDF_PAGE_GAP_PX)}px`,
                 display: pageWindow.leadingSpacerPx > 0 ? undefined : 'none',
               }}
             />
@@ -473,7 +490,7 @@ export function ClioDocumentPdfViewer({
               aria-hidden="true"
               data-pdf-spacer="trailing"
               style={{
-                height: `${pageWindow.trailingSpacerPx}px`,
+                height: `${Math.max(0, pageWindow.trailingSpacerPx - PDF_PAGE_GAP_PX)}px`,
                 display: pageWindow.trailingSpacerPx > 0 ? undefined : 'none',
               }}
             />
@@ -522,7 +539,7 @@ const PdfPage = memo(function PdfPage({
 
   return (
     <div
-      aria-label={`Page ${pageNumber} of ${pageCount}`}
+      aria-label={t`Page ${pageNumber} of ${pageCount}`}
       className="relative mx-auto w-fit overflow-hidden rounded-lg border bg-card shadow-sm"
       data-page={pageNumber - 1}
       role="group"

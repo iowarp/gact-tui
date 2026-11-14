@@ -35,7 +35,11 @@ export function focusListRow(region: Element | null, name: string | undefined) {
   const step = () => {
     if (!region?.isConnected || !lost(region)) return;
     const row = name
-      ? [...region.querySelectorAll<HTMLElement>('[role="treeitem"], [role="row"], [role="option"]')]
+      ? [
+          ...region.querySelectorAll<HTMLElement>(
+            '[role="treeitem"], [role="row"], [role="option"]',
+          ),
+        ]
           .filter(shown)
           .find((element) => element.getAttribute('aria-label') === name)
       : undefined;

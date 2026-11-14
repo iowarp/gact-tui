@@ -17,7 +17,11 @@ import { useFileViewerFacts, useFileViewerTitle } from './file-viewer-facts';
 import { cn } from '@/lib/utils';
 import { DashboardCaptureAction } from './dashboard-capture-action';
 import { dashboardTabCount } from './dashboard-tabs';
-import { DashboardPresentationContext } from './dashboard-presentation';
+import {
+  DashboardCaptureTargetContext,
+  DashboardPresentationContext,
+} from './dashboard-presentation';
+import { plural, t } from '@lingui/core/macro';
 
 /** Open a compiled dashboard through the ordinary side-panel artifact viewer. */
 export function DashboardResourceView({
@@ -41,8 +45,8 @@ export function DashboardResourceView({
   if (report) return <DashboardView report={report} artifactId={artifactId} />;
   return (
     <ResourceUnavailable
-      label="Dashboard unavailable"
-      detail="The saved dashboard definition is invalid."
+      label={t`Dashboard unavailable`}
+      detail={t`The saved dashboard definition is invalid.`}
     />
   );
 }
@@ -123,8 +127,8 @@ export function DashboardView({
   }, [artifactId, report.session_id, repository, root, settings.endpoint]);
   const exportFormats = useMemo(
     () => [
-      { id: 'png', label: 'PNG image (displayed view)', run: exportPng },
-      { id: 'html', label: 'HTML dashboard (all tabs and data)', run: exportHtml },
+      { id: 'png', label: t`PNG image (displayed view)`, run: exportPng },
+      { id: 'html', label: t`HTML dashboard (all tabs and data)`, run: exportHtml },
     ],
     [exportPng, exportHtml],
   );
@@ -143,11 +147,13 @@ export function DashboardView({
   useFileViewerActions(fileActions);
   const tabCount = useMemo(() => dashboardTabCount(report), [report]);
   useFileViewerTitle(report.title, 'dashboards');
-  useFileViewerFacts(tabCount ? [`${tabCount} ${tabCount === 1 ? 'tab' : 'tabs'}`] : undefined);
+  useFileViewerFacts(tabCount ? [plural(tabCount, { one: '# tab', other: '# tabs' })] : undefined);
   const wholeDashboard = useCallback(
     () => ({
       title: report.title,
+      // i18n-ignore: reference quoted to the agent
       summary: 'Whole dashboard',
+      // i18n-ignore: reference quoted to the agent
       markdown: `**${report.title}**\nWhole dashboard.`,
       query: { report_id: report.id },
     }),
@@ -155,10 +161,18 @@ export function DashboardView({
   );
   const captureReference = useCallback(
     () => ({
+      // i18n-ignore: reference quoted to the agent
       summary: 'Whole dashboard',
       query: { view: { report_id: report.id }, dashboard: reference },
     }),
     [reference, report.id],
+  );
+  const wholeTarget = useMemo(
+    () =>
+      root && !offline
+        ? { element: root, title: report.title, componentId: 'root', reference: captureReference }
+        : undefined,
+    [root, offline, report.title, captureReference],
   );
   return (
     <DashboardPresentationContext.Provider value>
@@ -186,7 +200,7 @@ export function DashboardView({
             ) : (
               // Without the file frame the page still needs its name and tools.
               <header className="flex min-w-0 items-center gap-2">
-                <h1 className="min-w-0 flex-1 truncate text-[15px] font-semibold">
+                <h1 className="min-w-0 flex-1 truncate text-h3 font-semibold">
                   {report.title}
                 </h1>
                 {!offline && (
@@ -203,19 +217,21 @@ export function DashboardView({
                 )}
               </header>
             )}
-            <ClioA2UISurface
-              surface={surface}
-              catalogRegistry={catalogRegistry}
-              readOnly
-              captureArtifactId={artifactId}
-              visualFeedback={!offline && Boolean(artifactId)}
-              onRemoteAction={async ({ action }) => {
-                // Modal opens locally. Its trigger Button's required action is
-                // not a command against a live chat surface for this saved artifact.
-                if (modalTriggers.has(action.sourceComponentId)) return;
-                throw new Error('Reference this dashboard in the conversation to ask the agent.');
-              }}
-            />
+            <DashboardCaptureTargetContext.Provider value={wholeTarget}>
+              <ClioA2UISurface
+                surface={surface}
+                catalogRegistry={catalogRegistry}
+                readOnly
+                captureArtifactId={artifactId}
+                visualFeedback={!offline && Boolean(artifactId)}
+                onRemoteAction={async ({ action }) => {
+                  // Modal opens locally. Its trigger Button's required action is
+                  // not a command against a live chat surface for this saved artifact.
+                  if (modalTriggers.has(action.sourceComponentId)) return;
+                  throw new Error('Reference this dashboard in the conversation to ask the agent.');
+                }}
+              />
+            </DashboardCaptureTargetContext.Provider>
           </article>
         </A2uiRegionCaptureProvider>
       </ArtifactReferenceContext.Provider>

@@ -1,6 +1,7 @@
 import {
   ActivityIcon,
   CableIcon,
+  LanguagesIcon,
   MonitorIcon,
   MoonIcon,
   NetworkIcon,
@@ -8,6 +9,13 @@ import {
   TerminalSquareIcon,
 } from 'lucide-react';
 import type { ThemePreference } from '@/theme/contract';
+import { englishLanguageName, localLanguageName } from '@/i18n/language-names';
+import {
+  availableLanguages,
+  interfaceLanguage,
+  systemLocale,
+  type LocalePreference,
+} from '@/i18n/locales';
 import { OPEN_TERMINAL_EVENT } from '@/components/clio/workspace-canvas-visibility-context';
 import { SettingsIcon } from '@/lib/icon-vocabulary';
 import {
@@ -20,10 +28,17 @@ import {
   settingsSearchRows,
   type SettingsSearchValue,
 } from './settings-search-rows';
+import { ph, t } from '@lingui/core/macro';
 
 export interface GlobalSearchCommand extends Omit<ApplicationDestination, 'group'> {
   group: 'Navigation' | 'Settings' | 'Infrastructure' | 'Actions';
-  action: { route: string } | { theme: ThemePreference } | { event: string };
+  action:
+    | { route: string }
+    | { theme: ThemePreference }
+    | { locale: LocalePreference }
+    | { event: string };
+  /** The language the label is written in, when it is not the interface's (`Español`). */
+  lang?: string;
   /** A catalog shortcut that does the same from anywhere. */
   shortcut?: string;
   /** Where the row lives, as muted trailing text: "Settings › App". */
@@ -44,6 +59,13 @@ export function matchesGlobalSearch(query: string, ...fields: (string | undefine
 }
 
 /** Application commands reuse the same destinations as their owning pages. */
+/** The settings groups (`ApplicationDestination.group` ids) as a trail names them. */
+const SETTINGS_GROUP_LABELS: Record<string, string> = {
+  App: t`App`,
+  Workspace: t`Workspace`,
+  Agent: t`Agent`,
+};
+
 export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
   const sections = settingsDestinations(desktop);
   const settingRows = settingsSearchRows().flatMap((row): GlobalSearchCommand[] => {
@@ -55,7 +77,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
         label: row.label,
         icon: section.icon,
         group: 'Settings',
-        trail: `Settings › ${section.label}`,
+        trail: t`Settings › ${ph({ section: section.label })}`,
         keywords: `${section.label} ${row.keywords ?? ''}`,
         action: { route: `/settings/${row.section}${settingsRowHash(row.label)}` },
         setting: { value: row.value },
@@ -65,7 +87,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
   return [
     {
       id: 'connections',
-      label: 'Connections',
+      label: t`Connections`,
       icon: CableIcon,
       group: 'Navigation',
       keywords: 'connect service computer host',
@@ -73,7 +95,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'runs',
-      label: 'Runs',
+      label: t`Runs`,
       icon: ActivityIcon,
       group: 'Navigation',
       keywords: 'tasks jobs work background',
@@ -81,7 +103,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'infrastructure',
-      label: 'Infrastructure',
+      label: t`Infrastructure`,
       icon: NetworkIcon,
       group: 'Navigation',
       keywords: 'hosts servers services setup sandbox protected execution',
@@ -89,7 +111,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'settings',
-      label: 'Settings',
+      label: t`Settings`,
       icon: SettingsIcon,
       group: 'Navigation',
       keywords: 'preferences configuration',
@@ -102,7 +124,9 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
         ...item,
         id: `settings:${item.id}`,
         group: 'Settings',
-        trail: item.group ? `Settings › ${item.group}` : 'Settings',
+        trail: item.group
+          ? t`Settings › ${ph({ group: SETTINGS_GROUP_LABELS[item.group] ?? item.group })}`
+          : t`Settings`,
         keywords: `${item.group ?? ''} ${item.keywords ?? ''}`,
         action: { route: `/settings/${item.id}` },
       }),
@@ -118,7 +142,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     ),
     {
       id: 'terminal',
-      label: 'Open terminal',
+      label: t`Open terminal`,
       icon: TerminalSquareIcon,
       group: 'Actions',
       keywords: 'terminal shell console command line pty workbench',
@@ -127,7 +151,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'theme:light',
-      label: 'Switch to light mode',
+      label: t`Switch to light mode`,
       icon: SunIcon,
       group: 'Actions',
       keywords: 'theme appearance color day bright notebook paper',
@@ -135,7 +159,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'theme:dark',
-      label: 'Switch to dark mode',
+      label: t`Switch to dark mode`,
       icon: MoonIcon,
       group: 'Actions',
       keywords: 'theme appearance color night notebook ink',
@@ -143,11 +167,61 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     },
     {
       id: 'theme:system',
-      label: 'Use system theme',
+      label: t`Use system theme`,
       icon: MonitorIcon,
       group: 'Actions',
       keywords: 'appearance automatic light dark mode follow device',
       action: { theme: 'system' },
+    },
+    ...languageCommands(),
+  ];
+}
+
+function deviceLanguages(): readonly string[] {
+  if (typeof navigator === 'undefined') return [];
+  return navigator.languages?.length ? navigator.languages : [navigator.language];
+}
+
+/**
+ * One row per interface language, as in Settings › Language: named in its own
+ * language so a reader of none of the others still finds it, and matched by
+ * its name in the current and in English too.
+ */
+function languageCommands(): GlobalSearchCommand[] {
+  // i18n-ignore: search aliases in every interface language, so any reader finds the rows; not copy.
+  const terms = 'language locale translation idioma 言語 γλώσσα';
+  const systemName = interfaceLanguage(systemLocale(deviceLanguages())).nativeName;
+  return [
+    ...availableLanguages().map((language): GlobalSearchCommand => {
+      const local = localLanguageName(language.locale);
+      return {
+        id: `language:${language.locale}`,
+        label: language.nativeName,
+        lang: language.locale === 'pseudo' ? undefined : language.locale,
+        icon: LanguagesIcon,
+        group: 'Actions',
+        trail: local,
+        keywords: [
+          t`Language`,
+          terms,
+          local,
+          englishLanguageName(language.locale),
+          language.locale,
+        ]
+          .filter(Boolean)
+          .join(' '),
+        action: { locale: language.locale },
+      };
+    }),
+    {
+      // Last, like the system theme, and named as in Settings › Language so a
+      // narrow row never loses which language "system" means.
+      id: 'language:system',
+      label: t`System (${systemName})`,
+      icon: LanguagesIcon,
+      group: 'Actions',
+      keywords: [t`Language`, terms, 'automatic device follow'].join(' '),
+      action: { locale: 'system' },
     },
   ];
 }

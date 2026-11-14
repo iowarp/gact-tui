@@ -1,5 +1,6 @@
 import type { CommentAttachment, McpAppSnapshot } from '@clio/core/v3';
 import type { DraftMark } from './comment-model';
+import { readThemeColor } from '@/theme/runtime';
 
 /** The snapshot a mark kept of the view when it was made (CM3). */
 export interface Capture {
@@ -14,11 +15,6 @@ function loadImage(data: string): Promise<HTMLImageElement> {
   return image.decode().then(() => image);
 }
 
-function themeColor(name: string, fallback: string): string {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
-  return value || fallback;
-}
-
 async function overviewPng(image: HTMLImageElement, marks: readonly DraftMark[]): Promise<string> {
   // The overview is for orientation: at most OVERVIEW_SIDE pixels on its longest side.
   const fit = Math.min(1, OVERVIEW_SIDE / Math.max(image.naturalWidth, image.naturalHeight));
@@ -31,8 +27,8 @@ async function overviewPng(image: HTMLImageElement, marks: readonly DraftMark[])
   const unit = Math.max(1, canvas.width / 800);
   context.lineWidth = 2 * unit;
   context.font = `bold ${Math.round(14 * unit)}px sans-serif`;
-  const accent = themeColor('primary', '#2563eb');
-  const onAccent = themeColor('primary-foreground', '#ffffff');
+  const accent = readThemeColor('primary');
+  const onAccent = readThemeColor('primary-foreground');
   for (const mark of marks) {
     const rect = mark.anchor.rect;
     if (rect?.length !== 4) continue;

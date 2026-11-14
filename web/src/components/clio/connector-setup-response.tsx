@@ -1,16 +1,23 @@
-import { connectorSetupPayload, isConnectorOffer, type PendingInteraction } from '@clio/core/v3';
+import {
+  connectorSetupPayload,
+  isConnectorOffer,
+  isPluginOffer,
+  type PendingInteraction,
+} from '@clio/core/v3';
 import { PlugIcon } from 'lucide-react';
 import { useState } from 'react';
-import { useConnector, useInvalidateConnectors } from '@/hooks/use-connectors';
+import { useConnector, useInvalidateConnectors, useSessionConnector } from '@/hooks/use-connectors';
 import { connectorStatus } from '@/lib/connector-presentation';
 import { AskBody, AskButton, AskCard, AskError, AskOptions, AskSection } from './ask-card';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
 import { ConnectorOfferResponse } from './connector-offer-response';
-import { draftValues, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
+import { conversationAnswer, unfilledRequired, type ConnectorDraft } from '@/lib/connector-draft';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import { McpSignInDialog } from './mcp-sign-in';
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { StatusIndicator } from './primitives/status-indicator';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 /**
  * The setup card inside the conversation (CN5). The agent called a tool on a connector
@@ -18,8 +25,8 @@ import { StatusIndicator } from './primitives/status-indicator';
  * them continues the same call. Declining returns a refusal that names the connector.
  */
 export function ConnectorSetupResponse(props: ConnectorCardProps) {
-  // The agent's offer of a connector that is off is the same card, in its enable form.
-  return isConnectorOffer(props.interaction.payload) ? (
+  // The agent's offer of a connector or a plugin is the same card, in its offer form.
+  return isConnectorOffer(props.interaction.payload) || isPluginOffer(props.interaction.payload) ? (
     <ConnectorOfferResponse {...props} />
   ) : (
     <ConnectorSetupCard {...props} />
@@ -41,7 +48,14 @@ function ConnectorSetupCard({
 }: ConnectorCardProps) {
   const payload = connectorSetupPayload(interaction.payload);
   const id = payload?.connector_id ?? '';
-  const { connector } = useConnector(id || undefined);
+  // The rows as this conversation sees them: its own values over the defaults (CV-D5).
+  const { connector: everywhereRow } = useConnector(id || undefined);
+  const { connector: conversationRow } = useSessionConnector(
+    id || undefined,
+    interaction.owner_session_id || undefined,
+  );
+  const connector = conversationRow ?? everywhereRow;
+  const [saveAsDefault, setSaveAsDefault] = useState<Record<string, boolean>>({});
   const invalidate = useInvalidateConnectors();
   const [draft, setDraft] = useState<ConnectorDraft>({});
   const [signingIn, setSigningIn] = useState(false);
@@ -52,12 +66,14 @@ function ConnectorSetupCard({
   );
   const name = connector?.name ?? payload?.connector_name ?? id;
   const unfilled = unfilledRequired(rows, draft);
+  const answer = () => {
+    const { values, save_as_default } = conversationAnswer(rows, draft, saveAsDefault);
+    return { action: 'submit', values, metadata: { save_as_default } };
+  };
   const offered = (action: string) => !interaction.actions || interaction.actions.includes(action);
   const submit = () => {
     if (disabled || unfilled.length) return;
-    respondFromControl(
-      onResponse(interaction, { action: 'submit', values: draftValues(rows, draft) }),
-    );
+    respondFromControl(onResponse(interaction, answer()));
   };
   const status = connector ? connectorStatus(connector) : undefined;
   const tool = payload?.tool_name ?? interaction.source.tool_name;
@@ -65,34 +81,39 @@ function ConnectorSetupCard({
     <AskCard
       data-connector={id}
       data-interaction-kind="connector_setup"
+      headerActions={
+        status ? (
+          <span className="shrink-0 pl-1 text-xs" data-slot="connector-setup-state">
+            <StatusIndicator label={status.label} tone={status.tone} />
+          </span>
+        ) : undefined
+      }
       icon={PlugIcon}
       id={pendingInteractionDomId(interaction.id)}
       kind="question"
-      meta={tool}
-      metaMono
+      leading={
+        <ConnectorLogo
+          className="size-4 text-[8px]"
+          connector={connector ?? { id, name, logo_url: null }}
+        />
+      }
       spokenDetail={status ? `${name}: ${status.label}` : undefined}
-      title={`Set up ${name}`}
-      titleText={`Set up ${name}`}
+      title={t`Set up ${name}`}
+      titleText={t`Set up ${name}`}
       wrapTitle
     >
       <AskBody>
-        <AskSection className="grid gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <ConnectorLogo
-              className="size-5 text-[9px]"
-              connector={connector ?? { id, name, logo_url: null }}
-            />
-            <span className="min-w-0 truncate font-medium">{name}</span>
-            {status ? <StatusIndicator label={status.label} tone={status.tone} /> : null}
-          </div>
-          <p className="leading-5 text-muted-foreground">
+        <AskSection className="mt-1.5 grid gap-2">
+          <p className="truncate leading-5 text-muted-foreground" title={tool || undefined}>
             {tool ? (
               <>
-                The agent’s call to <span className="font-mono text-[11.5px]">{tool}</span> waits
-                until this is set up, then continues.
+                <Trans>
+                  <span className="font-mono text-label">{tool}</span> waits for this, then
+                  continues.
+                </Trans>
               </>
             ) : (
-              'The agent’s call waits until this is set up, then continues.'
+              t`The agent’s call waits for this, then continues.`
             )}
           </p>
           {payload ? (
@@ -102,35 +123,41 @@ function ConnectorSetupCard({
               needs={rows}
               onDraft={(key, value) => setDraft((current) => ({ ...current, [key]: value }))}
               onSignIn={() => setSigningIn(true)}
+              onSaveAsDefault={(key, save) =>
+                setSaveAsDefault((current) => ({ ...current, [key]: save }))
+              }
               onSubmit={submit}
-              submitLabel={`Set up ${name}`}
+              saveAsDefault={saveAsDefault}
+              submitLabel={t`Set up ${name}`}
             />
           ) : (
-            <p role="alert">This setup request can’t be read by this version.</p>
+            <p role="alert">{t`This setup request can’t be read by this version.`}</p>
           )}
         </AskSection>
       </AskBody>
       <AskError error={responseError} />
-      <AskOptions aria-label="Decision">
+      <AskOptions aria-label={t`Decision`}>
         {offered('submit') ? (
           <AskButton
             disabled={disabled || !payload || unfilled.length > 0}
+            // i18n-ignore: key name
             hint={unfilled.length ? undefined : 'Enter'}
             number={1}
             onClick={submit}
             primary
-            title={unfilled.length ? 'Fill the required rows first' : undefined}
+            title={unfilled.length ? t`Fill the required rows first` : undefined}
           >
-            Continue
+            {t`Continue`}
           </AskButton>
         ) : null}
         {offered('decline') ? (
           <AskButton
             disabled={disabled}
+            // i18n-ignore: key name
             hint="Escape"
             onClick={() => respondFromControl(onResponse(interaction, { action: 'decline' }))}
           >
-            Decline
+            {t`Decline`}
           </AskButton>
         ) : null}
       </AskOptions>
@@ -143,9 +170,7 @@ function ConnectorSetupCard({
             // A sign-in completes its row; with nothing else to fill, the call continues.
             const others = unfilled.filter((need) => need.kind !== 'sign-in');
             if (!others.length && offered('submit'))
-              respondFromControl(
-                onResponse(interaction, { action: 'submit', values: draftValues(rows, draft) }),
-              );
+              respondFromControl(onResponse(interaction, answer()));
           }}
           title={name}
         />

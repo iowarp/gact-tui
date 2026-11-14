@@ -3,26 +3,22 @@ import { useContext, useMemo, useState, type ReactNode } from 'react';
 import { ActivityNest } from './activity-row';
 import { useLiveStore } from '@/store/live-store';
 import { PresentationNavigation } from './presentation-navigation';
+import { repeatOf } from './script-calls';
+import { formatList, formatLocale } from '@/lib/locale-format';
+import { plural, t } from '@lingui/core/macro';
 
 /** How many of a script's calls show before "Show all". */
 const SHOWN = 4;
-
-/** A background script's repeated calls to one tool, recorded once (`_clio_repeat`). */
-function repeatOf(tool: ToolInvocation): { count: number; first: string; last: string } | null {
-  const input = tool.input;
-  const repeat =
-    input && typeof input === 'object' ? (input as Record<string, unknown>)._clio_repeat : null;
-  if (!repeat || typeof repeat !== 'object') return null;
-  const { count, first_at: first, last_at: last } = repeat as Record<string, unknown>;
-  if (typeof count !== 'number' || count < 2) return null;
-  return { count, first: String(first ?? ''), last: String(last ?? '') };
-}
 
 function clock(at: string): string {
   const date = new Date(at);
   return Number.isNaN(date.getTime())
     ? ''
-    : date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    : date.toLocaleTimeString(formatLocale(), {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
 }
 
 function useNestedCalls(parentId: string): ToolInvocation[] {
@@ -32,17 +28,6 @@ function useNestedCalls(parentId: string): ToolInvocation[] {
   const live = useLiveStore((state) => state.entities.tools);
   const tools = provided ?? live;
   return useMemo(() => childToolInvocations(tools, parentId), [tools, parentId]);
-}
-
-/** A script's source, shown only while it has no calls of its own to show instead (spec: an opened script lists its calls). */
-export function UnlessNestedCalls({
-  parentId,
-  children,
-}: {
-  parentId: string;
-  children: ReactNode;
-}) {
-  return useNestedCalls(parentId).length ? null : children;
 }
 
 /**
@@ -64,16 +49,20 @@ export function NestedToolCalls({
   const running = children.filter((tool) => ['pending', 'running'].includes(tool.state)).length;
   const shown = all ? children : children.slice(0, SHOWN);
   const calls = children.reduce((sum, tool) => sum + (repeatOf(tool)?.count ?? 1), 0);
-  const count = `${calls} tool call${calls === 1 ? '' : 's'} from this script`;
-  const detail = [failed ? `${failed} failed` : '', running ? `${running} running` : '']
-    .filter(Boolean)
-    .join(', ');
+  const count = plural(calls, {
+    one: '# call from this script',
+    other: '# calls from this script',
+  });
+  const detail = formatList(
+    [failed ? t`${failed} failed` : '', running ? t`${running} running` : ''].filter(Boolean),
+  );
   return (
     <ActivityNest
-      label={detail ? `${count} (${detail})` : count}
+      label={detail ? t`${count} (${detail})` : count}
+      heading={detail ? t`${count}, ${detail}` : count}
       hidden={all ? 0 : children.length - shown.length}
       onShowAll={() => setAll(true)}
-      showAllLabel={`Show all ${calls}`}
+      showAllLabel={t`Show all ${calls}`}
     >
       {shown.map((tool) => {
         const repeat = repeatOf(tool);
@@ -84,8 +73,13 @@ export function NestedToolCalls({
           <div className="min-w-0" key={tool.id}>
             {renderCall(tool)}
             {repeat ? (
-              <p className="pl-[30px] text-[11.5px] text-muted-foreground">
-                {`Called ${repeat.count} times${span ? `, ${span}` : ''}`}
+              <p className="pl-[30px] text-label text-muted-foreground">
+                {span
+                  ? plural(repeat.count, {
+                      one: `Called # time, ${span}`,
+                      other: `Called # times, ${span}`,
+                    })
+                  : plural(repeat.count, { one: 'Called # time', other: 'Called # times' })}
               </p>
             ) : null}
           </div>

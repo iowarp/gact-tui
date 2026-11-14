@@ -53,15 +53,17 @@ import { useWorkbenchListWidth } from './workbench-list-width';
 import type { WorkbenchListView } from './workbench-strip';
 import { LIST_HEADER_SECONDARY, type ChangeCounts, type WorkbenchTab } from './workbench-shared';
 import { WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
+import { plural, t, ph } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 export type WorkbenchActivityView = 'timeline' | 'events' | 'relationships' | 'context';
 
 /** Timeline leads; the event list, family graph and context window are views in More. */
 const ACTIVITY_VIEWS: readonly { value: WorkbenchActivityView; label: string; title: string }[] = [
-  { value: 'timeline', label: 'Timeline', title: 'Activity' },
-  { value: 'events', label: 'Events', title: 'Events' },
-  { value: 'relationships', label: 'Relationships', title: 'Relationships' },
-  { value: 'context', label: 'Context', title: 'Context' },
+  { value: 'timeline', label: t`Timeline`, title: t`Activity` },
+  { value: 'events', label: t`Events`, title: t`Events` },
+  { value: 'relationships', label: t`Relationships`, title: t`Relationships` },
+  { value: 'context', label: t`Context`, title: t`Context` },
 ];
 
 export interface WorkbenchListColumnProps {
@@ -162,10 +164,10 @@ function ActivityViews({ title, ...props }: WorkbenchListColumnProps & { title: 
   const viewMenu = switchable ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <IconButton icon={<MoreIcon />} label="Activity views" size="sm" tooltipSide="bottom" />
+        <IconButton icon={<MoreIcon />} label={t`Activity views`} size="sm" tooltipSide="bottom" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuLabel>View</DropdownMenuLabel>
+        <DropdownMenuLabel>{t`View`}</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           onValueChange={(value) => onActivityViewChange?.(value as WorkbenchActivityView)}
           value={activityView}
@@ -227,7 +229,7 @@ function ActivityViews({ title, ...props }: WorkbenchListColumnProps & { title: 
 function WorkbenchListTabSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section
-      aria-label={`${title} list`}
+      aria-label={t`${title} list`}
       data-slot="workbench-list-tab"
       className="flex h-full min-h-0 flex-col bg-background"
     >
@@ -249,7 +251,7 @@ export function WorkbenchListSection({
   const { share, sectionRef, resizeTo, commit, reset } = useWorkbenchListWidth('list');
   return (
     <section
-      aria-label={`${title} list`}
+      aria-label={t`${title} list`}
       data-slot="workbench-list"
       data-overlay={overlay || undefined}
       ref={sectionRef}
@@ -303,7 +305,7 @@ export function WorkbenchListHeader({
     >
       <h2
         className={cn(
-          'min-w-0 flex-1 truncate text-[12px] font-semibold text-muted-foreground',
+          'min-w-0 flex-1 truncate text-meta font-semibold text-muted-foreground',
           titleYieldsWhenNarrow && '@max-[360px]/list-header:sr-only',
         )}
       >
@@ -314,7 +316,7 @@ export function WorkbenchListHeader({
         <span className={LIST_HEADER_SECONDARY}>
           <IconButton
             icon={<PanelRightCloseIcon />}
-            label={`Hide ${title}`}
+            label={t`Hide ${title}`}
             onClick={onHide}
             size="sm"
             tooltipSide="bottom"
@@ -390,8 +392,10 @@ function FilesList({
               <>
                 <div aria-hidden="true" className="mx-2 mt-2.5 mb-1 h-px bg-border" />
                 {/* The spec's exact wording; a narrow column wraps it rather than cutting it off. */}
-                <p className="min-h-7 px-2 py-1.5 text-[11.5px] leading-[1.35] text-faint">
-                  <span className="text-changed">Teal</span>: changed in this conversation
+                <p className="min-h-7 px-2 py-1.5 text-label leading-[1.35] text-faint">
+                  <Trans>
+                    <span className="text-changed">Teal</span>: changed in this conversation
+                  </Trans>
                 </p>
               </>
             ) : null
@@ -440,7 +444,7 @@ function ArtifactsList({
         <IconButton
           aria-pressed={searching}
           icon={<SearchIcon />}
-          label={searching ? 'Close search' : 'Search artifacts'}
+          label={searching ? t`Close search` : t`Search artifacts`}
           onClick={() => (searching ? closeSearch() : setSearching(true))}
           size="sm"
           tooltipSide="bottom"
@@ -450,19 +454,19 @@ function ArtifactsList({
             <IconButton
               aria-pressed={category !== 'all'}
               icon={<ListFilterIcon />}
-              label="Filter artifacts"
+              label={t`Filter artifacts`}
               size="sm"
               tooltipSide="bottom"
             />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel>Type</DropdownMenuLabel>
+            <DropdownMenuLabel>{t`Type`}</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               onValueChange={(value) => setCategory(value as ArtifactCategory | 'all')}
               value={category}
             >
               <DropdownMenuRadioItem value="all">
-                All types ({artifacts.length})
+                {t`All types (${ph({ count: artifacts.length })})`}
               </DropdownMenuRadioItem>
               {ARTIFACT_CATEGORIES.filter(
                 (item) => counts.has(item.value) || item.value === category,
@@ -480,14 +484,14 @@ function ArtifactsList({
 
   let body: ReactNode;
   if (artifactsPending && !artifacts.length)
-    body = <StateView className="p-4" kind="loading" size="panel" title="Loading artifacts" />;
+    body = <StateView className="p-4" kind="loading" size="panel" title={t`Loading artifacts`} />;
   else if (!artifacts.length)
     body = (
       <StateView
         action={
           artifactsError
             ? {
-                label: 'Retry',
+                label: t`Retry`,
                 onClick: () =>
                   void queryClient.invalidateQueries({ queryKey: ['session-artifacts'] }),
               }
@@ -498,7 +502,7 @@ function ArtifactsList({
         kind={artifactsError ? 'error' : 'empty'}
         size="panel"
         title={
-          artifactsError ? "Artifacts couldn't be listed" : 'No artifacts in this conversation'
+          artifactsError ? t`Artifacts couldn't be listed` : t`No artifacts in this conversation`
         }
       />
     );
@@ -506,17 +510,17 @@ function ArtifactsList({
     body = (
       <StateView
         action={{
-          label: 'Clear filters',
+          label: t`Clear filters`,
           onClick: () => {
             closeSearch();
             setCategory('all');
           },
         }}
         className="p-4"
-        detail="Clear the search or show all types."
+        detail={t`Clear the search or show all types.`}
         kind="empty"
         size="panel"
-        title="No artifacts match"
+        title={t`No artifacts match`}
       />
     );
   else {
@@ -539,8 +543,8 @@ function ArtifactsList({
         <div key={artifact.id} role="listitem" title={facts.join(', ')}>
           <ListRow
             aria-current={selected || undefined}
-            aria-label={`Open ${name}`}
-            className="cursor-pointer text-[12.5px]"
+            aria-label={t`Open ${name}`}
+            className="cursor-pointer text-menu"
             icon={<ArtifactTypeIcon artifact={artifact} className="size-3.5" />}
             meta={
               artifact.version !== undefined ? <MetaValue>v{artifact.version}</MetaValue> : null
@@ -556,10 +560,10 @@ function ArtifactsList({
       );
     };
     body = (
-      <div aria-label="Session artifacts" className="p-1" role="list">
-        {here.length ? <GroupLabel>This conversation</GroupLabel> : null}
+      <div aria-label={t`Session artifacts`} className="p-1" role="list">
+        {here.length ? <GroupLabel>{t`This conversation`}</GroupLabel> : null}
         {here.map(row)}
-        {earlier.length ? <GroupLabel>Earlier</GroupLabel> : null}
+        {earlier.length ? <GroupLabel>{t`Earlier`}</GroupLabel> : null}
         {earlier.map(row)}
       </div>
     );
@@ -571,7 +575,7 @@ function ArtifactsList({
       {searching ? (
         <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
           <Input
-            aria-label="Search artifacts"
+            aria-label={t`Search artifacts`}
             autoFocus
             className="h-7 text-xs"
             onChange={(event) => setQuery(event.target.value)}
@@ -581,7 +585,7 @@ function ArtifactsList({
                 closeSearch();
               }
             }}
-            placeholder="Search artifacts"
+            placeholder={t`Search artifacts`}
             value={query}
           />
         </div>
@@ -589,13 +593,16 @@ function ArtifactsList({
       <div className="min-h-0 flex-1 overflow-y-auto">
         {body}
         {artifactsTruncated ? (
-          <p className="px-3 py-1 text-[11px] text-warning">
-            The service returned a partial artifact registry.
+          <p className="px-3 py-1 text-caption text-warning">
+            {t`The service returned a partial artifact registry.`}
           </p>
         ) : null}
         {filtered && visible.length ? (
           <p aria-live="polite" className="sr-only">
-            {visible.length} of {artifacts.length} artifacts
+            {plural(artifacts.length, {
+              one: `${ph({ shown: visible.length })} of # artifact`,
+              other: `${ph({ shown: visible.length })} of # artifacts`,
+            })}
           </p>
         ) : null}
       </div>
@@ -614,19 +621,19 @@ function TerminalList({
     return (
       <StateView
         className="p-4"
-        detail="Terminals run in the desktop app, on this computer."
+        detail={t`Terminals run in the desktop app, on this computer.`}
         kind="unavailable"
         size="panel"
-        title="No terminal here"
+        title={t`No terminal here`}
       />
     );
   return (
-    <Rows label="Terminals">
+    <Rows label={t`Terminals`}>
       {terminals.map((tab) => (
         <div key={tab.id} role="listitem" title={tab.label}>
           <ListRow
             aria-current={tab.id === activeTabId || undefined}
-            className="cursor-pointer text-[12.5px]"
+            className="cursor-pointer text-menu"
             icon={<TerminalSquareIcon />}
             onClick={() => onSelectTab(tab.id)}
             onKeyDown={activateOnKey(() => onSelectTab(tab.id))}
@@ -640,13 +647,13 @@ function TerminalList({
       {onOpenTerminal && !terminals.length ? (
         <div role="listitem">
           <ListRow
-            className="cursor-pointer text-[12.5px] text-muted-foreground"
+            className="cursor-pointer text-menu text-muted-foreground"
             icon={<AddIcon />}
             onClick={onOpenTerminal}
             onKeyDown={activateOnKey(onOpenTerminal)}
             role="button"
             tabIndex={0}
-            title="Open a terminal"
+            title={t`Open a terminal`}
           />
         </div>
       ) : null}
@@ -664,7 +671,7 @@ function BrowserBlankPage({
   const draftOpen = !sessionId && onOpenDraftBrowserPage ? onOpenDraftBrowserPage : undefined;
   return (
     <section
-      aria-label="New page"
+      aria-label={t`New page`}
       className="flex h-full min-h-0 flex-col bg-background"
       data-slot="workbench-list-tab"
     >
@@ -694,26 +701,26 @@ function BrowserList({
   // The workbench keeps this query live (every page has its tab); the list shares it.
   const pages = useBrowserPages(sessionId);
   const rows = (pages.data ?? []).filter((page) => !page.closed);
-  const newPage = onNewBrowserPage ? { label: 'New page', onClick: onNewBrowserPage } : undefined;
+  const newPage = onNewBrowserPage ? { label: t`New page`, onClick: onNewBrowserPage } : undefined;
   if (pages.isPending && sessionId)
-    return <StateView className="p-4" kind="loading" size="panel" title="Loading pages" />;
+    return <StateView className="p-4" kind="loading" size="panel" title={t`Loading pages`} />;
   if (!sessionId || !rows.length)
     return (
       <StateView
-        action={pages.error ? { label: 'Retry', onClick: () => void pages.refetch() } : newPage}
+        action={pages.error ? { label: t`Retry`, onClick: () => void pages.refetch() } : newPage}
         className="p-4"
         detail={
           pages.error
             ? serviceErrorDetail(pages.error.message)
-            : 'Pages you or the agent open appear here.'
+            : t`Pages you or the agent open appear here.`
         }
         kind={pages.error ? 'error' : 'empty'}
         size="panel"
-        title={pages.error ? "Browser pages couldn't be listed" : 'No browser pages'}
+        title={pages.error ? t`Browser pages couldn't be listed` : t`No browser pages`}
       />
     );
   return (
-    <Rows label="Browser pages">
+    <Rows label={t`Browser pages`}>
       {rows.map((page) => {
         const id = `browser:${page.id}`;
         const open = tabs.some((tab) => tab.id === id);
@@ -721,9 +728,15 @@ function BrowserList({
           <div key={page.id} role="listitem" title={page.url || browserPageLabel(page)}>
             <ListRow
               aria-current={activeTabId === id || undefined}
-              badge={open ? <Tag tone="neutral">Open</Tag> : <span className="w-[58px]" />}
-              className="cursor-pointer text-[12.5px]"
-              description={page.host || 'Blank page'}
+              badge={
+                open ? (
+                  <Tag tone="neutral">{t({ message: 'Open', context: 'state' })}</Tag>
+                ) : (
+                  <span className="w-[58px]" />
+                )
+              }
+              className="cursor-pointer text-menu"
+              description={page.host || t`Blank page`}
               icon={<GlobeIcon />}
               onClick={() => onOpenBrowserPage(page)}
               onKeyDown={activateOnKey(() => onOpenBrowserPage(page))}

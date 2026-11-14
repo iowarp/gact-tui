@@ -2,8 +2,10 @@
  * One state, in words, for a connector everywhere it appears (CN3): the Extensions
  * list, its setup card, and the card in the conversation.
  */
-import type { Connector, ConnectorNeed, ConnectorScope, PluginEntry } from '@clio/core/v3';
+import type { Connector, ConnectorNeed, PluginConnector, PluginEntry } from '@clio/core/v3';
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
+import { plural, t } from '@lingui/core/macro';
+import { formatList } from '@/lib/locale-format';
 
 export interface ConnectorStatusWords {
   tone: StatusTone;
@@ -13,21 +15,19 @@ export interface ConnectorStatusWords {
   detail: string;
 }
 
-const plural = (count: number, one: string, many = `${one}s`) =>
-  `${count} ${count === 1 ? one : many}`;
+const readyWithTools = (count: number) =>
+  plural(count, { one: 'Ready, # tool', other: 'Ready, # tools' });
 
 /** How a need reads inside "Needs …": its own label, lower-cased after the first word. */
 export function needName(need: Pick<ConnectorNeed, 'kind' | 'label' | 'key'>): string {
-  if (need.kind === 'sign-in') return 'a sign-in';
+  if (need.kind === 'sign-in') return t`a sign-in`;
   const label = need.label.trim() || need.key;
   return label.charAt(0).toLowerCase() + label.slice(1);
 }
 
 /** "a sign-in", "server address and a sign-in", "a, b and c". */
 export function listNeeds(needs: readonly Pick<ConnectorNeed, 'kind' | 'label' | 'key'>[]): string {
-  const names = needs.map(needName);
-  if (names.length <= 1) return names[0] ?? '';
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return formatList(needs.map(needName), { and: true });
 }
 
 /** The needs a state names, falling back to the bare keys a newer service may send. */
@@ -56,52 +56,61 @@ export function connectorStatus(
   if (change === 'starting')
     return {
       tone: 'running',
-      label: 'Starting…',
-      detail: 'CLIO is starting it and checking what it needs.',
+      label: t`Starting…`,
+      detail: t`Starting it and checking what it needs.`,
     };
   if (change === 'turning-off')
-    return { tone: 'running', label: 'Turning off…', detail: 'Turning off…' };
-  if (!connector.enabled) return { tone: 'inactive', label: 'Not enabled', detail: 'Not enabled' };
+    return { tone: 'running', label: t`Turning off…`, detail: t`Turning off…` };
+  if (!connector.enabled)
+    return { tone: 'inactive', label: t`Not enabled`, detail: t`Not enabled` };
   const { state } = connector;
   if (state.status === 'ready') {
-    const tools = connector.tool_count === null ? '' : `, ${plural(connector.tool_count, 'tool')}`;
-    return { tone: 'success', label: `Ready${tools}`, detail: `Ready${tools}` };
+    const label = connector.tool_count === null ? t`Ready` : readyWithTools(connector.tool_count);
+    return { tone: 'success', label, detail: label };
   }
   if (state.status === 'needs') {
     const needs = listNeeds(namedNeeds(connector));
-    const label = needs ? `Needs ${needs}` : 'Needs setup';
-    return { tone: 'warning', label, detail: state.reason ? `${label}. ${state.reason}` : label };
+    const label = needs ? t`Needs ${needs}` : t`Needs setup`;
+    const reason = state.reason;
+    return { tone: 'warning', label, detail: reason ? t`${label}. ${reason}` : label };
   }
   if (state.status === 'unreachable')
     return {
       tone: 'error',
-      label: 'Can’t be reached',
+      label: t`Can’t be reached`,
       // The reason is already a sentence ("Nothing answered at …"): shown once, under the label.
-      detail: state.reason ?? 'Can’t be reached',
+      detail: state.reason ?? t`Can’t be reached`,
     };
   return {
     tone: 'idle',
-    label: 'State not known',
-    detail: state.reason ?? 'This version can’t read the connector’s state',
+    label: t`State not known`,
+    detail: state.reason ?? t`This version can’t read the connector’s state`,
   };
 }
 
-/** Where an enabled connector applies, in words. */
-export function scopeWords(scope: ConnectorScope | null, agentNames: (id: string) => string) {
-  if (!scope) return 'Not enabled';
-  if (scope === 'all') return 'Every conversation';
-  if (!scope.agents.length) return 'No agents chosen';
-  return scope.agents.map(agentNames).join(', ');
-}
-
 /**
- * Plugins a person can pick. A plugin that follows a connector joins and leaves with
- * it (CN9), so it is never offered on its own.
+ * Plugins a person can pick for a conversation or an agent. A connector's plugin is
+ * offered while its connector is enabled (CN10): it is how a conversation takes the
+ * connector's tools. One whose connector is off is left out; Extensions (or the agent's
+ * offer in the conversation) turns the connector on first.
  */
-export function offeredPlugins<T extends Pick<PluginEntry, 'follows'>>(
+export function offeredPlugins<T extends Pick<PluginEntry, 'follows' | 'connector'>>(
   plugins: readonly T[] | undefined,
 ): T[] | undefined {
-  return plugins?.filter((plugin) => !plugin.follows);
+  return plugins?.filter((plugin) => !plugin.follows || plugin.connector?.enabled === true);
+}
+
+/** A connector plugin's state in words, from the connector a plugin row names (CN3). */
+export function pluginConnectorStatus(connector: PluginConnector): string {
+  if (!connector.enabled) return t`Not enabled`;
+  if (connector.status === 'ready')
+    return connector.tool_count === null ? t`Ready` : readyWithTools(connector.tool_count);
+  if (connector.status === 'needs') {
+    const needs = formatList(connector.needs);
+    return connector.needs.length ? t`Needs ${needs}` : t`Needs setup`;
+  }
+  if (connector.status === 'unreachable') return t`Can’t be reached`;
+  return t`State not known`;
 }
 
 /** The words a list search matches for a connector. */

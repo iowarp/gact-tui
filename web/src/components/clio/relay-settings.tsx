@@ -16,8 +16,9 @@ import { McpSignInDialog } from './mcp-sign-in';
 import { StateView } from './primitives/state-view';
 import { McpServiceList } from './settings-mcp-services';
 import { SettingsGroupLabel } from './settings-row';
+import { t } from '@lingui/core/macro';
 
-const GROUP = 'Remote MCP servers';
+const GROUP = t`Remote MCP servers`;
 
 /**
  * The Remote tools segment of Tools and MCP servers: the MCP servers reached by
@@ -58,7 +59,7 @@ export function RelaySettings() {
     mutationFn: (server: McpServerDefinition) => repository.reconnectMcpServer(server.id),
     onSuccess: async () => {
       await invalidate();
-      toast.success('Remote server reconnected');
+      toast.success(t`Remote server reconnected`);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -66,7 +67,7 @@ export function RelaySettings() {
     mutationFn: (server: McpServerDefinition) => repository.deleteMcpServer(server.id),
     onSuccess: async () => {
       await invalidate();
-      toast.success('Remote server disconnected');
+      toast.success(t`Remote server disconnected`);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -74,21 +75,21 @@ export function RelaySettings() {
 
   let list;
   if (servers.isPending || saved.isPending)
-    list = <StateView kind="loading" size="row" title="Loading remote MCP servers…" />;
+    list = <StateView kind="loading" size="row" title={t`Loading remote MCP servers…`} />;
   else if (servers.error)
     list = (
       <div title={servers.error.message}>
         <StateView
-          action={{ label: 'Retry', onClick: () => void servers.refetch() }}
+          action={{ label: t`Retry`, onClick: () => void servers.refetch() }}
           kind="error"
           size="row"
-          title="Remote MCP servers couldn’t be listed."
+          title={t`Remote MCP servers couldn’t be listed.`}
         />
       </div>
     );
   // The group label's + adds by URL, as in every other Settings list.
   else if (!entries.length)
-    list = <StateView kind="empty" size="row" title="No remote MCP servers yet." />;
+    list = <StateView kind="empty" size="row" title={t`No remote MCP servers yet.`} />;
   else
     list = (
       <McpServiceList
@@ -104,11 +105,11 @@ export function RelaySettings() {
   return (
     <section
       aria-label={GROUP}
-      className="grid min-w-0"
+      className="grid min-w-0 grid-cols-1"
       onKeyDown={newItemKey(() => setAdding(true))}
     >
       <SettingsGroupLabel
-        addLabel="Add a remote MCP server by URL"
+        addLabel={t`Add a remote MCP server by URL`}
         className="mt-0 mb-1"
         onAdd={() => setAdding(true)}
       >
@@ -116,9 +117,8 @@ export function RelaySettings() {
       </SettingsGroupLabel>
       {list}
       {/* Notes are the first thing a narrow window drops. */}
-      <p className="mt-3 text-xs text-faint max-sm:hidden">
-        Relay placements from earlier versions are not converted. Add each remote server again by
-        its URL.
+      <p className="mt-3 text-xs text-muted-foreground max-sm:hidden">
+        {t`Relay placements from earlier versions are not converted. Add each remote server again by its URL.`}
       </p>
 
       {signingIn ? (

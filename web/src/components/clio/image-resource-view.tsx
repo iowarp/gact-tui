@@ -11,6 +11,7 @@ import { ViewerToolbarHost } from './viewer-toolbar-context';
 import { ViewerZoomControls } from './viewer-zoom-controls';
 import { themedSvgBytes, useHtmlPreviewTheme } from './html-preview-theme';
 import { useElementFullscreen } from './use-element-fullscreen';
+import { t } from '@lingui/core/macro';
 
 const MAX_SCALE = 8;
 const STEP = 1.2;
@@ -87,8 +88,11 @@ export function ImageResourceView({
   const scale = zoomed ? zoom.scale : fit;
   const dimensions = loaded ? `${image.width} × ${image.height}` : undefined;
   const percent = loaded ? `${Math.round(scale * 100)}%` : undefined;
-  // The frame states the image's size (frame-bar 06); the zoom reads between its icons.
-  useFileViewerFacts(dimensions ? [dimensions] : undefined);
+  // The frame states the image's size (frame-bar 06) and two zoom icons; a zoom off
+  // the fitted size is one more fact, which folds before any control does.
+  useFileViewerFacts(
+    dimensions ? (zoomed && percent ? [dimensions, percent] : [dimensions]) : undefined,
+  );
   const zoomIn = useCallback(() => {
     if (bytes) setZoom({ bytes, scale: Math.min(MAX_SCALE, scale * STEP) });
   }, [bytes, scale]);
@@ -121,11 +125,11 @@ export function ImageResourceView({
   if (error || (url && failedImageUrl === url))
     return (
       <ViewerReadError
-        error={error || 'The image bytes could not be decoded.'}
+        error={error || t`The image bytes could not be decoded.`}
         onRetry={error ? onRetry : undefined}
       />
     );
-  if (!url) return <ResourceLoading label={`Loading ${name}`} />;
+  if (!url) return <ResourceLoading label={t`Loading ${name}`} />;
   return (
     <OverlayContainer.Provider value={fullscreenHost ?? inheritedOverlay}>
       <ViewerToolbarHost.Provider value={framed ? toolbarHost : localToolbarHost}>
@@ -135,7 +139,7 @@ export function ImageResourceView({
         >
           {!framed ? (
             <div className="flex h-[34px] shrink-0 items-center gap-px border-b border-border px-1.5">
-              <span className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-[11px] text-muted-foreground tabular-nums">
+              <span className="flex min-w-0 flex-1 gap-2 truncate px-1.5 text-caption text-muted-foreground tabular-nums">
                 {dimensions ? <span>{dimensions}</span> : null}
                 {percent ? <span>{percent}</span> : null}
               </span>
@@ -144,25 +148,24 @@ export function ImageResourceView({
           ) : null}
           {framed || localToolbarHost ? (
             <ViewerZoomControls
-              label="Image zoom"
+              label={t`Image zoom`}
               onIn={zoomIn}
               onOut={zoomOut}
               onReset={resetZoom}
               disabledIn={scale >= MAX_SCALE}
               disabledOut={!zoomed}
-              readout={percent}
             />
           ) : null}
           {!framed && localToolbarHost && bytes ? (
             <ViewerToolbarContent>
               <ToolbarAction
-                label="Download file"
+                label={t`Download file`}
                 onClick={() => downloadBytes(bytes, mediaType, name)}
               >
                 <DownloadIcon aria-hidden="true" />
               </ToolbarAction>
               <ToolbarAction
-                label={fullscreen ? 'Exit image fullscreen' : 'View image fullscreen'}
+                label={fullscreen ? t`Exit image fullscreen` : t`View image fullscreen`}
                 onClick={() => void toggleFullscreen()}
               >
                 {fullscreen ? (
@@ -176,7 +179,7 @@ export function ImageResourceView({
           <div
             ref={viewportRef}
             role="region"
-            aria-label={`Zoomable image ${name}`}
+            aria-label={t`Zoomable image ${name}`}
             tabIndex={0}
             data-slot="image-viewport"
             className="min-h-0 flex-1 overflow-auto overscroll-contain bg-background outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"

@@ -9,6 +9,7 @@ import {
   VIEWER_DEFERRED_ATTRIBUTE,
 } from './viewer-capture-mount';
 import { VIEWER_ARTIFACT_URI } from './viewer-file-schema';
+import { t } from '@lingui/core/macro';
 
 export interface ViewerFileGateProps {
   /** What the viewer shows, for the placeholder and messages (for example "3D view"). */
@@ -74,18 +75,18 @@ export function ViewerFileGate({
       <Message
         {...size}
         kind="error"
-        title={`This view's file is not a registered artifact: ${invalid}`}
+        title={t`This view's file is not a registered artifact: ${invalid}`}
       />
     );
   else if (missing)
-    body = <Message {...size} kind="empty" title={`Nothing is selected for this ${noun} yet.`} />;
+    body = <Message {...size} kind="empty" title={t`Nothing is selected for this ${noun} yet.`} />;
   else if (lost)
     body = (
       <Message
         {...size}
-        action={{ label: 'Reload view', onClick: reload }}
+        action={{ label: t`Reload view`, onClick: reload }}
         kind="error"
-        title={`This ${noun} lost its graphics context; the browser keeps only a few open at once.`}
+        title={t`This ${noun} lost its graphics context; the browser keeps only a few open at once.`}
       />
     );
   else if (!near && captured === 0)
@@ -93,7 +94,7 @@ export function ViewerFileGate({
       <Message
         {...size}
         kind="unavailable"
-        title={`The ${noun} loads when it scrolls into view.`}
+        title={t`The ${noun} loads when it scrolls into view.`}
       />
     );
   else body = <div key={mount}>{children}</div>;

@@ -15,14 +15,19 @@ import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
 import { AdjustIcon } from '@/lib/icon-vocabulary';
 import { downloadBlob } from './surface-export';
+import { plural, t } from '@lingui/core/macro';
+import { formatLocale } from '@/lib/locale-format';
 
-const TIME_FORMAT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+const TIME_FORMAT = new Intl.DateTimeFormat(formatLocale(), {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
 
 /** The one date and time format on the Memory page. */
 export function memoryTime(stamp: string | undefined): string {
   return stamp && !Number.isNaN(Date.parse(stamp))
     ? TIME_FORMAT.format(new Date(stamp))
-    : 'Time not recorded';
+    : t`Time not recorded`;
 }
 
 /** A failure in plain words: never an HTTP status line. */
@@ -32,12 +37,12 @@ export function memoryErrorText(error: unknown): string {
       ? error.status
       : undefined;
   const message = error instanceof Error ? error.message.trim() : '';
-  if (status === 404) return 'The connected agent does not offer this memory.';
-  if (status === 401 || status === 403) return 'This connection may not change memory.';
+  if (status === 404) return t`The connected agent does not offer this memory.`;
+  if (status === 401 || status === 403) return t`This connection may not change memory.`;
   if (!message || /request failed|\bhttp\b|\b[45]\d\d\b/iu.test(message))
     return status && status >= 500
-      ? 'The agent could not finish this.'
-      : 'The agent could not be reached.';
+      ? t`The agent could not finish this.`
+      : t`The agent could not be reached.`;
   return message;
 }
 
@@ -63,11 +68,11 @@ export function memoryDocumentTitle(document: Pick<MemoryDocument, 'description'
 export const liveFactCount = (document: MemoryDocument) =>
   document.facts.filter((fact) => fact.live).length;
 
-export const factCountLabel = (count: number) => `${count} ${count === 1 ? 'fact' : 'facts'}`;
+export const factCountLabel = (count: number) => plural(count, { one: '# fact', other: '# facts' });
 
 /** "Account" for account memory, else the workspace's name. */
 export function memoryScopeTitle(scope: string, workspaceNames: ReadonlyMap<string, string>) {
-  if (scope === 'user') return 'Account';
+  if (scope === 'user') return t`Account`;
   const id = scope.replace(/^project\//u, '');
   return workspaceNames.get(id) ?? id;
 }
@@ -81,7 +86,7 @@ export interface MemoryPickerOption {
 /** Account first, then each workspace that can keep its own memory. */
 export function memoryScopeOptions(workspaces: readonly Workspace[]): MemoryPickerOption[] {
   return [
-    { value: 'user', label: 'Account (across workspaces)', icon: createElement(UserRoundIcon) },
+    { value: 'user', label: t`Account (across workspaces)`, icon: createElement(UserRoundIcon) },
     ...workspaces
       .filter((workspace) => workspace.id !== 'ws_global')
       .map((workspace) => ({

@@ -17,6 +17,7 @@ import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
 import { KeyValueGrid } from './primitives/key-value-grid';
 import { SettingsGroupLabel } from './settings-row';
+import { t, ph } from '@lingui/core/macro';
 
 /** One of your MCP connections: where it connects, its state, and what you can do with it. */
 export function McpConnectionPane({
@@ -54,20 +55,25 @@ export function McpConnectionPane({
             <IconButton
               disabled={reconnecting}
               icon={<RefreshIcon />}
-              label="Reconnect"
+              label={t`Reconnect`}
               onClick={onReconnect}
             />
           ) : null}
-          {onRemove ? <IconButton icon={<DeleteIcon />} label="Remove" onClick={onRemove} /> : null}
+          {onRemove ? (
+            <IconButton icon={<DeleteIcon />} label={t`Remove`} onClick={onRemove} />
+          ) : null}
           {onSignIn ? (
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <IconButton icon={<MoreIcon />} label={`More actions for ${entry.title}`} />
+                <IconButton
+                  icon={<MoreIcon />}
+                  label={t`More actions for ${ph({ title: entry.title })}`}
+                />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-48">
                 <DropdownMenuItem onSelect={onSignIn}>
                   <KeyRoundIcon aria-hidden="true" />
-                  Sign in…
+                  {t`Sign in…`}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -75,28 +81,28 @@ export function McpConnectionPane({
         </>
       }
     >
-      <MetaLine className="block truncate text-xs text-faint" parts={entry.meta} />
+      <MetaLine className="block truncate text-xs text-muted-foreground" parts={entry.meta} />
       <KeyValueGrid
         className="mt-3"
         items={[
           {
-            label: 'Status',
+            label: t`Status`,
             value: (
               <MetaLine parts={[status.label, entry.server?.error ?? entry.server?.reason ?? '']} />
             ),
           },
           {
-            label: 'Starts',
-            value: entry.saved?.always_load ? 'With every conversation' : 'When used',
+            label: t`Starts`,
+            value: entry.saved?.always_load ? t`With every conversation` : t`When used`,
           },
-          ...(tools.length ? [{ label: 'Tools', value: `${tools.length}` }] : []),
+          ...(tools.length ? [{ label: t`Tools`, value: `${tools.length}` }] : []),
         ]}
       />
-      <SettingsGroupLabel>Connection</SettingsGroupLabel>
+      <SettingsGroupLabel>{t`Connection`}</SettingsGroupLabel>
       <McpConnectionDetails server={definition} />
       {tools.length ? (
         <>
-          <SettingsGroupLabel>Tools</SettingsGroupLabel>
+          <SettingsGroupLabel>{t`Tools`}</SettingsGroupLabel>
           <p className="leading-5 text-muted-foreground">{tools.join(', ')}</p>
         </>
       ) : null}
@@ -116,7 +122,7 @@ export function DiscoverPane({
 }) {
   return (
     <DetailPane className={className} icon={item.icon} onClose={onClose} title={item.title}>
-      <MetaLine className="block truncate text-xs text-faint" parts={item.meta} />
+      <MetaLine className="block truncate text-xs text-muted-foreground" parts={item.meta} />
       <div className="mt-3 flex items-start gap-2.5">
         <p className="min-w-0 flex-1 leading-5">{item.description}</p>
         <SlotButton label={`${item.action.label} ${item.title}`} onClick={item.action.run}>
@@ -130,7 +136,7 @@ export function DiscoverPane({
             ...(item.source
               ? [
                   {
-                    label: 'Source',
+                    label: t`Source`,
                     value: (
                       <ExternalLink
                         className="truncate underline-offset-4 hover:underline"
@@ -143,7 +149,7 @@ export function DiscoverPane({
                   },
                 ]
               : []),
-            ...(item.detail ? [{ label: 'Runs as', value: item.detail }] : []),
+            ...(item.detail ? [{ label: t`Runs as`, value: item.detail }] : []),
           ]}
         />
       ) : null}
@@ -164,13 +170,13 @@ export function BackupDialog({
 }) {
   return (
     <DialogFrame
-      description="Export your saved agents, skills and plugins to a repository you control."
+      description={t`Export your saved agents, skills and plugins to a repository you control.`}
       onOpenChange={(open) => (open ? undefined : onClose())}
       open
-      title="Back up to GitHub"
-      cancelLabel="Close"
+      title={t`Back up to GitHub`}
+      cancelLabel={t`Close`}
       confirm={{
-        label: exporting ? 'Preparing…' : 'Download marketplace ZIP',
+        label: exporting ? t`Preparing…` : t`Download marketplace ZIP`,
         disabled: exporting || !hasLocalItems,
         keyboard: false,
         onConfirm: onExport,
@@ -180,26 +186,24 @@ export function BackupDialog({
           className="mr-auto text-xs underline underline-offset-4"
           href="https://github.com/new"
         >
-          Create GitHub repository
+          {t`Create GitHub repository`}
         </ExternalLink>
       }
     >
       <ol className="list-decimal space-y-2 pl-5 leading-5">
-        <li>Download the marketplace ZIP and unpack it.</li>
+        <li>{t`Download the marketplace ZIP and unpack it.`}</li>
         <li>
-          Create a private GitHub repository and upload the unpacked files, preserving the folders.
+          {t`Create a private GitHub repository and upload the unpacked files, preserving the folders.`}
         </li>
         <li>
-          To use the backup on another host, add its repository URL from Marketplaces. That host
-          needs access to your private repository.
+          {t`To use the backup on another host, add its repository URL from Marketplaces. That host needs access to your private repository.`}
         </li>
       </ol>
       <p className="mt-3 leading-5 text-muted-foreground">
-        This is a manual backup. Future edits remain local until you upload them again. Saved MCP
-        credentials are not included; configure those connections on each host.
+        {t`This is a manual backup. Future edits remain local until you upload them again. Saved MCP credentials are not included; configure those connections on each host.`}
       </p>
       {!hasLocalItems ? (
-        <p className="mt-2 text-muted-foreground">Save an agent, skill or plugin first.</p>
+        <p className="mt-2 text-muted-foreground">{t`Save an agent, skill or plugin first.`}</p>
       ) : null}
     </DialogFrame>
   );

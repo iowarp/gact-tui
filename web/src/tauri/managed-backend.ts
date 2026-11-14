@@ -7,6 +7,9 @@ import {
 } from '@/lib/runtime-limits';
 import { vocab } from '@/lib/brand-vocabulary';
 import { readInstallLine, type RuntimeInstallProgress } from '@/lib/runtime-install-progress';
+import { t } from '@lingui/core/macro';
+
+const { agent, product } = vocab;
 
 export type ManagedBackendStatus =
   | {
@@ -59,7 +62,7 @@ async function invokeManagedBackend<T>(
           () =>
             reject(
               new Error(
-                `${vocab.product} did not respond to the local service request. Retry local startup or reopen the app.`,
+                t`${product} did not respond to the local service request. Retry local startup or reopen the app.`,
               ),
             ),
           GACT_HTTP_TIMEOUT_MS,
@@ -174,7 +177,7 @@ export async function updateManagedClio(
   await runNativeInstall(
     'update_clio',
     { targetVersion, restartApp: options.restartApp },
-    (tail) => tail || `${vocab.agent} update failed.`,
+    (tail) => tail || t`${agent} update failed.`,
     options.onProgress,
   );
 }
@@ -212,14 +215,19 @@ export async function waitForManagedBackend(
     }
     if (handle.status.kind === 'ready') return handle;
     if (handle.status.kind === 'error') {
-      throw new Error(
-        handle.status.detail || `The managed ${vocab.agent} service could not start.`,
-      );
+      throw new Error(handle.status.detail || t`The managed ${agent} service could not start.`);
     }
     if (handle.status.kind === 'auth_unavailable') {
       throw new Error(managedAuthUnavailableMessage(handle.url, handle.status.detail));
     }
-    if (handle.status.kind === 'needs_install' && !installStarted) {
+    if (handle.status.kind === 'needs_install' && installStarted) {
+      // The installer reported success and the supervisor restarted the
+      // launcher, yet it still finds no backend to run. Waiting longer cannot
+      // change that, and starting another install would loop; say so now
+      // instead of holding the boot screen until a readiness deadline.
+      throw new Error(managedInstalledButMissingMessage());
+    }
+    if (handle.status.kind === 'needs_install') {
       installStarted = true;
       // A first-use install settles on its own terminal event, not on this
       // readiness clock: a failed install surfaces the installer's own output
@@ -232,8 +240,8 @@ export async function waitForManagedBackend(
         undefined,
         (tail) =>
           tail
-            ? `The ${vocab.agent} service could not be installed: ${tail}`
-            : `The ${vocab.agent} service could not be installed.`,
+            ? t`The ${agent} service could not be installed: ${tail}`
+            : t`The ${agent} service could not be installed.`,
         options.onInstallProgress
           ? (line) => {
               const next = readInstallLine(progress, line);
@@ -248,7 +256,7 @@ export async function waitForManagedBackend(
       continue;
     }
     if (Date.now() >= deadline) {
-      throw new Error(`The managed ${vocab.agent} service did not become ready in time.`);
+      throw new Error(t`The managed ${agent} service did not become ready in time.`);
     }
     await new Promise<void>((resolve) => {
       window.setTimeout(
@@ -263,10 +271,15 @@ function managedStatusKey(status: ManagedBackendStatus): string {
   return 'detail' in status ? `${status.kind}:${status.detail}` : status.kind;
 }
 
+/** Shown when a successful first-run install still leaves no backend to start. */
+export function managedInstalledButMissingMessage(): string {
+  return t`${agent} finished installing, but the app could not find the installed service to start it. Reopen the app to repair the installation.`;
+}
+
 /**
  * Said up front when the desktop attached to an agent it can't authenticate
  * to, instead of letting a later remote deploy fail at the SSH transport.
  */
 export function managedAuthUnavailableMessage(url: string, reason: string): string {
-  return `${vocab.agent} is already running at ${url}, but this app can't sign in to it: ${reason}. Stop that ${vocab.agent} or restart it with this version, then reopen the app.`;
+  return t`${agent} is already running at ${url}, but this app can't sign in to it: ${reason}. Stop that ${agent} or restart it with this version, then reopen the app.`;
 }

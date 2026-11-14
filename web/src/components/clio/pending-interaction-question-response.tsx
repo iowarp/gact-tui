@@ -11,6 +11,7 @@ import { StructuredQuestionResponse, UrlConsentResponse } from './question-inter
 import { QuestionResponseFrame, type QuestionFrameCard } from './question-response-frame';
 import { QuestionSurface } from './question-surface';
 import { SurfaceQuestionNotice } from './surface-question-notice';
+import { t } from '@lingui/core/macro';
 
 const QUESTION_ACTIONS = new Set(['answer', 'cancel']);
 
@@ -72,7 +73,7 @@ export function QuestionResponse(props: {
       <QuestionSurface interaction={interaction} />
       <AskError error={responseError} />
       {!canAnswer ? (
-        <AskSubject>Input controls are not available yet.</AskSubject>
+        <AskSubject>{t`Input controls are not available yet.`}</AskSubject>
       ) : choices.length ? (
         <QuestionChoiceRows
           choices={choices}
@@ -98,24 +99,25 @@ export function QuestionResponse(props: {
           id={`${interaction.id}-answer`}
           onChange={setAnswer}
           onSubmit={() => respond({ action: 'answer', answer: answer.trim() })}
-          placeholder={choices.length ? 'Or type your own answer' : 'Type your answer'}
+          placeholder={choices.length ? t`Or type your own answer` : t`Type your answer`}
           value={answer}
         />
       ) : null}
       {(canAnswer && multi && choices.length) || unknown.length ? (
-        <AskOptions aria-label="Answer">
+        <AskOptions aria-label={t`Answer`}>
           {canAnswer && multi && choices.length ? (
             <AskButton
               disabled={disabled || multiSelection.length === 0}
+              // i18n-ignore: key name
               hint="Enter"
               onClick={() => respond({ action: 'answer', selected_options: multiSelection })}
               primary
             >
-              Submit
+              {t`Submit`}
             </AskButton>
           ) : null}
           {unknown.map((action) => (
-            <AskButton disabled key={action} title={`This client cannot offer "${action}" yet.`}>
+            <AskButton disabled key={action} title={t`This client cannot offer "${action}" yet.`}>
               {action}
             </AskButton>
           ))}

@@ -23,23 +23,30 @@ import { CloseIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { FrameBackContext } from './frame-back';
 import { IconButton, NamedTooltip } from './icon-button';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * How far the frame bar has folded, one group per step: the secondary facts,
  * then the position fact (a page, a row count; marked `data-frame-position`),
  * so every fact has gone to the hover name before anything else moves
- * (workbench-lineage step 2), then folders, Open, Copy, @, then the modes
+ * (workbench-lineage step 2), then folders, then the renderer's Format icons
+ * (`tools`: zoom out and in, wrap, a tree toggle; see `useFrameTool`) move into
+ * the … menu, so every viewer keeps one order: modes outlast @, which outlasts
+ * Copy and Open, which outlast the icons. Then Open, Copy, @, then the modes
  * folding to one icon, then only the
  * name, Download, comments and the … menu. Narrowest (workbench-lineage step 6),
  * the modes move into the … menu as a checked list (`modes-menu`; see
- * `useFrameModes`) with the renderer's Format icons (`useFrameTool`), and the
+ * `useFrameModes`), and the
  * group rules go: only the name, comments and the … menu remain (Download stays
  * so the original bytes are one click away). Modes and icons leave only a bar
  * whose … menu lists them (`data-frame-modes-menu`). Then the gaps tighten, and
- * a renderer's zoom icons go (`zoom`, `data-slot="viewer-zoom-controls"`; Ctrl
+ * on a bar without a … menu a renderer's zoom icons go (`zoom`, `data-slot="viewer-zoom-controls"`; Ctrl
  * or ⌘ with the wheel still zooms, and the … menu lists them), keeping the
- * position readout between them ("200 / 250"). The name is
+ * position readout between them ("200 / 250"). Then the readout's zoom % goes
+ * (`zoom-fact`, `data-readout-zoom`), so the page never folds before it. The name is
  * never cut while any of those still shows. A name cut short of `FRAME_NAME_MIN`
+ * first drops the name's type icon (`icon`, `group-data-[fold-icon]/frame:hidden`) so a page readout
+ * can stay beside a name cut to `FRAME_NAME_BESIDE_READOUT`; one cut shorter
  * then takes the readout's room (`readout`), and last, one still that short goes
  * too (`where`): the tab names it, and "o…" says nothing,
  * so Download and … are never cut. Children hide on the
@@ -49,6 +56,7 @@ const FRAME_FOLDS = [
   'facts',
   'position',
   'folders',
+  'tools',
   'open',
   'copy',
   'talk',
@@ -57,6 +65,8 @@ const FRAME_FOLDS = [
   'modes-menu',
   'rules',
   'zoom',
+  'zoom-fact',
+  'icon',
   'readout',
   'where',
 ] as const;
@@ -65,12 +75,27 @@ const FRAME_FOLDS = [
 const FRAME_NAME_MIN = 96;
 
 /**
+ * How narrow the name may truncate, its icon gone, while it keeps a readout beside it
+ * (about a dozen characters): the page you are on outranks the name's last letters.
+ */
+const FRAME_NAME_BESIDE_READOUT = 80;
+const FRAME_ICON_FOLDED = FRAME_FOLDS.indexOf('icon') + 1;
+
+/**
  * The name keeps its full width until everything else that folds has folded:
- * facts, folders, Open, Copy, @, the modes, the folders' …, the modes into the
- * … menu, the rules and zoom (workbench-lineage: "Name and comments stay").
+ * facts, folders, the Format icons, Open, Copy, @, the modes, the folders' …, the modes into the
+ * … menu, the rules, zoom and the zoom % (workbench-lineage: "Name and comments stay").
  * Only then may it truncate, and below `FRAME_NAME_MIN` it goes (`where`).
  */
-const FRAME_NAME_KEEPS_UNTIL = FRAME_FOLDS.indexOf('zoom') + 1;
+const FRAME_NAME_KEEPS_UNTIL = FRAME_FOLDS.indexOf('zoom-fact') + 1;
+
+/**
+ * Where the modes went at a width holds while the bar's content changes at
+ * that width: switching Preview to Lineage, whose bar has no zoom to fold,
+ * keeps the modes in the … menu instead of moving them back into the bar.
+ * Rules, zoom and the name are fitted afresh.
+ */
+const FRAME_MODES_HOLD = FRAME_FOLDS.indexOf('modes-menu') + 1;
 
 /** Folded facts, read for the location's hover name. */
 const FrameFactsContext = createContext('');
@@ -97,12 +122,20 @@ function frameOverflows(bar: HTMLElement, fold: number) {
       part.dataset.frameFit === 'name' &&
       fold >= FRAME_NAME_KEEPS_UNTIL &&
       !factShown &&
-      width >= FRAME_NAME_MIN
+      width >=
+        (fold === FRAME_ICON_FOLDED && readoutShown(bar)
+          ? FRAME_NAME_BESIDE_READOUT
+          : FRAME_NAME_MIN)
     )
       continue;
     return true;
   }
   return false;
+}
+
+function readoutShown(bar: HTMLElement) {
+  const readout = bar.querySelector<HTMLElement>('[data-slot=viewer-zoom-readout]');
+  return Boolean(readout && readout.offsetParent !== null);
 }
 
 /** The facts' words, comma separated, for the hover name once they have folded. */
@@ -145,11 +178,15 @@ export const FrameBar = memo(function FrameBar({
   const back = useContext(FrameBackContext);
   const barRef = useRef<HTMLDivElement>(null);
   const factsRef = useRef<HTMLDivElement>(null);
-  // Width and content both start the fit again from nothing folded.
+  // Width and content both start the fit again, from what this width already
+  // folded the modes to (`hold`) or else from nothing folded.
   const [fitKey, setFitKey] = useState('');
+  const [hold, setHold] = useState({ width: '', fold: 0 });
+  const fitWidth = fitKey.split('|')[0];
+  const start = hold.width === fitWidth ? hold.fold : 0;
   const [measured, setMeasured] = useState({ key: '', fold: 0 });
-  if (measured.key !== fitKey) setMeasured({ key: fitKey, fold: 0 });
-  const fold = measured.key === fitKey ? measured.fold : 0;
+  if (measured.key !== fitKey) setMeasured({ key: fitKey, fold: start });
+  const fold = measured.key === fitKey ? measured.fold : start;
   useLayoutEffect(() => {
     const bar = barRef.current;
     if (!bar) return;
@@ -181,7 +218,15 @@ export const FrameBar = memo(function FrameBar({
     // Settled: the facts that went to hover join the location's hover name.
     const text = fold > 0 ? factsText(factsRef.current) : '';
     setFoldedFacts((current) => (current === text ? current : text));
-  }, [fitKey, fold]);
+    const held = Math.min(fold, FRAME_MODES_HOLD);
+    setHold((current) =>
+      current.width !== fitWidth
+        ? { width: fitWidth, fold: held }
+        : current.fold >= held
+          ? current
+          : { width: fitWidth, fold: held },
+    );
+  }, [fitKey, fitWidth, fold]);
   const flags = Object.fromEntries(
     FRAME_FOLDS.map((step, index) => [`data-fold-${step}`, fold > index || undefined]),
   );
@@ -203,7 +248,7 @@ export const FrameBar = memo(function FrameBar({
           <IconButton
             data-slot="frame-back"
             icon={<ArrowLeftIcon />}
-            label={`Back to ${back.label}`}
+            label={t`Back to ${ph({ label: back.label })}`}
             onClick={back.onBack}
             size="sm"
             tooltipSide="bottom"
@@ -215,7 +260,7 @@ export const FrameBar = memo(function FrameBar({
             data-frame-fit=""
             data-slot="frame-facts"
             ref={factsRef}
-            className="flex min-w-0 items-center gap-2 overflow-hidden text-[11px] text-muted-foreground group-data-[fold-position]/frame:hidden [&>:not([data-frame-position])]:group-data-[fold-facts]/frame:hidden"
+            className="flex min-w-0 items-center gap-2 overflow-hidden text-caption text-muted-foreground group-data-[fold-position]/frame:hidden [&>:not([data-frame-position])]:group-data-[fold-facts]/frame:hidden"
           >
             {what}
           </div>
@@ -224,7 +269,7 @@ export const FrameBar = memo(function FrameBar({
       {format ? (
         <div
           data-slot="frame-format"
-          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-modes-menu]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]>:not([data-slot=viewer-zoom-readout])]:group-data-[fold-zoom]/frame:hidden [&_[data-slot=viewer-zoom-readout]]:group-data-[fold-readout]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
+          className="flex min-w-0 shrink-0 items-center gap-2 group-data-[fold-rules]/frame:gap-1 [[data-fold-tools]:has([data-frame-modes-menu])_&_[data-frame-tool]]:hidden [&_[data-slot=viewer-zoom-controls]>:not([data-slot=viewer-zoom-readout])]:group-data-[fold-zoom]/frame:hidden [&_[data-readout-zoom]]:group-data-[fold-zoom-fact]/frame:hidden [&_[data-slot=viewer-zoom-readout]]:group-data-[fold-readout]/frame:hidden [&:has([data-slot=frame-format-host]:empty):not(:has([role=tablist]:not([hidden]_*)))]:hidden"
         >
           {format}
         </div>
@@ -273,10 +318,10 @@ export const FrameCrumbs = memo(function FrameCrumbs({
   const name = parts.at(-1);
   return (
     <nav
-      aria-label="Location"
+      aria-label={t`Location`}
       title={full}
       className={cn(
-        'flex min-w-0 items-center gap-1 text-[12.5px] group-data-[fold-where]/frame:hidden',
+        'flex min-w-0 items-center gap-1 text-menu group-data-[fold-where]/frame:hidden',
         className,
       )}
     >
@@ -284,7 +329,7 @@ export const FrameCrumbs = memo(function FrameCrumbs({
         <span className="hidden items-center gap-1 group-data-[fold-folders]/frame:inline-flex group-data-[fold-name]/frame:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger
-              aria-label={`Folders: ${folders.map((part) => part.label).join(' / ')}`}
+              aria-label={t`Folders: ${ph({ path: folders.map((part) => part.label).join(' / ') })}`}
               className="rounded-[4px] px-0.5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring"
             >
               …
@@ -349,6 +394,8 @@ export interface FrameTabTriggerProps {
 
 export interface FrameTabProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title' | 'onSelect'> {
   label: string;
+  /** A version tag after the name, muted (spec `.t`): tells open versions of one file apart. */
+  version?: string;
   icon?: ReactNode;
   active?: boolean;
   /** Unsaved changes: say so in words for assistive technology. */
@@ -387,6 +434,7 @@ export const FrameTab = memo(
   forwardRef<HTMLDivElement, FrameTabProps>(function FrameTab(
     {
       label,
+      version,
       icon,
       active = false,
       dirty = false,
@@ -417,9 +465,16 @@ export const FrameTab = memo(
         <span data-slot="frame-tab-name" className={cn('min-w-0 truncate', iconOnly && 'sr-only')}>
           {label}
         </span>
-        {changed ? <span className="sr-only">, changed in this conversation</span> : null}
-        {dirty ? <span className="sr-only">, unsaved changes</span> : null}
-        {pinned ? <span className="sr-only">, pinned</span> : null}
+        {version && iconOnly ? <span className="sr-only"> {version}</span> : null}
+        {version && !iconOnly ? (
+          <span className="shrink-0 text-caption text-faint" data-slot="frame-tab-version">
+            <span className="sr-only"> </span>
+            {version}
+          </span>
+        ) : null}
+        {changed ? <span className="sr-only">{t`, changed in this conversation`}</span> : null}
+        {dirty ? <span className="sr-only">{t`, unsaved changes`}</span> : null}
+        {pinned ? <span className="sr-only">{t`, pinned`}</span> : null}
       </>
     );
     // Close space is kept on every tab (9px pad + 13px mark + 7px gap) so
@@ -446,7 +501,7 @@ export const FrameTab = memo(
             // Spec .tab.on: foreground text over a 2px primary line, no fill. The
             // line is its own layer so the trigger's background never covers it,
             // and the tab fills the row above its border so nothing clips it.
-            'group/frame-tab relative flex h-full max-h-10 min-w-0 shrink-0 items-center text-[12.5px] whitespace-nowrap text-muted-foreground hover:text-foreground data-active:text-foreground data-active:after:pointer-events-none data-active:after:absolute data-active:after:inset-x-0 data-active:after:bottom-0 data-active:after:z-[1] data-active:after:h-0.5 data-active:after:bg-primary data-changed:[&_[data-slot=frame-tab-name]]:text-changed',
+            'group/frame-tab relative flex h-full max-h-10 min-w-0 shrink-0 items-center text-menu whitespace-nowrap text-muted-foreground hover:text-foreground data-active:text-foreground data-active:after:pointer-events-none data-active:after:absolute data-active:after:inset-x-0 data-active:after:bottom-0 data-active:after:z-[1] data-active:after:h-0.5 data-active:after:bg-primary data-changed:[&_[data-slot=frame-tab-name]]:text-changed',
             iconOnly ? 'w-[34px]' : 'max-w-56 min-w-[min(6rem,100%)]',
             className,
           )}
@@ -469,7 +524,7 @@ export const FrameTab = memo(
             <span
               aria-hidden="true"
               data-slot="frame-tab-close"
-              title={`Close ${label}`}
+              title={t`Close ${label}`}
               onClick={(event: MouseEvent) => {
                 event.stopPropagation();
                 onClose?.();

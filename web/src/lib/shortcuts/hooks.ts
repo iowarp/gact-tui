@@ -29,9 +29,16 @@ import {
  */
 export const KeyPlatformContext = createContext<KeyPlatform | null>(null);
 
+// The page's platform never changes, so it is read once, not on every render or key.
+let pagePlatform: KeyPlatform | undefined;
+function keyPlatform(): KeyPlatform {
+  pagePlatform ??= detectKeyPlatform();
+  return pagePlatform;
+}
+
 export function useKeyPlatform(): KeyPlatform {
   const forced = useContext(KeyPlatformContext);
-  return forced ?? detectKeyPlatform();
+  return forced ?? keyPlatform();
 }
 
 export function useShortcutDefinition(id: string | undefined): ShortcutDefinition | undefined {
@@ -198,7 +205,7 @@ function setHeld(next: boolean) {
 }
 
 function onHeldKey(event: KeyboardEvent) {
-  const command = detectKeyPlatform() === 'mac' ? 'Meta' : 'Control';
+  const command = keyPlatform() === 'mac' ? 'Meta' : 'Control';
   const onlyCommand =
     event.type === 'keydown' &&
     event.key === command &&

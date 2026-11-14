@@ -5,11 +5,31 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
 import { listState, type ListState } from '@/lib/list-state';
 import { mergeRailSessions } from '@/lib/rail-sessions';
-import { PRIMARY_SESSION_KINDS } from '@/lib/recent-sessions';
+import { PRIMARY_SESSION_KINDS, sessionInteractionAt } from '@/lib/recent-sessions';
+import { RAIL_ACTIVITY_POLL_MS } from '@/lib/runtime-limits';
 import { useRepository } from './use-repository';
 
 /** Conversations per rail page; the server reads each page by range. */
 export const RAIL_PAGE_SIZE = 30;
+
+/** Newest conversations re-read to notice activity in ones that are not open. */
+const RAIL_HEAD_SIZE = 10;
+
+/** Live rows, each replaced by a newer copy from `head` when it holds one. */
+function newestCopies(
+  live: readonly Session[],
+  head: readonly Session[] | undefined,
+): readonly Session[] {
+  if (!head?.length) return live;
+  const byId = new Map(live.map((session) => [session.id, session]));
+  for (const session of head) {
+    const current = byId.get(session.id);
+    if (!current || sessionInteractionAt(session) > sessionInteractionAt(current)) {
+      byId.set(session.id, session);
+    }
+  }
+  return [...byId.values()];
+}
 
 export interface RailSessions {
   /** Loaded conversations merged with live rows, newest interaction first. */
@@ -72,16 +92,32 @@ export function useRailSessions(
     getNextPageParam: (last) => last.next_cursor ?? undefined,
     enabled: enabled && Boolean(workspaceId),
   });
+  // The agent streams events only for the open conversation, so activity in
+  // another one reaches the rail through this small newest-first read alone.
+  // Pages are ordered by latest interaction: a conversation that just changed is
+  // in it. Structural sharing keeps an unchanged read from re-rendering the rail.
+  const head = useQuery({
+    queryKey: queryKeys.key('session-pages', settings.endpoint, workspaceId, 'head'),
+    queryFn: ({ signal }) =>
+      repository.sessionPage(
+        { workspaceId, kinds: PRIMARY_SESSION_KINDS, limit: RAIL_HEAD_SIZE },
+        signal,
+      ),
+    select: (page) => page.sessions,
+    enabled: enabled && Boolean(workspaceId) && pages.isSuccess,
+    refetchInterval: RAIL_ACTIVITY_POLL_MS,
+  });
   const { hasNextPage } = pages;
+  const fresh = useMemo(() => newestCopies(live, head.data), [head.data, live]);
   const sessions = useMemo(
     () =>
       mergeRailSessions(
         pages.data?.pages.flatMap((page) => page.sessions),
-        live,
+        fresh,
         workspaceId,
         Boolean(hasNextPage),
       ),
-    [hasNextPage, live, pages.data, workspaceId],
+    [fresh, hasNextPage, pages.data, workspaceId],
   );
   const total = pages.data?.pages[0]?.total ?? undefined;
   const { fetchNextPage, isFetchingNextPage, isFetchNextPageError, refetch } = pages;

@@ -237,7 +237,7 @@ describe('clio.map.v1 G0 toolbar — dataUri', () => {
     repository.artifactTableExport.mockResolvedValue(new Uint8Array([1, 2, 3]));
     const user = userEvent.setup();
     render(wrap(<A2uiSurface surface={dataUriMapSurface()} />));
-    await expectMapCount(user, '1 locations');
+    await expectMapCount(user, '1 location');
     await waitFor(() => expect(screen.getByTestId('map-canvas')).toBeInTheDocument());
 
     await openDownloadMenu(user);
@@ -281,7 +281,7 @@ describe('clio.map.v1 G0 toolbar — dataUri', () => {
         />,
       ),
     );
-    await expectMapCount(user, '1 locations');
+    await expectMapCount(user, '1 location');
     await waitFor(() => expect(screen.getByTestId('map-canvas')).toBeInTheDocument());
 
     await openDownloadMenu(user);
@@ -310,7 +310,7 @@ describe('clio.map.v1 G0 toolbar — dataUri', () => {
     // The SAME canvas, not a second one left behind inline.
     expect(screen.getAllByTestId('map-canvas')).toHaveLength(1);
     // The list keeps its compact count and page controls in full screen.
-    await expectMapCount(user, '1 locations');
+    await expectMapCount(user, '1 location');
 
     await user.click(within(dialog).getByRole('button', { name: 'Exit full screen' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -372,7 +372,7 @@ describe('clio.map.v1 G0 toolbar — inline points', () => {
 
     const attached = screen.getByRole('list', { name: 'Attached comments' });
     expect(attached).toHaveTextContent('Stations');
-    expect(attached).toHaveTextContent('the filtered current view (1 points)');
+    expect(attached).toHaveTextContent('the filtered current view (1 point)');
     // The full reference travels to the agent as the lines under the mark.
     const popoverBody = screen.getByTestId('sent-comments');
     expect(popoverBody).toHaveTextContent('inline data');

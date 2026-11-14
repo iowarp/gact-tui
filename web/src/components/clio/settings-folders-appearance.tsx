@@ -8,6 +8,7 @@ import {
 import { cn } from '@/lib/utils';
 import { SettingsSelectField } from './model-select-field';
 import { WORKSPACE_COLOURS, WORKSPACE_ICONS, workspaceIcon } from './settings-folders-model';
+import { t } from '@lingui/core/macro';
 
 /** The workspace colour as a row of swatches; each names itself on hover and to a screen reader. */
 export function ColourSwatches({
@@ -27,7 +28,7 @@ export function ColourSwatches({
   };
   return (
     <div
-      aria-label="Colour"
+      aria-label={t`Colour`}
       className="flex shrink-0 items-center gap-[0.5625rem]"
       data-slot="workspace-colours"
       role="radiogroup"
@@ -84,7 +85,8 @@ export function IconSelect({
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled}>
         <SettingsSelectField
-          className="w-[150px]"
+          // In rem like its text, so a larger interface size keeps the icon's name whole.
+          className="w-[9.375rem] max-w-full"
           icon={<current.Icon />}
           id={id}
           title={current.label}

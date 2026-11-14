@@ -1,26 +1,26 @@
 import type { AgentEntry, Session, Workspace } from '@clio/core/v3';
-import { CircleAlertIcon } from 'lucide-react';
 import { AddIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar';
 import { sessionAgentLabel } from '@/lib/plugin-presentation';
 import { useStableEvent } from '@/hooks/use-stable-event';
-import { isPrimarySession, sessionInteractionAt } from '@/lib/recent-sessions';
+import { hasUnseenActivity, isPrimarySession, sessionInteractionAt } from '@/lib/recent-sessions';
 import { VISIBLE_WORKSPACE_LIMIT } from '@/lib/runtime-limits';
 import type { SessionAttention } from '@/lib/session-attention';
 import { isSessionRunning } from '@/lib/session-state';
 import { workspaceLabels } from '@/lib/workspace-labels';
 import { IconButton } from '@/components/clio/primitives/icon-button';
 import { ListGroupLabel } from '@/components/clio/primitives/list-row';
-import { isOfflineError, type ListState } from '@/lib/list-state';
+import type { ListState } from '@/lib/list-state';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { DEFAULT_WORKSPACE_ID } from './workspace-actions-menu';
 import type { ConversationFilter } from './conversation-list-groups';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
 import { useHeldValue, useRailHeld } from './rail-menu-hold';
 import { LooseConversations } from './workspace-navigation-loose-conversations';
-import { RailState, ShowMoreRow } from './workspace-navigation-rail-rows';
+import { RailIconFailure, RailState, ShowMoreRow } from './workspace-navigation-rail-rows';
 import { WorkspaceTreeItem } from './workspace-navigation-tree-item';
+import { plural, t } from '@lingui/core/macro';
 
 interface WorkspaceNavigationProps {
   workspaces: readonly Workspace[];
@@ -40,7 +40,7 @@ interface WorkspaceNavigationProps {
     title: string,
     mode: import('@clio/core/v3').SessionExportMode,
   ) => Promise<void>;
-  onOpenWorkspaceFiles?: () => void;
+  onOpenWorkspaceFiles?: (workspaceId: string) => void;
   onNewWorkspace: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   attentions: Readonly<Record<string, SessionAttention>>;
@@ -81,22 +81,18 @@ export function WorkspaceNavigation({
   const [showAllWorkspaces, setShowAllWorkspaces] = useState(false);
   const [expandedSessionsFor, setExpandedSessionsFor] = useState<string>();
   const [workspaceExpansion, setWorkspaceExpansion] = useState<Record<string, boolean>>({});
-  const [sessionObservationStartedAt] = useState(() => new Date().toISOString());
+  const [observationStartedAt] = useState(() => Date.now());
   const [seenSessionRevisions, setSeenSessionRevisions] = useState<Record<string, string>>({});
-  const activeSession = sessions.find((session) => session.id === activeSessionId);
-  const effectiveSeenSessionRevisions = useMemo(
-    () =>
-      Object.fromEntries(
-        sessions.flatMap((session) => {
-          const interactionAt = sessionInteractionAt(session);
-          if (session.id === activeSessionId) return [[session.id, interactionAt]];
-          const seenRevision = seenSessionRevisions[session.id];
-          if (seenRevision !== undefined) return [[session.id, seenRevision]];
-          return interactionAt <= sessionObservationStartedAt ? [[session.id, interactionAt]] : [];
-        }),
-      ),
-    [activeSessionId, seenSessionRevisions, sessionObservationStartedAt, sessions],
-  );
+  // Decided from the row's own session: the default group pages its rows from
+  // the rail list, so they need not be in `sessions`. Activity from before this
+  // page loaded counts as seen; after that, only a visit marks a row seen.
+  const seenRevisionFor = (session: Session) => {
+    const interactionAt = sessionInteractionAt(session);
+    if (session.id === activeSessionId) return interactionAt;
+    const seenRevision = seenSessionRevisions[session.id];
+    if (seenRevision !== undefined) return seenRevision;
+    return Date.parse(interactionAt) <= observationStartedAt ? interactionAt : undefined;
+  };
   const visibleWorkspaces = useMemo(() => {
     // Preserve the server/user-defined order. A workspace moves only after the
     // user explicitly changes its pinned state, never because they opened a
@@ -124,17 +120,18 @@ export function WorkspaceNavigation({
         !running &&
         !needsYou &&
         session.id !== activeSessionId &&
-        effectiveSeenSessionRevisions[session.id] !== sessionInteractionAt(session)
+        hasUnseenActivity(session, seenRevisionFor(session))
       );
     return true;
   };
 
+  // A visit marks everything up to now as read, including activity the row's
+  // copy has not caught up with yet, so a later refresh does not re-mark it.
   const visitSession = useStableEvent((session: Session) => {
-    setSeenSessionRevisions((current) => ({
-      ...current,
-      ...(activeSession ? { [activeSession.id]: sessionInteractionAt(activeSession) } : {}),
-      [session.id]: sessionInteractionAt(session),
-    }));
+    const interactionAt = sessionInteractionAt(session);
+    const now = new Date().toISOString();
+    const seenAt = Date.parse(interactionAt) > Date.parse(now) ? interactionAt : now;
+    setSeenSessionRevisions((current) => ({ ...current, [session.id]: seenAt }));
   });
   // Rows are memoized: hand them callbacks that keep one identity across renders.
   const rowAction = useStableEvent(onAction);
@@ -183,7 +180,7 @@ export function WorkspaceNavigation({
       onDownloadSession={rowDownload}
       onRename={rowRename}
       onVisit={visitSession}
-      seenRevision={effectiveSeenSessionRevisions[session.id]}
+      seenRevision={seenRevisionFor(session)}
       session={session}
       topLevel={topLevel}
       workspaceId={session.workspace_id}
@@ -233,7 +230,7 @@ export function WorkspaceNavigation({
       {pinnedWorkspaces.length || pinnedSessions.length ? (
         <SidebarGroup className="py-0">
           <ListGroupLabel className="mt-2.5 h-[26px] group-data-[collapsible=icon]:hidden">
-            Pinned
+            {t`Pinned`}
           </ListGroupLabel>
           <SidebarGroupContent className="grid min-w-0 gap-px">
             {pinnedWorkspaces.map(renderWorkspace)}
@@ -248,14 +245,14 @@ export function WorkspaceNavigation({
           action={
             <IconButton
               icon={<AddIcon />}
-              label="New workspace"
+              label={t`New workspace`}
               onClick={onNewWorkspace}
               size="sm"
             />
           }
           className="mt-2.5 h-[26px] items-center pb-0 pr-1 group-data-[collapsible=icon]:hidden"
         >
-          Workspaces
+          {t`Workspaces`}
         </ListGroupLabel>
         <SidebarGroupContent className="grid min-w-0 gap-px">
           {otherWorkspaces.map(renderWorkspace)}
@@ -263,28 +260,18 @@ export function WorkspaceNavigation({
             <>
               <RailState
                 error={workspacesState.error}
-                failed={{ what: 'workspaces', verb: 'listed' }}
+                failed={{ label: t`Workspaces not listed`, offline: t`Offline, no workspaces` }}
                 kind="error"
                 onRetry={workspacesState.retry}
-                title="Workspaces could not be listed"
+                title={t`Workspaces could not be listed`}
               />
               {/* The icon rail hides the line above, so a failure keeps one named cue there. */}
-              <IconButton
-                className="mx-auto hidden text-destructive group-data-[collapsible=icon]:inline-flex"
-                icon={<CircleAlertIcon />}
-                label={
-                  isOfflineError(workspacesState.error)
-                    ? 'Retry: offline, no workspaces'
-                    : 'Retry: workspaces not listed'
-                }
-                onClick={workspacesState.retry}
-                tooltipSide="right"
-              />
+              <RailIconFailure error={workspacesState.error} onRetry={workspacesState.retry} />
             </>
           ) : workspacesState?.loading ? (
-            <RailState kind="loading" title="Loading workspaces…" />
+            <RailState kind="loading" title={t`Loading workspaces…`} />
           ) : listedWorkspaceCount === 0 ? (
-            <RailState kind="empty" title="No workspaces yet" />
+            <RailState kind="empty" title={t`No workspaces yet`} />
           ) : null}
           {listedWorkspaceCount > VISIBLE_WORKSPACE_LIMIT ? (
             <ShowMoreRow
@@ -292,8 +279,11 @@ export function WorkspaceNavigation({
               railKey="more:workspaces"
               label={
                 showAllWorkspaces
-                  ? 'Show recent workspaces'
-                  : `Show all ${listedWorkspaceCount} workspaces`
+                  ? t`Show recent workspaces`
+                  : plural(listedWorkspaceCount, {
+                      one: 'Show all # workspace',
+                      other: 'Show all # workspaces',
+                    })
               }
               onToggle={() => setShowAllWorkspaces((visible) => !visible)}
             />
@@ -303,13 +293,12 @@ export function WorkspaceNavigation({
       {defaultWorkspace || workspacesState?.error || workspacesState?.loading ? (
         <LooseConversations
           actions={actions}
-          activeWorkspaceId={activeWorkspaceId}
           draft={draftWorkspaceId === DEFAULT_WORKSPACE_ID}
           excludedSessionIds={unlistedSessionIds}
           expanded={expandedSessionsFor === DEFAULT_WORKSPACE_ID}
           label={
             labels.get(DEFAULT_WORKSPACE_ID) ?? {
-              name: defaultWorkspace?.display_name ?? 'Conversations',
+              name: defaultWorkspace?.display_name ?? t`Conversations`,
               qualifiers: [],
             }
           }

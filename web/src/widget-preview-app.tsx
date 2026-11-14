@@ -19,15 +19,17 @@ import {
   createSelectionActionRegistry,
   type DataSurfaceZoneSelection,
 } from '@/lib/selection-actions';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 const embedded = new URLSearchParams(window.location.search).has('embedded');
 const skillPreview = new URLSearchParams(window.location.search).get('skill');
 if (skillPreview) document.documentElement.classList.add('gallery-skill-preview');
 
 const hurricaneMoments = [
-  { id: 'harvey-042', storm: 'Harvey', detail: '115 kt near the Texas coast', year: '2017' },
-  { id: 'maria-017', storm: 'Maria', detail: '150 kt east of Puerto Rico', year: '2017' },
-  { id: 'dorian-038', storm: 'Dorian', detail: '160 kt near the Bahamas', year: '2019' },
+  { id: 'harvey-042', storm: 'Harvey', detail: t`115 kt near the Texas coast`, year: '2017' },
+  { id: 'maria-017', storm: 'Maria', detail: t`150 kt east of Puerto Rico`, year: '2017' },
+  { id: 'dorian-038', storm: 'Dorian', detail: t`160 kt near the Bahamas`, year: '2019' },
 ];
 
 function HurricaneShowcase() {
@@ -45,17 +47,16 @@ function HurricaneShowcase() {
   return (
     <section
       className="gallery-hurricane-showcase space-y-4"
-      aria-label="Interactive hurricane walkthrough"
+      aria-label={t`Interactive hurricane walkthrough`}
     >
       <div className="gallery-hurricane-intro">
         <div className="space-y-3">
-          <p className="gallery-hurricane-kicker">A question becomes an explorable answer</p>
+          <p className="gallery-hurricane-kicker">{t`A question becomes an explorable answer`}</p>
           <blockquote>
-            “How did Harvey, Maria, and Dorian move, and when did each reach its strongest winds?”
+            {t`“How did Harvey, Maria, and Dorian move, and when did each reach its strongest winds?”`}
           </blockquote>
           <p>
-            One set of observations powers the tracks, wind curves, and table. Pick a point in any
-            view to find it in the others.
+            {t`One set of observations powers the tracks, wind curves, and table. Pick a point in any view to find it in the others.`}
           </p>
         </div>
         <div className="gallery-hurricane-play">
@@ -70,12 +71,12 @@ function HurricaneShowcase() {
             }}
             type="button"
           >
-            {playing ? 'Pause walkthrough' : 'Play walkthrough'}
+            {playing ? t`Pause walkthrough` : t`Play walkthrough`}
           </button>
           <span aria-live="polite">
             {moment
               ? `${moment.storm} ${moment.year}: ${moment.detail}`
-              : 'Three storms, one linked selection'}
+              : t`Three storms, one linked selection`}
           </span>
         </div>
       </div>
@@ -88,16 +89,18 @@ function HurricaneShowcase() {
         />
       </div>
       <p className="text-xs text-muted-foreground">
-        Historical observations adapted from NOAA HURDAT2 for this gallery. The bundled data works
-        without a running agent.{' '}
-        <a
-          className="underline underline-offset-2 hover:text-foreground"
-          href="https://www.nhc.noaa.gov/data/"
-          rel="noreferrer"
-          target="_blank"
-        >
-          Source
-        </a>
+        <Trans>
+          Historical observations adapted from NOAA HURDAT2 for this gallery. The bundled data works
+          without a running agent.{' '}
+          <a
+            className="underline underline-offset-2 hover:text-foreground"
+            href="https://www.nhc.noaa.gov/data/"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Source
+          </a>
+        </Trans>
       </p>
     </section>
   );
@@ -110,7 +113,7 @@ function IntroShowcase() {
     () =>
       selectionActions.register({
         id: 'gallery-intro-reference',
-        label: 'Reference this',
+        label: t`Reference this`,
         icon: ArrowUpRight,
         order: 10,
         kinds: ['data-surface-zone'],
@@ -125,53 +128,54 @@ function IntroShowcase() {
       <div className="gallery-intro-showcase">
         <div className="gallery-intro-heading">
           <div>
-            <p className="gallery-hurricane-kicker">From evidence to a new question</p>
-            <h2>Explore the result. Point to what matters.</h2>
+            <p className="gallery-hurricane-kicker">{t`From evidence to a new question`}</p>
+            <h2>{t`Explore the result. Point to what matters.`}</h2>
             <p>
-              Move through a scientific surface, select the data behind a finding, or capture a
-              visual region to discuss with the agent.
+              {t`Move through a scientific surface, select the data behind a finding, or capture a visual region to discuss with the agent.`}
             </p>
           </div>
-          <span className="gallery-intro-live">Interactive examples</span>
+          <span className="gallery-intro-live">{t`Interactive examples`}</span>
         </div>
         <div className="gallery-intro-grid">
-          <section className="gallery-intro-panel" aria-label="Explore a 3D surface">
+          <section className="gallery-intro-panel" aria-label={t`Explore a 3D surface`}>
             <div className="gallery-intro-panel-heading">
               <span className="gallery-intro-number">01</span>
               <div>
-                <h3>Explore a 3D surface</h3>
-                <p>Orbit, probe the field, and box select part of the specimen.</p>
+                <h3>{t`Explore a 3D surface`}</h3>
+                <p>{t`Orbit, probe the field, and box select part of the specimen.`}</p>
               </div>
             </div>
             <A2uiDemo name="clio.mesh-viewport.v1" variant="intro-load" />
             <p className="gallery-intro-note">
-              Illustrative, dimensionless field on a specimen shaped for this gallery.{' '}
-              <a
-                href="https://github.com/JaimeCernuda/abaqus-scripting"
-                rel="noreferrer"
-                target="_blank"
-              >
-                Explore the Abaqus example
-              </a>{' '}
-              for real simulation outputs.
+              <Trans>
+                Illustrative, dimensionless field on a specimen shaped for this gallery.{' '}
+                <a
+                  href="https://github.com/JaimeCernuda/abaqus-scripting"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Explore the Abaqus example
+                </a>{' '}
+                for real simulation outputs.
+              </Trans>
             </p>
           </section>
-          <section className="gallery-intro-panel" aria-label="Select observations">
+          <section className="gallery-intro-panel" aria-label={t`Select observations`}>
             <div className="gallery-intro-panel-heading">
               <span className="gallery-intro-number">02</span>
               <div>
-                <h3>Select a profile point</h3>
-                <p>Pick a height in the same illustrative field, then use Reference this.</p>
+                <h3>{t`Select a profile point`}</h3>
+                <p>{t`Pick a height in the same illustrative field, then use Reference this.`}</p>
               </div>
             </div>
             <A2uiDemo name="clio.chart.v1" variant="intro-load" />
             {reference ? (
-              <aside aria-label="Selected data reference" className="gallery-intro-reference">
+              <aside aria-label={t`Selected data reference`} className="gallery-intro-reference">
                 <div>
                   <ArrowUpRight aria-hidden="true" className="size-4" />
-                  <strong>What the agent receives</strong>
+                  <strong>{t`What the agent receives`}</strong>
                   <button onClick={() => setReference(undefined)} type="button">
-                    Close
+                    {t`Close`}
                   </button>
                 </div>
                 <p>{reference.summary}</p>
@@ -184,25 +188,25 @@ function IntroShowcase() {
           <div>
             <ArrowUpRight aria-hidden="true" />
             <span>
-              <strong>Data selection</strong>
-              <small>Selected rows become a precise, reusable reference in the conversation.</small>
+              <strong>{t`Data selection`}</strong>
+              <small>{t`Selected rows become a precise, reusable reference in the conversation.`}</small>
             </span>
           </div>
           <div>
             <BoxSelect aria-hidden="true" />
             <span>
-              <strong>Visual selection</strong>
+              <strong>{t`Visual selection`}</strong>
               <small>
-                Capture labelled regions from the viewport and attach the image to a request.
+                {t`Capture labelled regions from the viewport and attach the image to a request.`}
               </small>
             </span>
           </div>
           <div>
             <ImageIcon aria-hidden="true" />
             <span>
-              <strong>Ask for a visual response</strong>
+              <strong>{t`Ask for a visual response`}</strong>
               <small>
-                In a connected session, the captured image can guide a new annotated image.
+                {t`In a connected session, the captured image can guide a new annotated image.`}
               </small>
             </span>
           </div>
@@ -213,6 +217,7 @@ function IntroShowcase() {
 }
 
 function Preview() {
+  const { agent } = vocab;
   const { resolvedTheme, setTheme } = useTheme();
   const dark = resolvedTheme.dark;
   const [section, setSection] = useState(
@@ -265,18 +270,18 @@ function Preview() {
               onClick={openGeneralSkill}
               type="button"
             >
-              Agent guidance
+              {t`Agent guidance`}
             </button>
           </div>
         ) : (
           <header className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                Explore {vocab.agent}
+                {t`Explore ${agent}`}
               </p>
-              <h1 className="text-2xl font-semibold tracking-tight">Widget gallery</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">{t`Widget gallery`}</h1>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                Explore {vocab.agent}’s interactive components and connected views.
+                {t`Explore ${agent}’s interactive components and connected views.`}
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
@@ -285,34 +290,33 @@ function Preview() {
                 onClick={openGeneralSkill}
                 type="button"
               >
-                Agent guidance
+                {t`Agent guidance`}
               </button>
               <button
                 className="shrink-0 rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
                 onClick={() => setTheme(dark ? 'light' : 'dark')}
                 type="button"
               >
-                {dark ? 'Light theme' : 'Dark theme'}
+                {dark ? t`Light theme` : t`Dark theme`}
               </button>
             </div>
           </header>
         )}
         <Tabs onValueChange={setSection} value={section}>
           <TabsList
-            aria-label="Widget gallery"
+            aria-label={t`Widget gallery`}
             className="gallery-tab-scroll h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto bg-transparent p-0"
             variant="line"
           >
-            <TabsTrigger value="intro">Intro</TabsTrigger>
-            <TabsTrigger value="components">Components</TabsTrigger>
-            <TabsTrigger value="linked">Linked data</TabsTrigger>
+            <TabsTrigger value="intro">{t`Intro`}</TabsTrigger>
+            <TabsTrigger value="components">{t`Components`}</TabsTrigger>
+            <TabsTrigger value="linked">{t`Linked data`}</TabsTrigger>
           </TabsList>
           <TabsContent className="space-y-8 pt-6" value="intro">
             <IntroShowcase />
             <div className="flex flex-wrap items-center justify-between gap-4">
               <p className="max-w-2xl text-sm text-muted-foreground">
-                These are live gallery examples. Explore the full component catalog or follow one
-                dataset through linked views.
+                {t`These are live gallery examples. Explore the full component catalog or follow one dataset through linked views.`}
               </p>
               <div className="flex gap-2">
                 <button
@@ -320,14 +324,14 @@ function Preview() {
                   onClick={() => setSection('components')}
                   type="button"
                 >
-                  Explore components
+                  {t`Explore components`}
                 </button>
                 <button
                   className="rounded-md border px-3 py-2 text-sm hover:bg-muted"
                   onClick={() => setSection('linked')}
                   type="button"
                 >
-                  See linked views
+                  {t`See linked views`}
                 </button>
               </div>
             </div>
@@ -337,14 +341,13 @@ function Preview() {
           </TabsContent>
           <TabsContent className="space-y-5 pt-6" value="linked">
             <div className="max-w-3xl space-y-2">
-              <h2 className="text-xl font-semibold">Interact with your data visually</h2>
+              <h2 className="text-xl font-semibold">{t`Interact with your data visually`}</h2>
               <p className="text-sm leading-6 text-muted-foreground">
-                Selections travel between views of the same observations. Play the walkthrough, then
-                try the map, curves, and table yourself.
+                {t`Selections travel between views of the same observations. Play the walkthrough, then try the map, curves, and table yourself.`}
               </p>
             </div>
             <div
-              aria-label="Linked data examples"
+              aria-label={t`Linked data examples`}
               className="gallery-tab-scroll flex gap-1 overflow-x-auto"
               role="group"
             >
@@ -354,7 +357,7 @@ function Preview() {
                 onClick={() => setLinkedExample('hurricanes')}
                 type="button"
               >
-                Hurricane tracks
+                {t`Hurricane tracks`}
               </button>
               <button
                 aria-pressed={linkedExample === 'events'}
@@ -362,7 +365,7 @@ function Preview() {
                 onClick={() => setLinkedExample('events')}
                 type="button"
               >
-                Earthquake readings
+                {t`Earthquake readings`}
               </button>
             </div>
             {linkedExample === 'hurricanes' ? <HurricaneShowcase /> : <LinkedChartDemo />}

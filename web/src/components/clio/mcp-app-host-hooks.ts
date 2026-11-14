@@ -6,6 +6,7 @@ import type { BridgeHooks } from './mcp-app-bridge';
 import { mcpAppLabel } from './mcp-app-live-set';
 import { PresentationNavigation } from './presentation-navigation';
 import type { McpAppTabTarget } from './workbench-shared';
+import { ph, t } from '@lingui/core/macro';
 
 export interface McpAppBlockFields {
   app_instance_id: string;
@@ -36,9 +37,9 @@ export function useMcpAppHostHooks(
   const onDownloaded = useCallback(
     (files: readonly McpAppSavedDownload[]) => {
       for (const file of files) {
-        toast.success(`Saved ${file.name} to the workspace`, {
-          description: file.artifact_id ? 'Listed in Artifacts' : undefined,
-          action: openFile ? { label: 'Open', onClick: () => openFile(file.path) } : undefined,
+        toast.success(t`Saved ${ph({ name: file.name })} to the workspace`, {
+          description: file.artifact_id ? t`Listed in Artifacts` : undefined,
+          action: openFile ? { label: t({ message: 'Open', context: 'verb' }), onClick: () => openFile(file.path) } : undefined,
         });
       }
     },

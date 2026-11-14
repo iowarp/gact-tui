@@ -6,6 +6,7 @@ import {
   type McpAppSnapshot,
   type TransportFrame,
 } from '@clio/core/v3';
+import { mcpAppEnded } from './mcp-app-live-set';
 
 /**
  * The agent looks at a view (CM1). The surface holding a view says so to CLIO
@@ -98,6 +99,7 @@ export function snapshotAnswer(value: unknown): McpAppSnapshot {
       },
     };
   if (typeof row.image !== 'string' || !row.image.startsWith('data:image/png'))
+    // i18n-ignore: error returned to the agent's look_at_view result
     return { error: { reason: 'snapshot_failed', message: 'The sandbox returned no image.' } };
   return {
     image: row.image,
@@ -146,6 +148,8 @@ export class McpAppLooks {
     const rest = (lookHandlers.get(handlerKey) ?? []).filter((handler) => handler !== this.handler);
     if (rest.length) lookHandlers.set(handlerKey, rest);
     else lookHandlers.delete(handlerKey);
+    // A view CLIO closed left the look table with its record, which now answers 404.
+    if (mcpAppEnded(this.identity.appInstanceId)) return;
     void this.repository.setMcpAppShown?.(this.identity, this.holder, false).catch(() => undefined);
   }
 

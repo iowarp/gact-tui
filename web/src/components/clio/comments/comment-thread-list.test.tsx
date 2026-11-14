@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ArtifactReview, CommentThreadList as ThreadList } from '@clio/core/v3';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { repository } = vi.hoisted(() => ({
@@ -55,16 +55,36 @@ function list(threads: ArtifactReview[]): ThreadList {
   };
 }
 
-function renderList() {
+function renderList(version?: number) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <CommentThreadList artifactId="art_paper_v1" sessionId="sess_1" />
+      <CommentThreadList artifactId="art_paper_v1" sessionId="sess_1" version={version} />
     </QueryClientProvider>,
   );
 }
 
 describe('CommentThreadList', () => {
+  it("lists the version on screen, and gives one send's reply once", async () => {
+    const reply = { reply_text: 'Tightened both sentences.', reply_message_id: 'msg_reply_2' };
+    repository.commentThreads.mockResolvedValue(
+      list([
+        thread({ id: 'rev_old', label: 'S1', text: 'Old note.', reply_message_id: 'msg_reply_1' }),
+        thread({ id: 'rev_a', label: 'S2', text: 'First.', artifact_version: 2, ...reply }),
+        thread({ id: 'rev_b', label: 'S3', text: 'Second.', artifact_version: 2, ...reply }),
+      ]),
+    );
+    renderList(2);
+    expect(await screen.findByText('First.')).toBeTruthy();
+    expect(screen.getByText('Second.')).toBeTruthy();
+    expect(screen.queryByText('Old note.')).toBeNull();
+    expect(document.querySelectorAll('[data-slot="comment-reply"]')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: '1 comment on other versions' }));
+    expect(screen.getByText('Old note.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Only version 2' }));
+    expect(screen.queryByText('Old note.')).toBeNull();
+  });
+
   it("renders the agent's reply as Markdown, not as its source", async () => {
     repository.commentThreads.mockResolvedValue(
       list([
@@ -88,6 +108,30 @@ describe('CommentThreadList', () => {
     expect(within(reply).getAllByRole('listitem')).toHaveLength(2);
     expect(reply.textContent).not.toContain('**');
     expect(screen.getByText('The agent made a new version.')).toBeTruthy();
+  });
+
+  it('says an unreadable earlier version is unavailable, not changed', async () => {
+    const threads = list([
+      thread({
+        id: 'rev_gone',
+        label: 'S1',
+        text: 'Gone.',
+        anchor_state: 'outdated',
+        anchor_error: 'integrity_violation',
+      }),
+      thread({
+        id: 'rev_old',
+        label: 'S2',
+        text: 'Changed.',
+        artifact_version: 2,
+        anchor_state: 'outdated',
+      }),
+    ]);
+    threads.head.version = 3;
+    repository.commentThreads.mockResolvedValue(threads);
+    renderList();
+    expect(await screen.findByText('Outdated: version 1 is no longer available')).toBeTruthy();
+    expect(screen.getByText('Outdated: version 3 changed this part')).toBeTruthy();
   });
 
   it('shows no reply block before the agent answers', async () => {

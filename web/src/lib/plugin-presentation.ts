@@ -2,65 +2,91 @@ import {
   sessionAgentRef,
   type AgentEntry,
   type AgentResolution,
+  type Connector,
+  type PluginEntry,
   pluginReferenceId,
   type PluginDiagnostic,
   type PluginProvenance,
   type PromptFragment,
   type RemovedPlugin,
+  type ResolvedPlugin,
 } from '@clio/core/v3';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /**
  * Where an active plugin came from, as a person reads it: core (every agent
  * carries it), an agent layer such as standard or science, a pack, a hard
- * requirement of another plugin, the person's own addition, or a connector the
- * person enabled (its plugin comes and goes with it).
+ * requirement of another plugin, the person's own addition, or (from an older
+ * service) a connector the person enabled.
  */
 export function provenanceLabel(provenance: PluginProvenance): string {
   switch (provenance.source) {
     case 'core':
-      return 'Built in';
+      return t`Built in`;
     case 'agent':
-      return provenance.via ? `From ${provenance.via}` : 'From the agent';
+      return provenance.via ? t`From ${ph({ via: provenance.via })}` : t`From the agent`;
     case 'pack':
-      return provenance.via ? `In pack ${provenance.via}` : 'In a pack';
+      return provenance.via ? t`In pack ${ph({ via: provenance.via })}` : t`In a pack`;
     case 'required':
-      return provenance.via ? `Required by ${provenance.via}` : 'Required by another plugin';
+      return provenance.via
+        ? t`Required by ${ph({ via: provenance.via })}`
+        : t`Required by another plugin`;
     case 'user':
-      return 'Added by you';
+      return t`Added by you`;
     case 'connector':
-      return provenance.label || `From connector ${provenance.via}`;
+      return provenance.label || t`From connector ${ph({ via: provenance.via })}`;
     default:
-      return provenance.label || 'Origin not reported';
+      return provenance.label || t`Origin not reported`;
   }
+}
+
+/** How an active plugin is named: a connector's plugin by its connector (CN10). */
+export function resolvedPluginName(plugin: Pick<ResolvedPlugin, 'id' | 'connector'>): string {
+  return plugin.connector?.name || plugin.id;
+}
+
+/** An active plugin's origin in words; a connector's plugin says it is a connector. */
+export function resolvedPluginOrigin(plugin: Pick<ResolvedPlugin, 'provenance' | 'connector'>) {
+  const label = provenanceLabel(plugin.provenance);
+  if (!plugin.connector) return label;
+  return plugin.provenance.source === 'user'
+    ? t`Connector you added`
+    : t`Connector (${ph({ origin: label.toLowerCase() })})`;
 }
 
 /** A longer explanation for the provenance badge's tooltip. */
 export function provenanceDetail(provenance: PluginProvenance): string {
   switch (provenance.source) {
     case 'core':
-      return 'Every agent carries the core plugin. It cannot be removed.';
+      return t`Every agent carries the core plugin. It cannot be removed.`;
     case 'agent':
-      return `The ${provenance.via || 'agent'} agent layer selects this plugin.`;
+      return provenance.via
+        ? t`The ${ph({ via: provenance.via })} agent layer selects this plugin.`
+        : t`The agent layer selects this plugin.`;
     case 'pack':
-      return `A member of the ${provenance.via || ''} pack. Removing it keeps the rest of the pack.`;
+      return provenance.via
+        ? t`A member of the ${ph({ via: provenance.via })} pack. Removing it keeps the rest of the pack.`
+        : t`A member of a pack. Removing it keeps the rest of the pack.`;
     case 'required':
-      return `${provenance.via || 'Another plugin'} needs this plugin. Removing it also removes what needs it.`;
+      return provenance.via
+        ? t`${ph({ via: provenance.via })} needs this plugin. Removing it also removes what needs it.`
+        : t`Another plugin needs this plugin. Removing it also removes what needs it.`;
     case 'user':
-      return 'You added this plugin to the conversation.';
+      return t`You added this plugin to the conversation.`;
     case 'connector':
-      return 'It follows a connector you enabled in Extensions, and leaves when you disable it.';
+      return t`It belongs to a connector you enabled in Extensions.`;
     default:
-      return 'The service reported an origin this app does not recognize yet.';
+      return t`The service reported an origin this app does not recognize yet.`;
   }
 }
 
 export const PROMPT_SECTION_LABELS: Record<string, string> = {
-  identity: 'Identity',
-  guidelines: 'Operating guidelines',
-  rendering: 'Rendering',
-  capabilities: 'Capabilities',
-  domain: 'Domain',
-  plugins: 'Packages',
+  identity: t`Identity`,
+  guidelines: t`Operating guidelines`,
+  rendering: t`Rendering`,
+  capabilities: t`Capabilities`,
+  domain: t`Domain`,
+  plugins: t`Packages`,
 };
 
 export function promptSectionLabel(section: string): string {
@@ -69,8 +95,8 @@ export function promptSectionLabel(section: string): string {
 
 /** The owner a fragment is attributed to: a plugin id, or the agent itself (`agent:<id>`). */
 export function fragmentOwnerLabel(owner: string): string {
-  if (owner.startsWith('agent:')) return `Agent ${owner.slice('agent:'.length)}`;
-  return owner || 'Owner not reported';
+  if (owner.startsWith('agent:')) return t`Agent ${ph({ name: owner.slice('agent:'.length) })}`;
+  return owner || t`Owner not reported`;
 }
 
 /** A line that starts its own Markdown block: list item, heading, quote, fence or table row. */
@@ -111,7 +137,7 @@ export function agentDisplayName(ref: string, agents: readonly AgentEntry[] | un
   const agent =
     agents?.find((row) => row.ref === name) ?? (byId.length === 1 ? byId[0] : undefined);
   if (agent?.name) return agent.name;
-  return id || ref || 'Agent';
+  return id || ref || t`Agent`;
 }
 
 /** Suggest a user-agent id from a name: lowercase words joined by dashes. */
@@ -197,46 +223,66 @@ export function pluginContributions(
   };
 }
 
-function counted(count: number, singular: string, plural = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
 /** A one-line count of what a plugin adds, such as "6 tools, 2 skills, 3 prompt parts". */
 export function capabilitySummary(contributions: PluginContributions): string {
-  const parts = [
-    [contributions.tools.length + contributions.deferredTools.length, 'tool'],
-    [contributions.skills.length, 'skill'],
-    [contributions.fragments.length, 'prompt part'],
-    [contributions.mcpServers.length, 'MCP server'],
-    [contributions.flows.length, 'flow'],
-    [contributions.subagents.length, 'subagent'],
-    [contributions.commands.length, 'command'],
-    [contributions.hooks.length, 'hook'],
-    [contributions.catalogs.length, 'catalog'],
-  ] as const;
-  const named = parts.filter(([count]) => count > 0).map(([count, noun]) => counted(count, noun));
-  return named.length ? named.join(', ') : 'Nothing of its own';
+  const parts: [number, (count: number) => string][] = [
+    [
+      contributions.tools.length + contributions.deferredTools.length,
+      (count) => plural(count, { one: '# tool', other: '# tools' }),
+    ],
+    [contributions.skills.length, (count) => plural(count, { one: '# skill', other: '# skills' })],
+    [
+      contributions.fragments.length,
+      (count) => plural(count, { one: '# prompt part', other: '# prompt parts' }),
+    ],
+    [
+      contributions.mcpServers.length,
+      (count) => plural(count, { one: '# MCP server', other: '# MCP servers' }),
+    ],
+    [contributions.flows.length, (count) => plural(count, { one: '# flow', other: '# flows' })],
+    [
+      contributions.subagents.length,
+      (count) => plural(count, { one: '# subagent', other: '# subagents' }),
+    ],
+    [
+      contributions.commands.length,
+      (count) => plural(count, { one: '# command', other: '# commands' }),
+    ],
+    [contributions.hooks.length, (count) => plural(count, { one: '# hook', other: '# hooks' })],
+    [
+      contributions.catalogs.length,
+      (count) => plural(count, { one: '# catalog', other: '# catalogs' }),
+    ],
+  ];
+  const named = parts.filter(([count]) => count > 0).map(([count, label]) => label(count));
+  return named.length ? named.join(', ') : t`Nothing of its own`;
 }
 
 /** A pack's member count, naming how many are active when some have left. */
 export function packMembersLabel(total: number, active: number): string {
-  const noun = total === 1 ? 'member' : 'members';
   return active === total
-    ? `${total} ${noun}`
-    : `${active} of ${total} ${noun} in this conversation`;
+    ? plural(total, { one: '# member', other: '# members' })
+    : plural(total, {
+        one: `${active} of # member in this conversation`,
+        other: `${active} of # members in this conversation`,
+      });
 }
 
 /** Why a plugin the person did not remove left the conversation. */
 export function removedPluginReason(row: RemovedPlugin): string {
   switch (row.reason) {
+    case 'connector_off':
+      return t`Left because its connector ${ph({ connector: row.because })} is turned off; it returns when it is on`;
+    case 'connector_not_found':
+      return t`Left because its connector ${ph({ connector: row.because })} no longer exists`;
     case 'pack_empty':
-      return 'Left because none of its members remain';
+      return t`Left because none of its members remain`;
     case 'removed':
-      return row.because ? `Left with its pack ${row.because}` : 'Removed';
+      return row.because ? t`Left with its pack ${ph({ because: row.because })}` : t`Removed`;
     default:
       return row.because
-        ? `Left with ${row.because}, which it requires`
-        : 'Left with a removed requirement';
+        ? t`Left with ${ph({ because: row.because })}, which it requires`
+        : t`Left with a removed requirement`;
   }
 }
 
@@ -244,11 +290,11 @@ export function removedPluginReason(row: RemovedPlugin): string {
 export function removalPreviewReason(reason: { reason: string; because: string }): string {
   switch (reason.reason) {
     case 'pack_empty':
-      return 'none of its members remain';
+      return t`none of its members remain`;
     case 'removed':
-      return reason.because ? `in pack ${reason.because}` : 'leaves with it';
+      return reason.because ? t`in pack ${ph({ because: reason.because })}` : t`leaves with it`;
     default:
-      return reason.because ? `requires ${reason.because}` : 'leaves with it';
+      return reason.because ? t`requires ${ph({ because: reason.because })}` : t`leaves with it`;
   }
 }
 
@@ -286,11 +332,55 @@ export function pluginChangeTools(text: string): string[] {
   return tools;
 }
 
-/** "Plugins changed: +shell, −document-runtime (2 new tools)", or "Plugins changed". */
-export function pluginChangeLabel(text: string): string {
+/** A plugin id read as words: "document-runtime" → "Document runtime". */
+export function humanizePluginId(id: string): string {
+  const words = id.replace(/[-_]+/gu, ' ').trim();
+  return words ? words[0]!.toUpperCase() + words.slice(1) : id;
+}
+
+/**
+ * Person-facing names for plugin ids (FP-D5). A plugin that follows a connector, the
+ * plugin a connector brings, and the carrier CLIO builds for a connector without one
+ * (`connector-<id>`) are all named after the connector; any other plugin is its id read
+ * as words.
+ */
+export function pluginNameResolver(
+  plugins: readonly Pick<PluginEntry, 'id' | 'follows'>[] | undefined,
+  connectors: readonly Pick<Connector, 'id' | 'name' | 'plugin'>[] | undefined,
+): (id: string) => string {
+  const names = new Map<string, string>();
+  for (const connector of connectors ?? []) {
+    names.set(`connector-${connector.id}`, connector.name);
+    if (connector.plugin) names.set(connector.plugin, connector.name);
+  }
+  for (const plugin of plugins ?? []) {
+    const followed = connectors?.find((connector) => connector.id === plugin.follows);
+    if (followed) names.set(plugin.id, followed.name);
+  }
+  return (id) => names.get(id) ?? humanizePluginId(id);
+}
+
+/** "Plugins changed: +Shell, −Document runtime (2 new tools)", or "Plugins changed". */
+export function pluginChangeLabel(
+  text: string,
+  nameOf: (id: string) => string = humanizePluginId,
+): string {
   const { added, removed } = pluginChangeSummary(text);
-  const items = [...added.map((id) => `+${id}`), ...removed.map((id) => `−${id}`)];
+  const items = [
+    ...new Set([...added.map((id) => `+${nameOf(id)}`), ...removed.map((id) => `−${nameOf(id)}`)]),
+  ];
   const tools = pluginChangeTools(text).length;
-  const reach = tools ? ` (${tools} new ${tools === 1 ? 'tool' : 'tools'})` : '';
-  return (items.length ? `Plugins changed: ${items.join(', ')}` : 'Plugins changed') + reach;
+  const list = items.join(', ');
+  if (items.length && tools)
+    return plural(tools, {
+      one: `Plugins changed: ${list} (# new tool)`,
+      other: `Plugins changed: ${list} (# new tools)`,
+    });
+  if (items.length) return t`Plugins changed: ${list}`;
+  if (tools)
+    return plural(tools, {
+      one: 'Plugins changed (# new tool)',
+      other: 'Plugins changed (# new tools)',
+    });
+  return t`Plugins changed`;
 }

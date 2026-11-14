@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { RefreshAction } from './refresh-button';
+import { t } from '@lingui/core/macro';
 
 /** Refresh the retained document revision from the file's secondary action menu. */
 export function DocumentRefreshAction({
@@ -24,7 +25,7 @@ export function DocumentRefreshAction({
   return (
     <RefreshAction
       secondary
-      label="Refresh document revision"
+      label={t`Refresh document revision`}
       refreshing={refreshing}
       onRefresh={refresh}
     />

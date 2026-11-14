@@ -2,6 +2,8 @@ import type { TagEvidence } from '@clio/core/v3';
 import { vocab } from './brand-vocabulary';
 import { modelFactSummary, parameterSizeLabel } from './model-facts';
 import type { ClioModelOption } from './model-options';
+import { plural, t, ph } from '@lingui/core/macro';
+import { formatNumber } from './locale-format';
 
 /**
  * A model's capability tags in ONE normalized shape, read from the service's
@@ -181,18 +183,33 @@ export function modelCapabilityTagsFromOption(option: ClioModelOption): ModelCap
 }
 
 function contextMeaning(tag: ModelCapabilityTag): string {
-  const tokens = Number(tag.value).toLocaleString();
+  const tokens = formatNumber(Number(tag.value));
   const native =
     tag.nativeContext && tag.nativeContext !== Number(tag.value)
-      ? ` The model itself reads up to ${tag.nativeContext.toLocaleString()}.`
-      : '';
+      ? formatNumber(tag.nativeContext)
+      : undefined;
   if (tag.contextBasis === 'configured') {
-    return `Not loaded yet: the server will give it ${tokens} tokens when it loads.${native}`;
+    return native
+      ? t`Not loaded yet: the server will give it ${tokens} tokens when it loads. The model itself reads up to ${native}.`
+      : t`Not loaded yet: the server will give it ${tokens} tokens when it loads.`;
   }
   if (tag.contextBasis === 'native') {
-    return `The model reads up to ${tokens} tokens; this server has not said what it applies.`;
+    return t`The model reads up to ${tokens} tokens; this server has not said what it applies.`;
   }
-  return `Reads up to ${tokens} tokens at once.${native}`;
+  return native
+    ? t`Reads up to ${tokens} tokens at once. The model itself reads up to ${native}.`
+    : t`Reads up to ${tokens} tokens at once.`;
+}
+
+/** "30B parameters.", or for a mixture of experts ("A3B / 30B") its active and total size. */
+function sizeMeaning(value: string): string {
+  if (!value.includes('/')) return t`${value} parameters.`;
+  const sizes = value.replace(/^A/u, '');
+  const at = sizes.indexOf(' / ');
+  if (at < 0) return t`A mixture of experts: ${sizes} in all.`;
+  const active = sizes.slice(0, at);
+  const total = sizes.slice(at + 3);
+  return t`A mixture of experts: ${active} parameters active per token, of ${total} in all.`;
 }
 
 /** The model type a model option's tags state, when one does. */
@@ -201,22 +218,22 @@ export function modelTypeOf(option: ClioModelOption): string | undefined {
 }
 
 const MODALITY_LABELS: Record<string, string> = {
-  image: 'Vision',
-  audio: 'Audio',
-  video: 'Video',
-  pdf: 'PDF',
+  image: t`Vision`,
+  audio: t`Audio`,
+  video: t`Video`,
+  pdf: t`PDF`,
 };
 
 const CAPABILITY_LABELS: Record<string, string> = {
-  tool_calling: 'Tools',
-  parallel_tool_calls: 'Parallel tools',
-  reasoning: 'Reasoning',
-  structured_output: 'Structured output',
-  web_search: 'Web search',
-  code_execution: 'Code execution',
-  computer_use: 'Computer use',
-  prompt_caching: 'Prompt caching',
-  diffusion: 'Diffusion',
+  tool_calling: t`Tools`,
+  parallel_tool_calls: t`Parallel tools`,
+  reasoning: t`Reasoning`,
+  structured_output: t`Structured output`,
+  web_search: t`Web search`,
+  code_execution: t`Code execution`,
+  computer_use: t`Computer use`,
+  prompt_caching: t`Prompt caching`,
+  diffusion: t`Diffusion`,
 };
 
 /** "200K", "1M", "32K": a context size as people say it. */
@@ -231,52 +248,55 @@ export function formatContextSize(tokens: number): string {
 
 /** What each model type does, as a noun ("Image generator"). */
 export const TASK_LABELS: Record<string, string> = {
-  chat: 'Chat model',
-  embedding: 'Embeddings',
-  rerank: 'Reranker',
-  audio_transcription: 'Transcriber',
-  audio_speech: 'Speech generator',
-  image_generation: 'Image generator',
-  image_edit: 'Image editor',
-  video_generation: 'Video generator',
-  moderation: 'Moderator',
-  ocr: 'Text reader',
-  segmentation: 'Segmenter',
-  classification: 'Classifier',
-  forecasting: 'Forecaster',
-  scientific_surrogate: 'Scientific surrogate',
-  other: 'Other model',
+  chat: t`Chat model`,
+  embedding: t`Embeddings`,
+  rerank: t`Reranker`,
+  audio_transcription: t`Transcriber`,
+  audio_speech: t`Speech generator`,
+  image_generation: t`Image generator`,
+  image_edit: t`Image editor`,
+  video_generation: t`Video generator`,
+  moderation: t`Moderator`,
+  ocr: t`Text reader`,
+  segmentation: t`Segmenter`,
+  classification: t`Classifier`,
+  forecasting: t`Forecaster`,
+  scientific_surrogate: t`Scientific surrogate`,
+  other: t`Other model`,
 };
 
 /** The short label a tag shows ("Vision", "Tools", "200K"). */
 export function modelCapabilityTagLabel(tag: ModelCapabilityTag): string {
+  const size = formatContextSize(Number(tag.value));
   switch (tag.axis) {
     case 'role':
       return sentenceCase(tag.value);
     case 'task':
       return TASK_LABELS[tag.value] ?? sentenceCase(tag.value.replaceAll('_', ' '));
     case 'price':
-      return 'Free';
+      return t`Free`;
     case 'kind':
-      return 'Router';
+      return t`Router`;
     case 'context':
       // Before load the number is what will apply, or only the model's own:
       // say which, so it never reads as what the server serves now.
-      return tag.contextBasis === 'configured' || tag.contextBasis === 'native'
-        ? `${formatContextSize(Number(tag.value))} ${tag.contextBasis}`
-        : formatContextSize(Number(tag.value));
+      return tag.contextBasis === 'configured'
+        ? t`${size} configured`
+        : tag.contextBasis === 'native'
+          ? t`${size} native`
+          : size;
     case 'output_limit':
-      return `${formatContextSize(Number(tag.value))} max output`;
+      return t`${size} max output`;
     case 'recent':
-      return 'Recent';
+      return t`Recent`;
     case 'size':
       return tag.value;
     case 'input_modality':
       return tag.value === 'text'
-        ? 'Text in'
+        ? t`Text in`
         : (MODALITY_LABELS[tag.value] ?? sentenceCase(tag.value));
     case 'output_modality':
-      return tag.value === 'text' ? 'Text out' : `Makes ${tag.value}`;
+      return tag.value === 'text' ? t`Text out` : t`Makes ${ph({ modality: tag.value })}`;
     case 'capability':
       return CAPABILITY_LABELS[tag.value] ?? sentenceCase(tag.value.replaceAll('_', ' '));
     default:
@@ -290,68 +310,73 @@ export function modelCapabilityTagMeaning(tag: ModelCapabilityTag): string {
     case 'context':
       return contextMeaning(tag);
     case 'output_limit':
-      return `Generates up to ${Number(tag.value).toLocaleString()} tokens per response. This is separate from the input context limit.`;
+      return t`Generates up to ${ph({ tokens: formatNumber(Number(tag.value)) })} tokens per response. This is separate from the input context limit.`;
     case 'recent':
-      return `Released in the last ${tag.value} months.`;
+      return plural(Number(tag.value), {
+        one: 'Released in the last # month.',
+        other: 'Released in the last # months.',
+      });
     case 'size':
-      return tag.value.includes('/')
-        ? `A mixture of experts: ${tag.value.replace(/^A/u, '').replace(' / ', ' parameters active per token, of ')} in all.`
-        : `${tag.value} parameters.`;
+      return sizeMeaning(tag.value);
     case 'input_modality':
       return tag.value === 'image'
-        ? 'Understands images.'
+        ? t`Understands images.`
         : tag.value === 'text'
-          ? 'Reads text.'
-          : `Understands ${tag.value === 'pdf' ? 'PDF files' : tag.value}.`;
+          ? t`Reads text.`
+          : tag.value === 'pdf'
+            ? t`Understands PDF files.`
+            : t`Understands ${ph({ modality: tag.value })}.`;
     case 'output_modality':
-      return `Produces ${tag.value}.`;
+      return t`Produces ${ph({ modality: tag.value })}.`;
     case 'capability':
       return tag.value === 'tool_calling'
-        ? 'Can use tools.'
+        ? t`Can use tools.`
         : tag.value === 'reasoning'
-          ? 'Can think before answering.'
+          ? t`Can think before answering.`
           : tag.value === 'diffusion'
-            ? 'Writes the whole answer at once and refines it in parallel steps (a diffusion model).'
+            ? t`Writes the whole answer at once and refines it in parallel steps (a diffusion model).`
             : `${modelCapabilityTagLabel(tag)}.`;
     case 'role':
       return tag.value === 'surrogate'
-        ? 'A specialist model: it does one task rather than hold a conversation.'
-        : 'A general model: it can hold a conversation.';
+        ? t`A specialist model: it does one task rather than hold a conversation.`
+        : t`A general model: it can hold a conversation.`;
     case 'task': {
       // Hub task ids read as words ("text-classification" -> "text classification").
-      const hub = tag.hubTasks?.length
-        ? ` Hugging Face task: ${tag.hubTasks.map((task) => task.replaceAll('-', ' ')).join(', ')}.`
-        : '';
-      return `${modelCapabilityTagLabel(tag)}.${hub}`;
+      const label = modelCapabilityTagLabel(tag);
+      const hub = tag.hubTasks?.map((task) => task.replaceAll('-', ' ')).join(', ');
+      return hub ? t`${label}. Hugging Face task: ${hub}.` : `${label}.`;
     }
     case 'domain':
-      return `Built for ${tag.value}.`;
+      return t`Built for ${ph({ value: tag.value })}.`;
     case 'price':
-      return 'Costs nothing to use.';
+      return t`Costs nothing to use.`;
     case 'kind':
-      return 'Sends each request to a model chosen for it.';
+      return t`Sends each request to a model chosen for it.`;
     default:
       return `${modelCapabilityTagLabel(tag)}.`;
   }
 }
 
+const { agent } = vocab;
+
 const SOURCE_LABELS: Record<string, string> = {
-  user: 'your settings',
-  overlay: `${vocab.agent}'s model notes`,
-  server_report: 'the provider',
-  catalog: "the provider's model list",
-  probe: 'a live check',
+  user: t`your settings`,
+  overlay: t`${agent}'s model notes`,
+  server_report: t`the provider`,
+  catalog: t`the provider's model list`,
+  probe: t`a live check`,
+  // i18n-ignore: product name
   hf_repo: 'Hugging Face',
   'models.dev': 'models.dev',
   litellm: 'LiteLLM',
   openrouter: 'OpenRouter',
-  db: `${vocab.agent}'s model database`,
-  dialect: "the provider's API type",
+  db: t`${agent}'s model database`,
+  dialect: t`the provider's API type`,
 };
 
 function sourceLabel(source: string): string {
   return (
-    SOURCE_LABELS[source] ?? (source ? source.replaceAll('_', ' ') : "the provider's model list")
+    SOURCE_LABELS[source] ?? (source ? source.replaceAll('_', ' ') : t`the provider's model list`)
   );
 }
 
@@ -376,9 +401,12 @@ export function modelCapabilityTagSource(tag: ModelCapabilityTag): string {
     ),
   ];
   const names = labels.length ? labels : [sourceLabel('')];
-  const joined =
-    names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
-  return `From ${joined}.`;
+  if (names.length > 1) {
+    const first = names.slice(0, -1).join(', ');
+    const last = names.at(-1) ?? '';
+    return t`From ${first} and ${last}.`;
+  }
+  return t`From ${ph({ source: names[0] ?? '' })}.`;
 }
 
 function sentenceCase(value: string): string {

@@ -119,7 +119,7 @@ it('opens the selected catalog resource through the SDK without an HTTP stream r
       sdkOperation('list'),
     ],
   });
-  await userEvent.click(await screen.findByText('1 resources'));
+  await userEvent.click(await screen.findByText('1 resource'));
   await userEvent.click(screen.getByRole('button', { name: 'Read stream' }));
   await userEvent.click(screen.getByRole('button', { name: 'Read Observed events' }));
   await waitFor(() =>

@@ -60,6 +60,42 @@ body,
   box-shadow: inset 0 0 0 1px var(--secondary-dark-15) !important;
 }
 
+/* Axis labels that would overlap a neighbour (ticks.ts). */
+.viewer-root [data-viewer-tick-thinned] {
+  visibility: hidden;
+}
+
+/*
+ * A vertical colour bar's bounds sit under its gradient, so the lower one lands
+ * on the plot's x-axis baseline just after the last x label and reads as part
+ * of that axis. Both bounds move into the bar's tick-label column instead,
+ * capping its labels and clear of the x axis.
+ */
+.viewer-root [class*='_colorBar_']:not([data-horizontal]) [class*='_minBound_'],
+.viewer-root [class*='_colorBar_']:not([data-horizontal]) [class*='_maxBound_'] {
+  grid-column: 2;
+  justify-content: flex-start;
+}
+
+/*
+ * h5web tints a hovered or focused tree row like the selected one (the host
+ * maps --primary-light to its selection color). Hover and focus take the
+ * host's hover tint instead, and keyboard focus adds the accent ring; a
+ * focused selected row keeps its selection tint under the ring.
+ */
+.viewer-root #h5w-sidebar [role='treeitem']:not([aria-selected='true']):is(:hover, :focus-visible) {
+  background-color: var(--primary-lighter) !important;
+}
+
+.viewer-root #h5w-sidebar li > [role='treeitem'][aria-selected='true'] {
+  background-color: var(--primary) !important;
+}
+
+.viewer-root #h5w-sidebar [role='treeitem']:focus-visible {
+  outline: 2px solid var(--secondary-dark) !important;
+  outline-offset: -2px !important;
+}
+
 
 /*
  * Below the width that fits the tree beside a plot (MIN_EXPLORER_PANE in

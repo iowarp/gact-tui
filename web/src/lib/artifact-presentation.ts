@@ -1,5 +1,6 @@
 import type { Artifact, MessageBlock } from '@clio/core/v3';
 import { withoutPaperMembers } from './scientific-document';
+import { t } from '@lingui/core/macro';
 
 /** Recognize a retained document preview from its recorded binding, never its filename. */
 export function isDocumentPreview(artifact: Artifact): boolean {
@@ -14,21 +15,39 @@ export function isDocumentPreview(artifact: Artifact): boolean {
 export function artifactDeliverables(artifacts: readonly Artifact[]): Artifact[] {
   return withoutPaperMembers(artifacts).filter(
     (artifact) =>
-      artifactEvidenceLabel(artifact) === 'Output' || artifact.session_relation === 'used',
+      artifactEvidenceKind(artifact) === 'output' || artifact.session_relation === 'used',
   );
 }
 
-/** Describe retained evidence from explicit producer intent, never file extensions. */
-export function artifactEvidenceLabel(artifact: Artifact): string {
-  if (artifact.session_relation === 'used') return 'Input';
-  if (isDocumentPreview(artifact)) return 'Preview';
-  if (artifact.producer?.['purpose'] === 'intermediate') return 'Intermediate';
+export type ArtifactEvidenceKind = 'input' | 'preview' | 'intermediate' | 'verification' | 'output';
+
+/** Classify retained evidence from explicit producer intent, never file extensions. */
+export function artifactEvidenceKind(artifact: Artifact): ArtifactEvidenceKind {
+  if (artifact.session_relation === 'used') return 'input';
+  if (isDocumentPreview(artifact)) return 'preview';
+  if (artifact.producer?.['purpose'] === 'intermediate') return 'intermediate';
   if (
     artifact.producer?.['purpose'] === 'verification' ||
     artifact.producer?.['designation'] === 'a2ui_visual_capture'
   )
-    return 'Verification';
-  return 'Output';
+    return 'verification';
+  return 'output';
+}
+
+/** The evidence kind as a reader sees it. */
+export function artifactEvidenceLabel(artifact: Artifact): string {
+  switch (artifactEvidenceKind(artifact)) {
+    case 'input':
+      return t({ message: 'Input', context: 'artifact evidence' });
+    case 'preview':
+      return t({ message: 'Preview', context: 'artifact evidence' });
+    case 'intermediate':
+      return t({ message: 'Intermediate', context: 'artifact evidence' });
+    case 'verification':
+      return t({ message: 'Verification', context: 'artifact evidence' });
+    case 'output':
+      return t({ message: 'Output', context: 'artifact evidence' });
+  }
 }
 
 /** Fold legacy duplicate response links while retaining distinct causal outputs.

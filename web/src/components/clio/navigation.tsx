@@ -26,12 +26,13 @@ import { NavigationHeader } from './navigation-header';
 import { StableInput } from './primitives/stable-input';
 import { holdPreviews } from './row-preview-hold';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
-import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
 import { downloadSessionExport } from './session-export-download';
-import { newConversationRoute } from '@/lib/workspace-route-memory';
+import { newConversationRoute, returnRouteFromState } from '@/lib/workspace-route-memory';
+import { connectionScope } from '@/lib/connection-scope';
 import type { SessionAttention } from '@/lib/session-attention';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
+import { t, ph } from '@lingui/core/macro';
 
 export interface ClioNavigationProps {
   endpoint: string;
@@ -109,12 +110,18 @@ const ClioNavigationView = memo(function ClioNavigationView({
   const [deleteTarget, setDeleteTarget] = useState<ResourceTarget | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const archived = useArchivedSessions(sessions, archivedOpen);
-  const [workspaceEditorId, setWorkspaceEditorId] = useState<string>();
   // On a phone the left bar is a sheet; a dialog opened from it closes the sheet first.
   const { isMobile, setOpenMobile } = useSidebar();
   const closeSheet = useCallback(() => {
     if (isMobile) setOpenMobile(false);
   }, [isMobile, setOpenMobile]);
+  // The shell stays mounted across conversations, so leaving a route through the sheet closes it.
+  const sheetRoute = useRef(location.pathname);
+  useEffect(() => {
+    if (sheetRoute.current === location.pathname) return;
+    sheetRoute.current = location.pathname;
+    closeSheet();
+  }, [closeSheet, location.pathname]);
   const withSheetClosed =
     <T,>(open: (value: T) => void) =>
     (value: T) => {
@@ -141,6 +148,35 @@ const ClioNavigationView = memo(function ClioNavigationView({
   // A new conversation is a draft in place; it becomes a row once it is sent.
   const openNewSession = (workspaceId = activeWorkspaceId) => {
     void navigate(newConversationRoute(workspaceId || 'ws_default'));
+  };
+  // Open folder › In a tab: the Files tab here, or a new conversation in that workspace with it open.
+  const openWorkspaceFilesTab = (workspaceId: string) => {
+    if (workspaceId === activeWorkspaceId && onOpenWorkspaceFiles) {
+      closeSheet();
+      onOpenWorkspaceFiles();
+      return;
+    }
+    void navigate(newConversationRoute(workspaceId), {
+      state: {
+        globalSearchResource: {
+          scope: connectionScope(settings),
+          request: { kind: 'resources', section: 'files' },
+        },
+      },
+    });
+  };
+  // A workspace's settings are its Settings › Folders page (spec), over the page behind.
+  const openWorkspaceSettings = (workspaceId: string) => {
+    closeSheet();
+    void navigate('/settings/folders', {
+      state: {
+        endpoint: settings.endpoint,
+        from: location.pathname.startsWith('/workspaces/')
+          ? location.pathname
+          : returnRouteFromState(location.state, settings.endpoint),
+        workspaceId,
+      },
+    });
   };
   const downloadSession = async (
     sessionId: string,
@@ -190,7 +226,7 @@ const ClioNavigationView = memo(function ClioNavigationView({
       <LeftBarDialogContext.Provider value={presentRowDialog}>
         <Sidebar collapsible="icon" contained>
           <nav
-            aria-label="Workspace navigation"
+            aria-label={t`Workspace navigation`}
             data-keyboard-region=""
             // Wheeling moves rows under a still pointer; their previews wait for it to move.
             onWheel={(event) => holdPreviews(event.clientX, event.clientY)}
@@ -232,10 +268,10 @@ const ClioNavigationView = memo(function ClioNavigationView({
                 onCreateSession={openNewSession}
                 onDelete={withSheetClosed(setDeleteTarget)}
                 onDownloadSession={downloadSession}
-                onEditWorkspace={withSheetClosed(setWorkspaceEditorId)}
+                onEditWorkspace={openWorkspaceSettings}
                 onImportSession={importSession}
                 onNewWorkspace={() => withSheetClosed(setCreateWorkspaceOpen)(true)}
-                onOpenWorkspaceFiles={onOpenWorkspaceFiles}
+                onOpenWorkspaceFiles={openWorkspaceFilesTab}
                 onRename={withSheetClosed(setRenameTarget)}
                 sessions={sessions}
                 workspaces={workspaces}
@@ -255,7 +291,7 @@ const ClioNavigationView = memo(function ClioNavigationView({
       {rowDialog}
       <StableInput
         accept="application/json,.json"
-        aria-label="Import session file"
+        aria-label={t`Import session file`}
         tabIndex={-1}
         className="sr-only"
         onChange={(event) => {
@@ -267,10 +303,21 @@ const ClioNavigationView = memo(function ClioNavigationView({
           void file
             .text()
             .then((text) => JSON.parse(text) as unknown)
-            .then((value) => actions.importSession(importBlobInto(value, workspaceId)))
-            .then(() => toast.success('Session imported'))
+            .then((value) => {
+              if (!isConversationExport(value)) throw new NotAnExportError();
+              return actions.importSession(importBlobInto(value, workspaceId));
+            })
+            .then(() => toast.success(t`Session imported`))
             .catch((error: unknown) =>
-              toast.error(error instanceof Error ? error.message : 'Session import failed'),
+              // A file that isn't an export is the person's choice, not a parser fault.
+              toast.error(t`Couldn't import ${ph({ name: file.name })}`, {
+                description:
+                  error instanceof SyntaxError || error instanceof NotAnExportError
+                    ? t`This file isn't a conversation export. Choose a .json file exported from a conversation.`
+                    : error instanceof Error && error.message
+                      ? error.message
+                      : t`The session could not be imported.`,
+              }),
             );
         }}
         ref={importInputRef}
@@ -295,13 +342,6 @@ const ClioNavigationView = memo(function ClioNavigationView({
         state={archived.state}
         workspaces={workspaces}
       />
-      {workspaceEditorId && workspaces.find((workspace) => workspace.id === workspaceEditorId) ? (
-        <WorkspaceEditorDialog
-          actions={actions}
-          onClose={() => setWorkspaceEditorId(undefined)}
-          workspace={workspaces.find((workspace) => workspace.id === workspaceEditorId)!}
-        />
-      ) : null}
     </>
   );
 });
@@ -314,6 +354,21 @@ function stepConversation(step: -1 | 1) {
   const current = links.findIndex((link) => link.dataset.active === 'true');
   const target = current < 0 ? links[step < 0 ? links.length - 1 : 0] : links[current + step];
   target?.click();
+}
+
+/** Valid JSON that is not a conversation export, such as a package.json. */
+class NotAnExportError extends Error {}
+
+/** A conversation export carries its session and its messages; other JSON does not. */
+function isConversationExport(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const blob = value as Record<string, unknown>;
+  return (
+    typeof blob.session === 'object' &&
+    blob.session !== null &&
+    !Array.isArray(blob.session) &&
+    Array.isArray(blob.messages)
+  );
 }
 
 /** Points an export blob at the chosen workspace, keeping its other fields. */

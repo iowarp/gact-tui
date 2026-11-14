@@ -50,6 +50,7 @@ function CascaderColumns({
     if (mode === 'columns') return;
     warnCascaderOnce(
       `columns-outside-columns-mode:${mode}`,
+      // i18n-ignore: development warning for the component's author, not shown in the interface
       `\`CascaderColumns\` renders nothing in \`mode="${mode}"\`, so \`columnWidth\` and everything else on it does nothing. Set \`mode="columns"\` on the root, or render \`CascaderList\` instead.`,
     );
   }, [mode]);

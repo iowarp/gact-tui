@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useSavedServers } from '@/hooks/use-saved-servers';
 import { isLocalServerPreset, normalizeServerAddress } from '@/lib/local-servers';
+import { t, ph } from '@lingui/core/macro';
 
 /** Edit a self-hosted server through the same saved-address owner as Settings. */
 export function ProviderEndpointEditor({
@@ -41,7 +42,7 @@ export function ProviderEndpointEditor({
           }}
         >
           <Input
-            aria-label={`${preset.label} URL`}
+            aria-label={t`${ph({ label: preset.label })} URL`}
             autoComplete="url"
             autoFocus
             className="h-8 min-w-0 text-xs"
@@ -51,7 +52,7 @@ export function ProviderEndpointEditor({
           />
           <div className="flex flex-wrap gap-1">
             <Button disabled={!typed || save.isPending} size="xs" type="submit">
-              {save.isPending ? 'Saving and checking…' : 'Save and check'}
+              {save.isPending ? t`Saving and checking…` : t`Save and check`}
             </Button>
             <Button
               disabled={save.isPending}
@@ -60,11 +61,11 @@ export function ProviderEndpointEditor({
               variant="ghost"
               onClick={() => setEditing(false)}
             >
-              Cancel
+              {t`Cancel`}
             </Button>
           </div>
           {!typed ? (
-            <p className="text-xs text-muted-foreground">Enter an HTTP or HTTPS server URL.</p>
+            <p className="text-xs text-muted-foreground">{t`Enter an HTTP or HTTPS server URL.`}</p>
           ) : null}
         </form>
       ) : (
@@ -82,7 +83,7 @@ export function ProviderEndpointEditor({
               setEditing(true);
             }}
           >
-            Change URL
+            {t`Change URL`}
           </Button>
         </div>
       )}

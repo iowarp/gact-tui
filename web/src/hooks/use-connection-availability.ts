@@ -17,6 +17,7 @@ import {
   CONNECTION_PROBE_STALE_TIME_MS,
   CONNECTION_PROBE_TIMEOUT_MS,
 } from '@/lib/runtime-limits';
+import { ph, t } from '@lingui/core/macro';
 
 export type ConnectionAvailabilityState = 'checking' | 'healthy' | 'degraded' | 'unavailable';
 
@@ -40,16 +41,16 @@ export interface ConnectionAvailability {
 
 /** What a starting service is still bringing up, in words (`/v1/health` `starting`). */
 const STARTING_ITEMS: Readonly<Record<string, string>> = {
-  task_runtime: 'conversations and tasks',
-  marketplace: 'plugins',
-  agent: 'the agent',
+  task_runtime: t`conversations and tasks`,
+  marketplace: t`plugins`,
+  agent: t`the agent`,
 };
 
 function startingDetail(items: readonly string[] | undefined): string {
   const named = (items ?? []).map((item) => STARTING_ITEMS[item] ?? item.replaceAll('_', ' '));
   return named.length
-    ? `Starting up: loading ${named.join(', ')}. It opens by itself when it is ready.`
-    : 'Starting up. It opens by itself when it is ready.';
+    ? t`Starting up: loading ${ph({ items: named.join(', ') })}. It opens by itself when it is ready.`
+    : t`Starting up. It opens by itself when it is ready.`;
 }
 
 /**
@@ -83,13 +84,12 @@ export function connectionProbeInterval(query: {
 export type ConnectionAvailabilityMap = Readonly<Record<string, ConnectionAvailability>>;
 
 /** Nothing answered: say what that means and what to do, not just that it failed. */
-export const NOT_REACHABLE_DETAIL =
-  'Nothing answered at this address yet. If the service was just started, this page connects by itself once it is up; otherwise start it or check the address.';
+export const NOT_REACHABLE_DETAIL = t`Nothing answered at this address yet. If the service was just started, this page connects by itself once it is up; otherwise start it or check the address.`;
 
 const CHECKING_CONNECTION: ConnectionAvailability = {
   state: 'checking',
-  label: 'Checking',
-  detail: 'Checking this service now.',
+  label: t`Checking`,
+  detail: t`Checking this service now.`,
 };
 
 /** Return the latest probe result for a saved endpoint. */
@@ -197,7 +197,7 @@ export async function probeConnection(
       if (health.readiness === 'starting') {
         return {
           state: 'checking',
-          label: 'Starting',
+          label: t`Starting`,
           detail: startingDetail(health.starting),
           starting: true,
           startingSince: (wasStarting ? previous?.startingSince : undefined) ?? Date.now(),
@@ -207,11 +207,11 @@ export async function probeConnection(
         return { state: 'degraded', label: HISTORY_MODE_LABEL, detail: HISTORY_MODE_DETAIL };
       }
       return health.healthy
-        ? { state: 'healthy', label: 'Ready', detail: 'Service is available.' }
+        ? { state: 'healthy', label: t`Ready`, detail: t`Service is available.` }
         : {
             state: 'degraded',
-            label: 'Limited',
-            detail: health.overall_status || 'Service is available with limitations.',
+            label: t`Limited`,
+            detail: health.overall_status || t`Service is available with limitations.`,
           };
     } catch (error) {
       rethrowCancelledProbe(error, signal, controller.signal);
@@ -220,8 +220,8 @@ export async function probeConnection(
       // A compatible capabilities response already proves the service is reachable.
       return {
         state: 'degraded',
-        label: 'Limited',
-        detail: 'The service responded, but its health status could not be verified.',
+        label: t`Limited`,
+        detail: t`The service responded, but its health status could not be verified.`,
       };
     }
   } catch (error) {
@@ -234,8 +234,7 @@ export async function probeConnection(
 }
 
 /** The service's own words when it gives no reason for a failed start. */
-export const FAILED_START_DETAIL =
-  'The service could not start its conversations and tasks. Restart it; if this repeats, its log has the cause.';
+export const FAILED_START_DETAIL = t`The service could not start its conversations and tasks. Restart it; if this repeats, its log has the cause.`;
 
 /**
  * A service whose start failed (`/v1/health` `readiness: failed`). It will not become
@@ -245,7 +244,7 @@ export const FAILED_START_DETAIL =
 export function failedStart(failure: ServiceStartFailure | undefined): ConnectionAvailability {
   return {
     state: 'unavailable',
-    label: "Can't start",
+    label: t`Can't start`,
     detail: failure?.message || FAILED_START_DETAIL,
     diagnostics: failure?.reason ? JSON.stringify({ reason: failure.reason }, null, 2) : undefined,
     reason: 'failed',
@@ -256,7 +255,7 @@ export function failedStart(failure: ServiceStartFailure | undefined): Connectio
 /** The probe gave up waiting: something may be listening, but it did not answer. */
 export class ServiceTimeoutError extends Error {
   constructor() {
-    super('The service did not respond in time.');
+    super(t`The service did not respond in time.`);
     this.name = 'ServiceTimeoutError';
   }
 }
@@ -324,7 +323,7 @@ export function unavailableFromError(error: unknown): ConnectionAvailability {
   if (error instanceof TransportError && error.code === 'network_unavailable') {
     return {
       state: 'unavailable',
-      label: 'Not reachable',
+      label: t`Not reachable`,
       detail: NOT_REACHABLE_DETAIL,
       reason: 'no-answer',
     };
@@ -332,7 +331,7 @@ export function unavailableFromError(error: unknown): ConnectionAvailability {
   if (error instanceof ServiceTimeoutError) {
     return {
       state: 'unavailable',
-      label: 'Not responding',
+      label: t`Not responding`,
       detail: error.message,
       reason: 'timeout',
     };
@@ -340,7 +339,7 @@ export function unavailableFromError(error: unknown): ConnectionAvailability {
   if (error instanceof ServiceVersionError) {
     return {
       state: 'unavailable',
-      label: 'Incompatible',
+      label: t`Incompatible`,
       detail: error.message,
       diagnostics: JSON.stringify(error.details, null, 2),
       reason: 'incompatible',
@@ -349,7 +348,7 @@ export function unavailableFromError(error: unknown): ConnectionAvailability {
   if (error instanceof TransportError && error.code === 'incompatible_capabilities') {
     return {
       state: 'unavailable',
-      label: 'Incompatible',
+      label: t`Incompatible`,
       detail: new ServiceVersionError(PROTOCOL_VERSION, []).message,
       diagnostics: JSON.stringify({ message: error.message, details: error.details }, null, 2),
       reason: 'incompatible',
@@ -358,8 +357,8 @@ export function unavailableFromError(error: unknown): ConnectionAvailability {
   if (error instanceof TransportError && error.status !== undefined) {
     return {
       state: 'unavailable',
-      label: 'Service error',
-      detail: error.message || 'The service reported an error.',
+      label: t`Service error`,
+      detail: error.message || t`The service reported an error.`,
       diagnostics: JSON.stringify(
         { status: error.status, code: error.code, details: error.details },
         null,
@@ -372,7 +371,7 @@ export function unavailableFromError(error: unknown): ConnectionAvailability {
   if (internal) {
     return {
       state: 'unavailable',
-      label: 'Not available',
+      label: t`Not available`,
       detail: UNEXPECTED_CONNECT_ERROR,
       diagnostics: internal,
       reason: 'failed',
@@ -380,7 +379,7 @@ export function unavailableFromError(error: unknown): ConnectionAvailability {
   }
   return {
     state: 'unavailable',
-    label: 'Not available',
+    label: t`Not available`,
     detail: error instanceof Error && error.message ? error.message : NOT_REACHABLE_DETAIL,
     diagnostics:
       error instanceof TransportError && error.details

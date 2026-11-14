@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { NDPEndpointOperation } from '@clio/core/v3';
 import { Input } from '@/components/ui/input';
 import { ndpSearchText } from './use-ndp-catalog';
+import { t, plural } from '@lingui/core/macro';
 
 /** Search action names immediately; selecting an action never submits a data query. */
 export function NDPActionPicker({
@@ -23,20 +24,18 @@ export function NDPActionPicker({
   return (
     <div className="space-y-2">
       <Input
-        aria-label="Search endpoint actions"
-        placeholder="Search API actions…"
+        aria-label={t`Search endpoint actions`}
+        placeholder={t`Search API actions…`}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
       <div role="status" className="space-y-1 text-xs text-muted-foreground">
-        <p>
-          {choices.length} {choices.length === 1 ? 'action' : 'actions'}
-        </p>
-        <p>Search action names, then enter data filters below.</p>
+        <p>{plural(choices.length, { one: '# action', other: '# actions' })}</p>
+        <p>{t`Search action names, then enter data filters below.`}</p>
       </div>
       <div
         role="group"
-        aria-label="Available endpoint actions"
+        aria-label={t`Available endpoint actions`}
         className="max-h-44 overflow-y-auto overscroll-contain divide-y divide-border/50"
       >
         {choices.map((row) => (
@@ -48,14 +47,14 @@ export function NDPActionPicker({
             onClick={() => onChange(row.id)}
           >
             <span className="min-w-0 flex-1 break-words">{row.summary}</span>
-            <span className="mt-0.5 shrink-0 font-mono text-[10px] text-muted-foreground">
+            <span className="mt-0.5 shrink-0 font-mono text-[0.625rem] text-muted-foreground">
               {row.method}
             </span>
           </button>
         ))}
         {!choices.length ? (
           <p className="py-3 text-sm text-muted-foreground">
-            No matching actions. Try “station” or “stream”.
+            {t`No matching actions. Try “station” or “stream”.`}
           </p>
         ) : null}
       </div>

@@ -1,4 +1,4 @@
-import type { Artifact, SessionDiff, SubagentRun } from '@clio/core/v3';
+import type { Artifact, SessionDiff, SubagentRun, ToolInvocation } from '@clio/core/v3';
 import { ListFilterIcon, SearchIcon } from 'lucide-react';
 import {
   memo,
@@ -29,11 +29,13 @@ import { StatusIndicator } from './primitives/status-indicator';
 import { MetaValue } from './primitives/tag';
 import { showCompletedWork } from './task-history';
 import { useWorkTaskFocus } from './work-task-focus';
+import { backgroundTaskLink } from './script-run';
 import { ActivityKindIcon } from './workbench-activity-icon';
 import {
   ACTIVITY_FILTERS,
   ACTIVITY_GROUPS,
   filterActivity,
+  toolActivityItem,
   type ActivityFilter,
   type ActivityItem,
 } from './workbench-activity-model';
@@ -47,6 +49,7 @@ import { activityTab } from './workbench-activity-tab';
 import { tabForOpenRequest } from './workbench-open-request';
 import type { WorkbenchTab } from './workbench-shared';
 import { workTab } from './workbench-tab-storage';
+import { t, ph } from '@lingui/core/macro';
 
 export interface WorkbenchActivityListProps {
   sessionId: string;
@@ -164,19 +167,44 @@ function ActivityColumn({
     [onOpenArtifact, onOpenFile, onOpenSubagent, onOpenTab, sessionId, workspaceId],
   );
 
-  // A link asked to show a task ("Show in Work"): open that task's details.
+  // A link asked to show a task ("Show in Work"): open that task's details. A finished
+  // task first loads with the completed work; once the task has left the record, the
+  // script call that started it opens, even when its turn folded it into one row.
   const focusHandle = useWorkTaskFocus((state) => state.handle);
+  const focusHistory = source?.workPages?.history;
+  const focusTools = source?.tools;
   useEffect(() => {
     if (!focusHandle) return;
-    const target = items.find(
+    const task = items.find(
       (item) =>
         item.process &&
         [item.process.handle, item.process.handle_id, item.process.id].includes(focusHandle),
     );
-    if (!target) return;
+    if (task) {
+      useWorkTaskFocus.getState().clear(focusHandle);
+      open(task);
+      return;
+    }
+    if (focusHistory && !focusHistory.visible) {
+      focusHistory.toggle();
+      return;
+    }
+    if (focusHistory && (focusHistory.loaded === false || focusHistory.pending)) return;
+    const launched = (tool: ToolInvocation) =>
+      Boolean(
+        tool.presentation?.blocks.some(
+          (block) => backgroundTaskLink(block) && block.uri === focusHandle,
+        ),
+      );
+    const script =
+      focusTools?.find(launched) ??
+      items
+        .flatMap((item) => [item.tool, ...(item.steps ?? [])])
+        .find((tool) => tool && launched(tool));
+    if (!script) return;
     useWorkTaskFocus.getState().clear(focusHandle);
-    open(target);
-  }, [focusHandle, items, open]);
+    open(toolActivityItem(script));
+  }, [focusHandle, focusHistory, focusTools, items, open]);
 
   const filtered = query.trim() !== '' || hidden.size > 0;
   const closeSearch = () => {
@@ -189,7 +217,7 @@ function ActivityColumn({
       <IconButton
         aria-pressed={searching}
         icon={<SearchIcon />}
-        label={searching ? 'Close search' : 'Search activity'}
+        label={searching ? t`Close search` : t`Search activity`}
         onClick={() => (searching ? closeSearch() : setSearching(true))}
         size="sm"
         tooltipSide="bottom"
@@ -199,13 +227,17 @@ function ActivityColumn({
           <IconButton
             aria-pressed={hidden.size > 0}
             icon={<ListFilterIcon />}
-            label={hidden.size ? `Filter activity, ${hidden.size} hidden` : 'Filter activity'}
+            label={
+              hidden.size
+                ? t`Filter activity, ${ph({ hidden: hidden.size })} hidden`
+                : t`Filter activity`
+            }
             size="sm"
             tooltipSide="bottom"
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuLabel>Show</DropdownMenuLabel>
+          <DropdownMenuLabel>{t`Show`}</DropdownMenuLabel>
           {ACTIVITY_FILTERS.map((filter) => (
             <DropdownMenuCheckboxItem
               checked={!hidden.has(filter.id)}
@@ -233,25 +265,25 @@ function ActivityColumn({
     body = filtered ? (
       <StateView
         action={{
-          label: 'Clear filters',
+          label: t`Clear filters`,
           onClick: () => {
             closeSearch();
             setHidden(new Set());
           },
         }}
         className="p-4"
-        detail="Clear the search or show more kinds."
+        detail={t`Clear the search or show more kinds.`}
         kind="empty"
         size="panel"
-        title="No activity matches"
+        title={t`No activity matches`}
       />
     ) : (
       <StateView
         className="p-4"
-        detail={sessionId ? 'Tool calls, files, tasks and questions appear here.' : undefined}
+        detail={sessionId ? t`Tool calls, files, tasks and questions appear here.` : undefined}
         kind="empty"
         size="panel"
-        title={sessionId ? 'Nothing has run yet' : 'Activity starts with the first message'}
+        title={sessionId ? t`Nothing has run yet` : t`Activity starts with the first message`}
       />
     );
   else
@@ -272,7 +304,7 @@ function ActivityColumn({
       {searching ? (
         <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
           <Input
-            aria-label="Search activity"
+            aria-label={t`Search activity`}
             autoFocus
             className="h-7 text-xs"
             onChange={(event) => setQuery(event.target.value)}
@@ -282,7 +314,7 @@ function ActivityColumn({
                 closeSearch();
               }
             }}
-            placeholder="Search activity"
+            placeholder={t`Search activity`}
             ref={searchRef}
             value={query}
           />
@@ -299,17 +331,17 @@ function ActivityColumn({
               size="sm"
               variant="ghost"
             >
-              {history.visible ? 'Hide finished work' : 'Show finished work'}
+              {history.visible ? t`Hide finished work` : t`Show finished work`}
             </Button>
             {history.visible ? (
               <>
                 {history.error ? (
-                  <p className="px-2 text-[12px] text-destructive" role="alert">
+                  <p className="px-2 text-meta text-destructive" role="alert">
                     {history.error}
                   </p>
                 ) : null}
                 <TaskPageContinuation
-                  label="Load more finished work"
+                  label={t`Load more finished work`}
                   pagination={{
                     hasMore: history.hasMore,
                     pending: history.pending,
@@ -321,11 +353,11 @@ function ActivityColumn({
           </div>
         ) : null}
         {!source && finishedWorkHidden ? (
-          <p className="flex h-7 items-center truncate px-2 text-[12px] text-muted-foreground">
-            Finished child agents are not loaded
+          <p className="flex h-7 items-center truncate px-2 text-meta text-muted-foreground">
+            {t`Finished child agents are not loaded`}
           </p>
         ) : null}
-        <TaskPageContinuation label="Load more work" pagination={source?.workPages} />
+        <TaskPageContinuation label={t`Load more work`} pagination={source?.workPages} />
       </div>
     </>
   );
@@ -391,7 +423,7 @@ function ActivityRows({
   const render = (entry: Entry) =>
     entry.type === 'group' ? (
       <p
-        className="flex h-7 items-end px-2 pb-1 text-[11px] font-semibold text-muted-foreground"
+        className="flex h-7 items-end px-2 pb-1 text-caption font-semibold text-muted-foreground"
         role="listitem"
       >
         {entry.label}
@@ -401,7 +433,7 @@ function ActivityRows({
     );
   if (!windowed)
     return (
-      <div aria-label="Activity" ref={listRef} role="list">
+      <div aria-label={t`Activity`} ref={listRef} role="list">
         {entries.map((entry) => (
           <div key={entry.id}>{render(entry)}</div>
         ))}
@@ -409,7 +441,7 @@ function ActivityRows({
     );
   return (
     <div
-      aria-label="Activity"
+      aria-label={t`Activity`}
       className="relative"
       ref={listRef}
       role="list"
@@ -443,12 +475,12 @@ const ActivityRow = memo(function ActivityRow({
       <ListRow
         aria-current={selected || undefined}
         aria-label={`${item.name}, ${item.status}`}
-        className="cursor-pointer text-[12.5px]"
+        className="cursor-pointer text-menu"
         columns={<MetaValue width={64}>{item.trailing}</MetaValue>}
         data-kind={item.kind}
         icon={
           item.running ? (
-            <StatusIndicator display="column" label="Running" tone="running" />
+            <StatusIndicator display="column" label={t`Running`} tone="running" />
           ) : (
             <ActivityKindIcon kind={item.kind} work={item.work} toolName={item.tool?.name} />
           )

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { fileName, flowTrustAuthor, type FlowTrustRequest } from '@/lib/plugin-review';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { PluginReviewDialog } from './plugin-review-dialog';
+import { t, ph } from '@lingui/core/macro';
 
 /**
  * The compact facts of a flow-trust permission, under its "Running flow …"
@@ -14,19 +15,19 @@ export function FlowTrustDetails({ request }: { request: FlowTrustRequest }) {
   const file = fileName(request.file);
   const items: KeyValueItem[] = [
     {
-      label: 'Trust',
+      label: t`Trust`,
       icon: <ShieldAlertIcon />,
-      value: `${flowTrustAuthor(request)}, not trusted yet`,
+      value: t`${ph({ author: flowTrustAuthor(request) })}, not trusted yet`,
     },
   ];
   if (request.reviewUrl) {
     items.push({
-      label: 'Flow',
+      label: t`Flow`,
       icon: <FileCodeIcon />,
       mono: true,
       title: request.file
-        ? `Review ${request.file} and its plugin`
-        : `Review the ${request.plugin} plugin`,
+        ? t`Review ${ph({ file: request.file })} and its plugin`
+        : t`Review the ${ph({ plugin: request.plugin })} plugin`,
       value: (
         <button
           aria-haspopup="dialog"
@@ -34,21 +35,21 @@ export function FlowTrustDetails({ request }: { request: FlowTrustRequest }) {
           onClick={() => setOpen(true)}
           type="button"
         >
-          {file || `Review the ${request.plugin} plugin`}
+          {file || t`Review the ${ph({ plugin: request.plugin })} plugin`}
         </button>
       ),
     });
   } else if (file) {
     items.push({
-      label: 'Flow',
+      label: t`Flow`,
       icon: <FileCodeIcon />,
       mono: true,
       title: request.file,
       value: (
         <>
           <span className="min-w-0 truncate">{file}</span>
-          <span className="shrink-0 font-sans text-[12px] text-muted-foreground">
-            No review available
+          <span className="shrink-0 font-sans text-meta text-muted-foreground">
+            {t`No review available`}
           </span>
         </>
       ),

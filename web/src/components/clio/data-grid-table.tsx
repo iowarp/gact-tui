@@ -8,6 +8,7 @@ import {
 } from '@/components/reui/data-grid/data-grid';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /**
  * CLIO-owned TanStack v9 table renderer.
@@ -63,7 +64,7 @@ export function ClioDataGridTable() {
               >
                 <span className="inline-flex items-center gap-2">
                   <Spinner className="size-4" />
-                  {props.loadingMessage || 'Loading rows'}
+                  {props.loadingMessage || t`Loading rows`}
                 </span>
               </td>
             </tr>
@@ -75,7 +76,7 @@ export function ClioDataGridTable() {
                 className="h-32 px-4 text-center text-muted-foreground"
                 colSpan={visibleColumnCount(table)}
               >
-                {props.emptyMessage || 'No rows available.'}
+                {props.emptyMessage || t`No rows available.`}
               </td>
             </tr>
           )}
@@ -113,7 +114,7 @@ function ClioDataGridHeaderCell<TData extends object>({
       {header.isPlaceholder ? null : flexRender(column.columnDef.header, header.getContext())}
       {canResize ? (
         <div
-          aria-label={`Resize ${column.columnDef.meta?.headerTitle || column.id}`}
+          aria-label={t`Resize ${ph({ column: column.columnDef.meta?.headerTitle || column.id })}`}
           // A draggable `role="separator"` is an ARIA range widget (like a
           // slider) — `aria-valuenow` is a REQUIRED attribute for it, not
           // optional polish (axe: aria-required-attr, critical impact).
@@ -128,7 +129,10 @@ function ClioDataGridHeaderCell<TData extends object>({
           }
           aria-valuemin={Math.round(column.columnDef.minSize ?? 0)}
           aria-valuenow={Math.round(column.getSize())}
-          aria-valuetext={`${Math.round(column.getSize())} pixels wide`}
+          aria-valuetext={plural(Math.round(column.getSize()), {
+            one: '# pixel wide',
+            other: '# pixels wide',
+          })}
           className={cn(
             'absolute inset-y-0 end-0 z-10 flex w-5 cursor-col-resize touch-none select-none justify-center',
             'before:w-px before:bg-border',

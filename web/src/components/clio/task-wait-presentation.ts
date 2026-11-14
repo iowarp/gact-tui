@@ -1,4 +1,5 @@
 import type { ToolInvocation } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -40,12 +41,13 @@ export function taskWaitInterruptionDetail(tool: ToolInvocation): string | undef
     )
   )
     return undefined;
+  // i18n-ignore: error text the service recorded, compared as written
   if (tool.state === 'failed' && tool.error && !['Tool failed', cancelled].includes(tool.error))
     return undefined;
   const result = waitResult(tool.output);
-  if (result?.interrupted === 'mail_received') return 'Interrupted by mail';
-  if (result?.interrupted === 'stopped') return 'Interrupted by a stop request';
-  if (typeof result?.interrupted === 'string' && result.interrupted.trim()) return 'Interrupted';
+  if (result?.interrupted === 'mail_received') return t`Interrupted by mail`;
+  if (result?.interrupted === 'stopped') return t`Interrupted by a stop request`;
+  if (typeof result?.interrupted === 'string' && result.interrupted.trim()) return t`Interrupted`;
   // This exact recorder marker was emitted only when no independent tool
   // error existed. It does not identify who cancelled the owning session.
   const raw =
@@ -60,8 +62,8 @@ export function taskWaitInterruptionDetail(tool: ToolInvocation): string | undef
         (block) => block.id === 'execution-error' && block.text === cancelled,
       ))
   )
-    return 'Interrupted by session cancellation';
-  if (tool.state === 'cancelled') return 'Interrupted';
+    return t`Interrupted by session cancellation`;
+  if (tool.state === 'cancelled') return t`Interrupted`;
   return undefined;
 }
 

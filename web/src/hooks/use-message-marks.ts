@@ -7,6 +7,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
+import { t } from '@lingui/core/macro';
 
 /** Save marks to the service, acknowledging them only after persistence succeeds. */
 export function useMessageMarks(session: Session | undefined) {
@@ -29,7 +30,7 @@ export function useMessageMarks(session: Session | undefined) {
         queryClient.invalidateQueries({ queryKey: queryKeys.allSessionReads(settings.endpoint) }),
       ]);
     },
-    onError: (error) => toast.error('Could not save message mark', { description: error.message }),
+    onError: (error) => toast.error(t`Could not save message mark`, { description: error.message }),
   });
   const { mutateAsync } = mutation;
   const onMarkMessage = useCallback(

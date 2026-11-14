@@ -53,21 +53,33 @@ import {
   interfaceVersion,
   useConnectionRuntime,
 } from './settings-connection-runtime';
+import { plural, t, ph } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 const SELECT_TRIGGER =
-  'w-[150px] min-w-0 px-[9px] text-[0.78125rem] data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
+  'w-[150px] min-w-0 px-[9px] text-menu data-[size=default]:h-[1.875rem] data-[size=default]:rounded-md';
 
 const TRANSPORTS = [
-  { value: 'Direct', detail: 'A browser talks to the agent over HTTP.' },
-  { value: 'Bridge', detail: 'The desktop app carries every request.' },
-  { value: 'SSH', detail: 'Reached through an Infrastructure route.' },
+  {
+    value: 'Direct',
+    label: t({ message: 'Direct', context: 'connection transport' }),
+    detail: t`A browser talks to the agent over HTTP.`,
+  },
+  {
+    value: 'Bridge',
+    label: t({ message: 'Bridge', context: 'connection transport' }),
+    detail: t`The desktop app carries every request.`,
+  },
+  // i18n-ignore: protocol name
+  { value: 'SSH', label: 'SSH', detail: t`Reached through an Infrastructure route.` },
 ] as const;
 
 const AVAILABILITY: Record<ConnectionAvailability['state'], { label: string; tone: StatusTone }> = {
-  healthy: { label: 'Online', tone: 'success' },
-  degraded: { label: 'Limited', tone: 'warning' },
-  unavailable: { label: 'Offline', tone: 'idle' },
-  checking: { label: 'Checking', tone: 'running' },
+  healthy: { label: t`Online`, tone: 'success' },
+  degraded: { label: t`Limited`, tone: 'warning' },
+  unavailable: { label: t`Offline`, tone: 'idle' },
+  checking: { label: t`Checking`, tone: 'running' },
 };
 
 function hostOf(endpoint: string): string {
@@ -98,7 +110,9 @@ export function ConnectionsSettings() {
     mutationFn: (connection: ConnectionSettings) =>
       switchConnection(connection, { navigateToWorkspace: false }),
     onSuccess: (_, connection) =>
-      announce(`Switched to ${connection.label?.trim() || hostOf(connection.endpoint)}`),
+      announce(
+        t`Switched to ${ph({ name: connection.label?.trim() || hostOf(connection.endpoint) })}`,
+      ),
   });
 
   const draft = address ?? settings.endpoint;
@@ -122,11 +136,11 @@ export function ConnectionsSettings() {
   return (
     <div>
       <SettingsSectionHeading
-        title="Connection"
-        info={`Where this app reaches ${vocab.agent}. It reconnects to the last address when it opens.`}
+        title={t`Connection`}
+        info={t`Where this app reaches ${agent}. It reconnects to the last address when it opens.`}
       />
       <SettingsRow
-        title="Address"
+        title={t`Address`}
         htmlFor="connection-address"
         dirty={addressDirty}
         error={addressError}
@@ -146,9 +160,9 @@ export function ConnectionsSettings() {
         />
       </SettingsRow>
       <SettingsRow
-        title="Transport"
+        title={t`Transport`}
         htmlFor="connection-transport"
-        info="How the app reaches the agent. Set by where the app runs: Direct in a browser, Bridge in the desktop app, SSH for an Infrastructure route."
+        info={t`How the app reaches the agent. Set by where the app runs: Direct in a browser, Bridge in the desktop app, SSH for an Infrastructure route.`}
       >
         <Select value={transport}>
           <SelectTrigger className={SELECT_TRIGGER} id="connection-transport">
@@ -162,28 +176,26 @@ export function ConnectionsSettings() {
                 title={option.detail}
                 value={option.value}
               >
-                {option.value}
+                {option.label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </SettingsRow>
-      <SettingsRow title="Interface">
-        <span className="font-mono text-[0.78125rem] font-medium">
-          {interfaceVersion() ? `v${interfaceVersion()}` : 'Unknown'}
+      <SettingsRow title={t`Interface`}>
+        <span className="font-mono text-menu font-medium">
+          {interfaceVersion() ? `v${interfaceVersion()}` : t`Unknown`}
         </span>
       </SettingsRow>
       <SettingsRow
-        title="Runtime"
-        error={runtime.unreachable ? `${vocab.agent} did not answer.` : undefined}
+        title={t`Runtime`}
+        error={runtime.unreachable ? t`${agent} did not answer.` : undefined}
       >
         <span className="min-w-0 truncate text-xs" title={runtime.status.detail}>
           <StatusIndicator label={runtime.status.label} tone={runtime.status.tone} />
         </span>
         {runtime.version ? (
-          <span className="mr-1 ml-0.5 font-mono text-[0.78125rem] font-medium">
-            v{runtime.version}
-          </span>
+          <span className="mr-1 ml-0.5 font-mono text-menu font-medium">v{runtime.version}</span>
         ) : null}
         {runtime.unreachable ? (
           <Button
@@ -193,35 +205,33 @@ export function ConnectionsSettings() {
             size="xs"
             variant="link"
           >
-            {runtime.checking ? 'Retrying' : 'Retry'}
+            {runtime.checking ? t`Retrying` : t`Retry`}
           </Button>
         ) : (
           <Button disabled={runtime.checking} onClick={runtime.recheck} size="sm" variant="outline">
-            Check again
+            {t`Check again`}
           </Button>
         )}
       </SettingsRow>
       {runtime.degradations.length ? (
         <SettingsRow
-          title="Unavailable features"
-          info="What this agent cannot do on this connection."
+          title={t`Unavailable features`}
+          info={t`What this agent cannot do on this connection.`}
         >
           <Popover>
             <PopoverTrigger asChild>
               <Button size="sm" variant="outline">
-                {runtime.degradations.length === 1
-                  ? '1 feature'
-                  : `${runtime.degradations.length} features`}
+                {plural(runtime.degradations.length, { one: '# feature', other: '# features' })}
               </Button>
             </PopoverTrigger>
             <PopoverContent
               align="start"
-              aria-label="Not available on this agent"
+              aria-label={t`Not available on this agent`}
               className="w-72 max-w-(--radix-popover-content-available-width) p-0 text-xs"
               collisionPadding={16}
             >
               <p className="px-3 pt-2.5 pb-1.5 font-medium text-foreground">
-                Not available on this agent
+                {t`Not available on this agent`}
               </p>
               <ul className="grid pb-1.5">
                 {runtime.degradations.map((feature) => (
@@ -239,22 +249,22 @@ export function ConnectionsSettings() {
         </SettingsRow>
       ) : null}
 
-      <div className={cn('w-full', SETTINGS_COLUMN)} onKeyDown={rowArrowKeyDown}>
+      <div className={cn('w-full', SETTINGS_COLUMN)} data-row-keys="" onKeyDown={rowArrowKeyDown}>
         <SettingsGroupLabel
           actions={
             <IconButton
               icon={<ManageIcon />}
-              label="Manage agents…"
+              label={t`Manage agents…`}
               onClick={manageAgents}
               size="sm"
             />
           }
-          addLabel="Add an agent…"
+          addLabel={t`Add an agent…`}
           onAdd={readOnly ? undefined : () => setAdding(true)}
         >
-          Switch to
+          {t`Switch to`}
         </SettingsGroupLabel>
-        <ItemList label="Agents to switch to">
+        <ItemList label={t`Agents to switch to`}>
           {others.map((connection) => {
             const name = connectionName(connection);
             const host = hostOf(connection.endpoint);
@@ -267,24 +277,24 @@ export function ConnectionsSettings() {
                   <>
                     <IconButton
                       icon={<EditIcon />}
-                      label={`Rename ${name}`}
+                      label={t`Rename ${name}`}
                       onClick={() => setRenaming(connection)}
                       size="sm"
                     />
                     {connection.source === 'recent' ? (
                       <IconButton
                         icon={<DeleteIcon />}
-                        label={`Remove ${name}`}
+                        label={t`Remove ${name}`}
                         onClick={() => setRemoving(connection)}
                         size="sm"
                       />
                     ) : null}
                     <DropdownMenu modal={false}>
-                      <NamedTooltip label={`More for ${name}`}>
+                      <NamedTooltip label={t`More for ${name}`}>
                         <DropdownMenuTrigger asChild>
                           <IconButton
                             icon={<MoreIcon />}
-                            label={`More for ${name}`}
+                            label={t`More for ${name}`}
                             size="sm"
                             tooltip={false}
                           />
@@ -299,18 +309,18 @@ export function ConnectionsSettings() {
                           data-accelerator="C"
                           onSelect={() =>
                             void copyText(connection.endpoint).then(
-                              () => toast.success('Address copied'),
-                              () => toast.error('Could not copy the address'),
+                              () => toast.success(t`Address copied`),
+                              () => toast.error(t`Could not copy the address`),
                             )
                           }
                         >
                           <CopyIcon aria-hidden="true" />
-                          <JumpLabel label="Copy address" letter="C" />
+                          <JumpLabel label={t`Copy address`} letter="C" />
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem data-accelerator="M" onSelect={manageAgents}>
                           <ManageIcon aria-hidden="true" />
-                          <JumpLabel label="Manage agents…" letter="M" />
+                          <JumpLabel label={t`Manage agents…`} letter="M" />
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -331,7 +341,7 @@ export function ConnectionsSettings() {
                 }
                 slot={
                   <Button
-                    aria-label={`Switch to ${name}`}
+                    aria-label={t`Switch to ${name}`}
                     disabled={
                       readOnly ||
                       connectionSwitch.isPending ||
@@ -349,12 +359,12 @@ export function ConnectionsSettings() {
                     size="sm"
                     title={
                       connection.availability.state === 'unavailable'
-                        ? `${name} is offline`
+                        ? t`${name} is offline`
                         : undefined
                     }
                     variant="outline"
                   >
-                    {pending ? 'Switching…' : 'Switch'}
+                    {pending ? t`Switching…` : t({ message: 'Switch', context: 'verb' })}
                   </Button>
                 }
                 status={
@@ -370,8 +380,8 @@ export function ConnectionsSettings() {
             );
           })}
           {others.length === 0 ? (
-            <p className="flex h-11 items-center border-b border-border/70 px-2 text-xs text-faint">
-              No other agents saved. Add one to switch between them.
+            <p className="flex h-11 items-center border-b border-border/70 px-2 text-xs text-muted-foreground">
+              {t`No other agents saved. Add one to switch between them.`}
             </p>
           ) : null}
         </ItemList>
@@ -381,7 +391,7 @@ export function ConnectionsSettings() {
             role="alert"
           >
             <span className="min-w-0 truncate text-destructive">
-              Could not switch. That agent did not answer.
+              {t`Could not switch. That agent did not answer.`}
             </span>
             <Button
               className="h-auto shrink-0 p-0 text-xs"
@@ -390,7 +400,7 @@ export function ConnectionsSettings() {
               size="xs"
               variant="link"
             >
-              Retry
+              {t`Retry`}
             </Button>
           </p>
         ) : null}
@@ -401,10 +411,10 @@ export function ConnectionsSettings() {
         invalid={Boolean(addressError)}
         error={
           addressDirty && connectionSwitch.error
-            ? 'Could not switch. Nothing answered at this address.'
+            ? t`Could not switch. Nothing answered at this address.`
             : undefined
         }
-        label="New address, saving switches to it"
+        label={t`New address, saving switches to it`}
         onDiscard={() => setAddress(undefined)}
         onSave={saveAddress}
         saving={connectionSwitch.isPending && addressDirty}
@@ -413,7 +423,7 @@ export function ConnectionsSettings() {
         known={knownConnections}
         onAdd={(connection, name) => {
           rename(connection, name);
-          announce(`Added ${name.trim()}`, AFTER_DIALOG);
+          announce(t`Added ${ph({ name: name.trim() })}`, AFTER_DIALOG);
         }}
         onOpenChange={setAdding}
         open={adding}
@@ -427,7 +437,7 @@ export function ConnectionsSettings() {
         onRename={(name) => {
           if (!renaming) return;
           rename(renaming, name);
-          announce(`Renamed to ${name.trim()}`, AFTER_DIALOG);
+          announce(t`Renamed to ${ph({ name: name.trim() })}`, AFTER_DIALOG);
         }}
       />
       <RemoveAgentDialog
@@ -440,7 +450,7 @@ export function ConnectionsSettings() {
         onRemove={() => {
           if (!removing) return;
           void forget(removing.endpoint);
-          announce(`Removed ${connectionName(removing)}`, AFTER_DIALOG);
+          announce(t`Removed ${ph({ name: connectionName(removing) })}`, AFTER_DIALOG);
         }}
       />
     </div>

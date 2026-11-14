@@ -31,6 +31,7 @@ import { ObservabilityViewControl } from './observability-view-control';
 
 import type { ClioObservabilityDockProps } from './observability-dock-shell';
 import { ResourceLoading } from './resource-states';
+import { ph, t } from '@lingui/core/macro';
 export { ClioObservabilityDock, type ClioObservabilityDockProps } from './observability-dock-shell';
 
 // React Flow and its layout code load when the relationships view first opens.
@@ -136,11 +137,11 @@ export function ClioObservabilityView({
         (run): ObservabilityActivityItem => ({
           id: run.id,
           kind: 'run',
-          label: run.summary || `Run ${run.id.slice(0, 8)}`,
+          label: run.summary || t`Run ${ph({ id: run.id.slice(0, 8) })}`,
           detail:
             run.elapsed_ms === undefined
-              ? 'Agent run'
-              : `${formatDuration(run.elapsed_ms)} elapsed`,
+              ? t`Agent run`
+              : t`${ph({ duration: formatDuration(run.elapsed_ms) })} elapsed`,
           fact: run.elapsed_ms === undefined ? undefined : compactDuration(run.elapsed_ms),
           state: run.state,
           at: run.completed_at ?? run.started_at,
@@ -311,7 +312,7 @@ export function ClioObservabilityView({
     </>
   );
   const relationshipsView = (
-    <Suspense fallback={<ResourceLoading label="Loading relationships" />}>
+    <Suspense fallback={<ResourceLoading label={t`Loading relationships`} />}>
       <ConversationRelationships
         sessions={sessions ?? []}
         sessionId={sessionId ?? ''}
@@ -323,16 +324,8 @@ export function ClioObservabilityView({
   );
   const contextView = (
     <>
-      <SectionState
-        error={contextFilesError}
-        label="Attached context"
-        pending={contextFilesPending}
-      />
-      <SectionState
-        error={contextFramesError}
-        label="Context frames"
-        pending={contextFramesPending}
-      />
+      <SectionState error={contextFilesError} section="attached" pending={contextFilesPending} />
+      <SectionState error={contextFramesError} section="frames" pending={contextFramesPending} />
       <ClioContextCanvasPanel
         compactPending={compactContextPending}
         context={context}
@@ -375,12 +368,13 @@ export function ClioObservabilityView({
             }
             items={activity}
             messages={messages}
+            tools={tools}
             notice={
               processesError || processesPending ? (
                 <div className="border-b px-3 py-1.5">
                   <SectionState
                     error={processesError}
-                    label="Background work"
+                    section="background"
                     pending={processesPending}
                   />
                 </div>
@@ -409,28 +403,28 @@ export function ClioObservabilityView({
       <Tabs className="h-full min-h-0 gap-0" onValueChange={selectView} value={activeView}>
         {control ? null : (
           <TabsList
-            aria-label="Observability view"
+            aria-label={t`Observability view`}
             variant="line"
             className="no-scrollbar h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden rounded-none border-b px-1.5 py-0 group-data-horizontal/tabs:h-9"
           >
             {offered('activity') ? (
               <ObservabilityTab
                 icon={<ActivityIcon className="size-3.5" />}
-                label="Timeline"
+                label={t`Timeline`}
                 value="activity"
               />
             ) : null}
             {offered('relationships') ? (
               <ObservabilityTab
                 icon={<GitForkIcon className="size-3.5" />}
-                label="Relationships"
+                label={t`Relationships`}
                 value="relationships"
               />
             ) : null}
             {offered('context') ? (
               <ObservabilityTab
                 icon={<BracesIcon className="size-3.5" />}
-                label="Context"
+                label={t`Context`}
                 value="context"
               />
             ) : null}
@@ -439,11 +433,7 @@ export function ClioObservabilityView({
         <ScrollArea className="min-h-0 min-w-0 flex-1">
           <TabsContent className="m-0 grid gap-2 p-4" value="activity">
             {provenanceBar}
-            <SectionState
-              error={processesError}
-              label="Background work"
-              pending={processesPending}
-            />
+            <SectionState error={processesError} section="background" pending={processesPending} />
             <ClioActivityTimeline items={activity} messages={messages} />
           </TabsContent>
           <TabsContent className="m-0 min-w-0" value="relationships">
@@ -458,19 +448,26 @@ export function ClioObservabilityView({
   );
 }
 
+/** Each section's states as whole messages. */
+const SECTION_COPY = {
+  attached: { unavailable: t`Attached context unavailable`, loading: t`Loading attached context` },
+  frames: { unavailable: t`Context frames unavailable`, loading: t`Loading context frames` },
+  background: { unavailable: t`Background work unavailable`, loading: t`Loading background work` },
+};
+
 /** States an observability section the service could not deliver, or has not delivered yet. */
 function SectionState({
   error,
-  label,
+  section,
   pending,
 }: {
   error?: string;
-  label: string;
+  section: keyof typeof SECTION_COPY;
   pending?: boolean;
 }) {
-  if (error)
-    return <ClioStatus detail={error} label={`${label} unavailable`} value="unavailable" />;
-  if (pending) return <ClioStatus label={`Loading ${label.toLowerCase()}`} value="connecting" />;
+  const copy = SECTION_COPY[section];
+  if (error) return <ClioStatus detail={error} label={copy.unavailable} value="unavailable" />;
+  if (pending) return <ClioStatus label={copy.loading} value="connecting" />;
   return null;
 }
 

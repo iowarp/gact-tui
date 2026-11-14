@@ -9,6 +9,7 @@ import { useA2uiUrlGuard } from '@/lib/a2ui/url-guard';
 import { a2uiAccessibilityProps, type A2UIAccessibility } from './a2ui-accessibility';
 import { A2uiExternalMedia, A2uiMediaNotice } from './a2ui-media';
 import { ClioArtifactCard } from './artifact-card';
+import { t } from '@lingui/core/macro';
 
 interface ClioA2UIArtifactProps {
   accessibility?: A2UIAccessibility;
@@ -61,7 +62,7 @@ export function ClioA2UIArtifact({
       {reference && state.pending ? (
         <p className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
           <Spinner className="size-3.5" />
-          Locating this file on the connected service…
+          {t`Locating this file on the connected service…`}
         </p>
       ) : null}
     </div>

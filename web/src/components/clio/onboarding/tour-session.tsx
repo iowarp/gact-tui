@@ -161,12 +161,12 @@ export function TourSession({
     [step],
   );
 
-  // A finished action moves on by itself; exploring a chart waits for Next.
+  // A finished action moves on by itself; exploring a chart or reading what opened waits for Next.
   useEffect(() => {
-    if (!done || step.waitFor === 'interact') return;
+    if (!done || step.waitFor === 'interact' || step.stay) return;
     const timer = window.setTimeout(next, reduceMotion ? ADVANCE_REDUCED_MS : ADVANCE_MS);
     return () => window.clearTimeout(timer);
-  }, [done, next, reduceMotion, step.waitFor]);
+  }, [done, next, reduceMotion, step.waitFor, step.stay]);
 
   const content = (
     <>

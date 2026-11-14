@@ -37,3 +37,15 @@ export function isPrimarySession(session: Session): boolean {
 export function sessionInteractionAt(session: Session): string {
   return session.last_interaction_at || session.updated_at;
 }
+
+/**
+ * Whether a conversation changed after the revision last seen. Only a newer
+ * interaction counts: a list can still hold an older copy of a row seen since.
+ */
+export function hasUnseenActivity(session: Session, seenRevision: string | undefined): boolean {
+  if (seenRevision === undefined) return true;
+  const interactionAt = sessionInteractionAt(session);
+  const at = Date.parse(interactionAt);
+  const seen = Date.parse(seenRevision);
+  return Number.isNaN(at) || Number.isNaN(seen) ? interactionAt !== seenRevision : at > seen;
+}

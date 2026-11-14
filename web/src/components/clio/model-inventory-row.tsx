@@ -12,6 +12,7 @@ import {
   SmileIcon,
 } from 'lucide-react';
 import { CloseIcon, DeleteIcon, InfoIcon, RetryIcon } from '@/lib/icon-vocabulary';
+import { withAddressBreaks } from '@/lib/address-breaks';
 import { vocab } from '@/lib/brand-vocabulary';
 import { formatBytes } from '@/lib/format';
 import { registryModelTags } from '@/lib/registry-model-tags';
@@ -39,28 +40,31 @@ import { ClioRelativeTime } from './relative-time';
 import { TechnicalDetails } from './technical-details';
 import { ModelCapabilityTags } from './model-capability-tags';
 import { RegistryModelDetails } from './registry-model-details';
+import { t, ph } from '@lingui/core/macro';
+
+const { agent } = vocab;
 
 /** The words and mark for a download's state; never the colour alone. */
 function modelStatus(model: ModelAcquisition, runtimeUnavailable?: string): InfraStatus {
   switch (model.state) {
     case 'queued':
-      return { tone: 'waiting', label: 'Queued' };
+      return { tone: 'waiting', label: t`Queued` };
     case 'running':
-      return { tone: 'running', label: 'Downloading' };
+      return { tone: 'running', label: t`Downloading` };
     case 'ready':
       return runtimeUnavailable
-        ? { tone: 'warning', label: 'Runtime unavailable' }
-        : { tone: 'success', label: 'Ready' };
+        ? { tone: 'warning', label: t`Runtime unavailable` }
+        : { tone: 'success', label: t`Ready` };
     case 'failed':
-      return { tone: 'error', label: 'Failed' };
+      return { tone: 'error', label: t`Failed` };
     case 'cancelled':
-      return { tone: 'idle', label: 'Cancelled' };
+      return { tone: 'idle', label: t`Cancelled` };
     case 'interrupted':
-      return { tone: 'warning', label: 'Interrupted' };
+      return { tone: 'warning', label: t`Interrupted` };
     case 'stale':
-      return { tone: 'warning', label: 'Stale' };
+      return { tone: 'warning', label: t`Stale` };
     case 'removed':
-      return { tone: 'idle', label: 'Removed' };
+      return { tone: 'idle', label: t`Removed` };
   }
 }
 
@@ -126,7 +130,7 @@ export function ModelInventoryRow({
   const meta: ReactNode = active ? (
     total ? (
       <InfraProgress
-        label={`Download progress for ${model.repository}`}
+        label={t`Download progress for ${ph({ repository: model.repository })}`}
         value={(model.bytes_done / total) * 100}
       />
     ) : model.bytes_done > 0 ? (
@@ -135,7 +139,7 @@ export function ModelInventoryRow({
       'Preparing'
     )
   ) : shared && ready ? (
-    'Shared cache'
+    t`Shared cache`
   ) : ready ? (
     runtime
   ) : undefined;
@@ -144,7 +148,7 @@ export function ModelInventoryRow({
     <IconButton
       disabled={disabled}
       icon={<CloseIcon />}
-      label="Cancel download"
+      label={t`Cancel download`}
       onClick={() => onAction('cancel')}
       size="sm"
     />
@@ -152,7 +156,7 @@ export function ModelInventoryRow({
     <IconButton
       disabled={disabled}
       icon={<RetryIcon />}
-      label="Retry download"
+      label={t`Retry download`}
       onClick={() => onAction('retry')}
       size="sm"
     />
@@ -164,7 +168,7 @@ export function ModelInventoryRow({
       : undefined;
   const facts: KeyValueItem[] = [
     {
-      label: 'Revision',
+      label: t`Revision`,
       icon: <GitBranchIcon />,
       value: model.revision
         ? `${model.requested_revision} @ ${model.revision.slice(0, 7)}`
@@ -172,12 +176,12 @@ export function ModelInventoryRow({
       title: model.revision ?? undefined,
       mono: Boolean(model.revision),
     },
-    { label: 'Folder', icon: <FolderIcon />, value: model.destination, mono: true },
+    { label: t`Folder`, icon: <FolderIcon />, value: model.destination, mono: true },
     ...(active
       ? [
-          { label: 'Phase', icon: <DownloadIcon />, value: model.phase },
+          { label: t`Phase`, icon: <DownloadIcon />, value: model.phase },
           {
-            label: 'Downloaded',
+            label: t`Downloaded`,
             icon: <DatabaseIcon />,
             value: total
               ? `${formatBytes(model.bytes_done)} of ${formatBytes(total)}`
@@ -189,21 +193,21 @@ export function ModelInventoryRow({
     ...(shared
       ? [
           {
-            label: 'Source',
+            label: t`Source`,
             icon: <DatabaseIcon />,
-            value: `Shared cache, managed outside ${vocab.agent}`,
+            value: t`Shared cache, managed outside ${agent}`,
           },
         ]
       : []),
-    ...(shared && runtime ? [{ label: 'Runtime', icon: <CpuIcon />, value: runtime }] : []),
+    ...(shared && runtime ? [{ label: t`Runtime`, icon: <CpuIcon />, value: runtime }] : []),
     {
-      label: 'Last checked',
+      label: t`Last checked`,
       icon: <ClockIcon />,
       value: (
         <ClioRelativeTime
-          className="text-[12px] text-foreground"
+          className="text-meta text-foreground"
           compact
-          label="Last checked"
+          label={t`Last checked`}
           timestamp={new Date((model.observed_at ?? model.updated_at) * 1000).toISOString()}
         />
       ),
@@ -217,17 +221,17 @@ export function ModelInventoryRow({
           <InfraRowMenu
             actions={[
               ...(setUpRuntime
-                ? [{ icon: <RocketIcon />, label: 'Set up runtime', to: setUpRuntime }]
+                ? [{ icon: <RocketIcon />, label: t`Set up runtime`, to: setUpRuntime }]
                 : []),
               {
                 icon: <InfoIcon />,
-                label: expanded ? 'Hide details' : 'Show details',
+                label: expanded ? t`Hide details` : t`Show details`,
                 expanded,
                 onSelect: () => setExpanded((open) => !open),
               },
               {
                 icon: <DeleteIcon />,
-                label: 'Delete model',
+                label: t`Delete model`,
                 disabled: active || shared || disabled,
                 onSelect: () => {
                   remove.reset();
@@ -235,7 +239,7 @@ export function ModelInventoryRow({
                 },
               },
             ]}
-            label={`More for ${model.repository}`}
+            label={t`More for ${ph({ repository: model.repository })}`}
           />
         }
         className="cursor-pointer"
@@ -252,7 +256,7 @@ export function ModelInventoryRow({
                 <StateView
                   action={
                     retryable
-                      ? { label: 'Retry download', onClick: () => onAction('retry') }
+                      ? { label: t`Retry download`, onClick: () => onAction('retry') }
                       : undefined
                   }
                   kind="error"
@@ -262,11 +266,11 @@ export function ModelInventoryRow({
               ) : null}
               <div className="flex min-w-0 items-center gap-1">
                 <Button onClick={() => setCardOpen(true)} size="sm" variant="ghost">
-                  Model card
+                  {t`Model card`}
                 </Button>
               </div>
-              <TechnicalDetails className="text-[12px]" title="Technical details">
-                <pre className="clio-scrollbar mt-1 max-h-60 overflow-auto font-mono text-[11px] whitespace-pre text-muted-foreground">
+              <TechnicalDetails className="text-meta" title={t`Technical details`}>
+                <pre className="clio-scrollbar mt-1 max-h-60 overflow-auto font-mono text-caption whitespace-pre text-muted-foreground">
                   {JSON.stringify(model, null, 2)}
                 </pre>
               </TechnicalDetails>
@@ -278,7 +282,7 @@ export function ModelInventoryRow({
         onClick={() => setExpanded((open) => !open)}
         primaryAction={primaryAction ? <span onClick={stop}>{primaryAction}</span> : null}
         status={modelStatus(model, runtimeUnavailable)}
-        title={<span title={model.repository}>{model.repository}</span>}
+        title={<span title={model.repository}>{withAddressBreaks(model.repository)}</span>}
       />
       <Dialog open={cardOpen} onOpenChange={setCardOpen}>
         <DialogContent className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-3xl">
@@ -298,10 +302,9 @@ export function ModelInventoryRow({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {model.repository} files?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Delete ${ph({ repository: model.repository })} files?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes this download from {hostLabel} and frees its model files. You can
-              download it again. The operation receipt is retained.
+              {t`This removes this download from ${hostLabel} and frees its model files. You can download it again. The operation receipt is retained.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <p className="truncate font-mono text-xs text-muted-foreground" title={model.destination}>
@@ -309,7 +312,7 @@ export function ModelInventoryRow({
           </p>
           {remove.error ? <StateView kind="error" size="row" title={remove.error.message} /> : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={remove.isPending}>Keep model</AlertDialogCancel>
+            <AlertDialogCancel disabled={remove.isPending}>{t`Keep model`}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={remove.isPending}
@@ -318,7 +321,7 @@ export function ModelInventoryRow({
                 remove.mutate();
               }}
             >
-              {remove.isPending ? 'Deleting files...' : 'Delete model files'}
+              {remove.isPending ? t`Deleting files...` : t`Delete model files`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

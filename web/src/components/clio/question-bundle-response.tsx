@@ -5,6 +5,7 @@ import { useAttentionDraft } from './attention-drafts';
 import { bundleQuestions, type BundleQuestion } from './question-bundle';
 import { QuestionChoiceRows, QuestionWriteIn } from './question-choice-card';
 import { QuestionResponseFrame } from './question-response-frame';
+import { t } from '@lingui/core/macro';
 
 interface BundleAnswer {
   answer: string;
@@ -75,7 +76,7 @@ export function QuestionBundleResponse(props: {
   const choices = [
     ...question.options,
     ...(question.allow_freeform && question.options.length
-      ? [{ value: otherValue, label: 'Other answer' }]
+      ? [{ value: otherValue, label: t`Other answer` }]
       : []),
   ];
   return (
@@ -118,30 +119,32 @@ export function QuestionBundleResponse(props: {
         />
       ) : null}
       <AskError error={props.responseError} />
-      <AskOptions aria-label="Answers">
+      <AskOptions aria-label={t`Answers`}>
         {last ? (
           <AskButton
             disabled={disabled || complete !== questions.length}
+            // i18n-ignore: key name
             hint="Enter"
             onClick={() => void submit()}
             primary
           >
-            {sending ? 'Sending…' : 'Submit all answers'}
+            {sending ? t`Sending…` : t`Submit all answers`}
           </AskButton>
         ) : (
           // Filled, and on ↵, once this page has an answer; before that it only skips ahead.
           <AskButton
             disabled={disabled}
+            // i18n-ignore: key name
             hint={isComplete(question) ? 'Enter' : undefined}
             onClick={() => setIndex(index + 1)}
             primary={isComplete(question)}
           >
-            Next question
+            {t`Next question`}
           </AskButton>
         )}
         {index > 0 ? (
           <AskButton disabled={disabled} onClick={() => setIndex(index - 1)}>
-            Back
+            {t`Back`}
           </AskButton>
         ) : null}
       </AskOptions>

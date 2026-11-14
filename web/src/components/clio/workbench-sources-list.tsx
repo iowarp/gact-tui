@@ -11,8 +11,19 @@ import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ConnectedSourceActions } from './connected-source-actions';
 import { connectedSourceErrorMessage } from './connected-source-error';
-import { sourceStatus, sourceSublineParts } from './connected-source-labels';
+import {
+  sourceNarrowSublineParts,
+  sourceStatus,
+  sourceSublineParts,
+} from './connected-source-labels';
 import { ConnectedSourcePicker } from './connected-source-picker';
+import {
+  AttachedFolderIcon,
+  hostFolderInPlace,
+  hostFolderOf,
+  hostFolderSize,
+  resourceDisplayName,
+} from './host-folder';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
 import { StateView } from './primitives/state-view';
@@ -22,6 +33,7 @@ import { SOURCE_WORDMARK_WIDTH, sourceProviderUsesWordmark } from './source-prov
 import type { WorkbenchListColumnProps } from './workbench-list-column';
 import { GroupLabel } from './workbench-list-rows';
 import { activateOnKey } from './workbench-row-keys';
+import { t, ph } from '@lingui/core/macro';
 
 /** What the pocket's source dialog opens on: connecting a new source, or one source. */
 type SourceDialog =
@@ -87,7 +99,13 @@ export function SourcesList({
     [sources.data, needle],
   );
   const uploads = useMemo(
-    () => resources.filter((row) => !needle || row.name.toLowerCase().includes(needle)),
+    () =>
+      resources.filter(
+        (row) =>
+          !needle ||
+          resourceDisplayName(row).toLowerCase().includes(needle) ||
+          uploadSublineParts(row).join(' ').toLowerCase().includes(needle),
+      ),
     [resources, needle],
   );
   const total = (sources.data?.length ?? 0) + resources.length;
@@ -108,20 +126,20 @@ export function SourcesList({
     : undefined;
   let body: ReactNode;
   if (pending && !total)
-    body = <StateView className="p-4" kind="loading" size="panel" title="Loading sources" />;
+    body = <StateView className="p-4" kind="loading" size="panel" title={t`Loading sources`} />;
   else if (needle && !connected.length && !uploads.length)
     body = (
       <StateView
-        action={{ label: 'Clear search', onClick: closeSearch }}
+        action={{ label: t`Clear search`, onClick: closeSearch }}
         className="p-4"
         kind="empty"
         size="panel"
-        title="No sources match"
+        title={t`No sources match`}
       />
     );
   else
     body = (
-      <div aria-label="Workspace sources" className="@container/sources p-1" role="list">
+      <div aria-label={t`Workspace sources`} className="@container/sources p-1" role="list">
         {connected.map((source) => (
           <ConnectedSourceRow
             key={source.id}
@@ -145,7 +163,7 @@ export function SourcesList({
             workspaceId={workspaceId}
           />
         ))}
-        {uploads.length && connected.length ? <GroupLabel>Uploads</GroupLabel> : null}
+        {uploads.length && connected.length ? <GroupLabel>{t`Uploads`}</GroupLabel> : null}
         {uploads.map((resource) => (
           <UploadRow
             key={resource.id}
@@ -156,15 +174,15 @@ export function SourcesList({
           />
         ))}
         {!total && !sources.error && !resourcesError ? (
-          <p className="px-2 pt-2 pb-1 text-[12px] text-muted-foreground" role="listitem">
-            No sources in this workspace yet.
+          <p className="px-2 pt-2 pb-1 text-meta text-muted-foreground" role="listitem">
+            {t`No sources in this workspace yet.`}
           </p>
         ) : null}
         {sources.error || resourcesError ? (
           // The spec's status line (`.c3s`): what failed and Retry, no box.
           <div role="listitem">
             <StateView
-              action={{ label: 'Retry', onClick: refresh }}
+              action={{ label: t`Retry`, onClick: refresh }}
               kind="error"
               size="row"
               title={
@@ -178,7 +196,7 @@ export function SourcesList({
                       : undefined
                   }
                 >
-                  {sources.error ? "Sources couldn't be listed" : "Uploads couldn't be listed"}
+                  {sources.error ? t`Sources couldn't be listed` : t`Uploads couldn't be listed`}
                 </span>
               }
             />
@@ -187,14 +205,14 @@ export function SourcesList({
         {needle || (sources.error && !connected.length) ? null : (
           <div role="listitem">
             <ListRow
-              aria-label="Connect a data source"
-              className="h-[30px] cursor-pointer text-[12.5px] text-accent-foreground [&_[data-slot=list-row-icon]]:text-accent-foreground"
+              aria-label={t`Connect a data source`}
+              className="h-[30px] cursor-pointer text-menu text-accent-foreground [&_[data-slot=list-row-icon]]:text-accent-foreground"
               icon={<AddIcon />}
               onClick={() => openDialog({ kind: 'connect' })}
               onKeyDown={activateOnKey(() => openDialog({ kind: 'connect' }))}
               role="button"
               tabIndex={0}
-              title="Connect a data source"
+              title={t`Connect a data source`}
             />
           </div>
         )}
@@ -209,7 +227,7 @@ export function SourcesList({
             <IconButton
               aria-pressed={searching}
               icon={<SearchIcon />}
-              label={searching ? 'Close search' : 'Search sources'}
+              label={searching ? t`Close search` : t`Search sources`}
               onClick={() => (searching ? closeSearch() : setSearching(true))}
               size="sm"
               tooltipSide="bottom"
@@ -217,7 +235,7 @@ export function SourcesList({
           ) : null}
           <IconButton
             icon={<AddIcon />}
-            label="Connect a data source"
+            label={t`Connect a data source`}
             onClick={() => openDialog({ kind: 'connect' })}
             size="sm"
             tooltipSide="bottom"
@@ -227,7 +245,7 @@ export function SourcesList({
       {searching ? (
         <div className="flex h-9 shrink-0 items-center border-b border-border px-1.5">
           <Input
-            aria-label="Search sources"
+            aria-label={t`Search sources`}
             autoFocus
             className="h-7 text-xs"
             data-escape-owner=""
@@ -239,7 +257,7 @@ export function SourcesList({
                 closeSearch();
               }
             }}
-            placeholder="Search sources"
+            placeholder={t`Search sources`}
             value={query}
           />
         </div>
@@ -297,11 +315,16 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
             onKeyDown={stopRowActivation}
           >
             {status.signIn ? (
-              <IconButton icon={<RetryIcon />} label="Sign in again" onClick={onOpen} size="sm" />
+              <IconButton
+                icon={<RetryIcon />}
+                label={t`Sign in again`}
+                onClick={onOpen}
+                size="sm"
+              />
             ) : source.pending_edits ? (
               <IconButton
                 icon={<FolderUpIcon />}
-                label="Review and publish"
+                label={t`Review and publish`}
                 onClick={onOpen}
                 size="sm"
               />
@@ -324,14 +347,14 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
           </span>
         }
         actionsWidth={SOURCE_ACTIONS_WIDTH}
-        aria-label={`Open ${source.label}`}
+        aria-label={t`Open ${ph({ label: source.label })}`}
         // A source that needs sign-in keeps its action shown, as the spec pins it.
         className={cn(
           'cursor-pointer',
           status.signIn && '[&>[data-slot=list-row-actions]]:opacity-100',
         )}
         columns={<SourceStatusColumn label={status.label} tone={status.tone} />}
-        description={<SublineParts parts={parts} />}
+        description={<SublineParts narrow={sourceNarrowSublineParts(source)} parts={parts} />}
         icon={<SourceProviderLogo provider={source.provider} size="icon" />}
         iconWidth={iconWidth}
         layout="stacked"
@@ -345,15 +368,43 @@ const ConnectedSourceRow = memo(function ConnectedSourceRow({
   );
 });
 
-/** Sub-line parts held apart by a layout gap rather than a separator glyph. */
-function SublineParts({ parts }: { parts: readonly string[] }) {
+/**
+ * Sub-line parts held apart by a layout gap rather than a separator glyph. The line is one
+ * line high and wraps, so a later part that does not fit whole drops out of view instead of
+ * showing as a stub. When the list is narrow, `narrow[i]` replaces part i: a shorter word,
+ * or null to leave it out so the parts after it keep their room. A narrow line does not
+ * wrap: the first part truncates so the last (the access word) stays in view.
+ */
+function SublineParts({
+  parts,
+  narrow = [],
+}: {
+  parts: readonly string[];
+  narrow?: readonly (string | null | undefined)[];
+}) {
   return (
-    <span className="flex min-w-0 gap-2">
-      {parts.map((part, index) => (
-        <span className={cn('truncate', index === 0 && 'shrink-0')} key={part}>
-          {part}
-        </span>
-      ))}
+    <span className="flex h-[1lh] min-w-0 flex-wrap gap-x-2 overflow-hidden @max-[340px]/sources:flex-nowrap">
+      {parts.map((part, index) => {
+        const short = narrow[index];
+        return (
+          <span
+            className={cn(
+              index === 0 ? 'min-w-0 truncate' : 'shrink-0 whitespace-nowrap',
+              short === null && '@max-[340px]/sources:hidden',
+            )}
+            key={part}
+          >
+            {short ? (
+              <>
+                <span className="@max-[340px]/sources:hidden">{part}</span>
+                <span className="hidden @max-[340px]/sources:inline">{short}</span>
+              </>
+            ) : (
+              part
+            )}
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -361,7 +412,7 @@ function SublineParts({ parts }: { parts: readonly string[] }) {
 function SourceStatusColumn({ label, tone }: { label: string; tone: StatusTone }) {
   return (
     <span className="flex w-[104px] shrink-0 overflow-hidden @max-[340px]/sources:w-[72px]">
-      <StatusIndicator className="text-[11px]" label={label} tone={tone} />
+      <StatusIndicator className="text-caption" label={label} tone={tone} />
     </span>
   );
 }
@@ -372,7 +423,19 @@ function sentenceCase(value: string) {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-/** A file uploaded to the workspace: the same row, its size in the sub-line. */
+/**
+ * A folder's sub-line: how it is attached, then its size; a file's: Upload, then its size.
+ * A folder's own record is never what the person attached, so its size is not shown.
+ */
+function uploadSublineParts(resource: WorkspaceResource): string[] {
+  const folder = hostFolderOf(resource);
+  if (!folder) return [t`Upload`, formatResourceSize(resource.received_size)];
+  const how = hostFolderInPlace(folder) ? t`Folder, in place` : t`Full copy`;
+  const size = hostFolderSize(folder);
+  return size ? [how, size] : [how];
+}
+
+/** A file uploaded to the workspace, or a folder attached from the agent's computer. */
 function UploadRow({
   resource,
   iconWidth,
@@ -384,29 +447,44 @@ function UploadRow({
   selected: boolean;
   onOpen: () => void;
 }) {
-  const size = formatResourceSize(resource.received_size);
+  const name = resourceDisplayName(resource);
+  const folder = hostFolderOf(resource);
+  const parts = uploadSublineParts(resource);
   const status =
     resource.state === 'uploading'
       ? {
           tone: 'running' as const,
           label: resource.declared_size
             ? `${Math.round((resource.received_size / resource.declared_size) * 100)}%`
-            : 'Uploading',
+            : t`Uploading`,
         }
       : resource.state === 'ready'
-        ? { tone: 'success' as const, label: 'Ready' }
-        : { tone: 'idle' as const, label: sentenceCase(resource.state) };
+        ? { tone: 'success' as const, label: t`Ready` }
+        : {
+            tone: 'idle' as const,
+            label:
+              resource.state === 'quarantined'
+                ? t({ message: 'Quarantined', context: 'source state' })
+                : resource.state === 'failed'
+                  ? t({ message: 'Failed', context: 'source state' })
+                  : sentenceCase(resource.state),
+          };
   return (
-    <div role="listitem" title={`${resource.name}, ${size}`}>
+    <div role="listitem" title={`${name}, ${parts.join(', ')}`}>
       <ListRow
         actions={null}
         actionsWidth={SOURCE_ACTIONS_WIDTH}
         aria-current={selected || undefined}
-        aria-label={`Open ${resource.name}`}
+        aria-label={t`Open ${name}`}
         className="cursor-pointer"
         columns={<SourceStatusColumn label={status.label} tone={status.tone} />}
-        description={<SublineParts parts={['Upload', size]} />}
-        icon={<PaperclipIcon />}
+        description={
+          <SublineParts
+            narrow={[folder && hostFolderInPlace(folder) ? t`In place` : undefined]}
+            parts={parts}
+          />
+        }
+        icon={folder ? <AttachedFolderIcon /> : <PaperclipIcon />}
         iconWidth={iconWidth}
         layout="stacked"
         onClick={onOpen}
@@ -414,7 +492,7 @@ function UploadRow({
         role="button"
         selected={selected}
         tabIndex={0}
-        title={resource.name}
+        title={name}
       />
     </div>
   );

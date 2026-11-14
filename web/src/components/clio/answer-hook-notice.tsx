@@ -1,17 +1,55 @@
 import type { MessageBlock } from '@clio/core/v3';
 import { CircleCheckIcon, CircleXIcon, MessageSquareTextIcon, PencilLineIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { GroundedMessageResponse } from './grounded-message-response';
+import { t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 type NoticeBlock = Extract<MessageBlock, { type: 'notice' }>;
 type TextBlock = Extract<MessageBlock, { type: 'text' }>;
 
 const KINDS = {
-  note: { icon: MessageSquareTextIcon, label: 'Note from', tone: 'text-muted-foreground' },
-  check_passed: { icon: CircleCheckIcon, label: 'Check passed, by', tone: 'text-success' },
-  check_failed: { icon: CircleXIcon, label: 'Check failed, by', tone: 'text-destructive' },
-  revised: { icon: PencilLineIcon, label: 'Revised by', tone: 'text-muted-foreground' },
+  note: {
+    icon: MessageSquareTextIcon,
+    heading: (hook: ReactNode, onOriginal: boolean) =>
+      onOriginal ? (
+        <Trans>Note from {hook} on the original answer</Trans>
+      ) : (
+        <Trans>Note from {hook}</Trans>
+      ),
+    tone: 'text-muted-foreground',
+  },
+  check_passed: {
+    icon: CircleCheckIcon,
+    heading: (hook: ReactNode, onOriginal: boolean) =>
+      onOriginal ? (
+        <Trans>Check passed, by {hook} on the original answer</Trans>
+      ) : (
+        <Trans>Check passed, by {hook}</Trans>
+      ),
+    tone: 'text-success',
+  },
+  check_failed: {
+    icon: CircleXIcon,
+    heading: (hook: ReactNode, onOriginal: boolean) =>
+      onOriginal ? (
+        <Trans>Check failed, by {hook} on the original answer</Trans>
+      ) : (
+        <Trans>Check failed, by {hook}</Trans>
+      ),
+    tone: 'text-destructive',
+  },
+  revised: {
+    icon: PencilLineIcon,
+    heading: (hook: ReactNode, onOriginal: boolean) =>
+      onOriginal ? (
+        <Trans>Revised by {hook} on the original answer</Trans>
+      ) : (
+        <Trans>Revised by {hook}</Trans>
+      ),
+    tone: 'text-muted-foreground',
+  },
 } as const;
 
 const toggleClassName =
@@ -46,8 +84,10 @@ export function AnswerHookNotice({
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
         <Icon aria-hidden="true" className={cn('size-4 shrink-0 self-center', kind.tone)} />
         <span className={cn('font-medium', kind.tone)}>
-          {kind.label} <code className="break-all font-mono text-xs">{hook || 'a hook'}</code>
-          {checkedOriginal ? ' on the original answer' : null}
+          {kind.heading(
+            <code className="break-all font-mono text-xs">{hook || t`a hook`}</code>,
+            checkedOriginal,
+          )}
           {block.text ? ': ' : null}
         </span>
         {block.text ? (
@@ -62,7 +102,7 @@ export function AnswerHookNotice({
             onClick={() => setOpen((value) => !value)}
             type="button"
           >
-            {open ? 'Hide the original answer' : 'Show the original answer'}
+            {open ? t`Hide the original answer` : t`Show the original answer`}
           </button>
         ) : null}
       </div>

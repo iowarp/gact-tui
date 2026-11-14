@@ -1,3 +1,4 @@
+import { t, ph } from '@lingui/core/macro';
 import { Input } from '@/components/ui/input';
 import { vocab } from '@/lib/brand-vocabulary';
 import { SegmentedControl } from './primitives/segmented-control';
@@ -8,9 +9,9 @@ import type { SourceFieldsState } from './use-source-fields';
 type S3Access = 'anonymous' | 'keys' | 'profile';
 
 const accessOptions: ReadonlyArray<{ value: S3Access; label: string }> = [
-  { value: 'anonymous', label: 'Public' },
-  { value: 'keys', label: 'Access key' },
-  { value: 'profile', label: 'Profile' },
+  { value: 'anonymous', label: t`Public` },
+  { value: 'keys', label: t`Access key` },
+  { value: 'profile', label: t`Profile` },
 ];
 
 /**
@@ -33,7 +34,7 @@ export function SourceS3Fields({
     setConfiguration((previous) => ({ ...previous, ...patch }));
   return (
     <>
-      <SourceField label="Region" htmlFor={`${formId}-s3-region`}>
+      <SourceField label={t`Region`} htmlFor={`${formId}-s3-region`}>
         <Input
           id={`${formId}-s3-region`}
           form={formId}
@@ -45,14 +46,13 @@ export function SourceS3Fields({
         />
       </SourceField>
       <SourceField
-        label="Endpoint"
+        label={t`Endpoint`}
         htmlFor={`${formId}-s3-endpoint`}
         aside={
           <>
-            Optional
-            <InfoTip label="When to set an endpoint">
-              Leave it empty for Amazon S3. For an S3-compatible store such as MinIO, Ceph or the
-              Open Storage Network, enter its address.
+            {t`Optional`}
+            <InfoTip label={t`When to set an endpoint`}>
+              {t`Leave it empty for Amazon S3. For an S3-compatible store such as MinIO, Ceph or the Open Storage Network, enter its address.`}
             </InfoTip>
           </>
         }
@@ -67,9 +67,9 @@ export function SourceS3Fields({
           onChange={(event) => set({ s3_endpoint_url: event.target.value.trim() })}
         />
       </SourceField>
-      <SourceField label="Access">
+      <SourceField label={t`Access`}>
         <SegmentedControl
-          label="Access"
+          label={t`Access`}
           value={access}
           onValueChange={(value) => {
             set({ s3_access: value as S3Access });
@@ -80,7 +80,7 @@ export function SourceS3Fields({
       </SourceField>
       {access === 'keys' ? (
         <>
-          <SourceField label="Access key ID" htmlFor={`${formId}-s3-key`}>
+          <SourceField label={t`Access key ID`} htmlFor={`${formId}-s3-key`}>
             <Input
               id={`${formId}-s3-key`}
               form={formId}
@@ -98,9 +98,9 @@ export function SourceS3Fields({
             />
           </SourceField>
           <SourceField
-            label="Secret access key"
+            label={t`Secret access key`}
             htmlFor={`${formId}-s3-secret`}
-            hint={`Kept by ${vocab.agent} on the computer it runs on, for this source only; scripts and tools never see it.`}
+            hint={t`Kept by ${ph({ agent: vocab.agent })} on the computer it runs on, for this source only; scripts and tools never see it.`}
           >
             <Input
               id={`${formId}-s3-secret`}
@@ -121,9 +121,9 @@ export function SourceS3Fields({
         </>
       ) : access === 'profile' ? (
         <SourceField
-          label="Profile name"
+          label={t`Profile name`}
           htmlFor={`${formId}-s3-profile`}
-          hint={`A profile in the AWS configuration of the computer ${vocab.agent} runs on.`}
+          hint={t`A profile in the AWS configuration of the computer ${ph({ agent: vocab.agent })} runs on.`}
         >
           <Input
             id={`${formId}-s3-profile`}

@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { brand } from '@brand';
-import { withArticle } from '@/lib/brand-vocabulary';
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { UpdateStatus } from '@/hooks/use-update-status';
@@ -135,7 +134,8 @@ it('opens the ways to add an agent in place on a phone, with Back', async () => 
   expect(screen.getByText('choose')).toBeVisible();
   expect(screen.getByText('back')).toBeVisible();
   expect(screen.queryByText('switch')).toBeNull();
-  expect(screen.getByText(`${withArticle(brand.agentName)} that is already running`)).toBeVisible();
+  const article = /^[aeiou]/iu.test(brand.agentName) ? 'An' : 'A';
+  expect(screen.getByText(`${article} ${brand.agentName} that is already running`)).toBeVisible();
 
   await user.keyboard('{ArrowLeft}');
   expect(screen.getByText('Talking to')).toBeVisible();

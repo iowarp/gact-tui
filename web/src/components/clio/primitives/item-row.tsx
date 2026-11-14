@@ -1,4 +1,5 @@
 import { forwardRef, memo, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
+import { rowArrowKeyDown } from '@/lib/row-arrow-keys';
 import { cn } from '@/lib/utils';
 
 export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'title' | 'slot'> {
@@ -14,6 +15,12 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
   actions?: ReactNode;
   /** Keep the actions visible (touch, or an item that always offers them). */
   actionsVisible?: boolean;
+  /**
+   * Hidden actions take no column: on hover or focus they float over the end of
+   * the row, left of the slot, and the name and meta get the width. Only for rows
+   * without a status; the slot sizes to its content.
+   */
+  floatActions?: boolean;
   /**
    * The last action is a ⋯ menu that holds every action. On a phone-width list
    * the others fold into it and it stays visible in its own column; on a touch
@@ -42,6 +49,11 @@ export interface ItemRowProps extends Omit<HTMLAttributes<HTMLDivElement>, 'titl
    * `line` the 30px one-line row (name then muted meta) for pickers, menus and dense lists.
    */
   size?: 'default' | 'sm' | 'line';
+  /**
+   * The meta line may wrap to a second line instead of ending in an ellipsis,
+   * for descriptions that run long in some languages (Greek, Japanese).
+   */
+  wrapMeta?: boolean;
 }
 
 /**
@@ -65,6 +77,7 @@ export const ItemRow = memo(
       status,
       actions,
       actionsVisible = false,
+      floatActions = false,
       foldActions = false,
       slot,
       confirm,
@@ -74,6 +87,7 @@ export const ItemRow = memo(
       slotWidth = 84,
       selected = false,
       size = 'default',
+      wrapMeta = false,
       className,
       style,
       ...rest
@@ -88,6 +102,8 @@ export const ItemRow = memo(
     // pointer leaves), never over the name or meta; a row without a status
     // keeps their column.
     const overlay = !actionsVisible && status !== undefined;
+    const floats = floatActions && !actionsVisible && status === undefined && !foldActions;
+    const hasSlot = slot !== undefined && slot !== null && slot !== false;
     const columns: CSSProperties = {
       ['--item-icon' as string]: iconWidth === undefined ? '1.25rem' : `${iconWidth}px`,
       ['--item-status' as string]: `${status === undefined ? 0 : statusWidth}px`,
@@ -112,14 +128,29 @@ export const ItemRow = memo(
           '@max-2xl:grid-cols-[var(--item-icon)_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-actions)_var(--item-slot)]',
           overlay &&
             '@max-xl:grid-cols-[var(--item-icon)_minmax(0,1fr)_min(var(--item-status),9.875rem)_var(--item-slot)]',
+          // Stacked, the slot track fits its button: a localized "Update" outgrows the fixed column.
           stacks &&
             (folds
-              ? '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_1.625rem_var(--item-slot)]'
+              ? '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_1.625rem_minmax(var(--item-slot),max-content)]'
               : !overlay
-                ? '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-actions)_var(--item-slot)]'
-                : '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-slot)]'),
+                ? '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_var(--item-actions)_minmax(var(--item-slot),max-content)]'
+                : '@max-sm:grid-cols-[var(--item-icon)_minmax(0,1fr)_minmax(var(--item-slot),max-content)]'),
           // A stacked confirm takes row 2, so the name and meta get the freed columns.
           stacks && '@max-sm:data-confirm:grid-cols-[var(--item-icon)_minmax(0,1fr)]!',
+          // Stacked, an empty slot kept only for alignment gives its width to the name and status.
+          stacks && !hasSlot && '@max-sm:[--item-slot:0px]!',
+          // Stacked, a labelled slot button takes its own line under the text, so its column goes too.
+          stacks &&
+            !floats &&
+            '@max-sm:has-[[data-slot=item-row-slot]_[data-slot=button]]:[--item-slot:0px]!',
+          // Hidden actions in their own column join that line too, so the name gets their width.
+          stacks &&
+            !floats &&
+            !overlay &&
+            !folds &&
+            '@max-sm:has-[[data-slot=item-row-slot]_[data-slot=button]]:[--item-actions:0px]!',
+          // Floating actions: the name, then a slot that is only as wide as its content.
+          floats && 'grid-cols-[var(--item-icon)_minmax(0,1fr)_auto]!',
           size === 'line'
             ? 'h-[1.875rem] gap-x-[0.5625rem] rounded-[7px] border-b-0'
             : size === 'sm'
@@ -152,9 +183,7 @@ export const ItemRow = memo(
           <span
             className={cn(
               'min-w-0 truncate text-foreground',
-              size === 'line'
-                ? 'max-w-full shrink-0 text-[0.78125rem]'
-                : 'text-[0.8125rem] font-medium',
+              size === 'line' ? 'max-w-full shrink-0 text-menu' : 'text-ui font-medium',
             )}
             data-slot="item-row-title"
           >
@@ -163,8 +192,11 @@ export const ItemRow = memo(
           {meta ? (
             <span
               className={cn(
-                'min-w-0 truncate text-faint',
-                size === 'line' ? 'shrink-[100] text-[0.71875rem]' : 'text-xs',
+                'min-w-0 text-muted-foreground',
+                wrapMeta && size !== 'line'
+                  ? 'line-clamp-2 leading-snug break-words whitespace-normal'
+                  : 'truncate',
+                size === 'line' ? 'shrink-[100] text-label' : 'text-xs',
               )}
               data-slot="item-row-meta"
             >
@@ -185,14 +217,44 @@ export const ItemRow = memo(
           >
             {confirm}
           </span>
+        ) : floats ? (
+          <span
+            className={cn(
+              'relative flex min-w-0 items-center justify-end gap-2 self-stretch [&_[data-slot=button]]:text-xs',
+              stacks && '@max-sm:row-span-2',
+            )}
+            data-slot="item-row-slot"
+          >
+            <span
+              className={cn(
+                'pointer-events-none absolute inset-y-0 right-full flex items-center justify-end gap-px bg-hover pl-1 opacity-0',
+                'group-focus-within/item-row:pointer-events-auto group-focus-within/item-row:opacity-100 group-hover/item-row:pointer-events-auto group-hover/item-row:opacity-100',
+                // A touch screen has no hover and a tap doesn't focus the row: keep them in the row.
+                'pointer-coarse:pointer-events-auto pointer-coarse:static pointer-coarse:bg-transparent pointer-coarse:pl-0 pointer-coarse:opacity-100',
+                hasSlot && 'mr-2 pointer-coarse:mr-0',
+              )}
+              data-slot="item-row-actions"
+            >
+              {actions}
+            </span>
+            {slot}
+          </span>
         ) : (
           <>
             <span
               className={cn(
-                'flex min-w-0 items-center overflow-hidden',
+                'flex min-w-0 items-center overflow-hidden text-xs text-muted-foreground',
                 // Pinned with the actions that float over it, so the slot keeps its column.
                 overlay && '@max-xl:col-start-3 @max-xl:row-start-1',
                 stacks && '@max-sm:col-start-2 @max-sm:row-start-2',
+                // Beside a slot button, the status line runs under it too, so its words stay whole.
+                stacks && hasSlot && !folds && '@max-sm:col-[2/-1]',
+                // A folded ⋯ beside a labelled button's own line keeps to the name, so the status runs under it.
+                folds &&
+                  '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1]',
+                // On its own line, a long localized status wraps rather than clipping.
+                stacks &&
+                  '@max-sm:[&_[data-slot=status-indicator]>span]:break-words @max-sm:[&_[data-slot=status-indicator]>span]:whitespace-normal @max-sm:[&_[data-slot=status-indicator]>span]:[word-break:auto-phrase] @max-sm:[&_[data-slot=status-indicator]>span]:[line-break:strict]',
               )}
               data-slot="item-row-status"
             >
@@ -206,8 +268,15 @@ export const ItemRow = memo(
                 // In the status cell, over its words; stacked, the status line under the name.
                 overlay && '@max-xl:col-start-3 @max-xl:row-start-1 @max-xl:bg-hover @max-xl:pl-1',
                 overlay && stacks && !folds && '@max-sm:col-start-2 @max-sm:row-start-2',
+                // Beside a labelled slot button on its own line, at that line's end.
+                stacks &&
+                  !overlay &&
+                  !folds &&
+                  '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:col-[2/-1] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:row-[3] @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:justify-self-end @max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:pt-1',
                 folds &&
                   '@xl:pointer-coarse:pointer-events-auto @xl:pointer-coarse:opacity-100 @max-sm:pointer-events-auto @max-sm:opacity-100 @max-sm:static @max-sm:row-span-2 @max-sm:bg-transparent @max-sm:pl-0 @max-sm:[&>*:not(:last-child)]:hidden',
+                folds &&
+                  '@max-sm:group-has-[[data-slot=item-row-slot]_[data-slot=button]]/item-row:row-span-1',
               )}
               data-slot="item-row-actions"
             >
@@ -217,7 +286,14 @@ export const ItemRow = memo(
               className={cn(
                 // Spec `.xi .btn`: slot buttons read 12px/500 whatever size they were given.
                 'flex min-w-0 items-center justify-end gap-2 [&_[data-slot=button]]:text-xs',
-                stacks && '@max-sm:row-span-2',
+                stacks &&
+                  (hasSlot && !folds
+                    ? '@max-sm:col-end-[-1] @max-sm:row-start-1'
+                    : '@max-sm:row-span-2'),
+                // A labelled button ("Update", "Change") gets a line of its own, start-aligned
+                // under the name and meta, so a localized label never squeezes the name.
+                stacks &&
+                  '@max-sm:has-[[data-slot=button]]:col-[2/-1] @max-sm:has-[[data-slot=button]]:row-[3] @max-sm:has-[[data-slot=button]]:justify-self-start @max-sm:has-[[data-slot=button]]:pt-1',
               )}
               data-slot="item-row-slot"
             >
@@ -245,6 +321,11 @@ export function ItemList({
     <div
       aria-label={label}
       className={cn('@container min-w-0', className)}
+      onKeyDown={(event) => {
+        // A section that moves between its lists ([data-row-keys]) owns the keys.
+        if (event.currentTarget.parentElement?.closest('[data-row-keys]')) return;
+        rowArrowKeyDown(event);
+      }}
       role={label ? 'group' : undefined}
     >
       {children}

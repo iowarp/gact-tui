@@ -1,6 +1,6 @@
 import { useNearViewport } from '@/hooks/use-near-viewport';
 import { Maximize2Icon, PanelRightOpenIcon, WorkflowIcon } from 'lucide-react';
-import { useCallback, useContext, useState, useRef } from 'react';
+import { useCallback, useContext, useEffect, useState, useRef } from 'react';
 import {
   Artifact,
   ArtifactAction,
@@ -28,6 +28,7 @@ import {
   flowTaskHistoryUnavailable,
   settledTaskStatus,
   stepTally,
+  flowRowCount,
 } from './flow-run-presentation';
 import { FlowUsageSummary } from './flow-run-usage';
 import { FlowRunDetails, FlowRunFullScreen } from './flow-run-view';
@@ -36,6 +37,7 @@ import type { FlowToolDescriptor } from './flow-tool-presentation';
 import { PresentationNavigation } from './presentation-navigation';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
+import { ph, plural, t } from '@lingui/core/macro';
 
 /**
  * The flow an agent started, as a card in the conversation where it started
@@ -65,42 +67,41 @@ export function FlowRunCard({
   const agentRef = useSessionAgentRef(sessionId);
   const presentation = useFlowPresentation(run.data, agentRef, flow.args, sessionId, near);
   const [fullScreen, setFullScreen] = useState(false);
-  const title = `${flow.label} run`;
+  const title = t`${ph({ flow: flow.label })} run`;
   const data = run.data;
   const questions = useFlowQuestions(sessionId, data, near || fullScreen);
   // No checkpoint: a flow that ended before writing one reads from its task, not as unstarted.
   const task = useFlowTaskRecord(flow.handle, near && data === null);
   const ended = data === null && task.data ? settledTaskStatus(task.data) : undefined;
+  // A card shown before the run wrote its first checkpoint keeps asking for it while the
+  // task runs; once it exists, the run's own polling takes over.
+  const awaitingCheckpoint = data === null && Boolean(task.data) && !ended;
+  const refetchRun = run.refetch;
+  useEffect(() => {
+    if (awaitingCheckpoint) void refetchRun();
+  }, [awaitingCheckpoint, task.dataUpdatedAt, refetchRun]);
   const status = data ? flowRunStatus(data) : ended;
   const { steps, members, verdict, closing, runElapsed } = presentation;
   const rows = data?.view || data?.execution?.length ? steps : members;
   const historyUnavailable = data ? flowTaskHistoryUnavailable(data, rows.length) : false;
-  const noun =
-    data?.view || data?.execution?.length
-      ? 'step'
-      : data?.flow === 'arena'
-        ? 'entry'
-        : data?.flow === 'council'
-          ? 'member'
-          : 'task';
-  const plural = noun === 'entry' ? 'entries' : `${noun}s`;
+  const stepwise = Boolean(data?.view || data?.execution?.length);
   const summary = data
     ? [
         historyUnavailable
-          ? 'Task history not recorded'
-          : `${rows.length} ${rows.length === 1 ? noun : plural}`,
+          ? t`Task history not recorded`
+          : flowRowCount(rows.length, stepwise, data.flow),
         historyUnavailable ? '' : stepTally(rows.map((row) => row.status)),
         rowDuration(runElapsed),
       ]
         .filter(Boolean)
         .join(', ')
     : run.isPending
-      ? 'Loading the run…'
+      ? t`Loading the run…`
       : run.error
-        ? 'The run could not be loaded'
+        ? t`The run could not be loaded`
         : ended
-          ? task.data?.error_reason || 'Ended before its run was recorded'
-          : 'Not started yet';
+          ? task.data?.error_reason || t`Ended before its run was recorded`
+          : t`Not started yet`;
   const openPanel = navigation?.onOpenFlow
     ? () => navigation.onOpenFlow?.(flow.handle, title)
     : undefined;
@@ -126,17 +127,17 @@ export function FlowRunCard({
             {data ? (
               <ArtifactAction
                 icon={Maximize2Icon}
-                label={`Show the ${flow.label.toLowerCase()} run full screen`}
+                label={t`Show the ${ph({ flow: flow.label.toLowerCase() })} run full screen`}
                 onClick={() => setFullScreen(true)}
-                tooltip="Full screen"
+                tooltip={t`Full screen`}
               />
             ) : null}
             {openPanel ? (
               <ArtifactAction
                 icon={PanelRightOpenIcon}
-                label={`Open the ${flow.label.toLowerCase()} run in the side panel`}
+                label={t`Open the ${ph({ flow: flow.label.toLowerCase() })} run in the side panel`}
                 onClick={openPanel}
-                tooltip="Open in the side panel"
+                tooltip={t`Open in the side panel`}
               />
             ) : null}
           </ArtifactActions>
@@ -167,9 +168,10 @@ export function FlowRunCard({
                 className="rounded-md border border-warning/40 bg-warning/5 px-2 py-1.5 text-xs"
                 role="status"
               >
-                {data.view.awaiting_approval.length === 1
-                  ? 'A proposed step is waiting for your approval.'
-                  : `${data.view.awaiting_approval.length} proposed steps are waiting for your approval.`}
+                {plural(data.view.awaiting_approval.length, {
+                  one: 'A proposed step is waiting for your approval.',
+                  other: '# proposed steps are waiting for your approval.',
+                })}
               </p>
             ) : null}
             <FlowEdits onOpenHandle={openHandle} questions={questions} run={data} steps={steps} />

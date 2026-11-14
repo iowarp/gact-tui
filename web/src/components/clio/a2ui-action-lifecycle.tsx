@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 import type { A2UIActionLifecycle } from '@clio/core/v3';
 import { ClioStatus, type ClioStatusValue } from './status';
 
@@ -31,28 +32,31 @@ function lifecycleStatusValue(status: A2UIActionLifecycle['status']): ClioStatus
 }
 
 function lifecycleLabel(lifecycle: A2UIActionLifecycle): string {
-  const name = lifecycle.action_name === 'approval.respond'
-    ? 'Decision'
-    : lifecycle.action_name === 'agent.submit' ? 'Selection' : lifecycle.action_name;
+  const name =
+    lifecycle.action_name === 'approval.respond'
+      ? t`Decision`
+      : lifecycle.action_name === 'agent.submit'
+        ? t`Selection`
+        : lifecycle.action_name;
   switch (lifecycle.status) {
     case 'received':
-      return `${name} received by the agent`;
+      return t`${name} received by the agent`;
     case 'delivered':
-      return `${name} delivered to the agent's turn`;
+      return t`${name} delivered to the agent's turn`;
     case 'consumed':
-      return `${name} recorded`;
-    case 'failed':
-      return lifecycle.reason
-        ? `${name} failed: ${lifecycle.reason}`
-        : `${name} failed`;
+      return t`${name} recorded`;
+    case 'failed': {
+      const reason = lifecycle.reason;
+      return reason ? t`${name} failed: ${reason}` : t`${name} failed`;
+    }
     case 'duplicate':
-      return `${name} ignored as a duplicate`;
+      return t`${name} ignored as a duplicate`;
     case 'unknown':
-      return `${name} status unknown`;
+      return t`${name} status unknown`;
     default: {
       const unhandled: never = lifecycle.status;
       void unhandled;
-      return `${name} status unknown`;
+      return t`${name} status unknown`;
     }
   }
 }
@@ -61,7 +65,10 @@ export function ClioA2UIActionLifecycle({ lifecycle }: { lifecycle?: A2UIActionL
   if (!lifecycle || lifecycle.action_name === 'VALIDATION_FAILED') return null;
   return (
     <div aria-live="polite" className="border-t px-4 py-2 text-xs">
-      <ClioStatus label={lifecycleLabel(lifecycle)} value={lifecycleStatusValue(lifecycle.status)} />
+      <ClioStatus
+        label={lifecycleLabel(lifecycle)}
+        value={lifecycleStatusValue(lifecycle.status)}
+      />
     </div>
   );
 }

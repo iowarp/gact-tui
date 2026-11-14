@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 
 async function invokeCredential<T>(command: string, input: Record<string, string>): Promise<T> {
@@ -7,7 +8,7 @@ async function invokeCredential<T>(command: string, input: Record<string, string
   } catch (error) {
     throw error instanceof Error
       ? error
-      : new Error(typeof error === 'string' ? error : 'Secure credential storage is unavailable.');
+      : new Error(typeof error === 'string' ? error : t`Secure credential storage is unavailable.`);
   }
 }
 

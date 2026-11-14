@@ -1,12 +1,13 @@
 import { LocateFixedIcon, MapPinIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { t } from '@lingui/core/macro';
 
 export type RouteMarkerKind = 'start' | 'waypoint' | 'destination';
 
 const LABELS: Record<RouteMarkerKind, string> = {
-  start: 'Starting point',
-  waypoint: 'Hop',
-  destination: 'Destination',
+  start: t`Starting point`,
+  waypoint: t`Hop`,
+  destination: t`Destination`,
 };
 
 /**

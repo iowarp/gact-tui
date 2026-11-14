@@ -2,6 +2,7 @@ import { CodeXmlIcon, Columns2Icon, EyeIcon } from 'lucide-react';
 import type { LatexOutlineNode, LatexReport } from '@clio/core/v3';
 import { LATEX_WARNING_KINDS, latexKindLabel } from '@/lib/latex-diagnostics';
 import type { FileMode } from './file-mode-controls';
+import { t } from '@lingui/core/macro';
 
 /** A place in the paper's sources: a file and, when known, its line. */
 export interface LatexPlace {
@@ -88,25 +89,21 @@ export function latexProblems(report: LatexReport): LatexProblem[] {
   ];
 }
 
-export function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
-}
-
 /** What the LaTeX tab shows: the PDF (Render), the .tex (Source), or both side by side. */
 export type LatexView = 'pdf' | 'source' | 'both';
 
-const RENDER: FileMode = { value: 'pdf', label: 'Render', title: 'Render (PDF)', icon: EyeIcon };
+const RENDER: FileMode = { value: 'pdf', label: t`Render`, title: t`Render (PDF)`, icon: EyeIcon };
 const SOURCE: FileMode = {
   value: 'source',
-  label: 'Source',
-  title: 'Source (.tex)',
+  label: t`Source`,
+  title: t`Source (.tex)`,
   icon: CodeXmlIcon,
   shortcut: 'render-source',
 };
 const BOTH: FileMode = {
   value: 'both',
-  label: 'Side by side',
-  title: 'Source and PDF side by side',
+  label: t`Side by side`,
+  title: t`Source and PDF side by side`,
   icon: Columns2Icon,
 };
 
@@ -127,10 +124,16 @@ export function latexCrumbs(path: string): string[] {
 }
 
 /** "built 2m ago": when the shown build finished ("failed 2m ago" when it stopped). */
-export function builtAgo(at: number, now: number, verb = 'built'): string {
+export function builtAgo(at: number, now: number, outcome: 'built' | 'failed' = 'built'): string {
   const minutes = Math.max(0, Math.floor((now - at) / 60_000));
-  if (minutes < 1) return `${verb} just now`;
-  if (minutes < 60) return `${verb} ${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
-  return hours < 48 ? `${verb} ${hours}h ago` : `${verb} ${Math.floor(hours / 24)}d ago`;
+  const days = Math.floor(hours / 24);
+  if (outcome === 'failed') {
+    if (minutes < 1) return t`failed just now`;
+    if (minutes < 60) return t`failed ${minutes}m ago`;
+    return hours < 48 ? t`failed ${hours}h ago` : t`failed ${days}d ago`;
+  }
+  if (minutes < 1) return t`built just now`;
+  if (minutes < 60) return t`built ${minutes}m ago`;
+  return hours < 48 ? t`built ${hours}h ago` : t`built ${days}d ago`;
 }

@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { t } from '@lingui/core/macro';
 
 /** Attach an optional rating and comment to the original response. */
 export function ResponseFeedbackComment({
@@ -59,8 +60,8 @@ export function ResponseFeedbackComment({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Response feedback</DialogTitle>
-            <DialogDescription>What was good or bad about this response?</DialogDescription>
+            <DialogTitle>{t`Response feedback`}</DialogTitle>
+            <DialogDescription>{t`What was good or bad about this response?`}</DialogDescription>
           </DialogHeader>
           <div className="my-4 flex gap-2">
             {(['good', 'bad'] as const).map((value) => {
@@ -76,18 +77,18 @@ export function ResponseFeedbackComment({
                   onClick={() => setChoice(choice === value ? null : value)}
                 >
                   <Icon aria-hidden="true" className="size-3.5" />
-                  {value === 'good' ? 'Good response' : 'Bad response'}
+                  {value === 'good' ? t`Good response` : t`Bad response`}
                 </Button>
               );
             })}
           </div>
-          <Label htmlFor={commentId}>Comment</Label>
+          <Label htmlFor={commentId}>{t`Comment`}</Label>
           <Textarea
             autoFocus
             ref={commentRef}
             id={commentId}
             className="mt-2 min-h-28 max-h-60"
-            placeholder="Add details about what worked or what could improve…"
+            placeholder={t`Add details about what worked or what could improve…`}
             value={text}
             onChange={(event) => setText(event.target.value)}
             maxLength={4000}
@@ -100,13 +101,13 @@ export function ResponseFeedbackComment({
           ) : null}
           <DialogFooter className="mt-4">
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t`Cancel`}
             </Button>
             <Button
               type="submit"
               disabled={saving || (choice === rating && text.trim() === comment)}
             >
-              {saving ? 'Saving feedback…' : 'Save feedback'}
+              {saving ? t`Saving feedback…` : t`Save feedback`}
             </Button>
           </DialogFooter>
         </form>

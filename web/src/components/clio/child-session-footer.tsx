@@ -5,6 +5,7 @@ import { useLayoutEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ChildConversationFollowup } from './child-conversation-followup';
+import { t } from '@lingui/core/macro';
 
 export interface ClioChildSessionFooterProps {
   session: Pick<Session, 'id' | 'parent_session_id' | 'workspace_id'>;
@@ -18,9 +19,9 @@ export interface ClioChildSessionFooterProps {
 
 function childSessionGuidance(state: RunState): string {
   if (state === 'running' || state === 'queued') {
-    return 'Send a follow-up to steer this agent while it works.';
+    return t`Send a follow-up to steer this agent while it works.`;
   }
-  return 'Send a follow-up to continue with this agent.';
+  return t`Send a follow-up to continue with this agent.`;
 }
 
 /** Keeps child follow-ups and parent navigation available in the central conversation. */
@@ -71,23 +72,23 @@ export function ClioChildSessionFooter({
                 <BotIcon aria-hidden="true" className="size-4" />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-medium">Delegated conversation</p>
+                <p className="text-sm font-medium">{t`Delegated conversation`}</p>
                 <p className="text-xs leading-5 text-muted-foreground">
                   {childSessionGuidance(state)}
                 </p>
               </div>
             </div>
             <Button
-              aria-label={`Return to parent conversation ${parentTitle}`}
-              className="w-full shrink-0 sm:w-auto"
+              aria-label={t`Return to parent conversation ${parentTitle}`}
+              className="h-auto min-h-7 w-full shrink-0 py-1 whitespace-normal text-balance sm:w-auto"
               onClick={onReturnToParent}
               size="sm"
-              title={`Return to ${parentTitle}`}
+              title={t`Return to ${parentTitle}`}
               type="button"
               variant="outline"
             >
               <ArrowLeftIcon aria-hidden="true" />
-              Return to parent
+              {t`Return to parent`}
             </Button>
           </div>
           <ChildConversationFollowup

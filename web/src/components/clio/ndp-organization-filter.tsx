@@ -18,6 +18,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { t } from '@lingui/core/macro';
 
 export type NDPOrganizationChoice = { id: string; endpoint_id: string };
 
@@ -56,14 +57,14 @@ export function NDPOrganizationFilter({
         <button
           type="button"
           role="combobox"
-          aria-label="Organization filter"
+          aria-label={t`Organization filter`}
           aria-expanded={open}
           className={cn(
             sourceInputClass,
             'inline-flex max-w-full items-center gap-2 border bg-background text-left outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
           )}
         >
-          <span className="truncate">{value?.id || 'All organizations'}</span>
+          <span className="truncate">{value?.id || t`All organizations`}</span>
           <ChevronDownIcon aria-hidden="true" className="size-3.5 shrink-0 opacity-60" />
         </button>
       </PopoverTrigger>
@@ -78,28 +79,29 @@ export function NDPOrganizationFilter({
               : 0
           }
         >
-          <CommandInput placeholder="Find an organization…" />
+          <CommandInput placeholder={t`Find an organization…`} />
           {organizations.isFetching || !cacheReady ? (
             <p role="status" className="px-3 py-2 text-sm text-muted-foreground">
-              {organizations.data ? 'Refreshing organizations…' : 'Loading organizations…'}
+              {organizations.data ? t`Refreshing organizations…` : t`Loading organizations…`}
             </p>
           ) : null}
           {organizations.isError ? (
             <div role="alert" className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
               <span>
                 {organizations.data
-                  ? 'Could not refresh. Showing saved organizations.'
-                  : 'Organizations unavailable.'}
+                  ? t`Could not refresh. Showing saved organizations.`
+                  : t`Organizations unavailable.`}
               </span>
               <Button variant="ghost" size="sm" onClick={() => void organizations.refetch()}>
-                Retry
+                {t`Retry`}
               </Button>
             </div>
           ) : null}
           <CommandList className="min-h-0 max-h-[min(18rem,40dvh)] touch-pan-y overscroll-contain">
-            <CommandEmpty>No matching organizations.</CommandEmpty>
+            <CommandEmpty>{t`No matching organizations.`}</CommandEmpty>
             <CommandItem onSelect={() => select(null)}>
-              All organizations{!value ? <CheckIcon className="ml-auto" /> : null}
+              {t`All organizations`}
+              {!value ? <CheckIcon className="ml-auto" /> : null}
             </CommandItem>
             {organizations.data?.organizations.map((item) => (
               <CommandItem

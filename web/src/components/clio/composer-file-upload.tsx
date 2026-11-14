@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { t } from '@lingui/core/macro';
 
 function carriesFiles(event: globalThis.DragEvent): boolean {
   return event.dataTransfer?.types.includes('Files') ?? false;
@@ -67,10 +68,10 @@ export function ClioComposerFileUpload({
         void readDroppedFolders(entries)
           .then((files) => {
             if (onFolderFiles) onFolderFiles(files);
-            else toast.error('Choose a workspace before attaching a folder');
+            else toast.error(t`Choose a workspace before attaching a folder`);
           })
           .catch((error: unknown) =>
-            toast.error(error instanceof Error ? error.message : 'Could not read this folder'),
+            toast.error(error instanceof Error ? error.message : t`Could not read this folder`),
           );
         return;
       }
@@ -121,14 +122,14 @@ export function ClioComposerFileUpload({
     >
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add attachments</DialogTitle>
+          <DialogTitle>{t`Add attachments`}</DialogTitle>
           <DialogDescription>
-            Files are added to this message and remain editable before you send it.
+            {t`Files are added to this message and remain editable before you send it.`}
           </DialogDescription>
         </DialogHeader>
         <FileUploadDropzone
           dragging={dragging}
-          maxSizeLabel="250 MB"
+          maxSizeLabel={t`250 MB`}
           onFilesAdded={(files) => {
             attachments.add(files);
             setDragging(false);

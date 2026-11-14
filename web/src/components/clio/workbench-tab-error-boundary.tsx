@@ -1,6 +1,7 @@
 import { AlertTriangleIcon } from 'lucide-react';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { t, ph } from '@lingui/core/macro';
 
 interface WorkbenchTabErrorBoundaryProps {
   children: ReactNode;
@@ -33,20 +34,20 @@ export class WorkbenchTabErrorBoundary extends Component<
       <section className="grid h-full place-items-center p-6" role="alert">
         <div className="w-full max-w-md rounded-xl border border-destructive/40 bg-card p-5 shadow-sm">
           <AlertTriangleIcon aria-hidden="true" className="size-5 text-destructive" />
-          <h3 className="mt-3 text-sm font-semibold">Could not open {this.props.label}</h3>
+          <h3 className="mt-3 text-sm font-semibold">{t`Could not open ${ph({ label: this.props.label })}`}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            This canvas item failed to render. The workspace and your draft are still available.
+            {t`This canvas item failed to render. The workspace and your draft are still available.`}
           </p>
           <div className="mt-4 flex gap-2">
             <Button onClick={() => this.setState({})} size="sm">
-              Try again
+              {t`Try again`}
             </Button>
             <Button onClick={this.props.onClose} size="sm" variant="outline">
-              Close tab
+              {t`Close tab`}
             </Button>
           </div>
           <details className="mt-4 text-xs text-muted-foreground">
-            <summary className="cursor-pointer">Error detail</summary>
+            <summary className="cursor-pointer">{t`Error detail`}</summary>
             <p className="mt-2 break-words font-mono">{this.state.error.message}</p>
           </details>
         </div>

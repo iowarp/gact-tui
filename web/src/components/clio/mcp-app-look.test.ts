@@ -1,5 +1,6 @@
 import type { TransportFrame } from '@clio/core/v3';
 import { describe, expect, it, vi } from 'vitest';
+import { markMcpAppEnded, noteMcpApp, resetMcpAppLiveSet } from './mcp-app-live-set';
 import { dispatchMcpAppLookFrame, McpAppLooks, snapshotAnswer } from './mcp-app-look';
 
 const identity = { sessionId: 's1', appInstanceId: 'app1', dataRef: 'ref' };
@@ -75,6 +76,29 @@ describe('McpAppLooks', () => {
     );
     await Promise.resolve();
     expect(postMcpAppLook).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let go of a view CLIO already closed', () => {
+    resetMcpAppLiveSet();
+    const setMcpAppShown = vi.fn().mockResolvedValue({});
+    const looks = new McpAppLooks({ setMcpAppShown }, identity, vi.fn());
+    looks.start();
+    noteMcpApp(
+      {
+        ...identity,
+        label: 'Plot',
+        resourceUri: 'ui://plot',
+        sourceServer: 'plots',
+        toolName: 'plot',
+      },
+      undefined,
+      'tab',
+    );
+    markMcpAppEnded(identity.appInstanceId);
+    looks.stop();
+    expect(setMcpAppShown).toHaveBeenCalledTimes(1);
+    expect(setMcpAppShown).toHaveBeenCalledWith(identity, expect.any(String), true);
+    resetMcpAppLiveSet();
   });
 
   it('answers a failed snapshot with its reason', async () => {

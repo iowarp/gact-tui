@@ -1,11 +1,5 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
-import {
-  CircleArrowUpIcon,
-  DownloadIcon,
-  KeyRoundIcon,
-  LoaderCircleIcon,
-  LogInIcon,
-} from 'lucide-react';
+import { DownloadIcon, KeyRoundIcon, LoaderCircleIcon, LogInIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { providerUsableModelCount, type ProviderGroup } from './model-picker-model';
 import { ProviderComponentStatus } from './provider-component-status';
@@ -19,6 +13,7 @@ import { useProviderActions } from './provider-actions';
 import { ProviderLoginButton } from './provider-login-button';
 import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-footer';
 import { ProviderSetupAction } from './provider-setup-action';
+import { ProviderUpdateButton } from './provider-update-button';
 import { providerActionError, providerSetupFlow } from './provider-setup-state';
 import { RefreshButton } from './refresh-button';
 import { ProviderEndpointEditor } from './provider-endpoint-editor';
@@ -26,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { NamedTooltip } from './primitives/icon-button';
 import { Link, useInRouterContext } from 'react-router-dom';
+import { t } from '@lingui/core/macro';
 
 export interface ProviderPanelColumn {
   /** The column's content when it has no rows (setup, or a log in). */
@@ -127,7 +123,7 @@ export function useProviderPanel({
   const settingsHref = `/settings/providers?provider=${encodeURIComponent(group.id)}`;
   const settingsIcon = <SettingsIcon aria-hidden="true" />;
   const settingsLink = (className?: string) => (
-    <NamedTooltip label="Provider settings" side="top">
+    <NamedTooltip label={t`Provider settings`} side="top">
       <Button
         asChild
         className={cn(
@@ -139,11 +135,11 @@ export function useProviderPanel({
         variant="ghost"
       >
         {inRouter ? (
-          <Link aria-label="Provider settings" to={settingsHref} onClick={onClose}>
+          <Link aria-label={t`Provider settings`} to={settingsHref} onClick={onClose}>
             {settingsIcon}
           </Link>
         ) : (
-          <a aria-label="Provider settings" href={settingsHref} onClick={onClose}>
+          <a aria-label={t`Provider settings`} href={settingsHref} onClick={onClose}>
             {settingsIcon}
           </a>
         )}
@@ -164,9 +160,9 @@ export function useProviderPanel({
   const logOut: ProviderLogOut | undefined = !preset?.is_authenticated
     ? undefined
     : preset.supports_logout
-      ? { label: 'Log out', run: () => providerActions.logout.mutate(), busy: false }
+      ? { label: t`Log out`, run: () => providerActions.logout.mutate(), busy: false }
       : preset.requires_api_key
-        ? { label: 'Remove key', run: () => providerActions.removeApiKey.mutate(), busy: false }
+        ? { label: t`Remove key`, run: () => providerActions.removeApiKey.mutate(), busy: false }
         : undefined;
   const hasSetup = Boolean(preset) || Boolean(componentStatus);
   // The client update folds into the manage row, as the spec's provider bar
@@ -184,18 +180,11 @@ export function useProviderPanel({
       {componentUpdate.stage}
     </span>
   ) : updateTo ? (
-    <Button
-      className="h-[22px] shrink-0 gap-[5px] rounded-[6px] px-2 text-[11px] font-semibold text-accent-foreground"
-      data-slot="provider-update-available"
+    <ProviderUpdateButton
       disabled={Boolean(providerActions.stage)}
-      onClick={componentUpdate.update}
-      size="xs"
-      type="button"
-      variant="outline"
-    >
-      <CircleArrowUpIcon aria-hidden="true" className="size-3" />
-      Update to {updateTo}
-    </Button>
+      onUpdate={componentUpdate.update}
+      updateTo={updateTo}
+    />
   ) : null;
   const manageSettings = settingsLink('size-[22px] [&_svg]:size-[13px]');
   const settingsMenuItem = (label: string) => (
@@ -213,7 +202,7 @@ export function useProviderPanel({
       )}
     </DropdownMenuItem>
   );
-  const settingsItem = settingsMenuItem('Provider settings');
+  const settingsItem = settingsMenuItem(t`Provider settings`);
   // A provider that is not usable yet ends its group with its one fix, inline:
   // the Log in split, Add key, Install or Check again (the spec's provider bar).
   const flow = providerSetupFlow(group, preset);
@@ -222,14 +211,15 @@ export function useProviderPanel({
   const logIn = () => providerActions.authenticate.mutate('browser');
   const useCode =
     preset?.provider === 'codex' ? () => providerActions.authenticate.mutate('device') : undefined;
-  const checkLabel = group.health === 'setup' ? 'Check' : 'Check again';
-  const compactButton = 'h-[22px] shrink-0 gap-[5px] rounded-[6px] px-2 text-[11px]';
+  const checkLabel =
+    group.health === 'setup' ? t({ message: 'Check', context: 'verb' }) : t`Check again`;
+  const compactButton = 'h-[22px] shrink-0 gap-[5px] rounded-[6px] px-2 text-caption';
   const manageSetup =
     flow === 'sign_in' ? (
       <ProviderLoginButton
         disabled={setupBusy}
-        label={refused ? 'Sign in again' : 'Log in'}
-        menuItems={settingsMenuItem('Set up in provider settings')}
+        label={refused ? t`Sign in again` : t`Log in`}
+        menuItems={settingsMenuItem(t`Set up in provider settings`)}
         onLogIn={logIn}
         onUseCode={useCode}
         size="xs"
@@ -245,7 +235,7 @@ export function useProviderPanel({
         variant="outline"
       >
         <KeyRoundIcon data-icon="inline-start" />
-        Add key
+        {t`Add key`}
       </Button>
     ) : flow === 'install' ? (
       <Button
@@ -257,7 +247,7 @@ export function useProviderPanel({
         variant="outline"
       >
         <DownloadIcon data-icon="inline-start" />
-        Install
+        {t`Install`}
       </Button>
     ) : (
       <RefreshButton
@@ -278,18 +268,18 @@ export function useProviderPanel({
       <>
         <DropdownMenuItem disabled={setupBusy} onSelect={logIn}>
           <LogInIcon aria-hidden="true" />
-          {refused ? 'Sign in again' : 'Log in'}
+          {refused ? t`Sign in again` : t`Log in`}
         </DropdownMenuItem>
         {useCode ? (
           <DropdownMenuItem disabled={setupBusy} onSelect={useCode}>
-            Log in with a code instead
+            {t`Log in with a code instead`}
           </DropdownMenuItem>
         ) : null}
       </>
     ) : flow === 'api_key' ? (
       <DropdownMenuItem disabled={setupBusy} onSelect={() => setKeyEntry(true)}>
         <KeyRoundIcon aria-hidden="true" />
-        Add key
+        {t`Add key`}
       </DropdownMenuItem>
     ) : flow === 'install' ? (
       <DropdownMenuItem
@@ -297,7 +287,7 @@ export function useProviderPanel({
         onSelect={() => providerActions.installProvider.mutate()}
       >
         <DownloadIcon aria-hidden="true" />
-        Install
+        {t`Install`}
       </DropdownMenuItem>
     ) : (
       <DropdownMenuItem
@@ -321,7 +311,7 @@ export function useProviderPanel({
           actions={providerActions}
           align="start"
           flow={flow}
-          loginLabel={refused ? 'Sign in again' : undefined}
+          loginLabel={refused ? t`Sign in again` : undefined}
           offerCode={Boolean(useCode)}
           preset={preset}
           providerLabel={group.name}

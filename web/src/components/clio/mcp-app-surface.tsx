@@ -49,6 +49,10 @@ import {
   McpAppRegionLayer,
 } from './comments/mcp-app-comments';
 import { ClioStatus } from './status';
+import { McpAppBlankNotice, McpAppFrameMenu, McpAppPaintStatus } from './mcp-app-frame-menu';
+import { watchFirstPaint, type PaintVerdict } from './mcp-app-first-paint';
+import { t } from '@lingui/core/macro';
+import { formatClockTime } from '@/lib/locale-format';
 
 export { MCP_APPS_PROTOCOL_VERSION } from './mcp-app-bridge';
 
@@ -128,13 +132,23 @@ export const McpAppSurface = forwardRef<McpAppSurfaceHandle, McpAppSurfaceProps>
     const placement = props.placement ?? 'inline';
     // A move between placements reloads the frame and replays initialize, input and result.
     const identityKey = `${props.sessionId}:${props.appInstanceId}:${props.dataRef}:${placement}`;
-    return <McpAppSurfaceInstance key={identityKey} {...props} ref={ref} placement={placement} />;
+    // "Reload view" (FP-D9) mounts the frame afresh the same way.
+    const [reloads, setReloads] = useState(0);
+    return (
+      <McpAppSurfaceInstance
+        key={`${identityKey}:${reloads}`}
+        {...props}
+        onReload={() => setReloads((count) => count + 1)}
+        placement={placement}
+        ref={ref}
+      />
+    );
   },
 );
 
 const McpAppSurfaceInstance = forwardRef<
   McpAppSurfaceHandle,
-  McpAppSurfaceProps & { placement: McpAppPlacementKind }
+  McpAppSurfaceProps & { placement: McpAppPlacementKind; onReload: () => void }
 >(function McpAppSurfaceInstance(props, ref) {
   const { placement } = props;
   const identity = useMemo<McpAppIdentity>(
@@ -151,6 +165,7 @@ const McpAppSurfaceInstance = forwardRef<
   const [error, setError] = useState('');
   const [ended, setEnded] = useState(false);
   const [ready, setReady] = useState(false);
+  const [paint, setPaint] = useState<PaintVerdict>('pending');
   const [requestedHeight, setRequestedHeight] = useState(props.height ?? 420);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
   const channel = useRef<ViewChannel>(newChannel());
@@ -271,6 +286,7 @@ const McpAppSurfaceInstance = forwardRef<
       }).then(snapshotAnswer);
     const looks = new McpAppLooks(latest.current.repository, identity, snapshot);
     let withdrawSnapshot = () => undefined as void;
+    let firstPaint: ReturnType<typeof watchFirstPaint> | undefined;
     const answer = (message: JsonRpcMessage) => {
       const pending = view.pending.get(String(message.id));
       if (!pending) return;
@@ -305,6 +321,7 @@ const McpAppSurfaceInstance = forwardRef<
           !isRecord(message.params.appInfo) ||
           !isRecord(message.params.appCapabilities)
         ) {
+          // i18n-ignore: JSON-RPC error returned to the MCP App
           post(rpcError(message.id, -32602, 'Unsupported MCP Apps protocol version'));
           return;
         }
@@ -344,6 +361,7 @@ const McpAppSurfaceInstance = forwardRef<
         snapshotRef.current = snapshot;
         withdrawSnapshot = registerViewSnapshot(iframe, snapshot);
         looks.start();
+        firstPaint = watchFirstPaint(snapshot, setPaint);
         latest.current.onAppInitialized?.(appCapabilities ?? {});
         return;
       }
@@ -386,6 +404,7 @@ const McpAppSurfaceInstance = forwardRef<
     };
     const notifyContext = () => {
       if (!initialized) return;
+      firstPaint?.recheck();
       post({
         jsonrpc: '2.0',
         method: 'ui/notifications/host-context-changed',
@@ -408,6 +427,7 @@ const McpAppSurfaceInstance = forwardRef<
       active = false;
       viewTools.stop();
       looks.stop();
+      firstPaint?.stop();
       snapshotRef.current = undefined;
       withdrawSnapshot();
       view.post = undefined;
@@ -446,20 +466,21 @@ const McpAppSurfaceInstance = forwardRef<
       data-mcp-app-placement={placement}
       spacing={null}
     >
-      <FrameHeader className="flex-row items-center gap-2 border-b px-3 py-2">
+      <FrameHeader className="flex-row flex-wrap items-center gap-2 border-b px-3 py-2">
         <PanelsTopLeftIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-        <FrameTitle className="min-w-0 flex-1 truncate">{displayName}</FrameTitle>
+        <FrameTitle className="min-w-[7rem] flex-1 truncate">{displayName}</FrameTitle>
         {error ? (
-          <ClioStatus label="Unavailable" value="unavailable" />
+          <ClioStatus label={t`Unavailable`} value="unavailable" />
         ) : descriptor?.service_refusal ? (
-          <ClioStatus label="Service unavailable" value="unavailable" />
+          <ClioStatus label={t`Service unavailable`} value="unavailable" />
         ) : (
-          <ClioStatus label={ready ? 'Ready' : 'Loading'} value={ready ? 'succeeded' : 'running'} />
+          <McpAppPaintStatus paint={paint} ready={ready} />
         )}
         {comments ? (
-          <McpAppCommentsIcon disabledReason={ready ? undefined : 'The view is still loading.'} />
+          <McpAppCommentsIcon disabledReason={ready ? undefined : t`The view is still loading.`} />
         ) : null}
         {props.actions}
+        <McpAppFrameMenu label={displayName} onReload={props.onReload} />
       </FrameHeader>
       <FramePanel
         className={cn('relative min-w-0 p-0', fill && 'min-h-0 flex-1')}
@@ -469,7 +490,7 @@ const McpAppSurfaceInstance = forwardRef<
           <div className="grid min-h-[15rem] place-items-center p-4">
             <Alert className="max-w-lg" variant="destructive">
               <AlertTriangleIcon aria-hidden="true" />
-              <AlertTitle>Interactive tool unavailable</AlertTitle>
+              <AlertTitle>{t`Interactive tool unavailable`}</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           </div>
@@ -484,6 +505,7 @@ const McpAppSurfaceInstance = forwardRef<
                 {descriptor.service_refusal.message}
               </p>
             ) : null}
+            {ready && paint === 'blank' ? <McpAppBlankNotice onReload={props.onReload} /> : null}
             <iframe
               className={cn(
                 'block w-full border-0 bg-background',
@@ -495,7 +517,7 @@ const McpAppSurfaceInstance = forwardRef<
               sandbox="allow-scripts allow-same-origin"
               src={descriptor.sandbox_url}
               style={fill ? undefined : { height: frameHeight }}
-              title={`${displayName} interactive view`}
+              title={t`${displayName}, interactive view`}
             />
             {comments ? <McpAppRegionLayer /> : null}
           </>
@@ -565,12 +587,12 @@ export function McpAppHistoryLine({
       <PanelsTopLeftIcon aria-hidden="true" className="size-4" />
       {serverOnly ? (
         <span className="min-w-0 flex-1 truncate text-foreground/85">
-          {displayName} view closed
+          {t`${displayName} view closed`}
         </span>
       ) : (
         <>
           <span className="min-w-0 flex-1 truncate text-foreground/85">{displayName}</span>
-          <span className="shrink-0 text-xs text-muted-foreground">View ended</span>
+          <span className="shrink-0 text-xs text-muted-foreground">{t`View ended`}</span>
         </>
       )}
     </div>
@@ -592,22 +614,19 @@ export function McpAppResponseActivity({ response }: { response: McpAppResponseA
       />
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="font-medium text-foreground">You responded through {displayName}</span>
+          <span className="font-medium text-foreground">{t`You responded through ${displayName}`}</span>
           <time
-            className="font-mono text-[10px] text-muted-foreground"
+            className="font-mono text-[0.625rem] text-muted-foreground"
             dateTime={response.createdAt}
           >
-            {new Date(response.createdAt).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            {formatClockTime(response.createdAt)}
           </time>
         </div>
         {response.text ? (
           <p className="whitespace-pre-wrap text-foreground/85">{response.text}</p>
         ) : null}
         <p className="text-xs text-muted-foreground">
-          {response.state === 'pending' ? 'Queued for the agent' : 'Sent to the agent'}
+          {response.state === 'pending' ? t`Queued for the agent` : t`Sent to the agent`}
         </p>
       </div>
     </div>

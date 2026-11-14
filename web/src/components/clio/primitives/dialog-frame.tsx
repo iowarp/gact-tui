@@ -8,6 +8,7 @@ import { useKeysAria } from '@/lib/shortcuts/hooks';
 import { cn } from '@/lib/utils';
 import { InfoTip } from '../info-tip';
 import { ShortcutKeys } from './key-chip';
+import { t } from '@lingui/core/macro';
 
 const CLOSE_KEYS = ['Esc'] as const;
 
@@ -66,7 +67,7 @@ function FrameClose({ className }: { className?: string }) {
       <Button
         variant="ghost"
         size="icon"
-        aria-label="Close"
+        aria-label={t`Close`}
         className={cn('shrink-0 text-muted-foreground', className)}
       >
         <CloseIcon aria-hidden="true" />
@@ -193,7 +194,7 @@ export const DialogFrame = memo(function DialogFrame({
   className,
 }: DialogFrameProps) {
   const fullWindow = narrow === 'window';
-  const cancelLabel = cancelProp === undefined ? (confirm ? 'Cancel' : 'Close') : cancelProp;
+  const cancelLabel = cancelProp === undefined ? (confirm ? t`Cancel` : t`Close`) : cancelProp;
   const confirmOnly = cancelLabel === null && Boolean(confirm);
   const confirmKeys = Boolean(confirm && !confirm.disabled && confirm.keyboard !== false);
   const confirmKey = confirm?.key === 'Enter' ? 'Enter' : 'Ctrl+Enter';
@@ -242,11 +243,11 @@ export const DialogFrame = memo(function DialogFrame({
               {icon}
             </span>
           ) : null}
-          <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[14px] leading-7 font-semibold [overflow-wrap:normal]">
+          <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[0.875rem] leading-7 font-semibold [overflow-wrap:normal]">
             {title}
           </DialogTitle>
           {help ? (
-            <InfoTip className="size-7" label={`About ${title}`}>
+            <InfoTip className="size-7" label={t`About ${title}`}>
               {help}
             </InfoTip>
           ) : null}
@@ -256,7 +257,7 @@ export const DialogFrame = memo(function DialogFrame({
         {description ? (
           <DialogDescription
             className={cn(
-              '-mt-2 pr-3.5 pb-1 text-[12.5px] leading-normal text-pretty',
+              '-mt-2 pr-3.5 pb-1 text-menu leading-normal text-pretty',
               icon ? 'pl-[42px]' : 'pl-4',
             )}
           >
@@ -271,12 +272,13 @@ export const DialogFrame = memo(function DialogFrame({
             // Prose starts under the title text (`.xd .bd`: 16px icon + 10px gap); setting
             // rows start at the frame's 18px edge (settings `.xdb`), whatever the icon.
             // No rule closes it, so a last settings row drops its own too. Its setting rows
-            // stay inline at every frame width (spec `.xdb .xr`): label 36%, control the rest.
+            // stay inline (spec `.xdb .xr`): label 36% or its longest word, control the rest.
+            // A row under 18rem (a phone sheet at a larger interface size) stacks instead.
             className={cn(
-              'min-w-0 pt-2 pr-[18px] text-[13px] [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0',
+              'min-w-0 pt-2 pr-[18px] text-ui [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0',
               // Full window: the body takes the height, so the buttons sit at the bottom.
               fullWindow && 'max-[599px]:flex-1',
-              '[&_[data-slot=settings-row]]:grid-cols-[36%_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
+              '[&_[data-slot=settings-row]]:@min-[18rem]:grid-cols-[minmax(min-content,36%)_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
               // A 36% label column is ~110px in a 340px frame: names wrap onto a
               // second line there rather than cut to "Provider prefe…".
               '[&_[data-slot=settings-label]]:leading-[1.3] [&_[data-slot=settings-label]]:whitespace-normal',
@@ -292,46 +294,57 @@ export const DialogFrame = memo(function DialogFrame({
         ) : null}
         <div
           data-slot="dialog-frame-footer"
-          className="@container flex min-w-0 items-center justify-end gap-2 pt-[18px] pr-3.5 pb-3.5 pl-[18px]"
+          // What no longer fits one row wraps (right-aligned) instead of pushing
+          // Cancel past the left edge of a narrow sheet. Cancel and the primary
+          // wrap as a pair; they split only when the pair is wider than the row.
+          className="@container flex min-w-0 flex-wrap items-center justify-end gap-2 pt-[18px] pr-3.5 pb-3.5 pl-[18px]"
         >
           {footerStart ? (
-            <div className="mr-auto flex min-w-0 items-center overflow-hidden text-[12px] whitespace-nowrap text-muted-foreground">
+            // Supplemental text truncates; an action button (Back) keeps its whole label.
+            <div className="mr-auto flex min-w-0 items-center overflow-hidden text-meta whitespace-nowrap text-muted-foreground has-[[data-footer-action]]:shrink-0">
               {footerStart}
             </div>
           ) : null}
           {secondary}
-          {confirmOnly ? null : (
-            <DialogPrimitive.Close asChild>
+          <div
+            data-slot="dialog-frame-actions"
+            className="ml-auto flex max-w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-2 empty:hidden"
+          >
+            {confirmOnly ? null : (
+              <DialogPrimitive.Close asChild>
+                <Button
+                  aria-keyshortcuts={closeAria}
+                  className="border-border gap-[7px]"
+                  variant="ghost"
+                  data-initial-focus=""
+                >
+                  {cancelLabel ?? t`Close`}
+                  <FooterKey
+                    className="border-muted-foreground/45 text-muted-foreground"
+                    keys={CLOSE_KEYS}
+                  />
+                </Button>
+              </DialogPrimitive.Close>
+            )}
+            {confirm ? (
               <Button
-                aria-keyshortcuts={closeAria}
-                className="border-border gap-[7px]"
-                variant="ghost"
-                data-initial-focus=""
+                key={confirmOnly ? 'only' : 'confirm'}
+                aria-keyshortcuts={confirmAria}
+                variant={confirm.tone === 'destructive' ? 'danger' : 'default'}
+                // The face fills the whole 28 px, under the border too.
+                className="gap-[7px] bg-clip-border"
+                disabled={confirm.disabled}
+                onClick={confirm.onConfirm}
+                data-initial-focus={confirmOnly ? '' : undefined}
+                ref={confirmOnly ? focusOnMount : undefined}
               >
-                {cancelLabel ?? 'Close'}
-                <FooterKey
-                  className="border-muted-foreground/45 text-muted-foreground"
-                  keys={CLOSE_KEYS}
-                />
+                {confirm.label}
+                {confirmKeys ? (
+                  <FooterKey className="border-current/45" keys={[confirmKey]} />
+                ) : null}
               </Button>
-            </DialogPrimitive.Close>
-          )}
-          {confirm ? (
-            <Button
-              key={confirmOnly ? 'only' : 'confirm'}
-              aria-keyshortcuts={confirmAria}
-              variant={confirm.tone === 'destructive' ? 'danger' : 'default'}
-              // The face fills the whole 28 px, under the border too.
-              className="gap-[7px] bg-clip-border"
-              disabled={confirm.disabled}
-              onClick={confirm.onConfirm}
-              data-initial-focus={confirmOnly ? '' : undefined}
-              ref={confirmOnly ? focusOnMount : undefined}
-            >
-              {confirm.label}
-              {confirmKeys ? <FooterKey className="border-current/45" keys={[confirmKey]} /> : null}
-            </Button>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -423,16 +436,17 @@ export const WindowShell = memo(function WindowShell({
           >
             {title}
           </DialogTitle>
-          {/* The picker keeps its full label; the search beside it gives up the width. */}
+          {/* The picker keeps its full label; the search beside it gives up the width
+              (Settings' query field takes it back by showing a label-less picker). */}
           {picker ? <div className="flex min-w-0 shrink-0 min-[600px]:hidden">{picker}</div> : null}
           <DialogDescription className="sr-only">{title}</DialogDescription>
           {search ? (
             <>
-              {/* On a phone a search button stays compact; a live query field takes the free width. */}
-              <div className="@container ml-1.5 flex min-w-0 basis-[38%] max-[599px]:basis-[24%] max-[599px]:has-[input]:grow">
+              {/* On a phone the search fills the row up to the close button. */}
+              <div className="@container ml-1.5 flex min-w-0 basis-[38%] max-[599px]:grow">
                 {search}
               </div>
-              <span className="flex-1 max-[599px]:[:has(input)+&]:hidden" />
+              <span className="flex-1 max-[599px]:hidden" />
             </>
           ) : null}
           {toolbar}
@@ -441,7 +455,7 @@ export const WindowShell = memo(function WindowShell({
         <div className="flex min-h-0 flex-1">
           {navigation ? (
             <nav
-              aria-label={`${title} sections`}
+              aria-label={t`${title} sections`}
               className={cn(
                 'hidden w-[max(14.25rem,16%)] shrink-0 overflow-y-auto border-r border-border bg-sidebar px-2 pt-2.5 pb-3.5',
                 rail ? 'min-[880px]:block' : 'min-[600px]:block',
@@ -452,7 +466,7 @@ export const WindowShell = memo(function WindowShell({
           ) : null}
           {rail ? (
             <nav
-              aria-label={`${title} scopes`}
+              aria-label={t`${title} scopes`}
               className="hidden w-11 shrink-0 flex-col items-center border-r border-border bg-sidebar pt-2.5 min-[600px]:max-[879px]:flex"
             >
               {rail}

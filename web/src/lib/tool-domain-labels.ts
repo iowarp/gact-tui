@@ -8,6 +8,7 @@
  * a tool that declared none.
  */
 import { PROTOCOL, vocab } from './brand-vocabulary';
+import { t } from '@lingui/core/macro';
 
 /** The closed vocabulary a server-declared `domain` may use (clio-agent's `ToolDomain`). */
 export type ToolDomain =
@@ -32,28 +33,31 @@ export type ToolDomain =
   | 'science'
   | 'browser';
 
+const { workspace } = vocab;
+const { a2ui } = PROTOCOL;
+
 /** One owner table for every `ToolDomain` token's reader-facing label. */
 export const TOOL_DOMAIN_LABELS: Record<ToolDomain, string> = {
-  workspace: `Files & ${vocab.workspace}`,
-  shell: 'Commands',
-  artifacts: 'Artifacts',
-  planning: 'Planning',
-  tasks: 'Tasks',
-  schedules: 'Schedules',
-  autonomy: 'Autonomy',
-  goals: 'Goals',
-  alerts: 'Alerts',
-  resources: 'Resources',
-  surfaces: `Interactive surfaces (${PROTOCOL.a2ui})`,
-  providers: 'Model providers',
-  memory: 'Memory',
-  agents: 'Agents',
-  workflows: 'Workflows',
-  skills: 'Skills',
-  messaging: 'Messaging',
-  interaction: 'Questions',
-  science: 'Science log',
-  browser: 'Browser',
+  workspace: t`Files & ${workspace}`,
+  shell: t`Commands`,
+  artifacts: t`Artifacts`,
+  planning: t`Planning`,
+  tasks: t`Tasks`,
+  schedules: t`Schedules`,
+  autonomy: t`Autonomy`,
+  goals: t`Goals`,
+  alerts: t`Alerts`,
+  resources: t`Resources`,
+  surfaces: t`Interactive surfaces (${a2ui})`,
+  providers: t`Model providers`,
+  memory: t`Memory`,
+  agents: t`Agents`,
+  workflows: t`Workflows`,
+  skills: t`Skills`,
+  messaging: t`Messaging`,
+  interaction: t`Questions`,
+  science: t`Science log`,
+  browser: t`Browser`,
 };
 
 function isToolDomain(value: string): value is ToolDomain {

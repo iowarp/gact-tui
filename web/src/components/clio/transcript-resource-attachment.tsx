@@ -1,6 +1,6 @@
 import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { DownloadIcon, FolderIcon } from 'lucide-react';
+import { DownloadIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -13,6 +13,16 @@ import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { formatBytes } from '@/lib/format';
 import { FileTypeIcon } from './file-type-icon';
+import {
+  AttachedFolderIcon,
+  type HostFolder,
+  hostFolderInPlace,
+  hostFolderOriginal,
+  hostFolderSize,
+  hostFolderStatement,
+} from './host-folder';
+import { PathText } from './path-text';
+import { TechnicalDetails } from './technical-details';
 import { downloadBytes } from './surface-export';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { resourceAvailability, resourcePipelineStages } from './resource-availability';
@@ -20,6 +30,8 @@ import {
   ResourcePipelineStatusLines,
   ResourcePipelineSummaryIcon,
 } from './resource-pipeline-status';
+import { plural, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -52,9 +64,10 @@ export function TranscriptResourceAttachments({
 
   return (
     <div
-      aria-label={
-        blocks.length === 1 ? 'Message attachment' : `${blocks.length} message attachments`
-      }
+      aria-label={plural(blocks.length, {
+        one: 'Message attachment',
+        other: '# message attachments',
+      })}
       className="mb-1.5 flex w-full min-w-0 flex-wrap items-end justify-start gap-1.5 group-[.is-user]:justify-end"
       data-slot="message-attachments"
       role="group"
@@ -150,15 +163,21 @@ function TranscriptResourceAttachmentDisplay({
 }: TranscriptResourceAttachmentProps & { previewUrl?: string; visual: boolean }) {
   const repository = useRepository();
   const [downloading, setDownloading] = useState(false);
+  const sourceKind = resource?.connected_source?.kind;
   const folder =
-    resource?.connected_source?.kind === 'folder' ? resource.connected_source : undefined;
+    sourceKind === 'folder' || sourceKind === 'host_folder'
+      ? resource?.connected_source
+      : undefined;
   const filename = folder?.label ?? resource?.name ?? block.name;
   const mediaType = resource?.detected_mime || block.media_type;
   const availability = resourceAvailability(resource, block.delivery);
   const stages = resourcePipelineStages(resource, availability);
   // A ready attachment needs no status; anything else says what it is waiting on. Until the
   // workspace resource list resolves, the chip shows only its name.
-  const pending = Boolean(resource) && stages.overall !== 'complete';
+  // A host folder is used in place or copied before the message is sent, so it has no
+  // upload, conversion or workspace-copy stages to wait on.
+  const pending =
+    Boolean(resource) && folder?.kind !== 'host_folder' && stages.overall !== 'complete';
 
   const open = () => {
     if (resource) onOpen?.(resource, relatedResources);
@@ -173,7 +192,7 @@ function TranscriptResourceAttachmentDisplay({
       );
       downloadBytes(bytes, mediaType || 'application/octet-stream', filename);
     } catch (error) {
-      toast.error('Could not download attachment', {
+      toast.error(t`Could not download attachment`, {
         description: error instanceof Error ? error.message : String(error),
       });
     } finally {
@@ -190,7 +209,7 @@ function TranscriptResourceAttachmentDisplay({
             data-file-row
           >
             <button
-              aria-label={`Open ${filename}`}
+              aria-label={t`Open ${filename}`}
               className="grid size-full place-items-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
               disabled={!resource || !onOpen}
               onClick={open}
@@ -217,44 +236,47 @@ function TranscriptResourceAttachmentDisplay({
           </span>
         ) : (
           <span
-            className="inline-flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-[7px] bg-hover pr-1 pl-2 text-[13px] text-foreground"
+            className="inline-flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-[7px] bg-hover pr-1 pl-2 text-ui text-foreground"
             data-file-row
           >
             <button
-              aria-label={`Open ${filename}`}
+              aria-label={t`Open ${filename}`}
               className="flex min-w-0 items-center gap-1.5 rounded-[5px] outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
               disabled={!resource || !onOpen}
               onClick={open}
               type="button"
             >
               {folder ? (
-                <FolderIcon
-                  aria-label="Folder"
+                <AttachedFolderIcon
+                  aria-label={t`Folder`}
                   className="size-3.5 shrink-0 text-muted-foreground"
                 />
               ) : (
                 <FileTypeIcon className="size-3.5 shrink-0" mediaType={mediaType} name={filename} />
               )}
-              <span className="min-w-0 truncate">{filename}</span>
+              {/* The hover card shows the whole name, so the truncation hint would cover it. */}
+              <span className="min-w-0 truncate" data-truncation-hint="off">
+                {filename}
+              </span>
               {resource && !folder ? (
-                <span className="shrink-0 text-[11.5px] text-muted-foreground">
+                <span className="shrink-0 text-label text-muted-foreground">
                   {formatBytes(resource.received_size)}
                 </span>
               ) : null}
             </button>
             {pending ? (
-              <span className="flex shrink-0 items-center gap-1 text-[12px] text-muted-foreground">
+              <span className="flex shrink-0 items-center gap-1 text-meta text-muted-foreground">
                 <ResourcePipelineSummaryIcon stages={stages} />
                 <span aria-hidden="true">{stages.overallLabel}</span>
               </span>
             ) : null}
             {resource?.state === 'ready' && !folder ? (
               <button
-                aria-label={`Download ${filename}`}
+                aria-label={t`Download ${filename}`}
                 className="grid size-[22px] shrink-0 place-items-center rounded-[5px] text-muted-foreground hover:bg-background hover:text-foreground disabled:opacity-50"
                 disabled={downloading}
                 onClick={() => void download()}
-                title={`Download ${filename}`}
+                title={t`Download ${filename}`}
                 type="button"
               >
                 <DownloadIcon aria-hidden="true" className="size-3.5" />
@@ -266,19 +288,61 @@ function TranscriptResourceAttachmentDisplay({
         )}
       </AttachmentHoverCardTrigger>
       <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
-        <p className="truncate text-sm font-medium">{filename}</p>
-        {folder ? (
+        <p className="text-sm font-medium [overflow-wrap:anywhere]">{filename}</p>
+        {folder?.kind === 'host_folder' ? null : folder ? (
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {folder.linked === 'true' ? 'Linked folder' : 'Downloaded folder'}
+            {folder.linked === 'true' ? t`Linked folder` : t`Downloaded folder`}
           </p>
         ) : mediaType ? (
           <p className="mt-0.5 text-xs text-muted-foreground">{mediaType}</p>
         ) : null}
-        <div className="mt-2">
-          <ResourcePipelineStatusLines stages={stages} />
-        </div>
-        <p className="mt-2 max-w-64 text-xs text-muted-foreground">{availability.detail}</p>
+        {folder?.kind === 'host_folder' ? (
+          <HostFolderSummary folder={folder} />
+        ) : (
+          <>
+            <div className="mt-2">
+              <ResourcePipelineStatusLines stages={stages} />
+            </div>
+            <p className="mt-2 max-w-64 text-xs text-muted-foreground">{availability.detail}</p>
+          </>
+        )}
       </AttachmentHoverCardContent>
     </AttachmentHoverCard>
+  );
+}
+
+/**
+ * A folder from the agent's computer: in place or a full copy, its size, and the user's
+ * original folder. A copy's own location in workspace storage stays in Technical details.
+ */
+function HostFolderSummary({ folder }: { folder: HostFolder }) {
+  const inPlace = hostFolderInPlace(folder);
+  const original = hostFolderOriginal(folder);
+  const size = hostFolderSize(folder);
+  return (
+    <>
+      <p className="mt-1 max-w-64 text-xs text-foreground">{hostFolderStatement(folder)}</p>
+      {size ? <p className="mt-1.5 text-xs text-muted-foreground">{size}</p> : null}
+      {original ? (
+        <p className="mt-0.5 max-w-64 text-xs break-words text-muted-foreground">
+          {inPlace ? (
+            <PathText path={original} />
+          ) : (
+            <Trans>
+              Copied from <PathText path={original} />
+            </Trans>
+          )}
+        </p>
+      ) : null}
+      {!inPlace && folder.path ? (
+        <TechnicalDetails className="mt-1.5 text-xs" title={t`Technical details`}>
+          <p className="mt-1 max-w-64 font-mono text-caption break-words text-muted-foreground">
+            <Trans>
+              Copy kept at <PathText path={folder.path} />
+            </Trans>
+          </p>
+        </TechnicalDetails>
+      ) : null}
+    </>
   );
 }

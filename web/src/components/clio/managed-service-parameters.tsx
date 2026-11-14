@@ -1,9 +1,4 @@
-import type {
-  EffectiveParameter,
-  GpuFact,
-  OwnedResource,
-  ServerParameter,
-} from '@clio/core/v3';
+import type { EffectiveParameter, GpuFact, OwnedResource, ServerParameter } from '@clio/core/v3';
 import { useRef } from 'react';
 import { Badge } from '@/components/reui/badge';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
@@ -18,6 +13,7 @@ import {
 import { GpuDevicePicker } from './managed-service-gpu-picker';
 import { gpusForParameter, isDeviceParameter, parseDevices } from './managed-service-gpus';
 import { PARAMETER_PREFIX, parametersForVariant } from './managed-service-target-utils';
+import { t, ph, plural } from '@lingui/core/macro';
 
 const TENSOR_PARALLEL = `${PARAMETER_PREFIX}tensor_parallel_size`;
 const PIPELINE_PARALLEL = `${PARAMETER_PREFIX}pipeline_parallel_size`;
@@ -77,12 +73,13 @@ export function ServerParametersForm({
   };
   const tp = Number(values[TENSOR_PARALLEL]) || 1;
   const pp = pipelineParallel ? Number(values[PIPELINE_PARALLEL]) || 1 : 1;
+  const product = tp * pp;
   const mismatch = Boolean(device && tensorParallel && selected && tp * pp !== selected);
   if (!rows.length && !pickers.length) return null;
   return (
     <>
       {pickers.length ? (
-        <section aria-label={`${serviceLabel} GPUs`} className="grid gap-4 sm:grid-cols-2">
+        <section aria-label={t`${serviceLabel} GPUs`} className="grid gap-4 sm:grid-cols-2">
           {pickers.map((row) => {
             const key = `${PARAMETER_PREFIX}${row.id}`;
             return (
@@ -98,9 +95,10 @@ export function ServerParametersForm({
           })}
           {mismatch ? (
             <p className="text-xs text-warning-foreground sm:col-span-2" role="status">
-              Tensor parallel size × pipeline parallel size is {tp} × {pp} = {tp * pp}, but{' '}
-              {selected} {selected === 1 ? 'GPU is' : 'GPUs are'} selected. vLLM needs them to
-              match.
+              {plural(selected, {
+                one: `Tensor parallel size × pipeline parallel size is ${tp} × ${pp} = ${product}, but # GPU is selected. vLLM needs them to match.`,
+                other: `Tensor parallel size × pipeline parallel size is ${tp} × ${pp} = ${product}, but # GPUs are selected. vLLM needs them to match.`,
+              })}
             </p>
           ) : null}
         </section>
@@ -108,11 +106,10 @@ export function ServerParametersForm({
       {rows.length ? (
         <details className="group">
           <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
-            Server parameters
+            {t`Server parameters`}
           </summary>
           <p className="mt-2 text-xs text-muted-foreground">
-            Leave a field empty to keep the engine&rsquo;s default. After it starts, the values
-            actually in force are shown here.
+            {t`Leave a field empty to keep the engine’s default. After it starts, the values actually in force are shown here.`}
           </p>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             {rows.map((row) => {
@@ -127,7 +124,7 @@ export function ServerParametersForm({
                       value={values[key] ?? ''}
                     >
                       <SelectTrigger aria-label={`${serviceLabel} ${row.label}`} id={id}>
-                        <SelectValue placeholder={row.default_behavior || 'Engine default'} />
+                        <SelectValue placeholder={row.default_behavior || t`Engine default`} />
                       </SelectTrigger>
                       <SelectContent>
                         {row.options.map((option) => (
@@ -145,7 +142,7 @@ export function ServerParametersForm({
                       max={row.maximum}
                       min={row.minimum}
                       onChange={(event) => onChange(key, event.target.value)}
-                      placeholder={row.default_behavior || 'Engine default'}
+                      placeholder={row.default_behavior || t`Engine default`}
                       step={row.kind === 'integer' ? 1 : 'any'}
                       type={row.kind === 'text' ? 'text' : 'number'}
                       value={values[key] ?? ''}
@@ -168,10 +165,10 @@ const SOURCE_LABELS: Record<
   EffectiveParameter['source'],
   { label: string; variant: 'success-light' | 'info-light' | 'outline' | 'secondary' }
 > = {
-  server_report: { label: 'Reported by the server', variant: 'success-light' },
-  container_config: { label: 'Container launch', variant: 'info-light' },
-  launch_request: { label: 'As launched', variant: 'outline' },
-  engine_default: { label: 'Engine default', variant: 'secondary' },
+  server_report: { label: t`Reported by the server`, variant: 'success-light' },
+  container_config: { label: t`Container launch`, variant: 'info-light' },
+  launch_request: { label: t`As launched`, variant: 'outline' },
+  engine_default: { label: t`Engine default`, variant: 'secondary' },
 };
 
 /** What the running server has in force, each value labelled with where it came from. */
@@ -184,9 +181,9 @@ export function EffectiveParameters({
 }) {
   if (!rows.length) return null;
   return (
-    <section aria-label={`${serviceLabel} parameters in force`} className="border-y">
+    <section aria-label={t`${serviceLabel} parameters in force`} className="border-y">
       <header className="flex items-center justify-between gap-3 border-b bg-muted/25 px-3 py-2">
-        <p className="text-xs font-medium text-foreground">In force on the server</p>
+        <p className="text-xs font-medium text-foreground">{t`In force on the server`}</p>
       </header>
       <dl className="divide-y">
         {rows.map((row) => {
@@ -213,11 +210,11 @@ export function EffectiveParameters({
 }
 
 const RESOURCE_LABELS: Record<OwnedResource['kind'], string> = {
-  container: 'Container',
-  image: 'Image',
-  directory: 'Directory',
-  parent_directory: 'Directory (removed if empty)',
-  instance_logs: 'Instance logs',
+  container: t`Container`,
+  image: t`Image`,
+  directory: t`Directory`,
+  parent_directory: t`Directory (removed if empty)`,
+  instance_logs: t`Instance logs`,
 };
 
 /** Everything this deployment created on its host; uninstall removes exactly these. */
@@ -234,14 +231,14 @@ export function OwnedResources({
   return (
     <details>
       <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
-        Created on this host ({rows.length})
+        {t`Created on this host (${ph({ count: rows.length })})`}
       </summary>
       <p className="mt-2 text-xs text-muted-foreground">
         {retained
-          ? 'Removing the runtime retains these folders. Delete retained data is a separate action.'
-          : 'Uninstall removes these and nothing else.'}
+          ? t`Removing the runtime retains these folders. Delete retained data is a separate action.`
+          : t`Uninstall removes these and nothing else.`}
       </p>
-      <ul aria-label={`${serviceLabel} created resources`} className="mt-2 space-y-1">
+      <ul aria-label={t`${serviceLabel} created resources`} className="mt-2 space-y-1">
         {rows.map((row) => (
           <li
             className="grid gap-x-3 text-xs sm:grid-cols-[14rem_minmax(0,1fr)]"

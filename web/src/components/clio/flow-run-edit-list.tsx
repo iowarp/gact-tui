@@ -9,21 +9,27 @@ import {
   type WorkflowEdit,
 } from './flow-run-edits';
 import type { FlowStep } from './flow-run-presentation';
+import { t, ph } from '@lingui/core/macro';
 
 /** A question's state and answer in words. */
 function questionAnswer(question: FlowQuestion): string {
   if (question.status === 'answered') {
-    const who = question.answeredBy === 'agent' ? 'An agent answered' : 'You answered';
-    return question.answer ? `${who}: ${question.answer}` : `${who} without a recorded choice`;
+    const answer = question.answer;
+    if (question.answeredBy === 'agent')
+      return answer
+        ? t`An agent answered: ${answer}`
+        : t`An agent answered without a recorded choice`;
+    return answer ? t`You answered: ${answer}` : t`You answered without a recorded choice`;
   }
-  if (question.status === 'pending') return 'Waiting for your answer';
-  return `Not answered: ${question.status}`;
+  if (question.status === 'pending') return t`Waiting for your answer`;
+  return t`Not answered: ${ph({ status: question.status })}`;
 }
 
 /** The question's subject, in words. */
 function questionSubject(question: FlowQuestion): string {
-  if (!question.step) return question.about === 'fork' ? 'A fork' : 'An added step';
-  return question.about === 'fork' ? `A fork of ${question.step}` : `Adding ${question.step}`;
+  const step = question.step;
+  if (!step) return question.about === 'fork' ? t`A fork` : t`An added step`;
+  return question.about === 'fork' ? t`A fork of ${step}` : t`Adding ${step}`;
 }
 
 /**
@@ -54,38 +60,38 @@ export function FlowEdits({
     const handle = handles.get(step);
     return handle ? (
       <Button
-        aria-label={`Open ${step}, ${label}`}
-        className="h-5 px-1.5 text-[11px]"
+        aria-label={t`Open ${step}, ${label}`}
+        className="h-5 px-1.5 text-caption"
         onClick={() => onOpenHandle(handle)}
         size="xs"
         type="button"
         variant="ghost"
       >
-        Open {step}
+        {t`Open ${step}`}
       </Button>
     ) : null;
   };
   return (
     <section
-      aria-label="Changes while it ran"
+      aria-label={t`Changes while it ran`}
       className="grid min-w-0 gap-1.5 rounded-md border px-2 py-1.5 text-xs"
       data-slot="flow-edits"
     >
-      <h4 className="font-medium text-muted-foreground">Changes while it ran</h4>
+      <h4 className="font-medium text-muted-foreground">{t`Changes while it ran`}</h4>
       {edits.length ? (
-        <ul aria-label="Edits" className="grid min-w-0 gap-1">
+        <ul aria-label={t`Edits`} className="grid min-w-0 gap-1">
           {edits.map((edit, index) => (
             <EditRow edit={edit} key={`${edit.step}:${index}`} open={open} />
           ))}
         </ul>
       ) : null}
       {questions.length ? (
-        <ul aria-label="Approval questions" className="grid min-w-0 gap-1">
+        <ul aria-label={t`Approval questions`} className="grid min-w-0 gap-1">
           {questions.map((question) => (
             <li className="grid min-w-0 gap-0.5" key={question.id}>
               <p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                <span className="text-muted-foreground">Question: {questionSubject(question)}</span>
-                {question.step ? open(question.step, 'where it was asked') : null}
+                <span className="text-muted-foreground">{t`Question: ${ph({ subject: questionSubject(question) })}`}</span>
+                {question.step ? open(question.step, t`where it was asked`) : null}
               </p>
               <p className="min-w-0 [overflow-wrap:anywhere]">{question.prompt}</p>
               <p className="min-w-0 font-medium [overflow-wrap:anywhere]">
@@ -108,26 +114,39 @@ function EditRow({
 }) {
   const origin = editOrigin(edit.by);
   const cancelled = edit.outcome === 'cancelled' || edit.outcome === 'cancel_refused';
+  const step = edit.step;
+  const target = edit.target;
+  const after = edit.after.join(', ');
   const what = cancelled
-    ? `Cancel ${edit.step}`
-    : `${edit.step}${edit.target ? ` runs ${edit.target}` : ''}${
-        edit.after.length ? ` after ${edit.after.join(', ')}` : ''
-      }`;
+    ? t`Cancel ${step}`
+    : target && after
+      ? t`${step} runs ${target} after ${after}`
+      : target
+        ? t`${step} runs ${target}`
+        : after
+          ? t`${step} after ${after}`
+          : step;
+  const repair = edit.by.startsWith('repair:');
+  const by = !edit.by
+    ? ''
+    : cancelled
+      ? repair
+        ? t`asked by ${origin} (a repair)`
+        : t`asked by ${origin}`
+      : repair
+        ? t`proposed by ${origin} (a repair)`
+        : t`proposed by ${origin}`;
   return (
     <li className="grid min-w-0 gap-0.5">
       <p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
         <span className="font-mono">{what}</span>
-        <span className="text-muted-foreground">
-          {edit.by
-            ? `${cancelled ? 'asked' : 'proposed'} by ${origin}${edit.by.startsWith('repair:') ? ' (a repair)' : ''}`
-            : ''}
-        </span>
-        {origin ? open(origin, 'where it was proposed') : null}
+        <span className="text-muted-foreground">{by}</span>
+        {origin ? open(origin, t`where it was proposed`) : null}
       </p>
       <p className="min-w-0 [overflow-wrap:anywhere]">
         <span className="font-medium">{editOutcomeText(edit)}</span>
         {edit.reason ? (
-          <span className="ml-1.5 font-mono text-muted-foreground" title="Recorded reason">
+          <span className="ml-1.5 font-mono text-muted-foreground" title={t`Recorded reason`}>
             ({edit.reason})
           </span>
         ) : null}
@@ -143,7 +162,7 @@ export function StepQuestions({ questions }: { questions: readonly FlowQuestion[
   return (
     <div className="grid min-w-0 gap-1">
       <p className="text-muted-foreground">
-        {questions.length === 1 ? 'Approval question' : 'Approval questions'}
+        {questions.length === 1 ? t`Approval question` : t`Approval questions`}
       </p>
       <ul className="grid min-w-0 gap-1">
         {questions.map((question) => (

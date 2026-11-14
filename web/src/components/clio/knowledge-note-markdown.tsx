@@ -16,6 +16,7 @@ import {
   remarkKnowledgeWikiLinks,
   type KnowledgeNoteRef,
 } from './knowledge-note-links';
+import { t } from '@lingui/core/macro';
 
 const KnowledgeWikiNavigation = createContext<{
   resolve: (target: string) => KnowledgeNoteRef | undefined;
@@ -37,7 +38,7 @@ function KnowledgeMarkdownLink(props: ComponentProps<'a'> & ExtraProps) {
   const note = wiki?.resolve(decoded(href.slice(WIKI_NOTE_LINK.length)));
   if (!wiki || !note) {
     return (
-      <span className="text-muted-foreground" title="Not in this vault">
+      <span className="text-muted-foreground" title={t`Not in this vault`}>
         {children}
       </span>
     );
@@ -89,7 +90,7 @@ export function KnowledgeNoteMarkdown({
       <article className="mx-auto w-full max-w-[80ch] min-w-0 px-5 py-4">
         {frontmatter ? (
           <details className="mb-3 text-sm">
-            <summary className="cursor-pointer text-muted-foreground">Document metadata</summary>
+            <summary className="cursor-pointer text-muted-foreground">{t`Document metadata`}</summary>
             <CodeBlock code={frontmatter[1]} language="yaml" />
           </details>
         ) : null}

@@ -45,7 +45,13 @@ export function parseMarkdownContentReference(uri: string): MarkdownContentRefer
       return undefined;
     // An object inside the file (an HDF5 dataset such as /entry/data) opens the viewer there.
     const locator = params.get('locator') ?? undefined;
-    if (locator !== undefined && !/^\/[^\u0000-\u001f\u007f]*$/u.test(locator)) return undefined;
+    const controlCharacter = (character: string) =>
+      character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127;
+    if (
+      locator !== undefined &&
+      (!locator.startsWith('/') || Array.from(locator).some(controlCharacter))
+    )
+      return undefined;
     const line = params.has('line') ? Number(params.get('line')) : undefined;
     if (line !== undefined && (!Number.isSafeInteger(line) || line < 1)) return undefined;
     let path: string;
@@ -131,7 +137,16 @@ interface MarkdownNode {
   children?: MarkdownNode[];
 }
 
-/** Preserve supported link schemes before generic Markdown URL sanitization. */
+/** A path-relative link (`notes/plan.md`, `./a.md`), which has no page to open here. */
+function pathRelative(url: string): boolean {
+  return !/^[a-z][a-z\d+.-]*:|^[/\\#?]/iu.test(url) || /^\.\.?\//u.test(url);
+}
+
+/**
+ * Preserve supported link schemes before generic Markdown URL sanitization. A
+ * path-relative link keeps its words as plain text rather than a "[blocked]" mark
+ * or a link to nowhere; explicit references and bundle links are rewritten first.
+ */
 export function remarkContentReferences() {
   return (tree: MarkdownNode) => {
     const visit = (node: MarkdownNode) => {
@@ -143,6 +158,10 @@ export function remarkContentReferences() {
           node.url = CONTENT_REFERENCE_PATH;
         }
       }
+      if (node.children?.some((child) => child.type === 'link' && pathRelative(child.url ?? '')))
+        node.children = node.children.flatMap((child) =>
+          child.type === 'link' && pathRelative(child.url ?? '') ? (child.children ?? []) : [child],
+        );
       node.children?.forEach(visit);
     };
     visit(tree);

@@ -1,3 +1,4 @@
+import { ph, t } from '@lingui/core/macro';
 /**
  * Map download (G0): PNG via the maplibre canvas's own `toBlob` — mirrors
  * `chart-export.ts`'s approach for a Vega chart's `View`. Unlike Vega, which
@@ -29,7 +30,7 @@ export function mapPngBlob(map: RepaintableMap): Promise<Blob> {
     const canvas = map.getCanvas();
     let settled = false;
     const timeout = window.setTimeout(
-      () => fail('PNG export timed out waiting for a map frame.'),
+      () => fail(t`PNG export timed out waiting for a map frame.`),
       5000,
     );
     const cleanup = () => {
@@ -45,12 +46,12 @@ export function mapPngBlob(map: RepaintableMap): Promise<Blob> {
       cleanup();
       reject(new Error(reason));
     };
-    const onRemove = () => fail('PNG export stopped because the map was closed.');
+    const onRemove = () => fail(t`PNG export stopped because the map was closed.`);
     const onContextLost = () =>
-      fail('PNG export stopped because the map graphics context was lost.');
+      fail(t`PNG export stopped because the map graphics context was lost.`);
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden')
-        fail('PNG export stopped because the page became hidden.');
+        fail(t`PNG export stopped because the page became hidden.`);
     };
     const onRender = () => {
       if (settled) return;
@@ -58,7 +59,7 @@ export function mapPngBlob(map: RepaintableMap): Promise<Blob> {
         canvas.toBlob((blob) => {
           if (settled) return;
           if (!blob) {
-            fail('PNG export failed: canvas returned no image data.');
+            fail(t`PNG export failed: canvas returned no image data.`);
             return;
           }
           settled = true;
@@ -66,11 +67,13 @@ export function mapPngBlob(map: RepaintableMap): Promise<Blob> {
           resolve(blob);
         }, 'image/png');
       } catch (error) {
-        fail(`PNG export failed: ${error instanceof Error ? error.message : String(error)}`);
+        fail(
+          t`PNG export failed: ${ph({ reason: error instanceof Error ? error.message : String(error) })}`,
+        );
       }
     };
     if (document.visibilityState === 'hidden') {
-      fail('PNG export is unavailable while the page is hidden.');
+      fail(t`PNG export is unavailable while the page is hidden.`);
       return;
     }
     canvas.addEventListener('webglcontextlost', onContextLost);
@@ -80,7 +83,9 @@ export function mapPngBlob(map: RepaintableMap): Promise<Blob> {
     try {
       map.triggerRepaint();
     } catch (error) {
-      fail(`PNG export failed: ${error instanceof Error ? error.message : String(error)}`);
+      fail(
+        t`PNG export failed: ${ph({ reason: error instanceof Error ? error.message : String(error) })}`,
+      );
     }
   });
 }

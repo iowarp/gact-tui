@@ -104,6 +104,9 @@ func configureCrashCleanup(cmd *exec.Cmd) {
 }
 
 func crashCleanupArgv(rt *resolvedRuntime) []string {
+	if argv, ok := serveCleanupArgv(rt); ok {
+		return argv
+	}
 	if len(rt.Argv) == 1 && strings.EqualFold(filepath.Base(rt.Argv[0]), "clio-agent-gact.exe") {
 		python := filepath.Join(filepath.Dir(rt.Argv[0]), "python.exe")
 		if info, err := os.Stat(python); err == nil && !info.IsDir() {

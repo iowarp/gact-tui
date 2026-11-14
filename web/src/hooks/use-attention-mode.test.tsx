@@ -200,6 +200,33 @@ describe('useAttentionMode', () => {
     });
   });
 
+  it('keeps the server reason and its explanation when available is false', async () => {
+    mocks.getAttention.mockResolvedValue({
+      available: false,
+      reason: 'output_alignment_mismatch',
+      message: 'The answer does not re-tokenize to the captured steps, so no heat can be shown.',
+      detail: 'Likely cause: sampling (temperature > 0).',
+    });
+    const { result } = renderHook(
+      () => {
+        const attention = useAttentionMode('sess_1', 0);
+        const registry = useSelectionActionRegistry();
+        return { attention, registry };
+      },
+      { wrapper },
+    );
+    await offered(result);
+    act(() => {
+      result.current.registry.actionsFor(selection)[0]?.run(selection);
+    });
+    await waitFor(() => expect(result.current.attention.state.status).toBe('unavailable'));
+    expect(result.current.attention.state).toMatchObject({
+      status: 'unavailable',
+      reason: 'output_alignment_mismatch',
+      detail: 'Likely cause: sampling (temperature > 0).',
+    });
+  });
+
   it('resets to idle on a transport failure', async () => {
     mocks.getAttention.mockRejectedValue(new Error('network down'));
     const { result } = renderHook(

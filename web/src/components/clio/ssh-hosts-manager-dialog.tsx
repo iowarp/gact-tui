@@ -31,6 +31,7 @@ import {
   type SshProfile,
 } from '@/tauri/ssh-profiles';
 import { SshHostDialog } from './ssh-host-dialog';
+import { t, ph } from '@lingui/core/macro';
 
 const PROFILES_QUERY_KEY = ['managed-service-ssh-profiles'];
 const ALL_PROFILES_QUERY_KEY = [...PROFILES_QUERY_KEY, 'all'];
@@ -46,6 +47,8 @@ const ALL_PROFILES_QUERY_KEY = [...PROFILES_QUERY_KEY, 'all'];
  * write puts both lists back. Nothing is re-listed, because visibility
  * changes no host's resolution.
  */
+const { product } = vocab;
+
 export function SshHostsManagerDialog({
   onOpenChange,
   onRemoved,
@@ -157,9 +160,9 @@ export function SshHostsManagerDialog({
       <Dialog onOpenChange={onOpenChange} open={open}>
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Manage SSH hosts</DialogTitle>
+            <DialogTitle>{t`Manage SSH hosts`}</DialogTitle>
             <DialogDescription>
-              Hide keeps a host here so you can show it again. Remove forgets it from this app.
+              {t`Hide keeps a host here so you can show it again. Remove forgets it from this app.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -170,10 +173,10 @@ export function SshHostsManagerDialog({
           ) : null}
 
           <ScrollArea className="max-h-96">
-            <ul aria-label="Saved and imported SSH hosts" className="grid gap-1" role="list">
+            <ul aria-label={t`Saved and imported SSH hosts`} className="grid gap-1" role="list">
               {hosts.length === 0 && !allProfiles.isPending ? (
                 <li className="py-6 text-center text-sm text-muted-foreground" role="listitem">
-                  No SSH hosts yet.
+                  {t`No SSH hosts yet.`}
                 </li>
               ) : null}
               {hosts.map((host) => {
@@ -192,25 +195,25 @@ export function SshHostsManagerDialog({
                         <Badge
                           title={
                             host.managed
-                              ? 'Saved by this app'
-                              : 'From your OpenSSH configuration (read-only)'
+                              ? t`Saved by this app`
+                              : t`From your OpenSSH configuration (read-only)`
                           }
                           variant={host.managed ? 'default' : 'secondary'}
                         >
-                          {host.managed ? 'Managed' : 'Imported'}
+                          {host.managed ? t`Managed` : t`Imported`}
                         </Badge>
-                        {isHidden ? <Badge variant="outline">Hidden</Badge> : null}
+                        {isHidden ? <Badge variant="outline">{t`Hidden`}</Badge> : null}
                       </div>
                     </div>
                     {host.managed ? (
                       <Button
-                        aria-label={`Configure ${host.label}`}
+                        aria-label={t`Configure ${ph({ label: host.label })}`}
                         onClick={() => {
                           setConfiguring(host);
                           setConfigureOpen(true);
                         }}
                         size="icon"
-                        title={`Configure ${host.label}`}
+                        title={t`Configure ${ph({ label: host.label })}`}
                         type="button"
                         variant="ghost"
                       >
@@ -218,7 +221,11 @@ export function SshHostsManagerDialog({
                       </Button>
                     ) : null}
                     <Button
-                      aria-label={isHidden ? `Show ${host.label}` : `Hide ${host.label}`}
+                      aria-label={
+                        isHidden
+                          ? t`Show ${ph({ label: host.label })}`
+                          : t`Hide ${ph({ label: host.label })}`
+                      }
                       aria-pressed={isHidden}
                       className="w-20 justify-start"
                       disabled={deleting === host.profile}
@@ -226,8 +233,8 @@ export function SshHostsManagerDialog({
                       size="sm"
                       title={
                         isHidden
-                          ? `Show ${host.label} in pickers`
-                          : `Hide ${host.label} from pickers`
+                          ? t`Show ${ph({ label: host.label })} in pickers`
+                          : t`Hide ${ph({ label: host.label })} from pickers`
                       }
                       type="button"
                       variant="ghost"
@@ -237,10 +244,10 @@ export function SshHostsManagerDialog({
                       ) : (
                         <EyeOffIcon aria-hidden="true" />
                       )}
-                      {isHidden ? 'Show' : 'Hide'}
+                      {isHidden ? t`Show` : t`Hide`}
                     </Button>
                     <Button
-                      aria-label={`Remove ${host.label}`}
+                      aria-label={t`Remove ${ph({ label: host.label })}`}
                       className="w-24 justify-start"
                       disabled={Boolean(deleting)}
                       onClick={() => {
@@ -248,11 +255,11 @@ export function SshHostsManagerDialog({
                         setRemoveTarget(host);
                       }}
                       size="sm"
-                      title={`Remove ${host.label} from ${vocab.product}`}
+                      title={t`Remove ${ph({ label: host.label })} from ${product}`}
                       type="button"
                       variant="ghost"
                     >
-                      <DeleteIcon aria-hidden="true" /> Remove
+                      <DeleteIcon aria-hidden="true" /> {t`Remove`}
                     </Button>
                   </li>
                 );
@@ -271,12 +278,12 @@ export function SshHostsManagerDialog({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Remove {removeTarget?.label} from {vocab.product}?
+              {t`Remove ${ph({ label: removeTarget?.label ?? '' })} from ${product}?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {removeTarget?.managed
-                ? 'This removes the saved SSH profile and any pasted key used only by this profile. Existing deployments and remote files are kept.'
-                : 'This forgets the imported host in this app. Your OpenSSH configuration and SSH keys remain on this computer.'}
+                ? t`This removes the saved SSH profile and any pasted key used only by this profile. Existing deployments and remote files are kept.`
+                : t`This forgets the imported host in this app. Your OpenSSH configuration and SSH keys remain on this computer.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <p className="break-all rounded-md bg-muted p-3 font-mono text-sm">
@@ -289,7 +296,7 @@ export function SshHostsManagerDialog({
             </p>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={Boolean(deleting)}>Keep host</AlertDialogCancel>
+            <AlertDialogCancel disabled={Boolean(deleting)}>{t`Keep host`}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={Boolean(deleting)}
@@ -298,7 +305,7 @@ export function SshHostsManagerDialog({
                 if (removeTarget && !deleting) void remove(removeTarget);
               }}
             >
-              {deleting ? 'Removing…' : 'Remove host'}
+              {deleting ? t`Removing…` : t`Remove host`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -7,6 +7,7 @@ import {
 import { SourceAttachmentCard } from './composer-source-attachments';
 import { useSourceDraftLifecycle } from './use-source-draft-lifecycle';
 import { toast } from 'sonner';
+import { t } from '@lingui/core/macro';
 
 /** Source selections use the attachment tray while retaining ordinary resource message parts. */
 export function isSourceAttachment(reference: WorkspaceReference) {
@@ -35,11 +36,11 @@ export function useComposerSourceAttachments(
         if (
           duplicate.reference.navigation.source_draft_id !== reference.navigation.source_draft_id
         ) {
-          void lifecycle
-            .discard(reference)
-            .catch((error: unknown) =>
-              toast.error('Could not release duplicate attachment', { description: String(error) }),
-            );
+          void lifecycle.discard(reference).catch((error: unknown) =>
+            toast.error(t`Could not release duplicate attachment`, {
+              description: String(error),
+            }),
+          );
         }
         return;
       }
@@ -66,7 +67,7 @@ export function useComposerSourceAttachments(
       attached.length ? (
         <div
           role="group"
-          aria-label="Attached sources"
+          aria-label={t`Attached sources`}
           className="flex w-full flex-wrap gap-2 px-3 pt-3"
         >
           {attached.map(({ reference }) => (
@@ -74,7 +75,7 @@ export function useComposerSourceAttachments(
               key={workspaceReferenceIdentity(reference)}
               id={reference.id}
               label={reference.label}
-              detail={reference.detail || 'Attached source'}
+              detail={reference.detail || t`Attached source`}
               folder={reference.navigation.source_kind === 'folder'}
               onOpen={
                 reference.navigation.source_kind === 'folder'
@@ -97,7 +98,7 @@ export function useComposerSourceAttachments(
                     ),
                   );
                 } catch (error) {
-                  toast.error('Could not remove attachment', {
+                  toast.error(t`Could not remove attachment`, {
                     description: error instanceof Error ? error.message : String(error),
                   });
                 }

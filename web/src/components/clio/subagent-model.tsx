@@ -3,6 +3,7 @@ import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { MODEL_CHOICE_SOURCE } from '@/lib/flow-run-usage';
 import { providerLogoId } from '@/lib/provider-presentation';
+import { t } from '@lingui/core/macro';
 
 /**
  * The model a child runs on, with its provider's logo; hovering names why it
@@ -14,6 +15,15 @@ export function SubagentModel({ choice }: { choice: ModelChoice }) {
   const model = choice.ran.model_id ?? '';
   if (!model) return null;
   const why = MODEL_CHOICE_SOURCE[choice.source] ?? choice.source;
+  const ref = provider ? `${provider}/${model}` : model;
+  const effort = choice.effort;
+  const runsOn = why
+    ? effort
+      ? t`Runs on ${ref}: ${why}, ${effort} effort.`
+      : t`Runs on ${ref}: ${why}.`
+    : effort
+      ? t`Runs on ${ref}, ${effort} effort.`
+      : t`Runs on ${ref}.`;
   return (
     <TooltipProvider>
       <Tooltip>
@@ -30,12 +40,7 @@ export function SubagentModel({ choice }: { choice: ModelChoice }) {
           </span>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs">
-          <p>
-            Runs on {provider ? `${provider}/` : ''}
-            {model}
-            {why ? `: ${why}` : ''}
-            {choice.effort ? `, ${choice.effort} effort` : ''}.
-          </p>
+          <p>{runsOn}</p>
           {choice.reasons.length ? (
             <ul className="mt-1 list-disc pl-4">
               {choice.reasons.map((reason) => (

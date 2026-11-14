@@ -34,6 +34,7 @@ import type {
   ServiceActionFeedback,
   ServiceActionOptions,
 } from './service-management-types';
+import { t, ph } from '@lingui/core/macro';
 
 export type {
   ServiceAction,
@@ -60,7 +61,7 @@ export function ManagedServiceCard({
   tab,
   onTab,
   targetId,
-  hostLabel = 'this execution host',
+  hostLabel = t`this execution host`,
   setup = false,
   gpus,
 }: {
@@ -125,10 +126,10 @@ export function ManagedServiceCard({
   const modelProblem = llama
     ? variant === 'native-windows-cpu' && !native
       ? !configuration.model_path?.trim()
-        ? 'Choose a GGUF model file on this computer.'
+        ? t`Choose a GGUF model file on this computer.`
         : undefined
       : Boolean(configuration.model_path?.trim()) === Boolean(configuration.hf_model?.trim())
-        ? 'Choose either a GGUF file or a Hugging Face model.'
+        ? t`Choose either a GGUF file or a Hugging Face model.`
         : undefined
     : undefined;
   const missing =
@@ -166,26 +167,43 @@ export function ManagedServiceCard({
     ([key, value]) => value !== (service.configuration[key] ?? ''),
   );
   const labels: Record<ServiceAction, string> = {
-    install: 'Install',
-    start: 'Start',
-    status: 'Check status',
-    logs: 'View logs',
-    stop: 'Stop',
-    reinstall: changed ? 'Apply configuration' : llama ? 'Reinstall runtime' : 'Reinstall',
-    uninstall: retainsData ? 'Remove runtime' : 'Uninstall',
-    delete_data: 'Delete retained data',
-    verify: 'Verify setup',
+    install: t({ message: 'Install', context: 'verb' }),
+    start: t({ message: 'Start', context: 'verb' }),
+    status: t`Check status`,
+    logs: t`View logs`,
+    stop: t({ message: 'Stop', context: 'verb' }),
+    reinstall: changed ? t`Apply configuration` : llama ? t`Reinstall runtime` : t`Reinstall`,
+    uninstall: retainsData ? t`Remove runtime` : t`Uninstall`,
+    delete_data: t`Delete retained data`,
+    verify: t`Verify setup`,
   };
   const progressLabels: Record<ServiceAction, string> = {
-    install: 'Installing…',
-    start: 'Starting…',
-    status: 'Checking…',
-    logs: 'Loading logs…',
-    stop: 'Stopping…',
-    reinstall: 'Applying…',
-    uninstall: 'Removing…',
-    delete_data: 'Deleting retained data…',
-    verify: 'Verifying…',
+    install: t`Installing…`,
+    start: t`Starting…`,
+    status: t`Checking…`,
+    logs: t`Loading logs…`,
+    stop: t`Stopping…`,
+    reinstall: t`Applying…`,
+    uninstall: t`Removing…`,
+    delete_data: t`Deleting retained data…`,
+    verify: t`Verifying…`,
+  };
+  const name = service.label;
+  /** An operation's title for its progress panel ("Ollama install"). */
+  const operationTitles: Record<ServiceAction, string> = {
+    install: t`${name} install`,
+    start: t`${name} start`,
+    status: t`${name} check status`,
+    logs: t`${name} view logs`,
+    stop: t`${name} stop`,
+    reinstall: changed
+      ? t`${name} apply configuration`
+      : llama
+        ? t`${name} reinstall runtime`
+        : t`${name} reinstall`,
+    uninstall: retainsData ? t`${name} remove runtime` : t`${name} uninstall`,
+    delete_data: t`${name} delete retained data`,
+    verify: t`${name} verify setup`,
   };
   const act = (action: ServiceAction) => (
     <Button
@@ -251,7 +269,9 @@ export function ManagedServiceCard({
   const running = service.state === 'running';
   const port = portOf(service.connection_url);
   const statusLabel =
-    running && port ? `${serviceStatus.label} on port ${port}` : serviceStatus.label;
+    running && port
+      ? t`${ph({ status: serviceStatus.label })} on port ${port}`
+      : serviceStatus.label;
   const lifecycle = editing ? null : (
     <>
       {running && service.supports_stop ? actIcon('stop', <SquareIcon aria-hidden="true" />) : null}
@@ -265,7 +285,7 @@ export function ManagedServiceCard({
   const about = serviceAbout(service, variant);
   return (
     <article
-      aria-label={`${service.label} management`}
+      aria-label={t`${ph({ label: service.label })} management`}
       className={editing ? 'min-w-0 space-y-5' : 'min-w-0 space-y-3'}
     >
       {editing ? (
@@ -284,28 +304,31 @@ export function ManagedServiceCard({
               className="flex-1"
               compact
               controls={panelId}
-              label={`${service.label} management tabs`}
+              label={t`${ph({ label: service.label })} management tabs`}
               onValueChange={selectTab}
               tabs={[
-                { value: 'status', label: 'Status', icon: <ActivityIcon aria-hidden="true" /> },
+                { value: 'status', label: t`Status`, icon: <ActivityIcon aria-hidden="true" /> },
                 {
                   value: 'configuration',
-                  label: 'Configuration',
+                  label: t`Configuration`,
                   icon: <ConfigureIcon aria-hidden="true" />,
                 },
-                { value: 'logs', label: 'Logs', icon: <ScrollTextIcon aria-hidden="true" /> },
-                { value: 'storage', label: 'Storage', icon: <HardDriveIcon aria-hidden="true" /> },
+                { value: 'logs', label: t`Logs`, icon: <ScrollTextIcon aria-hidden="true" /> },
+                { value: 'storage', label: t`Storage`, icon: <HardDriveIcon aria-hidden="true" /> },
               ]}
               value={activeTab as 'status'}
             />
-            <InfoTip className="size-7 self-center" label={`About ${service.label}`}>
+            <InfoTip
+              className="size-7 self-center"
+              label={t`About ${ph({ label: service.label })}`}
+            >
               {about}
             </InfoTip>
           </div>
           {installed && changed ? (
-            <div className="flex min-h-[26px] min-w-0 flex-wrap items-center gap-2 text-[12px] text-warning">
+            <div className="flex min-h-[26px] min-w-0 flex-wrap items-center gap-2 text-meta text-warning">
               <TriangleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">Unapplied changes</span>
+              <span className="min-w-0 flex-1 truncate">{t`Unapplied changes`}</span>
               {onResetConfiguration ? (
                 <Button
                   size="sm"
@@ -313,7 +336,7 @@ export function ManagedServiceCard({
                   disabled={Boolean(activeAction)}
                   onClick={onResetConfiguration}
                 >
-                  Discard changes
+                  {t`Discard changes`}
                 </Button>
               ) : null}
               <Button
@@ -322,7 +345,7 @@ export function ManagedServiceCard({
                 disabled={disabledFor('reinstall')}
                 onClick={() => confirm('reinstall')}
               >
-                Apply configuration
+                {t`Apply configuration`}
               </Button>
             </div>
           ) : null}
@@ -343,18 +366,18 @@ export function ManagedServiceCard({
                     {actIcon('status', <RefreshIcon aria-hidden="true" />)}
                     <IconButton
                       icon={<ScrollTextIcon aria-hidden="true" />}
-                      label="View logs"
+                      label={t`View logs`}
                       onClick={() => selectTab('logs')}
                     />
                   </span>
                 </div>
                 {serviceStatus.reason ? (
-                  <p className="text-[12px] text-warning">{serviceStatus.reason}</p>
+                  <p className="text-meta text-warning">{serviceStatus.reason}</p>
                 ) : null}
                 {llama && installed && !running ? (
                   <>
                     <p className="text-sm text-muted-foreground">
-                      Runtime installed. Choose a model to serve.
+                      {t`Runtime installed. Choose a model to serve.`}
                     </p>
                     {form}
                     {modelProblem ? (
@@ -409,11 +432,10 @@ export function ManagedServiceCard({
                       size="sm"
                       variant="outline"
                     >
-                      Reinstall from scratch
+                      {t`Reinstall from scratch`}
                     </Button>
-                    <InfoTip label="About applying service configuration">
-                      Applying configuration stops and replaces this runtime. Verify setup again
-                      afterward. Keep using the existing configuration until you apply your edits.
+                    <InfoTip label={t`About applying service configuration`}>
+                      {t`Applying configuration stops and replaces this runtime. Verify setup again afterward. Keep using the existing configuration until you apply your edits.`}
                     </InfoTip>
                   </div>
                 ) : (
@@ -426,8 +448,8 @@ export function ManagedServiceCard({
               </>
             ) : activeTab === 'logs' ? (
               <>
-                <div className="flex min-h-[26px] items-center gap-2 text-[12px] text-muted-foreground">
-                  <span className="min-w-0 flex-1 truncate">Recent logs on {hostLabel}</span>
+                <div className="flex min-h-[26px] items-center gap-2 text-meta text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate">{t`Recent logs on ${hostLabel}`}</span>
                   <IconButton
                     disabled={Boolean(activeAction)}
                     icon={
@@ -437,13 +459,13 @@ export function ManagedServiceCard({
                         <RefreshIcon aria-hidden="true" />
                       )
                     }
-                    label={activeAction === 'logs' ? 'Refreshing…' : 'Refresh logs'}
+                    label={activeAction === 'logs' ? t`Refreshing…` : t`Refresh logs`}
                     onClick={() => onAction('logs')}
                   />
                 </div>
                 {result?.action === 'logs' ? (
                   <pre
-                    aria-label={`${service.label} recent logs`}
+                    aria-label={t`${ph({ label: service.label })} recent logs`}
                     aria-live="polite"
                     className="clio-scrollbar max-h-80 overflow-auto rounded-md border border-border p-3 font-mono text-xs leading-5 whitespace-pre-wrap"
                   >
@@ -451,7 +473,7 @@ export function ManagedServiceCard({
                   </pre>
                 ) : (
                   <p className="text-sm text-muted-foreground" role="status">
-                    Reading recent logs from {hostLabel}…
+                    {t`Reading recent logs from ${hostLabel}…`}
                   </p>
                 )}
               </>
@@ -487,7 +509,7 @@ export function ManagedServiceCard({
           key={operation.id}
           onCancel={onCancel}
           operationId={operation.id}
-          title={`${service.label} ${labels[activeAction].toLowerCase()}`}
+          title={operationTitles[activeAction]}
         />
       ) : activeAction ? (
         <div className="space-y-2">
@@ -497,7 +519,7 @@ export function ManagedServiceCard({
             </p>
             {onCancel ? (
               <Button size="sm" variant="ghost" onClick={onCancel}>
-                Cancel operation
+                {t`Cancel operation`}
               </Button>
             ) : null}
           </div>
@@ -519,7 +541,7 @@ export function ManagedServiceCard({
               : undefined
           }
           operationId={result.operationId}
-          title={`${service.label} ${labels[result.action].toLowerCase()}`}
+          title={operationTitles[result.action]}
         />
       ) : null}
       {result && result.action !== 'logs' ? (

@@ -50,6 +50,7 @@ import {
   VolumeXIcon,
   type LucideIcon,
 } from 'lucide-react';
+import { t } from '@lingui/core/macro';
 import { z } from 'zod';
 import {
   a2uiAccessibilityLabel,
@@ -218,18 +219,19 @@ export const KernelIcon = createComponentImplementation(
     }
 
     const rawName = typeof props.name === 'string' ? props.name : '';
-    const IconGlyph = KERNEL_ICON_MAP.get(rawName) ?? KERNEL_ICON_MAP.get(normalizeIconKey(rawName));
+    const IconGlyph =
+      KERNEL_ICON_MAP.get(rawName) ?? KERNEL_ICON_MAP.get(normalizeIconKey(rawName));
 
     // An unknown or still-unresolved name never prints as text (#26): a
     // visible neutral glyph instead. The accessible name stays a generic
     // "Icon" -- never the raw identifier as technical copy -- with the name
     // available for debugging only in the hover tooltip.
     if (!IconGlyph) {
-      const title = rawName ? `Icon: ${rawName}` : 'Icon';
+      const title = rawName ? t`Icon: ${rawName}` : t`Icon`;
       return (
         <span
           {...a2uiAccessibilityProps(props.accessibility)}
-          aria-label={label ?? 'Icon'}
+          aria-label={label ?? t`Icon`}
           className="inline-flex"
           role="img"
           title={title}

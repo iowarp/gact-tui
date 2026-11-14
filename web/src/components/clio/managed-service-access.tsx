@@ -5,6 +5,7 @@ import { Field, FieldContent, FieldDescription, FieldLabel } from '@/components/
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { vocab } from '@/lib/brand-vocabulary';
+import { t, ph } from '@lingui/core/macro';
 
 /** Configuration key of the "Shareable (no key)" choice, as the service declares it. */
 export const SHAREABLE_FIELD = 'shareable';
@@ -17,7 +18,7 @@ function deploymentPort(service: ManagedServiceDefinition, configuration: Record
 }
 
 function reach(port: string): string {
-  return port ? `port ${port} on this host` : 'its port on this host';
+  return port ? t`port ${port} on this host` : t`its port on this host`;
 }
 
 /**
@@ -46,8 +47,7 @@ export function ServiceAccessChoice({
       >
         <ShieldAlertIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
         <span>
-          Not protected: {service.label} has no API key support, so anyone who can reach{' '}
-          {reach(port)} can use it.
+          {t`Not protected: ${ph({ label: service.label })} has no API key support, so anyone who can reach ${ph({ where: reach(port) })} can use it.`}
         </span>
       </p>
     );
@@ -61,11 +61,11 @@ export function ServiceAccessChoice({
         onCheckedChange={(checked) => onConfiguration(SHAREABLE_FIELD, checked ? 'true' : 'false')}
       />
       <FieldContent>
-        <FieldLabel htmlFor={id}>Shareable (no key)</FieldLabel>
+        <FieldLabel htmlFor={id}>{t`Shareable (no key)`}</FieldLabel>
         <FieldDescription>
           {shareable
-            ? `Anyone who can reach ${reach(port)} can use it, with no key.`
-            : `Off: ${vocab.agent} protects it with a key it makes and sends for you.`}
+            ? t`Anyone who can reach ${ph({ where: reach(port) })} can use it, with no key.`
+            : t`Off: ${ph({ agent: vocab.agent })} protects it with a key it makes and sends for you.`}
         </FieldDescription>
       </FieldContent>
     </Field>

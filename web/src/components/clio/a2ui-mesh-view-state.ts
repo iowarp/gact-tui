@@ -2,6 +2,8 @@ import { formatFieldValue } from './mesh-viewport-colormap';
 import { readThemeColor } from '@/theme/runtime';
 import type { MeshField, ParsedFeaMesh } from './mesh-viewport-mesh';
 import type { MeshCameraState } from './mesh-viewport-sync';
+import { ph, plural, t } from '@lingui/core/macro';
+import { formatNumber } from '@/lib/locale-format';
 
 export interface ViewInputs {
   color?: MeshField;
@@ -30,23 +32,37 @@ export function describe(
   visibleCells: number | undefined,
   artifactId: string | undefined,
 ): string {
-  if (!parsed) return artifactId ? 'Loading mesh…' : 'Mesh unavailable';
+  if (!parsed) return artifactId ? t`Loading mesh…` : t`Mesh unavailable`;
   const parts: string[] = [];
-  if (parsed.frames.length > 1) parts.push(parsed.frames[frame] ?? `Frame ${frame}`);
+  if (parsed.frames.length > 1) parts.push(parsed.frames[frame] ?? t`Frame ${frame}`);
   const threshold = inputs.threshold;
   if (threshold && threshold.field.location === 'cell' && visibleCells !== undefined) {
-    const bound = Number.isFinite(threshold.min)
-      ? ` at ${threshold.field.label.toLowerCase()} ≥ ${formatFieldValue(threshold.min)}${threshold.field.unit ? ` ${threshold.field.unit}` : ''}`
-      : '';
-    parts.push(
-      `${visibleCells.toLocaleString()} of ${parsed.cells.toLocaleString()} elements${bound}`,
-    );
+    const visible = formatNumber(visibleCells);
+    if (Number.isFinite(threshold.min)) {
+      const field = threshold.field.label.toLowerCase();
+      const value = `${formatFieldValue(threshold.min)}${threshold.field.unit ? ` ${threshold.field.unit}` : ''}`;
+      parts.push(
+        plural(parsed.cells, {
+          one: `${visible} of # element at ${field} ≥ ${value}`,
+          other: `${visible} of # elements at ${field} ≥ ${value}`,
+        }),
+      );
+    } else {
+      parts.push(
+        plural(parsed.cells, { one: `${visible} of # element`, other: `${visible} of # elements` }),
+      );
+    }
   } else if (parsed.topology === 'cells') {
-    parts.push(`${parsed.cells.toLocaleString()} elements`);
+    parts.push(plural(parsed.cells, { one: '# element', other: '# elements' }));
   } else {
-    parts.push(`${(parsed.triangles.length / 3).toLocaleString()} surface triangles`);
+    parts.push(
+      plural(parsed.triangles.length / 3, {
+        one: '# surface triangle',
+        other: '# surface triangles',
+      }),
+    );
   }
-  if (parsed.lengthUnit) parts.push(`units ${parsed.lengthUnit}`);
+  if (parsed.lengthUnit) parts.push(t`units ${ph({ unit: parsed.lengthUnit })}`);
   return parts.join(', ');
 }
 

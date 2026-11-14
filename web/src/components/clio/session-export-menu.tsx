@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { KeyMenuItem } from './menu-key-items';
 import { ResponsiveMenuSub } from './responsive-menu-sub';
+import { t } from '@lingui/core/macro';
 
 /**
  * One download: with nothing ticked it is the transcript as HTML; ticking
@@ -20,11 +21,11 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
   const [full, setFull] = useState(false);
   const options = (
     <>
-      <DropdownMenuLabel>Transcript is always included</DropdownMenuLabel>
+      <DropdownMenuLabel>{t`Transcript is always included`}</DropdownMenuLabel>
       <ExportOption
         checked={effects}
-        description="files the agent made"
-        label="Artifacts"
+        description={t`files the agent made`}
+        label={t`Artifacts`}
         onCheckedChange={(value) => {
           setEffects(value);
           if (!value) setFull(false);
@@ -32,8 +33,8 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
       />
       <ExportOption
         checked={full}
-        description="can be large"
-        label="Workspace files"
+        description={t`can be large`}
+        label={t`Workspace files`}
         onCheckedChange={(value) => {
           setFull(value);
           if (value) setEffects(true);
@@ -42,14 +43,14 @@ export function SessionExportMenu({ onExport }: { onExport: (mode: SessionExport
       <DropdownMenuSeparator />
       <KeyMenuItem
         icon={effects ? BoxIcon : FileTextIcon}
-        label={effects ? 'Download ZIP' : 'Download HTML'}
+        label={effects ? t`Download ZIP` : t`Download HTML`}
         menuKey="S"
         onSelect={() => onExport(full ? 'full' : effects ? 'effects' : 'transcript')}
       />
     </>
   );
   return (
-    <ResponsiveMenuSub icon={DownloadIcon} label="Export" width={260}>
+    <ResponsiveMenuSub icon={DownloadIcon} label={t`Export`} width={260}>
       {options}
     </ResponsiveMenuSub>
   );
@@ -70,6 +71,7 @@ function ExportOption({
   return (
     <DropdownMenuCheckboxItem
       aria-describedby={`${id}-description`}
+      // i18n-ignore: element id reference
       aria-labelledby={`${id}-label`}
       checked={checked}
       className="pr-2 whitespace-nowrap [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"

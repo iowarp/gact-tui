@@ -2,6 +2,10 @@ import { brand } from '@brand';
 import { Button } from '@/components/ui/button';
 import { vocab } from '@/lib/brand-vocabulary';
 import type { ConflictAnswer, FoundConflict } from './managed-service-target-utils';
+import { t, ph } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
+
+const { agent } = vocab;
 
 /** Explain the existing agent and the consequences of each choice before any change. */
 export function RemoteAgentConflict({
@@ -15,6 +19,7 @@ export function RemoteAgentConflict({
 }) {
   const buttonClass = 'h-auto min-h-8 max-w-full whitespace-normal text-left';
   const stopped = found.health === 'stopped';
+  const { installedVersion: version, pid } = found;
   const outdated = Boolean(
     found.owner && found.targetVersion && found.targetVersion !== found.installedVersion,
   );
@@ -25,37 +30,33 @@ export function RemoteAgentConflict({
       aria-live="assertive"
     >
       <p className="text-sm">
-        {found.health === 'healthy' ? (
-          <>
-            {vocab.agent} {found.installedVersion} is already running on {label}
-            {found.pid ? ` (pid ${found.pid})` : ''}.
-          </>
-        ) : stopped ? (
-          <>
-            {vocab.agent} {found.installedVersion} is installed on {label} but not running.
-          </>
-        ) : (
-          <>
-            {vocab.agent} on {label} isn&apos;t answering{found.pid ? ` (pid ${found.pid})` : ''}{' '}
-            &mdash; Replace it?
-          </>
-        )}
+        {found.health === 'healthy'
+          ? pid
+            ? t`${agent} ${version} is already running on ${label} (pid ${pid}).`
+            : t`${agent} ${version} is already running on ${label}.`
+          : stopped
+            ? t`${agent} ${version} is installed on ${label} but not running.`
+            : pid
+              ? t`${agent} on ${label} isn't answering (pid ${pid}) — Replace it?`
+              : t`${agent} on ${label} isn't answering — Replace it?`}
       </p>
       <p className="text-sm text-muted-foreground">
-        Existing agent: {found.installedVersion}. This app: {found.targetVersion || 'not reported'}.
+        {found.targetVersion
+          ? t`Existing agent: ${version}. This app: ${ph({ target: found.targetVersion })}.`
+          : t`Existing agent: ${version}. This app: not reported.`}{sentenceGap()}
         {stopped
-          ? ' Starting it keeps its version and data.'
-          : ' Reconnecting keeps the existing process and its lifecycle unchanged.'}
+          ? t`Starting it keeps its version and data.`
+          : t`Reconnecting keeps the existing process and its lifecycle unchanged.`}
       </p>
       {found.owner ? (
         <p className="break-all text-xs text-muted-foreground">
-          Installation: {found.owner}. Port: {found.port ?? brand.agentPort}.
+          {t`Installation: ${ph({ owner: found.owner })}. Port: ${ph({ port: found.port ?? brand.agentPort })}.`}
         </p>
       ) : null}
       <p className="text-sm text-muted-foreground">
         {stopped
-          ? 'Update installs this app’s version in the same place, then starts it. Starting a new one leaves this installation alone and uses the next port with a separate installation.'
-          : 'Update restarts the existing installation at the target version. Replace stops the existing process and installs at the selected location. Starting another leaves it running and uses the next port with a separate installation.'}
+          ? t`Update installs this app’s version in the same place, then starts it. Starting a new one leaves this installation alone and uses the next port with a separate installation.`
+          : t`Update restarts the existing installation at the target version. Replace stops the existing process and installs at the selected location. Starting another leaves it running and uses the next port with a separate installation.`}
       </p>
       <div className="flex min-w-0 flex-wrap gap-2">
         {found.health === 'healthy' || stopped ? (
@@ -66,8 +67,8 @@ export function RemoteAgentConflict({
             variant={stopped && !outdated ? 'default' : 'outline'}
           >
             {stopped
-              ? `Start it and connect (${found.installedVersion})`
-              : `Reconnect to the running ${vocab.agent} (${found.installedVersion})`}
+              ? t`Start it and connect (${version})`
+              : t`Reconnect to the running ${agent} (${version})`}
           </Button>
         ) : null}
         {outdated ? (
@@ -77,12 +78,12 @@ export function RemoteAgentConflict({
             type="button"
             variant={stopped ? 'default' : 'outline'}
           >
-            {stopped ? 'Update and connect' : 'Reconnect and update'}
+            {stopped ? t`Update and connect` : t`Reconnect and update`}
           </Button>
         ) : null}
         {stopped ? null : (
           <Button className={buttonClass} onClick={() => onChoice('replace')} type="button">
-            Stop and replace
+            {t`Stop and replace`}
           </Button>
         )}
         {found.owner ? (
@@ -92,7 +93,7 @@ export function RemoteAgentConflict({
             type="button"
             variant="outline"
           >
-            {stopped ? 'Start a new one' : 'Leave it running and start another'}
+            {stopped ? t`Start a new one` : t`Leave it running and start another`}
           </Button>
         ) : null}
       </div>

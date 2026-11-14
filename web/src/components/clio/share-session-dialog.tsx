@@ -13,12 +13,13 @@ import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
 import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
+import { t } from '@lingui/core/macro';
 
 const EXPIRY_OPTIONS = [
-  { value: '3600', label: 'In 1 hour' },
-  { value: '86400', label: 'In 1 day' },
-  { value: '604800', label: 'In 7 days' },
-  { value: '2592000', label: 'In 30 days' },
+  { value: '3600', label: t`In 1 hour` },
+  { value: '86400', label: t`In 1 day` },
+  { value: '604800', label: t`In 7 days` },
+  { value: '2592000', label: t`In 30 days` },
 ] as const;
 
 export interface ClioShareSessionDialogProps {
@@ -79,14 +80,14 @@ export function ClioShareSessionDialog({
       open={open}
       onOpenChange={handleOpenChange}
       icon={<Share2Icon />}
-      title={`Share ${title}`}
-      description="A read-only snapshot. Anyone with the link can view it until it expires."
-      cancelLabel={shareUrl ? null : 'Cancel'}
+      title={t`Share ${title}`}
+      description={t`A read-only snapshot. Anyone with the link can view it until it expires.`}
+      cancelLabel={shareUrl ? null : t`Cancel`}
       confirm={
         shareUrl
-          ? { label: 'Done', onConfirm: () => handleOpenChange(false), key: 'Enter' }
+          ? { label: t`Done`, onConfirm: () => handleOpenChange(false), key: 'Enter' }
           : {
-              label: pending ? 'Creating link…' : 'Create share link',
+              label: pending ? t`Creating link…` : t`Create share link`,
               disabled: pending,
               onConfirm: () => void createShare(),
             }
@@ -98,7 +99,7 @@ export function ClioShareSessionDialog({
             htmlFor="session-share-expiry"
             className="text-xs font-normal text-muted-foreground"
           >
-            Link expires
+            {t`Link expires`}
           </Label>
           {/* The link is minted with its expiry: afterwards the field keeps its box and
               chevron with muted text (spec "Share, after the link"). */}
@@ -109,7 +110,7 @@ export function ClioShareSessionDialog({
           >
             <SelectTrigger
               className={cn(
-                'h-[30px] w-full text-[12.5px]',
+                'h-[30px] w-full text-menu',
                 shareUrl && 'disabled:cursor-default disabled:opacity-100 text-muted-foreground',
               )}
               id="session-share-expiry"
@@ -131,7 +132,7 @@ export function ClioShareSessionDialog({
               htmlFor="session-share-url"
               className="text-xs font-normal text-muted-foreground"
             >
-              Share link
+              {t`Share link`}
             </Label>
             <div className="relative">
               <Input
@@ -139,12 +140,12 @@ export function ClioShareSessionDialog({
                 readOnly
                 ref={inputRef}
                 value={shareUrl}
-                className="h-[30px] pr-8 font-mono text-[12px] md:text-[12px]"
+                className="h-[30px] pr-8 font-mono text-meta md:text-meta"
                 onFocus={(event) => event.currentTarget.select()}
               />
               <IconButton
                 size="sm"
-                label={copied ? 'Copied' : 'Copy share link'}
+                label={copied ? t`Copied` : t`Copy share link`}
                 icon={copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
                 onClick={() => void copy()}
                 className="absolute top-1/2 right-[3px] size-6 -translate-y-1/2"

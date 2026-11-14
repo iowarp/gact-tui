@@ -195,11 +195,11 @@ describe('ArtifactView', () => {
     expect(screen.queryByText('Preview unavailable')).not.toBeInTheDocument();
     // Ctrl or âŒ˜ with the wheel zooms, so the zoom icons may fold from a narrow frame.
     const zoomOut = screen.getByRole('button', { name: 'Zoom out' });
-    expect(zoomOut).toBeDisabled();
+    expect(zoomOut).toHaveAccessibleDescription('Smallest zoom');
     fireEvent.wheel(imageCanvas, { deltaY: -100 });
-    expect(zoomOut).toBeDisabled();
+    expect(zoomOut).toHaveAccessibleDescription('Smallest zoom');
     fireEvent.wheel(imageCanvas, { ctrlKey: true, deltaY: -100 });
-    expect(zoomOut).toBeEnabled();
+    expect(zoomOut).not.toHaveAttribute('aria-disabled');
   });
 });
 
@@ -410,7 +410,10 @@ describe('WorkspaceFileView', () => {
     await userEvent.keyboard('{Escape}');
     await userEvent.click(within(frame).getByRole('button', { name: 'Download' }));
     await waitFor(() =>
-      expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith('workspace_1', 'data/run.grib2'),
+      expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith(
+        'workspace_1',
+        'data/run.grib2',
+      ),
     );
     await userEvent.click(screen.getByRole('button', { name: 'File actions' }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'File information' }));
@@ -501,7 +504,10 @@ describe('WorkspaceFileView', () => {
       </QueryClientProvider>,
     );
     expect(await screen.findByRole('button', { name: 'Build this paper' })).toBeTruthy();
-    expect(await screen.findByText(/\\documentclass\{article\}/u)).toBeTruthy();
+    // Syntax colours split the line into tokens once the highlighter is ready.
+    expect(await screen.findByRole('region', { name: 'Source of main.tex' })).toHaveTextContent(
+      '\\documentclass{article}',
+    );
     expect(repository.commentTarget).toHaveBeenCalledWith(
       'workspace_1',
       'paper/main.tex',

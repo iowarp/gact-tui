@@ -13,6 +13,7 @@ import {
 } from './mcp-app-live-set';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import type { McpAppTabTarget } from './workbench-shared';
+import { t } from '@lingui/core/macro';
 
 /**
  * An App's card in the conversation (MA2, MA3). The conversation's latest App
@@ -59,7 +60,7 @@ export function McpAppCard({
           variant="ghost"
         >
           <Maximize2Icon aria-hidden="true" />
-          Open in tab
+          {t`Open in tab`}
         </Button>
       }
       appInstanceId={target.appInstanceId}
@@ -96,10 +97,10 @@ export function McpAppInTabRow({ target }: { target: McpAppTabTarget }) {
     >
       <PanelsTopLeftIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate text-foreground/85">{target.label}</span>
-      <span className="shrink-0 text-xs text-muted-foreground">Open in a tab</span>
+      <span className="shrink-0 text-xs text-muted-foreground">{t`Open in a tab`}</span>
       <Button onClick={() => focusMcpAppTab(target)} size="sm" type="button" variant="ghost">
         <SquareArrowOutUpRightIcon aria-hidden="true" />
-        Show tab
+        {t`Show tab`}
       </Button>
     </div>
   );

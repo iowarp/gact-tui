@@ -38,6 +38,7 @@ import {
   SourceReviewPanel,
   SourceUnpublishedEdits,
 } from './source-review-panel';
+import { plural, t, ph } from '@lingui/core/macro';
 
 type DetailProps = {
   workspaceId: string;
@@ -380,28 +381,34 @@ function SourceManage({
   const accessReason = mapping.error ? mapping.error.message : mapping.data?.reason;
   const unavailable: Partial<Record<SourceAccess, string>> = {};
   if (!(canLink && allowed.includes('publish_later')) && !canDownload)
-    unavailable.editable = accessReason ?? 'Not offered by this source';
+    unavailable.editable = accessReason ?? t`Not offered by this source`;
   if (!(canLink && allowed.includes('write_through')))
     unavailable.write =
       accessReason ??
-      (canLink ? 'Not offered by this source' : 'A downloaded copy never changes the originals');
+      (canLink ? t`Not offered by this source` : t`A downloaded copy never changes the originals`);
   const files = source.provider === 'ndp';
-  const linkLabel = source.linked ? 'Update link' : files ? 'Link selected files' : 'Link folder';
+  const linkLabel = source.linked
+    ? t`Update link`
+    : files
+      ? t`Link selected files`
+      : t`Link folder`;
   const downloadLabel = files
-    ? 'Download selected files'
+    ? t`Download selected files`
     : folder
-      ? 'Download folder'
-      : 'Download all';
+      ? t`Download folder`
+      : t`Download all`;
   const footer = useSourceFrameFooter(
     review
       ? {
           confirm: {
-            label: `Publish ${selected.length || 'selected'} ${selected.length === 1 ? 'edit' : 'edits'}`,
+            label: selected.length
+              ? plural(selected.length, { one: 'Publish # edit', other: 'Publish # edits' })
+              : t`Publish selected edits`,
             disabled: action.isPending || !selected.length,
           },
           onConfirm: () => action.mutate('apply'),
           start: {
-            label: 'Close review',
+            label: t`Close review`,
             disabled: action.isPending,
             onClick: () => setReview(undefined),
           },
@@ -421,12 +428,12 @@ function SourceManage({
           secondary:
             showAccess && linkable && canDownload
               ? {
-                  label: 'Download a copy',
+                  label: t`Download a copy`,
                   disabled: busy,
                   onClick: () => action.mutate('transfer'),
                 }
               : undefined,
-          start: { label: 'Back', back: true, onClick: onBack },
+          start: { label: t`Back`, back: true, onClick: onBack },
         },
   );
   const sublineParts = sourceSublineParts(source);
@@ -436,30 +443,29 @@ function SourceManage({
     folderReference.error ||
     operations.error ||
     download.error;
-  const quiet = 'h-6 px-2 text-[12px]';
+  const quiet = 'h-6 px-2 text-meta';
   const details: KeyValueItem[] = [
     {
-      label: 'Location',
-      value: source.origin === 'desktop_upload' ? 'Uploaded from your computer' : source.root,
+      label: t`Location`,
+      value: source.origin === 'desktop_upload' ? t`Uploaded from your computer` : source.root,
       mono: source.origin !== 'desktop_upload',
     },
     {
-      label: 'Saved on',
+      label: t`Saved on`,
       value: hostLabel,
       action: (
-        <InfoTip label="About source identity">
-          This folder is available to {vocab.agent} on {hostLabel}. Add it to your message so the
-          agent knows which files to use.
+        <InfoTip label={t`About source identity`}>
+          {t`This folder is available to ${ph({ agent: vocab.agent })} on ${hostLabel}. Add it to your message so the agent knows which files to use.`}
         </InfoTip>
       ),
     },
     ...(canLink || source.linked
       ? [
           {
-            label: 'Link',
+            label: t`Link`,
             value: source.linked
               ? sourceAccessNames[source.link_access ?? 'read_only']
-              : 'Not linked',
+              : t`Not linked`,
             action:
               source.linked && source.connected && canAccessSource ? (
                 <Button
@@ -471,7 +477,7 @@ function SourceManage({
                   onClick={() => action.mutate('unlink')}
                 >
                   <UnlinkIcon aria-hidden="true" />
-                  Unlink
+                  {t`Unlink`}
                 </Button>
               ) : undefined,
           },
@@ -480,7 +486,7 @@ function SourceManage({
     ...(canDownload || ready
       ? [
           {
-            label: 'Downloaded copy',
+            label: t`Downloaded copy`,
             value: ready
               ? source.download_access === 'editable'
                 ? 'Editable copy'
@@ -496,7 +502,7 @@ function SourceManage({
                 disabled={Boolean(active)}
                 onClick={() => setConfirmRemove(true)}
               >
-                Remove
+                {t`Remove`}
               </Button>
             ) : undefined,
           },
@@ -512,11 +518,11 @@ function SourceManage({
         />
         <div className="min-w-0 flex-1 leading-[1.3]">
           {showName ? (
-            <h3 className="truncate text-[13px] font-medium" title={source.label}>
+            <h3 className="truncate text-ui font-medium" title={source.label}>
               {source.label}
             </h3>
           ) : null}
-          <p className="flex min-w-0 gap-2.5 truncate text-[11.5px] whitespace-nowrap text-muted-foreground">
+          <p className="flex min-w-0 gap-2.5 truncate text-label whitespace-nowrap text-muted-foreground">
             {sublineParts.map((part) => (
               <span key={part} className="truncate">
                 {part}
@@ -538,11 +544,11 @@ function SourceManage({
               disabled={action.isPending}
               onClick={() => action.mutate('reconnect')}
             >
-              Reconnect
+              {t`Reconnect`}
             </Button>
           }
         >
-          Disconnected. Downloaded copies are kept.
+          {t`Disconnected. Downloaded copies are kept.`}
         </SourceStatusLine>
       ) : !canAccessSource ? (
         <ConnectedSourceAuth
@@ -572,15 +578,15 @@ function SourceManage({
                   className={quiet}
                   onClick={onOpenKnowledge}
                 >
-                  Open knowledge
+                  {t`Open knowledge`}
                 </Button>
               ) : null}
               {source.account_url ? (
                 <ExternalLink
                   href={source.account_url}
-                  className="px-1.5 text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  className="px-1.5 text-meta text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 >
-                  Repository access
+                  {t`Repository access`}
                 </ExternalLink>
               ) : null}
               <Button
@@ -592,27 +598,27 @@ function SourceManage({
                 onClick={() => action.mutate('disconnect')}
               >
                 <UnplugIcon aria-hidden="true" />
-                Disconnect
+                {t`Disconnect`}
               </Button>
             </>
           }
         >
-          {source.linked ? 'Linked' : 'Connected'}
+          {source.linked ? t`Linked` : t`Connected`}
         </SourceStatusLine>
       )}
       {tracking.control}
       {source.provider === 'globus' ? (
         <GlobusReceivingStorageControl hostLabel={hostLabel} />
       ) : null}
-      <KeyValueGrid items={details} actionColumn aria-label="Source details" />
+      <KeyValueGrid items={details} actionColumn aria-label={t`Source details`} />
       {confirmRemove ? (
         <RowConfirm
           question={
             source.download_access === 'editable'
-              ? 'Remove the copy and its local edits? Originals are kept.'
-              : 'Remove the workspace copy? Originals are kept.'
+              ? t`Remove the copy and its local edits? Originals are kept.`
+              : t`Remove the workspace copy? Originals are kept.`
           }
-          action="Remove copy"
+          action={t`Remove copy`}
           busyAction="Removing…"
           onKeep={() => setConfirmRemove(false)}
           onConfirm={() => action.mutateAsync('remove-copy')}
@@ -636,7 +642,7 @@ function SourceManage({
         )}
       {!ready && latest?.kind !== 'indexing' && latest?.state === 'completed' ? (
         <SourceStatusLine role="status" tone="quiet" icon={<CircleIcon />}>
-          No downloaded copy in this workspace.
+          {t`No downloaded copy in this workspace.`}
         </SourceStatusLine>
       ) : null}
       {latest && (latest.kind === 'indexing' || latest.state !== 'completed' || ready) ? (
@@ -679,10 +685,10 @@ function SourceManage({
           copies={browsingCopies}
           copiesNote={
             source.download_access === 'editable'
-              ? 'These files are on the selected computer. Adding a file to your message keeps a copy of it as it is now.'
+              ? t`These files are on the selected computer. Adding a file to your message keeps a copy of it as it is now.`
               : source.origin === 'desktop_upload'
-                ? 'These are your uploaded files. Upload the folder again to use changes from your computer.'
-                : 'These are your downloaded files. Download again to get changes from the original folder.'
+                ? t`These are your uploaded files. Upload the folder again to use changes from your computer.`
+                : t`These are your downloaded files. Download again to get changes from the original folder.`
           }
           view={ready && source.connected && source.origin !== 'desktop_upload' ? view : undefined}
           onView={(next) => {
@@ -703,7 +709,7 @@ function SourceManage({
           addFolder={
             onSelect && (ready || (source.linked && source.connected && canAccessSource))
               ? {
-                  label: `Add ${folder ? 'this folder' : 'source'} to message`,
+                  label: folder ? t`Add this folder to message` : t`Add source to message`,
                   disabled: folderReference.isPending || Boolean(active),
                   onClick: () =>
                     folderReference.mutate({
@@ -718,13 +724,15 @@ function SourceManage({
           fileAction={(entry) =>
             onSelect && (browsingCopies || !canDownload)
               ? {
-                  label: 'Add to message',
+                  label: t`Add to message`,
                   disabled: (!browsingCopies && !source.linked) || fileReference.isPending,
                   reason:
                     !browsingCopies && !source.linked
                       ? linkable
-                        ? `${linkLabel} to add its files to a message.`
-                        : 'Link this source to add its files to a message.'
+                        ? files
+                          ? t`Link the selected files to add them to a message.`
+                          : t`Link this folder to add its files to a message.`
+                        : t`Link this source to add its files to a message.`
                       : undefined,
                   onClick: () =>
                     fileReference.mutate({
@@ -736,7 +744,7 @@ function SourceManage({
                 }
               : canDownload && !browsingCopies && source.connected && canAccessSource
                 ? {
-                    label: 'Download file',
+                    label: t`Download file`,
                     disabled: Boolean(active) || download.isPending,
                     onClick: () => download.mutate({ path: entry.path, name: entry.remote_path }),
                   }
