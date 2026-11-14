@@ -74,6 +74,10 @@ interface EntryBase {
   key: string;
   title: string;
   meta: ExtensionMetaPart[];
+  /** What it is, in its own words: one truncated line under the meta (DOCS-D5). */
+  description?: string;
+  /** What it still needs from the person, a line of its own under the description. */
+  needs?: string;
   status?: ExtensionStatus;
 }
 
@@ -294,8 +298,10 @@ export function connectorRow(
       { text: plugin ? t`Plugin` : t`Connector` },
       { text: connectorPluginContents(connector, plugin) },
       ...(connector.source === 'custom' ? [{ text: t`Added by you` }] : []),
-      ...(setup ? [{ text: setup }] : []),
     ],
+    // A plugin says what it is in its own description; a connector in its catalog entry's.
+    description: (plugin?.description || connector.description).trim() || undefined,
+    needs: setup || undefined,
     status: { tone: status.tone, label },
   };
 }
@@ -352,6 +358,8 @@ export function entryText(entry: ExtensionEntry): string {
     return [
       connectorText(entry.connector),
       ...entry.meta.map((part) => part.text),
+      entry.description ?? '',
+      entry.needs ?? '',
       ...(entry.plugin ? [entry.plugin.description, ...entry.plugin.skills] : []),
     ]
       .join(' ')
@@ -460,7 +468,18 @@ export function markdownSummary(text: string | undefined): string {
   if (!text) return '';
   const front = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u);
   const line = front?.[1]?.match(/^description:\s*(.+)$/mu)?.[1]?.trim();
-  if (line) return line.replace(/^(['"])(.*)\1$/u, '$2');
+  // A block scalar (`description: >` or `|`) holds its text on the indented lines below.
+  if (line && /^[>|][+-]?\d*$/u.test(line)) {
+    const block = front![1]!.match(
+      /^description:[^\n]*\n((?:[ \t]+[^\n]*(?:\n|$)|[ \t]*(?:\n|$))+)/mu,
+    )?.[1];
+    const folded = (block ?? '')
+      .split(/\r?\n/u)
+      .map((row) => row.trim())
+      .filter(Boolean)
+      .join(' ');
+    if (folded) return folded;
+  } else if (line) return line.replace(/^(['"])(.*)\1$/u, '$2');
   const body = front ? text.slice(front[0].length) : text;
   return (
     body
