@@ -168,6 +168,9 @@ export function SettingsRow({
             '[&_input:not([aria-hidden])]:h-[1.875rem] [&_input:not([aria-hidden])]:rounded-[0.375rem] [&_input:not([aria-hidden]):not([type=number])]:px-[0.5625rem] [&_input:not([aria-hidden])]:text-menu dark:[&_input:not([aria-hidden])]:bg-sidebar',
             '[&_input[type=number]]:text-right [&_input[type=number]]:font-mono [&_input[type=number]]:text-meta',
             (wideControl || inlineControl) && 'w-auto max-w-full',
+            // A read-only value dropped under its label keeps to the row end, in
+            // column with its neighbours' values; a switch or button starts the line.
+            inlineControl && !wideControl && 'has-data-[slot=settings-value]:ml-auto',
             // Stacked under its label, a control wider than the row wraps its parts onto
             // more lines and keeps each part within the row instead of running past it.
             !wideControl &&
