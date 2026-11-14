@@ -3,6 +3,7 @@ import { PuzzleIcon } from 'lucide-react';
 import { useConnector } from '@/hooks/use-connectors';
 import { WaitingForYou } from './agent-answer-activity';
 import { ConnectorLogo } from './connector-need-rows';
+import { humanizePluginId } from '@/lib/plugin-presentation';
 
 const OUTCOME: Record<string, string> = {
   answered: 'set up',
@@ -27,8 +28,9 @@ export function ConnectorSetupActivity({ interaction }: { interaction: PendingIn
   const id = payload?.connector_id ?? '';
   const { connector } = useConnector(id || undefined);
   const plugin = payload?.intent === 'add_plugin';
-  const name =
-    connector?.name ?? payload?.connector_name ?? (id || (plugin ? 'a plugin' : 'a connector'));
+  const name = plugin
+    ? humanizePluginId(payload?.plugin_id || 'a plugin')
+    : (connector?.name ?? payload?.connector_name ?? (id || 'a connector'));
   const offer = payload?.intent === 'enable' || plugin;
   return (
     <div

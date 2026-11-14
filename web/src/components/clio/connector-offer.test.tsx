@@ -1,4 +1,10 @@
-import { connectorSchema, type Connector, type PendingInteraction } from '@clio/core/v3';
+import {
+  connectorSchema,
+  pluginEntrySchema,
+  type Connector,
+  type PendingInteraction,
+  type PluginEntry,
+} from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -9,8 +15,11 @@ const repository = vi.hoisted(() => ({
   connectors: vi.fn(),
   sessionConnector: vi.fn(),
   connectorLogo: vi.fn(),
-  capabilities: vi.fn(async () => ({ capabilities: {} })),
+  capabilities: vi.fn(async () => ({ capabilities: { x_clio_agent_plugins: true } })),
   agents: vi.fn(async () => []),
+  plugins: vi.fn(async () => ({ plugins: [] as PluginEntry[], default_marketplace_error: null })),
+  inspectPlugin: vi.fn(),
+  mcpServers: vi.fn(async () => []),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
@@ -101,7 +110,7 @@ afterEach(() => {
 });
 
 describe('the agent offers to add a connector to this conversation', () => {
-  it('is three rows: the title with its state, the reason on one line, then the actions', async () => {
+  it('is four rows: the title with its state, what it is, why, then Add and what it brings', async () => {
     renderDock();
     expect(
       await screen.findByText(/Add Fixture viewer for very large.* to this conversation\?/u),
@@ -109,11 +118,20 @@ describe('the agent offers to add a connector to this conversation', () => {
     // State in words, with what Add does when it is off.
     expect(screen.getByText('Not enabled')).toBeTruthy();
     expect(screen.getByText('(Add turns it on)')).toBeTruthy();
+    // What it is: its own description on one line.
+    const what = screen.getByRole('button', { name: offer.payload!.description as string });
+    expect(what.getAttribute('data-slot')).toBe('connector-offer-description');
+    expect(what.className).toContain('truncate');
+    // Why: the agent's reason on one line, after a quiet "Why".
     const reason = screen.getByRole('button', { name: offer.payload!.reason as string });
     expect(reason.getAttribute('aria-expanded')).toBe('false');
     expect(reason.className).toContain('truncate');
-    // Dropped: the description, "Why the agent asks", "Nothing is required…", "Its tools join…".
-    expect(screen.queryByText(offer.payload!.description as string)).toBeNull();
+    expect(reason.previousElementSibling?.textContent).toBe('Why');
+    // What Add changes, in words: a connector is one MCP server.
+    expect(document.querySelector('[data-slot="connector-offer-contents"]')?.textContent).toBe(
+      'Brings 1 MCP server to this conversation',
+    );
+    // Still dropped: "Why the agent asks", "Nothing is required…", "Its tools join…".
     expect(screen.queryByText('Why the agent asks')).toBeNull();
     expect(screen.queryByText(/Nothing is required|needs nothing to set up/u)).toBeNull();
     expect(screen.queryByText(/join this conversation only/u)).toBeNull();
@@ -242,7 +260,7 @@ describe('the agent offers to add a connector to this conversation', () => {
         viewedSessionId="sess_root"
       />,
     );
-    expect(await screen.findByText('Add tariff-calc to this conversation?')).toBeTruthy();
+    expect(await screen.findByText('Add Tariff calc to this conversation?')).toBeTruthy();
     expect(screen.getByText('Plugin from trade-lab')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Settings/u })).toBeNull();
     expect(repository.connectors).not.toHaveBeenCalled();
@@ -255,7 +273,104 @@ describe('the agent offers to add a connector to this conversation', () => {
     cleanup();
     renderWith(<ConversationInteractionActivity artifacts={{}} interaction={pluginOffer} />);
     const line = document.querySelector('[data-slot="connector-setup-activity"]');
-    expect(line?.textContent).toContain('Add tariff-calc to this conversation');
+    expect(line?.textContent).toContain('to this conversation');
     expect(screen.getByRole('button', { name: /Choose below/u })).toBeTruthy();
+  });
+
+  it('says what a plugin is, why, what it brings, and opens the plugin explorer with the card kept', async () => {
+    const user = userEvent.setup();
+    const description =
+      'Landed cost of imported goods: customs duty by tariff line and origin, VAT on the duty-paid value.';
+    const tariff = pluginEntrySchema.parse({
+      id: 'tariff-calc',
+      ref: 'trade-lab/tariff-calc',
+      description,
+      marketplace: 'trade-lab',
+      skills: ['tariff-landed-cost'],
+      mcp_servers: ['tariff'],
+      fragments: ['customs-terms', 'vat-rules'],
+      trusted: true,
+    });
+    repository.plugins.mockResolvedValue({ plugins: [tariff], default_marketplace_error: null });
+    repository.inspectPlugin.mockResolvedValue({
+      plugin: tariff,
+      skill: '',
+      files: [],
+      incomplete: false,
+      reason: '',
+    });
+    const pluginOffer: PendingInteraction = {
+      ...offer,
+      id: 'connector:plg2',
+      payload: {
+        connector_id: '',
+        connector_name: 'tariff-calc',
+        tool_name: 'offer_plugin',
+        intent: 'add_plugin',
+        plugin_id: 'tariff-calc',
+        plugin_ref: 'trade-lab/tariff-calc',
+        description: 'Landed cost of imported goods',
+        reason: 'Needed to look up the duty rate for HS 6109.10 rather than rely on memory.',
+        missing: [],
+      },
+    };
+    const onResponse = vi.fn(async () => undefined);
+    renderWith(
+      <ClioPendingInteractions
+        interactions={[pluginOffer]}
+        onResponse={onResponse}
+        viewedSessionId="sess_root"
+      />,
+    );
+    // The plugin row's whole description, not the payload's short one, once it loads.
+    expect(await screen.findByRole('button', { name: description })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /duty rate for HS 6109\.10/u })).toBeTruthy();
+    const brings = document.querySelector('[data-slot="connector-offer-contents"]');
+    expect(brings?.textContent).toBe(
+      'Brings 1 skill, 1 MCP server and 2 prompt fragments to this conversation',
+    );
+    expect(brings?.textContent).not.toContain('\u00b7');
+    // Add and Not now stay first; View plugin and the contents come after.
+    const options = document.querySelector('[data-slot="ask-options"]')!;
+    const order = [...options.querySelectorAll('button')].map((b) => b.textContent ?? '');
+    expect(order[0]).toMatch(/Add/u);
+    expect(order[1]).toMatch(/Not now/u);
+    await user.click(screen.getByRole('button', { name: 'View plugin' }));
+    // The explorer is loaded on first use.
+    expect(await screen.findByRole('dialog', undefined, { timeout: 8000 })).toBeTruthy();
+    expect(repository.inspectPlugin).toHaveBeenCalledWith(
+      'trade-lab/tariff-calc',
+      false,
+      expect.anything(),
+    );
+    // Escape closes the explorer; the offer is not answered and stays.
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(onResponse).not.toHaveBeenCalled();
+    expect(screen.getByText('Add Tariff calc to this conversation?')).toBeTruthy();
+  });
+
+  it('counts a connector with its plugin: its skill and its server with the tool count', async () => {
+    repository.connectors.mockResolvedValue([
+      viewer({ enabled: true, tool_count: 13, plugin: 'viewer', plugin_ref: 'lab/viewer' }),
+    ]);
+    repository.plugins.mockResolvedValue({
+      plugins: [
+        pluginEntrySchema.parse({
+          id: 'viewer',
+          ref: 'lab/viewer',
+          skills: ['viewer-scenes'],
+          follows: 'fixture-viewer',
+        }),
+      ],
+      default_marketplace_error: null,
+    });
+    renderDock();
+    await waitFor(() =>
+      expect(document.querySelector('[data-slot="connector-offer-contents"]')?.textContent).toBe(
+        'Brings 1 skill and 1 MCP server (13 tools) to this conversation',
+      ),
+    );
+    expect(screen.getByRole('button', { name: 'View plugin' })).toBeTruthy();
   });
 });
