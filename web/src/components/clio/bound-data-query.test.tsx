@@ -35,3 +35,12 @@ it('refuses to silently choose a value for a multi-valued equality binding', () 
   expect(screen.getByRole('alert')).toHaveTextContent('no valid eq value');
   expect(screen.queryByRole('status')).not.toBeInTheDocument();
 });
+
+it('says nothing is selected when the bound selection is empty, instead of failing', () => {
+  for (const value of [undefined, []]) {
+    renderSelection(value);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('Nothing is selected for “plant” yet.')).toBeInTheDocument();
+    cleanup();
+  }
+});

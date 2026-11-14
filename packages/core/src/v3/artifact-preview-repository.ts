@@ -156,6 +156,17 @@ const artifactRasterQuerySchema = z
     sourceShape: z.tuple([z.number().int().positive(), z.number().int().positive()]),
     xLabel: z.string(),
     yLabel: z.string(),
+    /** The plane drawn along each leading dimension of a time series (time, say). */
+    frame: z
+      .array(
+        z.object({
+          dim: z.string(),
+          value: z.string(),
+          index: z.number().int().nonnegative(),
+          count: z.number().int().positive(),
+        }),
+      )
+      .optional(),
     min: z.number().nullable(),
     max: z.number().nullable(),
     values: z.array(z.number().nullable()),
@@ -176,6 +187,8 @@ export interface ArtifactRasterQueryRequest {
   extent?: readonly [number, number, number, number];
   variable?: string;
   band?: number;
+  /** Leading-dimension values to draw (nearest), e.g. `{ time: '2024-09-26T12:00' }`. */
+  select?: Record<string, string | number>;
 }
 
 /**

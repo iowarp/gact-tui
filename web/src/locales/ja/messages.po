@@ -1816,6 +1816,10 @@ msgstr "{description}ワークスペースと組織のルールは引き続き�
 msgid "{detail} ({elapsed}) You can keep using {agent} while this finishes."
 msgstr "{detail}（{elapsed}）完了するまでの間も{agent}を使い続けられます。"
 
+#: src/components/clio/a2ui-raster-viewport.tsx
+msgid "{dimension} {value} ({position} of {count})"
+msgstr ""
+
 #: src/components/clio/mcp-app-surface.tsx
 msgid "{displayName} view closed"
 msgstr "{displayName}のビューを閉じました"
@@ -4413,6 +4417,10 @@ msgstr "専用の利用枠 (月 100,000 リクエストまで無料)。"
 msgid "A private allowance and site allowlists."
 msgstr "専用の利用枠とサイトの許可リスト。"
 
+#: src/components/clio/source-s3-fields.tsx
+msgid "A profile in the AWS configuration of the computer {agent} runs on."
+msgstr ""
+
 #: src/widget-preview-app.tsx
 msgid "A question becomes an explorable answer"
 msgstr "質問が探索できる回答になります"
@@ -4762,8 +4770,17 @@ msgstr "承認された提案"
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/service-management-facts.tsx
 #: src/components/clio/source-form-parts.tsx
+#: src/components/clio/source-s3-fields.tsx
 msgid "Access"
 msgstr "アクセス"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Access key"
+msgstr ""
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Access key ID"
+msgstr ""
 
 #: src/components/clio/settings-permissions.tsx
 msgid "Access rules"
@@ -7745,6 +7762,10 @@ msgstr "ブラウザー: {label}"
 #: src/components/clio/host-path-picker.tsx
 msgid "Browsing {hostLabel}"
 msgstr "{hostLabel}を参照中"
+
+#: src/components/clio/source-fields.tsx
+msgid "Bucket and prefix"
+msgstr ""
 
 #: src/components/clio/science-log-panel.tsx
 msgid "Budget"
@@ -14181,6 +14202,7 @@ msgstr "実行が記録される前に終了しました"
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/settings-model-server-details.tsx
 #: src/components/clio/settings-usage.tsx
+#: src/components/clio/source-s3-fields.tsx
 msgid "Endpoint"
 msgstr "アドレス"
 
@@ -18571,6 +18593,10 @@ msgstr "<0>スケジュールを</0>保持"
 msgid "Keeps the image region and recorded source. Heat is available only when the capture includes a verified image-patch mapping."
 msgstr "画像の領域と記録されたソースを保持します。ヒートマップは、キャプチャに検証済みの画像パッチ対応付けが含まれる場合にのみ利用できます。"
 
+#: src/components/clio/source-s3-fields.tsx
+msgid "Kept by {agent} on the computer it runs on, for this source only; scripts and tools never see it."
+msgstr ""
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Kept in"
 msgstr "保存先"
@@ -18756,6 +18782,10 @@ msgstr "レイアウトとメディア"
 #: src/components/clio/managed-service-parameters.tsx
 msgid "Leave a field empty to keep the engine’s default. After it starts, the values actually in force are shown here."
 msgstr "エンジンの既定値を使う場合はフィールドを空のままにしてください。開始後、実際に有効な値がここに表示されます。"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Leave it empty for Amazon S3. For an S3-compatible store such as MinIO, Ceph or the Open Storage Network, enter its address."
+msgstr ""
 
 #: src/components/clio/remote-agent-conflict.tsx
 msgid "Leave it running and start another"
@@ -23489,6 +23519,10 @@ msgstr "このアドレスでは何も実行されていません。"
 msgid "Nothing is scheduled in {title}"
 msgstr "{title}には何もスケジュールされていません"
 
+#: src/components/clio/bound-data-query.tsx
+msgid "Nothing is selected for “{column}” yet."
+msgstr ""
+
 #: src/components/clio/viewer-file-gate.tsx
 msgid "Nothing is selected for this {noun} yet."
 msgstr "この{noun}ではまだ何も選択されていません。"
@@ -24646,6 +24680,7 @@ msgstr "任意"
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-profile.tsx
 #: src/components/clio/source-fields.tsx
+#: src/components/clio/source-s3-fields.tsx
 #: src/gallery-skill-dialog.tsx
 msgid "Optional"
 msgstr "任意"
@@ -26156,6 +26191,7 @@ msgstr "製品のウェブサイト"
 #: src/components/clio/memory-presentation.ts
 #: src/components/clio/settings-profile.tsx
 #: src/components/clio/settings-prompt-editor.tsx
+#: src/components/clio/source-s3-fields.tsx
 #: src/lib/application-destinations.ts
 msgid "Profile"
 msgstr "プロフィール"
@@ -26163,6 +26199,10 @@ msgstr "プロフィール"
 #: src/components/clio/settings-schema-copy.ts
 msgid "Profile and preferences are always kept. Other retirement proposals need review."
 msgstr "プロフィールと好みは常に保持されます。その他の廃止の提案には確認が必要です。"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Profile name"
+msgstr ""
 
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
@@ -26481,6 +26521,10 @@ msgstr "プロバイダーとモデルの列"
 #: src/lib/onboarding/tour-script.ts
 msgid "Providers are on the left and their models on the right. Type to search all of them."
 msgstr "左側にプロバイダー、右側にそのモデルが表示されます。入力するとすべてを検索できます。"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Public"
+msgstr ""
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Public or private repository folder"
@@ -27689,6 +27733,7 @@ msgid "Refuted if"
 msgstr "反証条件"
 
 #: src/components/clio/comments/comment-model.ts
+#: src/components/clio/source-s3-fields.tsx
 #: src/widget-gallery-demos.ts
 msgid "Region"
 msgstr "領域"
@@ -31067,6 +31112,10 @@ msgstr "モデル呼び出しを打ち切るまでの秒数。"
 msgid "Seconds between records"
 msgstr "レコード間の秒数"
 
+#: src/components/clio/source-s3-fields.tsx
+msgid "Secret access key"
+msgstr ""
+
 #: src/components/clio/agent-package-item-detail.tsx
 msgid "Section"
 msgstr "セクション"
@@ -31267,6 +31316,10 @@ msgstr "選択したフォルダー"
 #: src/lib/a2ui/attention-selection.tsx
 msgid "Selected image region"
 msgstr "選択した画像領域"
+
+#: src/components/clio/file-viewer-shell.tsx
+msgid "Selected in the viewer"
+msgstr ""
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Selected items"
@@ -40448,6 +40501,10 @@ msgstr "{trigger}のとき"
 #: src/components/clio/settings-web-search.tsx
 msgid "When a source's free allowance runs out, use the next one without asking."
 msgstr "ソースの無料枠を使い切ったら、確認せずに次のソースを使います。"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "When to set an endpoint"
+msgstr ""
 
 #: src/components/clio/settings-notifications.tsx
 msgid "When to show a system notice while the app is in the background. The system asks for permission the first time."

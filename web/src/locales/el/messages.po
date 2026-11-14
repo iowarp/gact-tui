@@ -1816,6 +1816,10 @@ msgstr "{description} Οι κανόνες του χώρου εργασίας κ�
 msgid "{detail} ({elapsed}) You can keep using {agent} while this finishes."
 msgstr "{detail} ({elapsed}) Μπορείτε να συνεχίσετε να χρησιμοποιείτε το {agent} μέχρι να ολοκληρωθεί."
 
+#: src/components/clio/a2ui-raster-viewport.tsx
+msgid "{dimension} {value} ({position} of {count})"
+msgstr ""
+
 #: src/components/clio/mcp-app-surface.tsx
 msgid "{displayName} view closed"
 msgstr "Η προβολή {displayName} έκλεισε"
@@ -4413,6 +4417,10 @@ msgstr "Ένα ιδιωτικό όριο (100.000 αιτήματα τον μήν
 msgid "A private allowance and site allowlists."
 msgstr "Ένα ιδιωτικό όριο και λίστες επιτρεπόμενων ιστότοπων."
 
+#: src/components/clio/source-s3-fields.tsx
+msgid "A profile in the AWS configuration of the computer {agent} runs on."
+msgstr ""
+
 #: src/widget-preview-app.tsx
 msgid "A question becomes an explorable answer"
 msgstr "Μια ερώτηση γίνεται απάντηση προς εξερεύνηση"
@@ -4762,8 +4770,17 @@ msgstr "Αποδεκτή πρόταση"
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/service-management-facts.tsx
 #: src/components/clio/source-form-parts.tsx
+#: src/components/clio/source-s3-fields.tsx
 msgid "Access"
 msgstr "Πρόσβαση"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Access key"
+msgstr ""
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Access key ID"
+msgstr ""
 
 #: src/components/clio/settings-permissions.tsx
 msgid "Access rules"
@@ -7745,6 +7762,10 @@ msgstr "Πρόγραμμα περιήγησης: {label}"
 #: src/components/clio/host-path-picker.tsx
 msgid "Browsing {hostLabel}"
 msgstr "Περιήγηση: {hostLabel}"
+
+#: src/components/clio/source-fields.tsx
+msgid "Bucket and prefix"
+msgstr ""
 
 #: src/components/clio/science-log-panel.tsx
 msgid "Budget"
@@ -14181,6 +14202,7 @@ msgstr "Τερματίστηκε πριν καταγραφεί η εκτέλεσ
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/settings-model-server-details.tsx
 #: src/components/clio/settings-usage.tsx
+#: src/components/clio/source-s3-fields.tsx
 msgid "Endpoint"
 msgstr "Διεύθυνση"
 
@@ -18571,6 +18593,10 @@ msgstr "Διατήρηση<0> χρονοπρογραμματισμού</0>"
 msgid "Keeps the image region and recorded source. Heat is available only when the capture includes a verified image-patch mapping."
 msgstr "Διατηρεί την περιοχή της εικόνας και την καταγεγραμμένη πηγή. Ο θερμικός χάρτης είναι διαθέσιμος μόνο όταν η καταγραφή περιλαμβάνει επαληθευμένη αντιστοίχιση τμημάτων εικόνας."
 
+#: src/components/clio/source-s3-fields.tsx
+msgid "Kept by {agent} on the computer it runs on, for this source only; scripts and tools never see it."
+msgstr ""
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Kept in"
 msgstr "Φυλάσσεται σε"
@@ -18756,6 +18782,10 @@ msgstr "Διάταξη και πολυμέσα"
 #: src/components/clio/managed-service-parameters.tsx
 msgid "Leave a field empty to keep the engine’s default. After it starts, the values actually in force are shown here."
 msgstr "Αφήστε ένα πεδίο κενό για να διατηρηθεί η προεπιλογή της μηχανής. Μετά την εκκίνηση, εδώ εμφανίζονται οι τιμές που ισχύουν πραγματικά."
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Leave it empty for Amazon S3. For an S3-compatible store such as MinIO, Ceph or the Open Storage Network, enter its address."
+msgstr ""
 
 #: src/components/clio/remote-agent-conflict.tsx
 msgid "Leave it running and start another"
@@ -23489,6 +23519,10 @@ msgstr "Τίποτα δεν εκτελείται σε αυτή τη διεύθυ
 msgid "Nothing is scheduled in {title}"
 msgstr "Δεν υπάρχει τίποτα προγραμματισμένο στο {title}"
 
+#: src/components/clio/bound-data-query.tsx
+msgid "Nothing is selected for “{column}” yet."
+msgstr ""
+
 #: src/components/clio/viewer-file-gate.tsx
 msgid "Nothing is selected for this {noun} yet."
 msgstr "Δεν έχει επιλεγεί ακόμη τίποτα για αυτό το στοιχείο ({noun})."
@@ -24646,6 +24680,7 @@ msgstr "προαιρετικό"
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-profile.tsx
 #: src/components/clio/source-fields.tsx
+#: src/components/clio/source-s3-fields.tsx
 #: src/gallery-skill-dialog.tsx
 msgid "Optional"
 msgstr "Προαιρετικό"
@@ -26156,6 +26191,7 @@ msgstr "Ιστότοπος προϊόντος"
 #: src/components/clio/memory-presentation.ts
 #: src/components/clio/settings-profile.tsx
 #: src/components/clio/settings-prompt-editor.tsx
+#: src/components/clio/source-s3-fields.tsx
 #: src/lib/application-destinations.ts
 msgid "Profile"
 msgstr "Προφίλ"
@@ -26163,6 +26199,10 @@ msgstr "Προφίλ"
 #: src/components/clio/settings-schema-copy.ts
 msgid "Profile and preferences are always kept. Other retirement proposals need review."
 msgstr "Το προφίλ και οι προτιμήσεις διατηρούνται πάντα. Οι άλλες προτάσεις απόσυρσης χρειάζονται έλεγχο."
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Profile name"
+msgstr ""
 
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
@@ -26481,6 +26521,10 @@ msgstr "Στήλη παρόχων και μοντέλων"
 #: src/lib/onboarding/tour-script.ts
 msgid "Providers are on the left and their models on the right. Type to search all of them."
 msgstr "Οι πάροχοι βρίσκονται στα αριστερά και τα μοντέλα τους στα δεξιά. Πληκτρολογήστε για αναζήτηση σε όλα."
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Public"
+msgstr ""
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Public or private repository folder"
@@ -27689,6 +27733,7 @@ msgid "Refuted if"
 msgstr "Διαψεύδεται αν"
 
 #: src/components/clio/comments/comment-model.ts
+#: src/components/clio/source-s3-fields.tsx
 #: src/widget-gallery-demos.ts
 msgid "Region"
 msgstr "Περιοχή"
@@ -31067,6 +31112,10 @@ msgstr "Δευτερόλεπτα πριν εγκαταλειφθεί μια κλ
 msgid "Seconds between records"
 msgstr "Δευτερόλεπτα μεταξύ εγγραφών"
 
+#: src/components/clio/source-s3-fields.tsx
+msgid "Secret access key"
+msgstr ""
+
 #: src/components/clio/agent-package-item-detail.tsx
 msgid "Section"
 msgstr "Ενότητα"
@@ -31267,6 +31316,10 @@ msgstr "Επιλεγμένος φάκελος"
 #: src/lib/a2ui/attention-selection.tsx
 msgid "Selected image region"
 msgstr "Επιλεγμένη περιοχή εικόνας"
+
+#: src/components/clio/file-viewer-shell.tsx
+msgid "Selected in the viewer"
+msgstr ""
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Selected items"
@@ -40448,6 +40501,10 @@ msgstr "Όταν {trigger}"
 #: src/components/clio/settings-web-search.tsx
 msgid "When a source's free allowance runs out, use the next one without asking."
 msgstr "Όταν εξαντληθεί το δωρεάν όριο μιας πηγής, χρήση της επόμενης χωρίς ερώτηση."
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "When to set an endpoint"
+msgstr ""
 
 #: src/components/clio/settings-notifications.tsx
 msgid "When to show a system notice while the app is in the background. The system asks for permission the first time."

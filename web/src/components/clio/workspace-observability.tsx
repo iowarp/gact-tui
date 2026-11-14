@@ -61,6 +61,7 @@ function sharedProps(
     onOpenArtifact: navigation.openArtifact,
     onOpenDiff: navigation.openDiff,
     onOpenFile: navigation.openWorkspaceFile,
+    onOpenFileReference: navigation.openWorkspaceFile,
     onOpenFlow: navigation.openFlow,
     onOpenResource: navigation.openWorkspaceResource,
     onOpenSubagent: navigation.openSubagent,

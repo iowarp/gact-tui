@@ -1816,6 +1816,10 @@ msgstr "{description} Workspace and organization rules still apply."
 msgid "{detail} ({elapsed}) You can keep using {agent} while this finishes."
 msgstr "{detail} ({elapsed}) You can keep using {agent} while this finishes."
 
+#: src/components/clio/a2ui-raster-viewport.tsx
+msgid "{dimension} {value} ({position} of {count})"
+msgstr "{dimension} {value} ({position} of {count})"
+
 #: src/components/clio/mcp-app-surface.tsx
 msgid "{displayName} view closed"
 msgstr "{displayName} view closed"
@@ -4413,6 +4417,10 @@ msgstr "A private allowance (100,000 requests a month free)."
 msgid "A private allowance and site allowlists."
 msgstr "A private allowance and site allowlists."
 
+#: src/components/clio/source-s3-fields.tsx
+msgid "A profile in the AWS configuration of the computer {agent} runs on."
+msgstr "A profile in the AWS configuration of the computer {agent} runs on."
+
 #: src/widget-preview-app.tsx
 msgid "A question becomes an explorable answer"
 msgstr "A question becomes an explorable answer"
@@ -4762,8 +4770,17 @@ msgstr "Accepted proposal"
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/service-management-facts.tsx
 #: src/components/clio/source-form-parts.tsx
+#: src/components/clio/source-s3-fields.tsx
 msgid "Access"
 msgstr "Access"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Access key"
+msgstr "Access key"
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Access key ID"
+msgstr "Access key ID"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "Access rules"
@@ -7745,6 +7762,10 @@ msgstr "Browser: {label}"
 #: src/components/clio/host-path-picker.tsx
 msgid "Browsing {hostLabel}"
 msgstr "Browsing {hostLabel}"
+
+#: src/components/clio/source-fields.tsx
+msgid "Bucket and prefix"
+msgstr "Bucket and prefix"
 
 #: src/components/clio/science-log-panel.tsx
 msgid "Budget"
@@ -14181,6 +14202,7 @@ msgstr "Ended before its run was recorded"
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/settings-model-server-details.tsx
 #: src/components/clio/settings-usage.tsx
+#: src/components/clio/source-s3-fields.tsx
 msgid "Endpoint"
 msgstr "Endpoint"
 
@@ -18571,6 +18593,10 @@ msgstr "Keep<0> schedule</0>"
 msgid "Keeps the image region and recorded source. Heat is available only when the capture includes a verified image-patch mapping."
 msgstr "Keeps the image region and recorded source. Heat is available only when the capture includes a verified image-patch mapping."
 
+#: src/components/clio/source-s3-fields.tsx
+msgid "Kept by {agent} on the computer it runs on, for this source only; scripts and tools never see it."
+msgstr "Kept by {agent} on the computer it runs on, for this source only; scripts and tools never see it."
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Kept in"
 msgstr "Kept in"
@@ -18756,6 +18782,10 @@ msgstr "Layout and media"
 #: src/components/clio/managed-service-parameters.tsx
 msgid "Leave a field empty to keep the engine’s default. After it starts, the values actually in force are shown here."
 msgstr "Leave a field empty to keep the engine’s default. After it starts, the values actually in force are shown here."
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Leave it empty for Amazon S3. For an S3-compatible store such as MinIO, Ceph or the Open Storage Network, enter its address."
+msgstr "Leave it empty for Amazon S3. For an S3-compatible store such as MinIO, Ceph or the Open Storage Network, enter its address."
 
 #: src/components/clio/remote-agent-conflict.tsx
 msgid "Leave it running and start another"
@@ -23489,6 +23519,10 @@ msgstr "Nothing is running at this address."
 msgid "Nothing is scheduled in {title}"
 msgstr "Nothing is scheduled in {title}"
 
+#: src/components/clio/bound-data-query.tsx
+msgid "Nothing is selected for “{column}” yet."
+msgstr "Nothing is selected for “{column}” yet."
+
 #: src/components/clio/viewer-file-gate.tsx
 msgid "Nothing is selected for this {noun} yet."
 msgstr "Nothing is selected for this {noun} yet."
@@ -24646,6 +24680,7 @@ msgstr "optional"
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-profile.tsx
 #: src/components/clio/source-fields.tsx
+#: src/components/clio/source-s3-fields.tsx
 #: src/gallery-skill-dialog.tsx
 msgid "Optional"
 msgstr "Optional"
@@ -26156,6 +26191,7 @@ msgstr "Product website"
 #: src/components/clio/memory-presentation.ts
 #: src/components/clio/settings-profile.tsx
 #: src/components/clio/settings-prompt-editor.tsx
+#: src/components/clio/source-s3-fields.tsx
 #: src/lib/application-destinations.ts
 msgid "Profile"
 msgstr "Profile"
@@ -26163,6 +26199,10 @@ msgstr "Profile"
 #: src/components/clio/settings-schema-copy.ts
 msgid "Profile and preferences are always kept. Other retirement proposals need review."
 msgstr "Profile and preferences are always kept. Other retirement proposals need review."
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Profile name"
+msgstr "Profile name"
 
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
@@ -26481,6 +26521,10 @@ msgstr "Providers and models column"
 #: src/lib/onboarding/tour-script.ts
 msgid "Providers are on the left and their models on the right. Type to search all of them."
 msgstr "Providers are on the left and their models on the right. Type to search all of them."
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "Public"
+msgstr "Public"
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Public or private repository folder"
@@ -27689,6 +27733,7 @@ msgid "Refuted if"
 msgstr "Refuted if"
 
 #: src/components/clio/comments/comment-model.ts
+#: src/components/clio/source-s3-fields.tsx
 #: src/widget-gallery-demos.ts
 msgid "Region"
 msgstr "Region"
@@ -31067,6 +31112,10 @@ msgstr "Seconds before a model call gives up."
 msgid "Seconds between records"
 msgstr "Seconds between records"
 
+#: src/components/clio/source-s3-fields.tsx
+msgid "Secret access key"
+msgstr "Secret access key"
+
 #: src/components/clio/agent-package-item-detail.tsx
 msgid "Section"
 msgstr "Section"
@@ -31267,6 +31316,10 @@ msgstr "Selected folder"
 #: src/lib/a2ui/attention-selection.tsx
 msgid "Selected image region"
 msgstr "Selected image region"
+
+#: src/components/clio/file-viewer-shell.tsx
+msgid "Selected in the viewer"
+msgstr "Selected in the viewer"
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Selected items"
@@ -40448,6 +40501,10 @@ msgstr "When {trigger}"
 #: src/components/clio/settings-web-search.tsx
 msgid "When a source's free allowance runs out, use the next one without asking."
 msgstr "When a source's free allowance runs out, use the next one without asking."
+
+#: src/components/clio/source-s3-fields.tsx
+msgid "When to set an endpoint"
+msgstr "When to set an endpoint"
 
 #: src/components/clio/settings-notifications.tsx
 msgid "When to show a system notice while the app is in the background. The system asks for permission the first time."
