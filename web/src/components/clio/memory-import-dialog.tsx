@@ -140,7 +140,7 @@ export function MemoryImportDialog({
                 {file ? (
                   <span className="min-w-0 [overflow-wrap:anywhere]">{file.name}</span>
                 ) : (
-                  <span className="min-w-0 break-words text-faint [word-break:auto-phrase]">
+                  <span className="min-w-0 break-words text-faint [word-break:auto-phrase] [line-break:strict]">
                     {t`No file`}
                   </span>
                 )}

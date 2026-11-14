@@ -384,7 +384,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
           data-slot="folders-note"
         >
           <InfoIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
-          <span className="min-w-0 break-words [word-break:auto-phrase]">
+          <span className="min-w-0 break-words [word-break:auto-phrase] [line-break:strict]">
             {t`Running tools pick up folder changes when they finish.`}
           </span>
         </p>

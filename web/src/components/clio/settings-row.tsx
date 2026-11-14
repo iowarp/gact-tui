@@ -42,7 +42,10 @@ export function SettingsRow({
   error?: ReactNode;
   children: ReactNode;
   htmlFor?: string;
-  /** Small controls such as switches stay beside their label at every width. */
+  /**
+   * Small controls such as switches stay beside their label, and drop under it
+   * only when the label would otherwise narrow below its longest word (or 4em).
+   */
   inlineControl?: boolean;
   /**
    * A control wider than the value column (a segmented choice with many
@@ -78,17 +81,16 @@ export function SettingsRow({
         data-slot="settings-row"
         data-setting={title}
         data-dirty={dirty || undefined}
+        data-control={inlineControl && !wideControl ? 'inline' : undefined}
         className={cn(
           'relative min-h-11 items-center gap-x-4 gap-y-2 border-b border-border/70 py-[0.3125rem]',
-          wideControl
+          wideControl || inlineControl
             ? // A wrapped control is alone on its line, so space-between starts it under the label.
               'flex flex-wrap justify-between'
             : 'grid',
-          wideControl
+          wideControl || inlineControl
             ? null
-            : inlineControl
-              ? 'grid-cols-[minmax(0,1fr)_auto]'
-              : // Two columns from a 20rem row, as the spec's 322 px dialog rows are. In the
+            : // Two columns from a 20rem row, as the spec's 322 px dialog rows are. In the
                 // Settings window the rows stack before the nav folds to a rail (< 1024 px).
                 'grid-cols-1 @xs:grid-cols-[minmax(min-content,1fr)_minmax(52%,max-content)] max-[1023px]:in-data-window-content:grid-cols-1!',
           dirty &&
@@ -99,17 +101,26 @@ export function SettingsRow({
           className={cn(
             // Beside its control the label column is at least 6rem and its longest
             // word, so a long Greek word wraps whole instead of mid-word.
-            wideControl || inlineControl ? 'min-w-0' : 'min-w-24',
+            wideControl ? 'min-w-0' : inlineControl ? null : 'min-w-24',
             // In the folded window every row stacks, so this one does too.
             wideControl && 'flex-auto max-[1023px]:in-data-window-content:basis-full',
+            // A small control stays beside its label while the label keeps its longest
+            // word (and 4em, for CJK phrases); past that the control drops under it
+            // instead of squeezing the label to one character per line.
+            inlineControl && !wideControl && 'flex-[1_1_0%]',
           )}
         >
           {/* A long name (Greek, Japanese) wraps whole rather than ending in an ellipsis. */}
-          <div className="flex min-w-0 items-center gap-1.5">
+          <div
+            className={cn(
+              'flex items-center gap-1.5',
+              inlineControl && !wideControl ? 'min-w-[4em]' : 'min-w-0',
+            )}
+          >
             {htmlFor ? (
               <Label
                 htmlFor={htmlFor}
-                className="block min-w-0 text-ui leading-snug font-normal text-pretty break-words [word-break:auto-phrase]"
+                className="block min-w-0 text-ui leading-snug font-normal text-pretty break-words [word-break:auto-phrase] [line-break:strict]"
                 data-slot="settings-label"
                 title={title}
               >
@@ -117,7 +128,7 @@ export function SettingsRow({
               </Label>
             ) : (
               <h2
-                className="min-w-0 text-ui leading-snug font-normal text-pretty break-words [word-break:auto-phrase]"
+                className="min-w-0 text-ui leading-snug font-normal text-pretty break-words [word-break:auto-phrase] [line-break:strict]"
                 data-slot="settings-label"
                 title={title}
               >
@@ -156,7 +167,7 @@ export function SettingsRow({
             // Number fields keep their own padding, so an in-field unit never covers the digits.
             '[&_input:not([aria-hidden])]:h-[1.875rem] [&_input:not([aria-hidden])]:rounded-[0.375rem] [&_input:not([aria-hidden]):not([type=number])]:px-[0.5625rem] [&_input:not([aria-hidden])]:text-menu dark:[&_input:not([aria-hidden])]:bg-sidebar',
             '[&_input[type=number]]:text-right [&_input[type=number]]:font-mono [&_input[type=number]]:text-meta',
-            wideControl && 'w-auto max-w-full',
+            (wideControl || inlineControl) && 'w-auto max-w-full',
           )}
         >
           {children}
@@ -195,7 +206,7 @@ export function SettingsGroupLabel({
       data-slot="settings-group-label"
     >
       {/* A long localized label wraps rather than clipping. */}
-      <h2 className="max-w-full min-w-0 shrink-0 font-normal break-words whitespace-normal [word-break:auto-phrase]">
+      <h2 className="max-w-full min-w-0 shrink-0 font-normal break-words whitespace-normal [word-break:auto-phrase] [line-break:strict]">
         {children}
       </h2>
       {info ? (

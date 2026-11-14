@@ -41,7 +41,7 @@ export function MetaLine({
         <span
           className={cn(
             wrap
-              ? 'max-w-full min-w-0 break-words [word-break:auto-phrase]'
+              ? 'max-w-full min-w-0 break-words [word-break:auto-phrase] [line-break:strict]'
               : index
                 ? 'ml-2.5'
                 : undefined,
