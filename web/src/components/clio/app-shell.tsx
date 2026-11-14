@@ -1,5 +1,13 @@
 import { PanelRightIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
 import { cn } from '@/lib/utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -448,8 +456,11 @@ export function ClioAppShell({
               <TopBarEndHost.Provider value={topBarEnd}>{contextBar}</TopBarEndHost.Provider>
             )}
           </div>
-          {updating ? null : statusStrip}
-          {updating ? null : toolbarActions}
+          {/* Each slot sits in its own keyed fragment: the page keys every conversation
+              region by endpoint and conversation, so the two siblings would otherwise
+              share one key. */}
+          <Fragment key="status-strip">{updating ? null : statusStrip}</Fragment>
+          <Fragment key="toolbar-actions">{updating ? null : toolbarActions}</Fragment>
           {hasWorkbench && !updating && (
             <ToolbarAction
               label={workbenchOpen ? t`Close workspace canvas` : t`Open workspace canvas`}
