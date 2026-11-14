@@ -237,9 +237,10 @@ export const StateView = memo(function StateView({
               'min-w-0 max-w-full',
               // A row's title is a sentence: in a narrow column it wraps between words rather
               // than hide its end, and its technical detail gives way first. A long word that still
-              // doesn't fit is hyphenated at a syllable, not split at an arbitrary letter.
+              // doesn't fit is hyphenated at a syllable, not split at an arbitrary letter. Only in a
+              // column under 12rem, where a long word can't fit whole; wider, words stay unbroken.
               row
-                ? 'whitespace-normal [overflow-wrap:break-word] hyphens-auto [hyphenate-limit-chars:10_4_4]'
+                ? 'whitespace-normal [overflow-wrap:break-word] @max-[12rem]:hyphens-auto @max-[12rem]:[hyphenate-limit-chars:10_4_4]'
                 : 'truncate',
               !row && 'text-foreground',
             )}
@@ -251,7 +252,7 @@ export const StateView = memo(function StateView({
               title={row && !wrapDetail ? detail : undefined}
               className={cn(
                 row && wrapDetail
-                  ? 'min-w-0 max-w-full font-mono text-caption text-muted-foreground tabular-nums whitespace-normal [overflow-wrap:break-word] hyphens-auto [hyphenate-limit-chars:10_4_4]'
+                  ? 'min-w-0 max-w-full font-mono text-caption text-muted-foreground tabular-nums whitespace-normal [overflow-wrap:break-word] @max-[12rem]:hyphens-auto @max-[12rem]:[hyphenate-limit-chars:10_4_4]'
                   : row
                     ? 'min-w-0 max-w-full shrink-[1000] truncate font-mono text-caption text-muted-foreground tabular-nums'
                     : // A panel's explanation is a sentence: it wraps rather than hide its end.
