@@ -224,7 +224,7 @@ export function isConnectorOffer(payload: unknown): boolean {
 
 /**
  * Whether a `connector_setup` payload is the agent asking for optional needs of a
- * connector already here (`values`, KiCad plan KC5): the same card, showing only those.
+ * connector already here (`values`, connector plan KC5): the same card, showing only those.
  */
 export function isConnectorValuesRequest(payload: unknown): boolean {
   return connectorSetupPayload(payload)?.intent === 'values';
