@@ -11,6 +11,7 @@ const COLORS: Record<string, string> = {
   system: 'bg-category-1',
   tools: 'bg-chart-2',
   skills: 'bg-category-2',
+  offerable: 'bg-category-6',
   messages: 'bg-category-10',
   results: 'bg-category-11',
   reasoning: 'bg-category-9',

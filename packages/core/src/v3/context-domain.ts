@@ -6,7 +6,8 @@ export interface ContextPromptSection {
   label: string;
   tokens_estimated: number;
   count: number;
-  items: Array<{ label: string; tokens_estimated: number }>;
+  /** `id` marks an item the interface names itself (the offer list's own lines). */
+  items: Array<{ label: string; tokens_estimated: number; id?: string | null }>;
 }
 
 export interface ContextSnapshot {

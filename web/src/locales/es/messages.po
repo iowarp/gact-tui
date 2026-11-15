@@ -57,6 +57,10 @@ msgstr "«¿Cómo se desplazaron Harvey, Maria y Dorian, y cuándo alcanzó cada
 msgid "(Add turns it on)"
 msgstr "(Añadir lo activa)"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "(default: the first {cap})"
+msgstr "(predeterminado: los primeros {cap})"
+
 #: src/components/clio/ndp-endpoint-panel.tsx
 msgid "(Hidden)"
 msgstr "(Oculto)"
@@ -1249,6 +1253,10 @@ msgstr "Ubicación de instalación y ejecución de {agent}"
 msgid "{agent} is already running at {url}, but this app can't sign in to it: {reason}. Stop that {agent} or restart it with this version, then reopen the app."
 msgstr "{agent} ya está en ejecución en {url}, pero esta aplicación no puede iniciar sesión en él: {reason}. Detén ese {agent} o reinícialo con esta versión y luego vuelve a abrir la aplicación."
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "{agent} is told about the ticked plugins and connectors a conversation does not have, so it can offer one when a request needs it. Changes apply from its next turn."
+msgstr "Se informa a {agent} de los plugins y conectores marcados que una conversación no tiene, para que pueda ofrecer uno cuando una solicitud lo necesite. Los cambios se aplican desde su siguiente turno."
+
 #: src/hooks/use-system-version-status.ts
 msgid "{agent} is up to date"
 msgstr "{agent} está actualizado"
@@ -1535,6 +1543,10 @@ msgstr "{count, plural, one {{plugin} aporta este subagente} other {{plugin} apo
 msgid "{count, plural, one {{plugin} brings this tool} other {{plugin} brings these tools}}"
 msgstr "{count, plural, one {{plugin} aporta esta herramienta} other {{plugin} aporta estas herramientas}}"
 
+#: src/components/clio/offer-list-row.tsx
+msgid "{count, plural, one {# brought in} other {# brought in}}"
+msgstr "{count, plural, one {# incluido} other {# incluidos}}"
+
 #: src/lib/plugin-presentation.ts
 msgid "{count, plural, one {# catalog} other {# catalogs}}"
 msgstr "{count, plural, one {# catálogo} other {# catálogos}}"
@@ -1808,6 +1820,10 @@ msgstr "{count} más: {tabs}"
 #: src/components/clio/model-row-facts.tsx
 msgid "{count} more: {tags}"
 msgstr "{count} más: {tags}"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "{count} of {total} brought in"
+msgstr "{count} de {total} incluidos"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{count} rejected"
@@ -7784,6 +7800,10 @@ msgstr "Traer todo al frente"
 msgid "Bring back the saved draft"
 msgstr "Recuperar el borrador guardado"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Bring in {name}"
+msgstr "Incluir {name}"
+
 #: src/lib/onboarding/tour-script.ts
 msgid "Bring in tools"
 msgstr "Añade herramientas"
@@ -9477,6 +9497,10 @@ msgstr "Elige el siguiente paso"
 msgid "Choose the next step for this station report."
 msgstr "Elige el siguiente paso para este informe de estación."
 
+#: src/components/clio/offer-list-row.tsx
+msgid "Choose the plugins {agent} can offer"
+msgstr "Elegir los plugins que puede ofrecer {agent}"
+
 #: src/components/reui/time-picker.tsx
 msgid "Choose time"
 msgstr "Elegir hora"
@@ -9511,6 +9535,7 @@ msgstr "Elige qué recuerdos nuevos y actualizados se guardan automáticamente. 
 #: src/components/clio/folder-attach-form.tsx
 #: src/components/clio/memory-import-dialog.tsx
 #: src/components/clio/obsidian-source-form.tsx
+#: src/components/clio/offer-list-row.tsx
 #: src/components/clio/source-fields.tsx
 msgid "Choose…"
 msgstr "Elegir…"
@@ -10863,6 +10888,7 @@ msgid "Connections from this client to the agent and managed computers"
 msgstr "Conexiones de este cliente al agente y a los equipos gestionados"
 
 #: src/components/clio/agent-plugin-menu.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Connector"
@@ -12718,6 +12744,7 @@ msgstr "Investigación profunda"
 #: src/components/clio/associated-application-items.tsx
 #: src/components/clio/ndp-workflow-form.tsx
 #: src/components/clio/new-conversation-chips.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/reasoning-level-segmented.tsx
 #: src/components/clio/settings-agents.tsx
 #: src/components/clio/settings-response-settings.tsx
@@ -19353,6 +19380,10 @@ msgctxt "verb: tool action"
 msgid "List"
 msgstr "Listar"
 
+#: src/components/clio/context-composition-model.ts
+msgid "List heading and closing line"
+msgstr "Encabezado y línea final de la lista"
+
 #: src/components/clio/tool-operation-contract.ts
 msgid "List schedules"
 msgstr "Listar programaciones"
@@ -20185,6 +20216,7 @@ msgstr "Cargando..."
 
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/model-download-search.tsx
+#: src/components/clio/offer-list-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-models-rows.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -23898,6 +23930,10 @@ msgstr "Nada coincide con “{query}”"
 msgid "Nothing matches “{query}” here"
 msgstr "Nada coincide con “{query}” aquí"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Nothing matches “{search}”."
+msgstr "Nada coincide con «{search}»."
+
 #: src/components/clio/command-menu-no-match.tsx
 msgid "Nothing matches {shown}"
 msgstr "Nada coincide con {shown}"
@@ -23926,6 +23962,10 @@ msgstr "Aún no hay nada guardado aquí."
 #: src/components/clio/cad-measure-state.ts
 msgid "Nothing there to measure. Click on the model."
 msgstr "Ahí no hay nada que medir. Haz clic en el modelo."
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Nothing to offer yet."
+msgstr "Todavía no hay nada que ofrecer."
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "Nothing to remember"
@@ -24239,6 +24279,10 @@ msgstr "Un dato o preferencia por línea"
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "One highlight per model token"
 msgstr "Un resaltado por token del modelo"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "One of the first {cap}, brought in unless you untick it"
+msgstr "Uno de los primeros {cap}: se incluye salvo que lo desmarques"
 
 #: src/widget-gallery.tsx
 msgid "One plant"
@@ -26043,6 +26087,7 @@ msgstr "Los gráficos, tablas e informes aparecen como tarjetas de archivo en la
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
@@ -26112,6 +26157,15 @@ msgstr "complementos"
 msgid "Plugins"
 msgstr "Complementos"
 
+#: src/components/clio/offer-list-dialog.tsx
+#: src/components/clio/offer-list-row.tsx
+msgid "Plugins {agent} can offer"
+msgstr "Plugins que puede ofrecer {agent}"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Plugins and connectors"
+msgstr "Plugins y conectores"
+
 #: src/lib/plugin-presentation.ts
 msgid "Plugins and connectors changed"
 msgstr "Complementos y conectores cambiados"
@@ -26136,6 +26190,10 @@ msgstr "Complementos de este paquete"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "Complementos que también se van"
+
+#: src/components/clio/context-composition-model.ts
+msgid "Plugins you can add"
+msgstr "Plugins que puedes añadir"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -29193,6 +29251,10 @@ msgstr "Restablecer todo a los valores predeterminados"
 msgid "Reset layout"
 msgstr "Restablecer diseño"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Reset to default"
+msgstr "Restablecer valores predeterminados"
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "Reset to setup"
 msgstr "Restablecer a la configuración"
@@ -30512,6 +30574,7 @@ msgstr "Sábado"
 
 #: src/components/clio/composer-queue-row.tsx
 #: src/components/clio/known-service-actions.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/primitives/save-bar.tsx
 #: src/components/clio/settings-model-server-row.tsx
 #: src/components/clio/source-edit-form.tsx
@@ -30846,6 +30909,10 @@ msgstr "Guardado sin llamar a un modelo"
 msgid "Saved, not verified"
 msgstr "Guardada, sin verificar"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Saved. {agent} uses this list from its next turn."
+msgstr "Guardado. {agent} usa esta lista desde su siguiente turno."
+
 #: src/components/clio/provenance-connections.tsx
 msgid "Saved. Restart the connected {agent} to apply this choice."
 msgstr "Guardado. Reinicia el {agent} conectado para aplicar esta elección."
@@ -30899,6 +30966,7 @@ msgstr "Guardando tu clave…"
 #: src/components/clio/host-storage-settings.tsx
 #: src/components/clio/memory-create.tsx
 #: src/components/clio/model-storage-locations.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-source-editor.tsx
 #: src/components/clio/primitives/save-bar.tsx
 #: src/components/clio/resource-dialogs.tsx
@@ -31316,6 +31384,10 @@ msgstr "Buscar organizaciones…"
 #: src/components/clio/tool-invocation.tsx
 msgid "Search past sessions"
 msgstr "Buscar en sesiones anteriores"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Search plugins and connectors"
+msgstr "Buscar plugins y conectores"
 
 #: src/components/clio/extension-library-toolbar.tsx
 msgid "Search plugins, connectors and skills"
@@ -33365,6 +33437,7 @@ msgstr "SKILL.md no tiene instrucciones."
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/agent-tab-values.ts
+#: src/components/clio/context-composition-model.ts
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/command-table.ts
@@ -36076,6 +36149,14 @@ msgstr "La vista vinculada pertenece a otra conversación."
 #: src/components/clio/surface-question-notice.tsx
 msgid "The linked view is unavailable."
 msgstr "La vista vinculada no está disponible."
+
+#: src/components/clio/offer-list-row.tsx
+msgid "The list couldn’t be loaded."
+msgstr "No se pudo cargar la lista."
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "The list wasn’t saved."
+msgstr "La lista no se guardó."
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The live view could not open ({detail}); this is its recording."
@@ -41173,6 +41254,10 @@ msgstr "Dónde empiezan las conversaciones de este espacio de trabajo y qué otr
 #: src/components/clio/settings-schema-copy.ts
 msgid "Which browser"
 msgstr "Qué navegador"
+
+#: src/components/clio/offer-list-row.tsx
+msgid "Which plugins and connectors {agent} is told about, so it can offer one a conversation does not have."
+msgstr "De qué plugins y conectores se informa a {agent}, para que pueda ofrecer uno que una conversación no tiene."
 
 #: src/components/clio/attention-center.tsx
 msgid "While you were away"
