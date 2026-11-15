@@ -1,6 +1,43 @@
-import type { BundledLanguage } from 'shiki';
+import type { BundledLanguage, LanguageRegistration } from 'shiki';
+import { bundledLanguages } from 'shiki/langs';
 
-const LANGUAGE_BY_EXTENSION: Record<string, BundledLanguage> = {
+/** Languages CLIO adds to Shiki's bundle, each loaded with its highlighter. */
+const CUSTOM_LANGUAGES = {
+  openqasm: () => import('./grammars/openqasm').then((module) => module.default),
+} satisfies Record<string, () => Promise<LanguageRegistration>>;
+
+export type CustomLanguage = keyof typeof CUSTOM_LANGUAGES;
+
+/** A language CLIO can colour: one of Shiki's, one of CLIO's, or plain `text`. */
+export type CodeLanguage = BundledLanguage | CustomLanguage;
+
+const CUSTOM_ALIASES: Record<string, CustomLanguage> = {
+  openqasm: 'openqasm',
+  openqasm2: 'openqasm',
+  openqasm3: 'openqasm',
+  qasm: 'openqasm',
+  qasm2: 'openqasm',
+  qasm3: 'openqasm',
+};
+
+/** The grammar loader for one of CLIO's own languages, or undefined for Shiki's. */
+export function customLanguageLoader(
+  language: string,
+): (() => Promise<LanguageRegistration>) | undefined {
+  return language in CUSTOM_LANGUAGES ? CUSTOM_LANGUAGES[language as CustomLanguage] : undefined;
+}
+
+/**
+ * The language a fence, tool block or component names, when CLIO can colour it. Shiki's
+ * names and aliases (`py`, `sh`) resolve to themselves; CLIO's aliases (`qasm`) to theirs.
+ */
+export function resolveCodeLanguage(name: string | undefined): CodeLanguage | undefined {
+  const key = name?.trim().toLowerCase();
+  if (!key) return undefined;
+  return CUSTOM_ALIASES[key] ?? (key in bundledLanguages ? (key as BundledLanguage) : undefined);
+}
+
+const LANGUAGE_BY_EXTENSION: Record<string, CodeLanguage> = {
   bash: 'shellscript',
   c: 'c',
   cc: 'cpp',
@@ -29,6 +66,7 @@ const LANGUAGE_BY_EXTENSION: Record<string, BundledLanguage> = {
   mjs: 'javascript',
   mts: 'typescript',
   php: 'php',
+  qasm: 'openqasm',
   ps1: 'powershell',
   py: 'python',
   pyi: 'python',
@@ -51,13 +89,13 @@ const LANGUAGE_BY_EXTENSION: Record<string, BundledLanguage> = {
   zsh: 'shellscript',
 };
 
-const LANGUAGE_BY_FILENAME: Record<string, BundledLanguage> = {
+const LANGUAGE_BY_FILENAME: Record<string, CodeLanguage> = {
   dockerfile: 'dockerfile',
   makefile: 'make',
 };
 
 /** Use one language contract for transcript previews and full file views. */
-export function languageForPath(path: string): BundledLanguage {
+export function languageForPath(path: string): CodeLanguage {
   const name =
     path
       .split(/[\\/]+/u)

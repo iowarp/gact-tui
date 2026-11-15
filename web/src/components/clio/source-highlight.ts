@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { BundledLanguage, GrammarState, ThemedToken } from 'shiki';
+import type { GrammarState, ThemedToken } from 'shiki';
+import type { CodeLanguage } from '@/lib/code-language';
 import {
   highlightCode,
   tokenizeLines,
@@ -10,14 +11,14 @@ import { isLargeSource } from '@/lib/source-window';
 /** A large file colours only its first lines; the rest read as plain text. */
 export const HIGHLIGHT_MAX_LINES = 20_000;
 
-const highlightable = (language: BundledLanguage | undefined): language is BundledLanguage =>
+const highlightable = (language: CodeLanguage | undefined): language is CodeLanguage =>
   // `languageForPath` names plain text 'text', which Shiki leaves uncoloured anyway.
   language !== undefined && (language as string) !== 'text';
 
 /** Theme-coloured tokens per line of a short excerpt; undefined (plain) until Shiki loads. */
 export function useHighlightedTokens(
   code: string,
-  language: BundledLanguage | undefined,
+  language: CodeLanguage | undefined,
 ): ThemedToken[][] | undefined {
   const enabled = highlightable(language) && code !== '' && !isLargeSource(code);
   // A cached result reads synchronously, so a remounted card never flashes plain.
@@ -27,7 +28,7 @@ export function useHighlightedTokens(
   );
   const [state, setState] = useState<{
     code: string;
-    language: BundledLanguage;
+    language: CodeLanguage;
     tokens: ThemedToken[][];
   }>();
   useEffect(() => {
@@ -45,7 +46,7 @@ export function useHighlightedTokens(
 }
 
 interface ChunkedTokens {
-  language: BundledLanguage;
+  language: CodeLanguage;
   lines: readonly string[];
   tokens: ThemedToken[][];
   /** Grammar state at each chunk's first line, keyed by line index. */
@@ -59,7 +60,7 @@ interface ChunkedTokens {
  */
 export function useChunkedHighlight(
   lines: readonly string[],
-  language: BundledLanguage | undefined,
+  language: CodeLanguage | undefined,
 ): (index: number) => ThemedToken[] | undefined {
   const [highlighted, setHighlighted] = useState<ChunkedTokens>();
   const previous = useRef<ChunkedTokens | undefined>(undefined);
