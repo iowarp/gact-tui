@@ -24185,6 +24185,7 @@ msgstr ""
 msgid "On this host"
 msgstr ""
 
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/discover-catalog.tsx
 msgid "On this machine"
 msgstr ""

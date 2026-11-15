@@ -53,7 +53,8 @@ export function agentNeedEffect(item: AgentNeedItem): string {
   const missing = listNeeds(item.missing.filter((need) => need.required));
   if (missing) parts.push(t`needs ${missing}`);
   if (item.asks_sign_in) parts.push(t`asks you to sign in when first used`);
-  return parts.join(', ');
+  // What must already be on this machine, in the catalog's own words (SL-D8).
+  return [parts.join(', '), item.requires ?? ''].filter(Boolean).join('. ');
 }
 
 /** Where the item is after Enable all, in words. */

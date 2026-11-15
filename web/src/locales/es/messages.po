@@ -24203,6 +24203,7 @@ msgstr "En este equipo, otra máquina o un nodo de clúster. Se comprueba en cua
 msgid "On this host"
 msgstr "En este host"
 
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/discover-catalog.tsx
 msgid "On this machine"
 msgstr "En este equipo"
