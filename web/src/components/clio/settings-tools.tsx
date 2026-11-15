@@ -579,6 +579,7 @@ function InventoryRows({
                   {inventoryTitle(row)}
                 </span>
               }
+              wrapTitle
             />
             {schema && expanded ? (
               <div className="border-b border-border/70 px-2 py-2 pl-9">

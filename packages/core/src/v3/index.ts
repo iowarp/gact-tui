@@ -8,6 +8,7 @@ export * from './response-feedback-repository.js';
 export * from './memory-repository.js';
 export * from './task-repository.js';
 export * from './agent-task-domain.js';
+export * from './stop-scope.js';
 export * from './usage-domain.js';
 export * from './work-state.js';
 export * from './interaction-domain.js';

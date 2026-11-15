@@ -234,7 +234,8 @@ export const DialogFrame = memo(function DialogFrame({
         )}
       >
         {fullWindow ? null : <DialogSheetHandle />}
-        <div className="flex h-12 min-w-0 items-center gap-2.5 pr-2.5 pl-4">
+        {/* A long translated title wraps whole onto more lines; the row grows with it. */}
+        <div className="flex min-h-12 min-w-0 items-center gap-2.5 py-1.5 pr-2.5 pl-4">
           {icon ? (
             <span
               aria-hidden="true"
@@ -243,7 +244,7 @@ export const DialogFrame = memo(function DialogFrame({
               {icon}
             </span>
           ) : null}
-          <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[0.875rem] leading-7 font-semibold [overflow-wrap:normal]">
+          <DialogTitle className="min-w-0 flex-1 font-sans text-[0.875rem] leading-snug font-semibold text-pretty break-words [word-break:auto-phrase] [line-break:strict]">
             {title}
           </DialogTitle>
           {help ? (
@@ -279,6 +280,8 @@ export const DialogFrame = memo(function DialogFrame({
               // Full window: the body takes the height, so the buttons sit at the bottom.
               fullWindow && 'max-[599px]:flex-1',
               '[&_[data-slot=settings-row]]:@min-[18rem]:grid-cols-[minmax(min-content,36%)_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
+              // Inline-control rows wrap their control under the label elsewhere; here they keep the two columns.
+              '[&_[data-slot=settings-row][data-control=inline]]:@min-[18rem]:grid',
               // A 36% label column is ~110px in a 340px frame: names wrap onto a
               // second line there rather than cut to "Provider prefe…".
               '[&_[data-slot=settings-label]]:leading-[1.3] [&_[data-slot=settings-label]]:whitespace-normal',

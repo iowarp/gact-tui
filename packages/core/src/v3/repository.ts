@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ComposerMessagePart } from './composer-domain.js';
 import { sessionMetadataPatch, type SessionUpdateInput } from './session-metadata-patch.js';
 import { agentTaskRecordSchema } from './agent-task-domain.js';
+import { stopScopeSchema, type StopChildren, type StopScope } from './stop-scope.js';
 import type { AgentDelta } from './plugin-domain.js';
 import type {
   Artifact,
@@ -678,11 +679,30 @@ export class ClioRepository extends SearchSettingsRepository {
     });
   }
 
-  public cancelSession(sessionId: string, signal?: AbortSignal): Promise<void> {
+  /**
+   * Stop the conversation's reply. `children` says what happens to the work it started:
+   * omitted or `keep` leaves it running, `stop` cancels it too.
+   */
+  public cancelSession(
+    sessionId: string,
+    signal?: AbortSignal,
+    children?: StopChildren,
+  ): Promise<void> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/cancel`,
+      ...(children ? { body: { children } } : {}),
       decode: () => undefined,
+      signal,
+    });
+  }
+
+  /** The open work a Stop with `children: 'stop'` would reach. */
+  public stopScope(sessionId: string, signal?: AbortSignal): Promise<StopScope> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/stop-scope`,
+      decode: (value) => stopScopeSchema.parse(value),
       signal,
     });
   }

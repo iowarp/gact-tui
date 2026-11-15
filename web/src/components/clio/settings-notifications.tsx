@@ -28,7 +28,8 @@ import { SettingsSelectField } from './model-select-field';
 
 // The spec's 150 px is the floor; a longer translation widens the field up to its column,
 // and past that the value wraps inside a taller field rather than being cut.
-const SELECT_FIELD = 'h-auto min-h-[1.875rem] w-fit min-w-[9.375rem] max-w-full py-1';
+// The 150 px floor yields to a column narrower than it (a phone at a large interface size).
+const SELECT_FIELD = 'h-auto min-h-[1.875rem] w-fit min-w-[min(9.375rem,100%)] max-w-full py-1';
 
 /**
  * The chosen value over zero-height copies of every choice in this section, so both

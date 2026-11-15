@@ -111,6 +111,10 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
   // on one line. An unfolded copy measures that, in every language and size.
   const [viewsProbe, viewsWidth] = useElementWidth<HTMLDivElement>();
   const foldViews = narrowerThan(toolbarWidth, viewsWidth);
+  // Narrower still than the folded strip at its smallest (the current name's longest
+  // word), every view is a named icon.
+  const [foldedProbe, foldedWidth] = useElementWidth<HTMLDivElement>();
+  const iconViews = narrowerThan(toolbarWidth, foldedWidth);
   const searchRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [paneTab, setPaneTab] = useState<MemoryPaneTab>('facts');
@@ -285,7 +289,7 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
         ref={toolbar}
       >
         <SegmentedControl
-          iconOnly={foldViews ? 'others' : false}
+          iconOnly={iconViews ? true : foldViews ? 'others' : false}
           label={t`Memory views`}
           onValueChange={setTab}
           options={viewOptions(foldViews)}
@@ -304,6 +308,15 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
               value={tab}
             />
             <span className="shrink-0" style={{ width: actionsWidth }} />
+          </div>
+          <div className="flex w-min" ref={foldedProbe}>
+            <SegmentedControl
+              iconOnly="others"
+              label={t`Memory views`}
+              onValueChange={setTab}
+              options={viewOptions(true)}
+              value={tab}
+            />
           </div>
         </div>
         <span className="ml-auto flex items-center gap-2" ref={actions}>

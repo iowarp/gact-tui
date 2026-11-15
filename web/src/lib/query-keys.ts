@@ -68,6 +68,7 @@ export type ClioQueryNamespace =
   | 'study-source'
   | 'flow-task-time'
   | 'flow-task-answer'
+  | 'flow-task-input'
   | 'flow-task-record'
   | 'flow-questions'
   | 'task-child-session'

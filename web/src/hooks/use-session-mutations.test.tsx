@@ -299,9 +299,9 @@ describe('stopping a turn', () => {
     const invalidate = vi.spyOn(client, 'invalidateQueries');
     const { result } = renderMutationsWithClient(client);
 
-    await result.current.cancel.mutateAsync();
+    await result.current.cancel.mutateAsync('stop');
 
-    expect(mocks.repository.cancelSession).toHaveBeenCalledWith('sess_1');
+    expect(mocks.repository.cancelSession).toHaveBeenCalledWith('sess_1', undefined, 'stop');
     const endpoint = 'http://127.0.0.1:8790';
     for (const queryKey of [
       queryKeys.pendingSteers(endpoint, 'sess_1'),
