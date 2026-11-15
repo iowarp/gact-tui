@@ -1,5 +1,5 @@
 import { memo, useEffect, useState, type Ref } from 'react';
-import type { BundledLanguage } from 'shiki';
+import type { CodeLanguage } from '@/lib/code-language';
 import { FileCode2Icon, NotebookTextIcon } from 'lucide-react';
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -70,7 +70,7 @@ function NotebookCells({
   showSource,
 }: {
   cells: NotebookCell[];
-  language: BundledLanguage;
+  language: CodeLanguage;
   name: string;
   readingRef?: Ref<HTMLDivElement>;
   showSource?: StateAction;
@@ -132,7 +132,7 @@ const NotebookCellView = memo(function NotebookCellView({
 }: {
   cell: NotebookCell;
   number: number;
-  language: BundledLanguage;
+  language: CodeLanguage;
 }) {
   const code = cell.kind === 'code';
   const runCount = cell.kind === 'code' ? cell.count : null;

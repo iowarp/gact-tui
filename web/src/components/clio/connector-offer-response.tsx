@@ -50,6 +50,8 @@ export function ConnectorOfferResponse({
 }) {
   const payload = connectorSetupPayload(interaction.payload);
   const plugin = payload?.intent === 'add_plugin';
+  // The agent asks for optional needs of a connector already here (KC5): only those rows.
+  const asking = payload?.intent === 'values';
   const id = plugin ? '' : (payload?.connector_id ?? '');
   // The rows as this conversation sees them: its own values over the defaults (CV-D5).
   const { connector: everywhereRow } = useConnector(id || undefined);
@@ -92,7 +94,9 @@ export function ConnectorOfferResponse({
   // Inline only what is still missing, by what is saved (never by what is typed, so a
   // row does not move while the person fills it). A required row already saved, for this
   // conversation or as the default, folds into Settings with the optional ones (DOCS-F7).
-  const missingKeys = new Set(unfilledRequired(rows, {}).map((need) => need.key));
+  const missingKeys = new Set(
+    asking ? rows.map((need) => need.key) : unfilledRequired(rows, {}).map((need) => need.key),
+  );
   const inline = rows.filter((need) => missingKeys.has(need.key));
   const settings = rows.filter((need) => !missingKeys.has(need.key));
   // A saved required row the person empties keeps Settings open, so it is never hidden.
@@ -115,7 +119,7 @@ export function ConnectorOfferResponse({
       setSaveAsDefault((current) => ({ ...current, [key]: save })),
     onSubmit: add,
     saveAsDefault,
-    submitLabel: t`Add ${name}`,
+    submitLabel: asking ? t`Save` : t`Add ${name}`,
   };
   const marketplace = payload?.plugin_ref?.split('/')[0];
   const state = plugin
@@ -132,7 +136,8 @@ export function ConnectorOfferResponse({
   ]
     .filter(Boolean)
     .join(sentenceGap());
-  const title = t`Add ${name} to this conversation?`;
+  const asked = rows.map((need) => need.label || need.key).join(', ');
+  const title = asking ? t`Give ${name} ${asked}?` : t`Add ${name} to this conversation?`;
   return (
     <>
       <AskCard
@@ -219,7 +224,7 @@ export function ConnectorOfferResponse({
               primary
               title={addTip || undefined}
             >
-              {t({ message: 'Add', context: 'verb' })}
+              {asking ? t`Save` : t({ message: 'Add', context: 'verb' })}
             </AskButton>
           ) : null}
           {offered('decline') ? (

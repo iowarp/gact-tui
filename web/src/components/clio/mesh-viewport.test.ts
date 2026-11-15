@@ -5,6 +5,8 @@ import { meshViewportSchema } from './a2ui-mesh-viewport-catalog';
 import { formatFieldValue, legendTicks, turbo } from './mesh-viewport-colormap';
 import {
   parseFeaMesh,
+  partOpacityByName,
+  partOpacityGroups,
   selectTriangles,
   vertexValue,
   type ParsedFeaMesh,
@@ -195,5 +197,64 @@ describe('mesh viewport color scale', () => {
     ]);
     expect(formatFieldValue(0.00042)).toBe('4.20e-4');
     expect(legendTicks(3, 3)).toEqual([3]);
+  });
+});
+
+describe('see-through parts (nodeOpacity)', () => {
+  const parts = [
+    { name: 'board', triangleStart: 0, triangleCount: 2, vertexStart: 0, vertexCount: 4 },
+    { name: 'lid', triangleStart: 2, triangleCount: 2, vertexStart: 4, vertexCount: 4 },
+    { name: 'base', triangleStart: 4, triangleCount: 1, vertexStart: 8, vertexCount: 3 },
+  ];
+  const positions = new Float32Array(11 * 3);
+  // Visible triangles in model order: board, board, lid, lid, base.
+  const index = Uint32Array.from([0, 1, 2, 1, 2, 3, 4, 5, 6, 5, 6, 7, 8, 9, 10]);
+
+  it('maps node names to parts and reports names the model lacks', () => {
+    const { opacity, unmatched } = partOpacityByName(parts, { lid: 0.3, base: 1, gasket: 0.5 });
+    expect([...opacity]).toEqual([[1, 0.3]]);
+    expect(unmatched).toEqual(['gasket']);
+    expect(partOpacityByName(parts, undefined).opacity.size).toBe(0);
+    expect([...partOpacityByName(parts, { lid: 4 }).opacity]).toEqual([]);
+  });
+
+  it('matches a node name on the body or any node above it', () => {
+    const named = [
+      { ...parts[0]!, name: 'pcb' },
+      { ...parts[1]!, name: 'lid-mesh-0', ancestors: ['lid', 'enclosure'] },
+      { ...parts[2]!, name: 'mesh-7', ancestors: ['base'] },
+    ];
+    const { opacity, unmatched } = partOpacityByName(named, { lid: 0.3, base: 0.3 });
+    expect([...opacity]).toEqual([
+      [1, 0.3],
+      [2, 0.3],
+    ]);
+    expect(unmatched).toEqual([]);
+  });
+
+  it('draws opaque triangles first, then each faded part by its opacity', () => {
+    const { levels, runs } = partOpacityGroups(
+      { positions, parts },
+      { index },
+      new Map([
+        [1, 0.3],
+        [2, 0.6],
+      ]),
+    );
+    expect(levels).toEqual([0.6, 0.3]);
+    expect(runs).toEqual([
+      { start: 0, count: 2, material: 0 },
+      { start: 4, count: 1, material: 1 },
+      { start: 2, count: 2, material: 2 },
+    ]);
+  });
+
+  it('is part of the adapter schema, bounded to 0..1', () => {
+    const base = { meshUri: 'artifact://artifact_case', format: 'glb' };
+    expect(meshViewportSchema.safeParse({ ...base, nodeOpacity: { lid: 0.3 } }).success).toBe(true);
+    expect(meshViewportSchema.safeParse({ ...base, nodeOpacity: { lid: 1.2 } }).success).toBe(
+      false,
+    );
+    expect(meshViewportSchema.safeParse(base).success).toBe(true);
   });
 });

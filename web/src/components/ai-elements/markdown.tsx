@@ -11,6 +11,7 @@ import {
   remarkStandardMath,
 } from '@/lib/remark-standard-math';
 import { cn } from '@/lib/utils';
+import { markdownCode } from './markdown-code';
 
 type MathPlugin = typeof import('@streamdown/math').math;
 
@@ -19,8 +20,8 @@ type MathPlugin = typeof import('@streamdown/math').math;
 // Until then each formula is a faint box of about its size, never its TeX source.
 const mathChunk = deferredModule(() => import('@streamdown/math').then((module) => module.math));
 const MATH_SYNTAX = /\$|\\[([]|\\begin\{/u;
-const pendingPlugins = { cjk, math: pendingMathPlugin };
-let mathPlugins: { cjk: typeof cjk; math: MathPlugin } | undefined;
+const pendingPlugins = { cjk, code: markdownCode, math: pendingMathPlugin };
+let mathPlugins: { cjk: typeof cjk; code: typeof markdownCode; math: MathPlugin } | undefined;
 
 function useMathPlugins(needed: boolean) {
   const [math, setMath] = useState(() => mathChunk.loaded());
@@ -38,7 +39,7 @@ function useMathPlugins(needed: boolean) {
     };
   }, [needed, math]);
   if (!math) return pendingPlugins;
-  mathPlugins ??= { cjk, math };
+  mathPlugins ??= { cjk, code: markdownCode, math };
   return mathPlugins;
 }
 

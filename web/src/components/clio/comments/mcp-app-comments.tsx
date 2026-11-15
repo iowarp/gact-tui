@@ -30,6 +30,7 @@ export function McpAppCommentSession({
   target,
   snapshot,
   context,
+  describeRegion,
   children,
 }: {
   target: McpAppCommentTarget;
@@ -37,6 +38,8 @@ export function McpAppCommentSession({
   snapshot: () => Snap | undefined;
   /** The context the view last reported (`ui/update-model-context` params). */
   context: () => unknown;
+  /** KF2: the view's `describe_region` tool, when it lists one. */
+  describeRegion?: SnapshotCommentTarget['describeRegion'];
   children: ReactNode;
 }) {
   const shared = useMemo<SnapshotCommentTarget>(
@@ -54,8 +57,9 @@ export function McpAppCommentSession({
         },
         context: context() ?? null,
       }),
+      describeRegion,
     }),
-    [context, snapshot, target],
+    [context, describeRegion, snapshot, target],
   );
   return <SnapshotCommentSession target={shared}>{children}</SnapshotCommentSession>;
 }

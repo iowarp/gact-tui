@@ -24,6 +24,7 @@ import type {
   ThemedToken,
 } from 'shiki';
 import { t } from '@lingui/core/macro';
+import { type CodeLanguage, customLanguageLoader } from '@/lib/code-language';
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
@@ -144,7 +145,7 @@ function diffLineKind(line: string): string {
 // Types
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string;
-  language: BundledLanguage;
+  language: CodeLanguage;
   showLineNumbers?: boolean;
   /** The number of the first line when the code is a range of a larger file. */
   startLine?: number;
@@ -166,18 +167,20 @@ const CodeBlockContext = createContext<CodeBlockContextType>({
 });
 
 // Highlighter cache (singleton per language)
-const highlighterCache = new Map<
-  string,
-  Promise<HighlighterGeneric<BundledLanguage, BundledTheme>>
->();
+/** Shiki's highlighter, also holding CLIO's own languages once they are loaded. */
+type ClioHighlighter = HighlighterGeneric<CodeLanguage, BundledTheme>;
 
-// Token cache
+const highlighterCache = new Map<string, Promise<ClioHighlighter>>();
+
+// Token cache, oldest first. Streamed chat fences tokenize once per partial version, so
+// the cache keeps only recent results.
 const tokensCache = new Map<string, TokenizedCode>();
+const TOKENS_CACHE_LIMIT = 256;
 
 // Subscribers for async token updates
 const subscribers = new Map<string, Set<(result: TokenizedCode) => void>>();
 
-const getTokensCacheKey = (code: string, language: BundledLanguage) => {
+const getTokensCacheKey = (code: string, language: CodeLanguage) => {
   const start = code.slice(0, 100);
   const end = code.length > 100 ? code.slice(-100) : '';
   return `${language}:${code.length}:${start}:${end}`;
@@ -187,8 +190,12 @@ const getTokensCacheKey = (code: string, language: BundledLanguage) => {
 // tokens render until it arrives. Token colors are `var(--syntax-*)`
 // references, so highlighting follows the active theme
 // (web/src/theme/themes.css) without re-tokenizing.
-const createLazyHighlighter = async (language: BundledLanguage) => {
-  const { createCssVariablesTheme, createHighlighter } = await import('shiki');
+const createLazyHighlighter = async (language: CodeLanguage) => {
+  const custom = customLanguageLoader(language);
+  const [{ createCssVariablesTheme, createHighlighter }, grammar] = await Promise.all([
+    import('shiki'),
+    custom?.(),
+  ]);
   const theme = createCssVariablesTheme({
     name: 'clio-syntax',
     variablePrefix: '--syntax-',
@@ -196,7 +203,11 @@ const createLazyHighlighter = async (language: BundledLanguage) => {
     fontStyle: true,
   });
   theme.tokenColors = [...(theme.tokenColors ?? []), ...MARKDOWN_TOKEN_COLORS];
-  return createHighlighter({ langs: [language], themes: [theme] });
+  const highlighter = await createHighlighter({
+    langs: [grammar ?? (language as BundledLanguage)],
+    themes: [theme],
+  });
+  return highlighter as unknown as ClioHighlighter;
 };
 
 /**
@@ -230,8 +241,8 @@ const MARKDOWN_TOKEN_COLORS = [
 ];
 
 const getHighlighter = (
-  language: BundledLanguage,
-): Promise<HighlighterGeneric<BundledLanguage, BundledTheme>> => {
+  language: CodeLanguage,
+): Promise<ClioHighlighter> => {
   const cached = highlighterCache.get(language);
   if (cached) {
     return cached;
@@ -262,7 +273,7 @@ const createRawTokens = (code: string): TokenizedCode => ({
 // Synchronous highlight with callback for async results
 export const highlightCode = (
   code: string,
-  language: BundledLanguage,
+  language: CodeLanguage,
   // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-callbacks)
   callback?: (result: TokenizedCode) => void,
 ): TokenizedCode | null => {
@@ -302,6 +313,9 @@ export const highlightCode = (
 
       // Cache the result
       tokensCache.set(tokensCacheKey, tokenized);
+      if (tokensCache.size > TOKENS_CACHE_LIMIT) {
+        tokensCache.delete(tokensCache.keys().next().value as string);
+      }
 
       // Notify all subscribers
       const subs = subscribers.get(tokensCacheKey);
@@ -341,7 +355,7 @@ export interface TokenizedChunk {
  */
 export async function tokenizeLines(
   lines: readonly string[],
-  language: BundledLanguage,
+  language: CodeLanguage,
   // oxlint-disable-next-line eslint-plugin-promise(prefer-await-to-callbacks)
   onChunks: (chunks: TokenizedChunk[]) => void,
   signal: { cancelled: boolean },
@@ -516,7 +530,7 @@ export const CodeBlockContent = ({
   startLine,
 }: {
   code: string;
-  language: BundledLanguage;
+  language: CodeLanguage;
   showLineNumbers?: boolean;
   startLine?: number;
 }) => {

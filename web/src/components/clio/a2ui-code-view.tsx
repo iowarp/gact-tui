@@ -1,4 +1,4 @@
-import type { BundledLanguage } from 'shiki';
+import { type CodeLanguage, resolveCodeLanguage } from '@/lib/code-language';
 import { FileCode2Icon } from 'lucide-react';
 import {
   CodeBlock,
@@ -14,7 +14,7 @@ import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-scre
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
 import { plural, t } from '@lingui/core/macro';
 
-const LANGUAGE_ALIASES: Record<string, BundledLanguage> = {
+const LANGUAGE_ALIASES: Record<string, CodeLanguage> = {
   py: 'python',
   python: 'python',
   js: 'javascript',
@@ -35,8 +35,8 @@ const LANGUAGE_ALIASES: Record<string, BundledLanguage> = {
   markdown: 'markdown',
   md: 'markdown',
   diff: 'diff',
-  text: 'text' as BundledLanguage,
-  txt: 'text' as BundledLanguage,
+  text: 'text' as CodeLanguage,
+  txt: 'text' as CodeLanguage,
 };
 
 /** A download's file extension for a known language, else the language name itself. */
@@ -48,6 +48,7 @@ const FILE_EXTENSIONS: Record<string, string> = {
   json: 'json',
   jsx: 'jsx',
   markdown: 'md',
+  openqasm: 'qasm',
   python: 'py',
   rust: 'rs',
   shellscript: 'sh',
@@ -58,8 +59,12 @@ const FILE_EXTENSIONS: Record<string, string> = {
   yaml: 'yaml',
 };
 
-function codeLanguage(value: string): BundledLanguage {
-  return LANGUAGE_ALIASES[value.trim().toLowerCase()] ?? ('text' as BundledLanguage);
+function codeLanguage(value: string): CodeLanguage {
+  return (
+    LANGUAGE_ALIASES[value.trim().toLowerCase()] ??
+    resolveCodeLanguage(value) ??
+    ('text' as CodeLanguage)
+  );
 }
 
 function fileExtension(language: string): string {

@@ -81,6 +81,8 @@ export class McpAppViewTools {
   /** Which mount of the view this is: a late withdrawal never clears a newer mount's list. */
   private readonly holder = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   private offersTools = false;
+  /** The names of the tools the view listed last. */
+  private listed = new Set<string>();
   private published = false;
   private stopped = false;
   private unregister?: () => void;
@@ -135,12 +137,18 @@ export class McpAppViewTools {
       tools = [];
     }
     if (this.stopped) return;
+    this.listed = new Set(tools.map((tool) => tool.name));
     this.published = true;
     await this.repository
       .updateMcpAppTools(this.identity, tools, this.holder)
       .catch((error: unknown) => {
         console.warn('The view tools could not be offered:', error);
       });
+  }
+
+  /** Whether the view lists a tool of this name (KF2: `describe_region`). */
+  has(name: string): boolean {
+    return this.listed.has(name);
   }
 
   /** Run one of the view's tools (the imperative `callAppTool` handle). */
