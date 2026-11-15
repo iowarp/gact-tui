@@ -103,6 +103,7 @@ export function PermissionRequests() {
               meta={meta ? <span title={meta}>{meta}</span> : undefined}
               status={<StatusIndicator label={status.label} tone={status.tone} />}
               title={<span title={title}>{title}</span>}
+              wrapTitle
             />
           );
         })}

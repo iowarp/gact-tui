@@ -110,6 +110,20 @@ afterEach(() => {
 });
 
 describe('the agent offers to add a connector to this conversation', () => {
+  it('says what must already be on this machine until the connector is on (SL-D8)', async () => {
+    const requires = 'Needs the viewer program installed on this machine.';
+    repository.connectors.mockResolvedValue([viewer({ requires })]);
+    renderDock();
+    const line = await screen.findByRole('button', { name: requires });
+    expect(line.getAttribute('data-slot')).toBe('connector-offer-requires');
+    expect(line.previousElementSibling?.textContent).toBe('On this machine');
+    cleanup();
+    repository.connectors.mockResolvedValue([viewer({ requires, enabled: true })]);
+    renderDock();
+    await screen.findByRole('button', { name: offer.payload!.description as string });
+    expect(document.querySelector('[data-slot="connector-offer-requires"]')).toBeNull();
+  });
+
   it('is four rows: the title with its state, what it is, why, then Add and what it brings', async () => {
     renderDock();
     expect(

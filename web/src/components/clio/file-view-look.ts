@@ -5,7 +5,7 @@ import {
   type FileViewLookEvent,
   type TransportFrame,
 } from '@clio/core/v3';
-import { answerWithin, type TakeSnapshot } from './mcp-app-look';
+import { answerWithin, HOLDER_RENEW_MS, type TakeSnapshot } from './mcp-app-look';
 
 /**
  * The agent looks at a client-rendered file view (FV-D3), as it looks at an app view
@@ -13,6 +13,8 @@ import { answerWithin, type TakeSnapshot } from './mcp-app-look';
  * (`PUT …/file-views/{view_id}`), with the file and its view state, and answers each
  * `file_view_look` event with a snapshot and the state at that moment. The view is let go
  * when the mount unloads, so a look at a file that is not on screen is refused at once.
+ * The claim is a lease CLIO lets lapse unless renewed, as an app view's is: a mounted file
+ * view renews it every {@link HOLDER_RENEW_MS}.
  */
 
 export const FILE_VIEW_LOOK_EVENT = 'file_view_look';
@@ -69,6 +71,7 @@ export class FileViewLooks {
   private readonly handled = new Set<string>();
   private started = false;
   private stopped = false;
+  private renewal: ReturnType<typeof setInterval> | undefined;
   private readonly handler: LookHandler = (look) => void this.answer(look);
 
   constructor(
@@ -87,6 +90,8 @@ export class FileViewLooks {
     const handlerKey = key(this.sessionId, this.viewId);
     handlers.set(handlerKey, [...(handlers.get(handlerKey) ?? []), this.handler]);
     this.report();
+    // Renewed while mounted, so a window that goes away without unloading lets the view go.
+    this.renewal = setInterval(() => this.report(), HOLDER_RENEW_MS);
   }
 
   /** The view state changed: say so, so the agent's context follows the view. */
@@ -99,13 +104,16 @@ export class FileViewLooks {
         file: this.file,
         state: this.state(),
       })
-      .catch((error: unknown) => console.warn('The file view could not be offered to the agent:', error));
+      .catch((error: unknown) =>
+        console.warn('The file view could not be offered to the agent:', error),
+      );
   }
 
   /** The mount is going: let the view go, unless another mount holds it. */
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
+    clearInterval(this.renewal);
     if (!this.started) return;
     const handlerKey = key(this.sessionId, this.viewId);
     const rest = (handlers.get(handlerKey) ?? []).filter((handler) => handler !== this.handler);

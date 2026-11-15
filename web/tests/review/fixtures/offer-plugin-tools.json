@@ -1,0 +1,416 @@
+[
+  {
+    "id": "offer-search",
+    "name": "offer_plugin",
+    "session_id": "parent",
+    "state": "succeeded",
+    "input": {
+      "search": "earth",
+      "reason": "Find a seismology connector"
+    },
+    "output": {
+      "matches": [
+        {
+          "kind": "plugin",
+          "id": "earthscope",
+          "name": "earthscope",
+          "summary": "The earthscope agent's L2 source plugin: EarthScope's conventions on top of the ndp package",
+          "listed": false,
+          "left_out_by_person": true
+        },
+        {
+          "kind": "connector",
+          "id": "seismology",
+          "name": "Seismology",
+          "summary": "Search FDSN earthquake catalogs, fetch waveforms and station metadata, and plot seismograms for any network",
+          "category": "Earth science",
+          "enabled": false,
+          "listed": false
+        }
+      ],
+      "count": 2,
+      "more": 0,
+      "search": "earth",
+      "message": "2 found for \"earth\". The person left 1 of these out of the list in Settings."
+    },
+    "presentation": {
+      "action": "Search plugins",
+      "subject": "query",
+      "summary": "2 found for \"earth\". The person left 1 of these out of the list in Settings.",
+      "blocks": [
+        {
+          "id": "query",
+          "type": "text",
+          "text": "earth"
+        },
+        {
+          "id": "matches",
+          "type": "text",
+          "label": "Found (2)",
+          "text": "earthscope (Plugin, left out in Settings): The earthscope agent's L2 source plugin: EarthScope's conventions on top of the ndp package\nSeismology (Connector): Search FDSN earthquake catalogs, fetch waveforms and station metadata, and plot seismograms for any network"
+        }
+      ]
+    }
+  },
+  {
+    "id": "offer-category",
+    "name": "offer_plugin",
+    "session_id": "parent",
+    "state": "succeeded",
+    "input": {
+      "category": "Earth science",
+      "reason": "See what earth science tools exist"
+    },
+    "output": {
+      "matches": [
+        {
+          "kind": "connector",
+          "id": "geo",
+          "name": "Geo",
+          "summary": "Show stations, regions, footprints and tracks from GeoJSON on an interactive 3D globe",
+          "category": "Earth science",
+          "enabled": false,
+          "listed": true
+        },
+        {
+          "kind": "connector",
+          "id": "nasa-earthdata",
+          "name": "NASA Earthdata",
+          "summary": "Search NASA Earthdata collections and granules",
+          "category": "Earth science",
+          "enabled": false,
+          "listed": false
+        },
+        {
+          "kind": "connector",
+          "id": "seismology",
+          "name": "Seismology",
+          "summary": "Earthquake catalogs and waveforms",
+          "category": "Earth science",
+          "enabled": false,
+          "listed": false
+        },
+        {
+          "kind": "connector",
+          "id": "terrain",
+          "name": "Terrain",
+          "summary": "Elevation tiles and hillshades",
+          "category": "Earth science",
+          "enabled": false,
+          "listed": false,
+          "left_out_by_person": true
+        }
+      ],
+      "count": 4,
+      "more": 0,
+      "category": "Earth science",
+      "message": "4 found for Earth science. The person left 1 of these out of the list in Settings."
+    },
+    "presentation": {
+      "action": "Plugins in",
+      "subject": "category",
+      "summary": "4 found for Earth science. The person left 1 of these out of the list in Settings.",
+      "blocks": [
+        {
+          "id": "category",
+          "type": "text",
+          "text": "Earth science"
+        },
+        {
+          "id": "matches",
+          "type": "text",
+          "label": "Found (4)",
+          "text": "Geo (Connector): Show stations, regions, footprints and tracks from GeoJSON on an interactive 3D globe\nNASA Earthdata (Connector): Search NASA Earthdata collections and granules\nSeismology (Connector): Earthquake catalogs and waveforms\nTerrain (Connector, left out in Settings): Elevation tiles and hillshades"
+        }
+      ]
+    }
+  },
+  {
+    "id": "offer-none",
+    "name": "offer_plugin",
+    "session_id": "parent",
+    "state": "succeeded",
+    "input": {
+      "search": "smart home lights",
+      "reason": "Control the person's lights"
+    },
+    "output": {
+      "matches": [],
+      "count": 0,
+      "more": 0,
+      "search": "smart home lights",
+      "message": "Nothing the person can add matches \"smart home lights\"."
+    },
+    "presentation": {
+      "action": "Search plugins",
+      "subject": "query",
+      "summary": "Nothing the person can add matches \"smart home lights\".",
+      "blocks": [
+        {
+          "id": "query",
+          "type": "text",
+          "text": "smart home lights"
+        },
+        {
+          "id": "matches",
+          "type": "text",
+          "label": "Found",
+          "text": "Nothing matches"
+        }
+      ]
+    }
+  },
+  {
+    "id": "offer-large",
+    "name": "offer_plugin",
+    "session_id": "parent",
+    "state": "succeeded",
+    "input": {
+      "search": "plugin",
+      "reason": "Everything that is a plugin"
+    },
+    "output": {
+      "matches": [
+        {
+          "kind": "connector",
+          "id": "very-long-descriptive-plugin-name-number-00-for-wrapping",
+          "name": "Very long descriptive plugin name number 00 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "enabled": false,
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-01-for-wrapping",
+          "name": "Very long descriptive plugin name number 01 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-02-for-wrapping",
+          "name": "Very long descriptive plugin name number 02 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        },
+        {
+          "kind": "connector",
+          "id": "very-long-descriptive-plugin-name-number-03-for-wrapping",
+          "name": "Very long descriptive plugin name number 03 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "enabled": false,
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-04-for-wrapping",
+          "name": "Very long descriptive plugin name number 04 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true,
+          "left_out_by_person": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-05-for-wrapping",
+          "name": "Very long descriptive plugin name number 05 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        },
+        {
+          "kind": "connector",
+          "id": "very-long-descriptive-plugin-name-number-06-for-wrapping",
+          "name": "Very long descriptive plugin name number 06 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "enabled": false,
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-07-for-wrapping",
+          "name": "Very long descriptive plugin name number 07 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-08-for-wrapping",
+          "name": "Very long descriptive plugin name number 08 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        },
+        {
+          "kind": "connector",
+          "id": "very-long-descriptive-plugin-name-number-09-for-wrapping",
+          "name": "Very long descriptive plugin name number 09 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "enabled": false,
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-10-for-wrapping",
+          "name": "Very long descriptive plugin name number 10 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-11-for-wrapping",
+          "name": "Very long descriptive plugin name number 11 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        },
+        {
+          "kind": "connector",
+          "id": "very-long-descriptive-plugin-name-number-12-for-wrapping",
+          "name": "Very long descriptive plugin name number 12 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "enabled": false,
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-13-for-wrapping",
+          "name": "Very long descriptive plugin name number 13 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-14-for-wrapping",
+          "name": "Very long descriptive plugin name number 14 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        },
+        {
+          "kind": "connector",
+          "id": "very-long-descriptive-plugin-name-number-15-for-wrapping",
+          "name": "Very long descriptive plugin name number 15 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "enabled": false,
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-16-for-wrapping",
+          "name": "Very long descriptive plugin name number 16 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-17-for-wrapping",
+          "name": "Very long descriptive plugin name number 17 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        },
+        {
+          "kind": "connector",
+          "id": "very-long-descriptive-plugin-name-number-18-for-wrapping",
+          "name": "Very long descriptive plugin name number 18 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "enabled": false,
+          "listed": true
+        },
+        {
+          "kind": "plugin",
+          "id": "very-long-descriptive-plugin-name-number-19-for-wrapping",
+          "name": "Very long descriptive plugin name number 19 for wrapping",
+          "summary": "A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.",
+          "category": "Research",
+          "listed": true
+        }
+      ],
+      "count": 57,
+      "more": 37,
+      "search": "plugin",
+      "message": "57 found for \"plugin\"; the first 20 shown. The person left 1 of these out of the list in Settings."
+    },
+    "presentation": {
+      "action": "Search plugins",
+      "subject": "query",
+      "summary": "57 found for \"plugin\"; the first 20 shown. The person left 1 of these out of the list in Settings.",
+      "blocks": [
+        {
+          "id": "query",
+          "type": "text",
+          "text": "plugin"
+        },
+        {
+          "id": "matches",
+          "type": "text",
+          "label": "Found (57)",
+          "text": "Very long descriptive plugin name number 00 for wrapping (Connector): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 01 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 02 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 03 for wrapping (Connector): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 04 for wrapping (Plugin, left out in Settings): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 05 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 06 for wrapping (Connector): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 07 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 08 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 09 for wrapping (Connector): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 10 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 11 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 12 for wrapping (Connector): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 13 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 14 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 15 for wrapping (Connector): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 16 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 17 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 18 for wrapping (Connector): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does.\nVery long descriptive plugin name number 19 for wrapping (Plugin): A summary long enough to wrap across the row at phone width, naming formats, services and what each tool does."
+        },
+        {
+          "id": "more",
+          "type": "text",
+          "label": "Not shown",
+          "text": "37 more"
+        }
+      ]
+    }
+  },
+  {
+    "id": "offer-overview",
+    "name": "offer_plugin",
+    "session_id": "parent",
+    "state": "succeeded",
+    "input": {
+      "reason": "What can be added"
+    },
+    "output": {
+      "categories": [
+        {
+          "category": "Research",
+          "count": 57
+        },
+        {
+          "category": "Earth science",
+          "count": 4
+        }
+      ],
+      "total": 61,
+      "listed": 20,
+      "left_out": 1,
+      "message": "61 plugins and connectors can be added to this conversation (20 listed in the session facts, 1 left out by the person in Settings). offer_plugin with search (words) or category finds them."
+    },
+    "presentation": {
+      "action": "List",
+      "subject": "listed",
+      "summary": "61 plugins and connectors can be added to this conversation (20 listed in the session facts, 1 left out by the person in Settings). offer_plugin with search (words) or category finds them.",
+      "blocks": [
+        {
+          "id": "listed",
+          "type": "text",
+          "text": "plugin categories"
+        },
+        {
+          "id": "categories",
+          "type": "text",
+          "label": "Categories (61 in all)",
+          "text": "Research: 57\nEarth science: 4"
+        }
+      ]
+    }
+  }
+]

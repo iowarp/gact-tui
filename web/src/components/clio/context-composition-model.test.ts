@@ -40,4 +40,43 @@ describe('context accounting presentation', () => {
     expect(value.reserve).toBe(0);
     expect(value.free).toBe(900);
   });
+  it('names the offer list category and its own lines in the interface language', () => {
+    const value = contextComposition(
+      {
+        ...context,
+        prompt_breakdown: {
+          method: 'characters_div_4',
+          tokens_estimated: 80,
+          media_items: 0,
+          sections: [
+            {
+              id: 'offerable',
+              label: 'Plugin list',
+              tokens_estimated: 30,
+              count: 3,
+              items: [
+                { label: 'HDF5', tokens_estimated: 12 },
+                {
+                  label: 'List heading and closing line',
+                  tokens_estimated: 10,
+                  id: 'offer_list_frame',
+                },
+                { label: 'tariff-calc', tokens_estimated: 8, id: null },
+              ],
+            },
+            { id: 'messages', label: 'Messages', tokens_estimated: 50, count: 1, items: [] },
+          ],
+        },
+      },
+      [],
+    );
+    const offer = value.sections.find((section) => section.id === 'offerable')!;
+    expect(offer.label).toBe('Plugin list');
+    expect(offer.items.map((item) => item.label)).toEqual([
+      'HDF5',
+      'List heading and closing line',
+      'tariff-calc',
+    ]);
+    expect(value.sections.find((section) => section.id === 'messages')?.tokens_estimated).toBe(50);
+  });
 });

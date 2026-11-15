@@ -317,6 +317,7 @@ function McpServiceRow({
       status={<StatusIndicator label={status.label} tone={status.tone} />}
       tabIndex={0}
       title={<span title={title}>{title}</span>}
+      wrapTitle
     />
   );
 }

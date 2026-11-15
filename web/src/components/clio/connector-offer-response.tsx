@@ -79,6 +79,8 @@ export function ConnectorOfferResponse({
   const description = plugin
     ? entry?.description || payload?.description || ''
     : payload?.description || connector?.description || '';
+  // What must already be on this machine (SL-D8): shown until the connector is on.
+  const requires = connector && !connector.enabled ? (connector.requires ?? '') : '';
   const contents = offerContentsLine(
     entry,
     plugin ? null : { id, tool_count: connector?.tool_count ?? null },
@@ -173,12 +175,12 @@ export function ConnectorOfferResponse({
             />
           )
         }
-        spokenDetail={`${state}. ${description} ${payload?.reason ?? ''} ${contents}. ${addTip}`.trim()}
+        spokenDetail={`${state}. ${description} ${payload?.reason ?? ''} ${requires} ${contents}. ${addTip}`.trim()}
         title={title}
         titleText={title}
         wrapTitle
       >
-        {description || payload?.reason || inline.length || !payload ? (
+        {description || payload?.reason || requires || inline.length || !payload ? (
           <AskBody>
             <AskSection className="mt-1.5 grid gap-1">
               {description ? (
@@ -192,6 +194,12 @@ export function ConnectorOfferResponse({
                 <div className="flex min-w-0 items-baseline gap-1.5">
                   <span className="shrink-0 text-xs text-muted-foreground">{t`Why`}</span>
                   <OneLine slot="connector-offer-reason" text={payload.reason} />
+                </div>
+              ) : null}
+              {requires ? (
+                <div className="flex min-w-0 items-baseline gap-1.5">
+                  <span className="shrink-0 text-xs text-muted-foreground">{t`On this machine`}</span>
+                  <OneLine slot="connector-offer-requires" text={requires} />
                 </div>
               ) : null}
               {!payload ? <p role="alert">{t`This offer can’t be read by this version.`}</p> : null}

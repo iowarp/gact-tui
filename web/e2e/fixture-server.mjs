@@ -4318,6 +4318,16 @@ const server = createServer(async (request, response) => {
     response.end();
     return;
   }
+  // Stop asks about started work only when some is open; the fixture has none.
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/stop-scope`) {
+    sendJson(response, { session_id: sessionId, open_children: [] });
+    return;
+  }
+  // A run card's selected step reads its input from the task index; the fixture has no runs.
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/tasks/query`) {
+    sendJson(response, { tasks: [], total: 0, cursor: null, revision: 0 });
+    return;
+  }
 
   if (scienceViews.fallback(request, response, url)) return;
   sendJson(response, { error: 'not_found', path: url.pathname }, 404);

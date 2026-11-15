@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
 import { reminderMeta, type ReminderMeta } from '@/lib/reminder-meta';
 import { MetaLine } from './extension-parts';
+import { OFFER_LIST_REMINDER, OfferListReminderAction } from './offer-list-row';
 import { IconButton } from './primitives/icon-button';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
@@ -75,11 +76,14 @@ export function RemindersList({
         return (
           <ItemRow
             actions={
-              <IconButton
-                icon={<EditIcon />}
-                label={t`Edit ${name}`}
-                onClick={() => onEdit(prompt)}
-              />
+              <>
+                {prompt.id === OFFER_LIST_REMINDER ? <OfferListReminderAction /> : null}
+                <IconButton
+                  icon={<EditIcon />}
+                  label={t`Edit ${name}`}
+                  onClick={() => onEdit(prompt)}
+                />
+              </>
             }
             icon={<BellIcon />}
             key={prompt.id}

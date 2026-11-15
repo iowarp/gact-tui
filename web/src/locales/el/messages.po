@@ -1,11 +1,12 @@
+#
 msgid ""
 msgstr ""
 "POT-Creation-Date: 2026-11-12 21:14+0000\n"
+"Language: el\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: @lingui/cli\n"
-"Language: el\n"
 
 #: src/components/clio/settings-models-rows.tsx
 msgid "— s"
@@ -55,6 +56,10 @@ msgstr "«Πώς κινήθηκαν οι Harvey, Maria και Dorian και πό
 #: src/components/clio/connector-offer-response.tsx
 msgid "(Add turns it on)"
 msgstr "(Η προσθήκη το ενεργοποιεί)"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "(default: the first {cap})"
+msgstr "(προεπιλογή: τα πρώτα {cap})"
 
 #: src/components/clio/ndp-endpoint-panel.tsx
 msgid "(Hidden)"
@@ -1248,6 +1253,10 @@ msgstr "Τοποθεσία εγκατάστασης και εκτέλεσης τ
 msgid "{agent} is already running at {url}, but this app can't sign in to it: {reason}. Stop that {agent} or restart it with this version, then reopen the app."
 msgstr "Ο {agent} εκτελείται ήδη στο {url}, αλλά αυτή η εφαρμογή δεν μπορεί να συνδεθεί σε αυτόν: {reason}. Σταματήστε αυτόν τον {agent} ή επανεκκινήστε τον με αυτήν την έκδοση και, στη συνέχεια, ανοίξτε ξανά την εφαρμογή."
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "{agent} is told about the ticked plugins and connectors a conversation does not have, so it can offer one when a request needs it. Changes apply from its next turn."
+msgstr "Ενημερώνεται: {agent}, για τα επιλεγμένα πρόσθετα και τις συνδέσεις που δεν έχει μια συνομιλία, ώστε να προτείνει ένα όταν το χρειάζεται ένα αίτημα. Οι αλλαγές ισχύουν από την επόμενη σειρά του."
+
 #: src/hooks/use-system-version-status.ts
 msgid "{agent} is up to date"
 msgstr "Το {agent} είναι ενημερωμένο"
@@ -1534,6 +1543,14 @@ msgstr "{count, plural, one {Το {plugin} φέρνει αυτόν τον υπο
 msgid "{count, plural, one {{plugin} brings this tool} other {{plugin} brings these tools}}"
 msgstr "{count, plural, one {Το {plugin} φέρνει αυτό το εργαλείο} other {Το {plugin} φέρνει αυτά τα εργαλεία}}"
 
+#: src/components/clio/offer-list-row.tsx
+msgid "{count, plural, one {# brought in, chosen by you} other {# brought in, chosen by you}}"
+msgstr "{count, plural, one {# συμπεριλαμβάνεται, δική σας επιλογή} other {# συμπεριλαμβάνονται, δική σας επιλογή}}"
+
+#: src/components/clio/offer-list-row.tsx
+msgid "{count, plural, one {# brought in} other {# brought in}}"
+msgstr "{count, plural, one {# συμπεριλαμβάνεται} other {# συμπεριλαμβάνονται}}"
+
 #: src/lib/plugin-presentation.ts
 msgid "{count, plural, one {# catalog} other {# catalogs}}"
 msgstr "{count, plural, one {# κατάλογος} other {# κατάλογοι}}"
@@ -1755,6 +1772,10 @@ msgstr "{count, plural, one {Αποστολή # σχολίου} other {Αποσ�
 msgid "{count, plural, one {Study: {name}, # entry} other {Study: {name}, # entries}}"
 msgstr "{count, plural, one {Μελέτη: {name}, # καταχώριση} other {Μελέτη: {name}, # καταχωρίσεις}}"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "{count, plural, one {This conversation started # task that is still open. Stopping everything cancels it and anything it started; finished results are kept, and you can restart it later.} other {This conversation started # tasks that are still open. Stopping everything cancels them and anything they started; finished results are kept, and you can restart them later.}}"
+msgstr "{count, plural, one {Αυτή η συνομιλία ξεκίνησε # εργασία που είναι ακόμη ανοιχτή. Η διακοπή όλων την ακυρώνει μαζί με ό,τι ξεκίνησε· τα ολοκληρωμένα αποτελέσματα διατηρούνται και μπορείτε να την επανεκκινήσετε αργότερα.} other {Αυτή η συνομιλία ξεκίνησε # εργασίες που είναι ακόμη ανοιχτές. Η διακοπή όλων τις ακυρώνει μαζί με ό,τι ξεκίνησαν· τα ολοκληρωμένα αποτελέσματα διατηρούνται και μπορείτε να τις επανεκκινήσετε αργότερα.}}"
+
 #: src/components/clio/memory-used-action.tsx
 msgid "{count, plural, one {Used # memory document} other {Used # memory documents}}"
 msgstr "{count, plural, one {Χρησιμοποιήθηκε # έγγραφο μνήμης} other {Χρησιμοποιήθηκαν # έγγραφα μνήμης}}"
@@ -1803,6 +1824,10 @@ msgstr "{count} ακόμη: {tabs}"
 #: src/components/clio/model-row-facts.tsx
 msgid "{count} more: {tags}"
 msgstr "{count} ακόμη: {tags}"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "{count} of {total} brought in"
+msgstr "{count} από {total} συμπεριλαμβάνονται"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{count} rejected"
@@ -1863,7 +1888,7 @@ msgstr "{detail} ({elapsed}) Μπορείτε να συνεχίσετε να χ�
 
 #: src/components/clio/a2ui-raster-viewport.tsx
 msgid "{dimension} {value} ({position} of {count})"
-msgstr ""
+msgstr "{dimension} {value} ({position} από {count})"
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "{displayName} view closed"
@@ -2035,6 +2060,10 @@ msgstr "Συνέχεια ροής {flow}"
 #: src/routes/runs-rows.ts
 msgid "{flow} run"
 msgstr "Εκτέλεση {flow}"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "{flow} run, restarted"
+msgstr "Εκτέλεση {flow}, επανεκκινήθηκε"
 
 #: src/components/clio/a2ui-data-table.tsx
 msgid "{format} (current view)"
@@ -4521,7 +4550,7 @@ msgstr "Ένα ιδιωτικό όριο και λίστες επιτρεπόμ�
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "A profile in the AWS configuration of the computer {agent} runs on."
-msgstr ""
+msgstr "Ένα προφίλ στη διαμόρφωση AWS του υπολογιστή όπου εκτελείται ο {agent}."
 
 #: src/widget-preview-app.tsx
 msgid "A question becomes an explorable answer"
@@ -4538,6 +4567,10 @@ msgstr "Ένα στιγμιότυπο μόνο για ανάγνωση. Όποι
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A repository URL, or a folder on the agent host."
 msgstr "Μια URL αποθετηρίου ή ένας φάκελος στον κεντρικό υπολογιστή του πράκτορα."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "A restart keeps the steps that finished."
+msgstr "Μια επανεκκίνηση διατηρεί τα βήματα που ολοκληρώθηκαν."
 
 #: src/components/clio/clio-menu.tsx
 msgid "A saved host, or add one"
@@ -4878,11 +4911,11 @@ msgstr "Πρόσβαση"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Access key"
-msgstr ""
+msgstr "Κλειδί πρόσβασης"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Access key ID"
-msgstr ""
+msgstr "Αναγνωριστικό κλειδιού πρόσβασης"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "Access rules"
@@ -5419,7 +5452,7 @@ msgid "added"
 msgstr "προστέθηκε"
 
 #: src/components/clio/diff-lines.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/ndp-browser-tab.tsx
 #: src/components/clio/plugin-change-pending-notice.tsx
 #: src/components/clio/source-review-panel.tsx
@@ -5455,7 +5488,7 @@ msgstr "προστέθηκε αφού το εγκρίνατε"
 msgid "Added as {status}"
 msgstr "Προστέθηκε ως {status}"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/settings-plugins.tsx
 msgid "Added by"
 msgstr "Προστέθηκε από"
@@ -5627,11 +5660,13 @@ msgstr "πράκτορας"
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/desktop-title-bar.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/global-search-results.tsx
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/private-local-library.tsx
 #: src/components/clio/settings-session-defaults.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/use-workbench-strip.tsx
@@ -6140,7 +6175,7 @@ msgstr "Διαθέσιμο επίσης ως"
 msgid "Also called"
 msgstr "Αλλιώς"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Also waits on its forks"
 msgstr "Περιμένει επίσης τις διακλαδώσεις του"
 
@@ -6211,6 +6246,10 @@ msgstr "Ένας πράκτορας απάντησε χωρίς καταγεγρ
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "An agent answered: {answer}"
 msgstr "Ένας πράκτορας απάντησε: {answer}"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "An agent stopped this run"
+msgstr "Ένας πράκτορας σταμάτησε αυτή την εκτέλεση"
 
 #: src/components/clio/session-behavior-options.ts
 msgid "An AI agent watches the session."
@@ -6301,7 +6340,6 @@ msgid "Another window is using this page."
 msgstr "Άλλο παράθυρο χρησιμοποιεί αυτή τη σελίδα."
 
 #: src/components/clio/attention-center.tsx
-#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/pending-interaction-question-response.tsx
 #: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
@@ -6317,6 +6355,10 @@ msgstr "Απαντήστε παρακάτω"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Answer below: {label}"
 msgstr "Απαντήστε παρακάτω: {label}"
+
+#: src/components/clio/flow-step-details.tsx
+msgid "Answer from {agent}"
+msgstr "Απάντηση από {agent}"
 
 #: src/components/clio/agent-question-dialog.tsx
 msgid "Answer in message box"
@@ -6896,7 +6938,7 @@ msgstr "Ζητήθηκε σε συνομιλία"
 msgid "asked questions"
 msgstr "έκανε ερωτήσεις"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Asked to answer as"
 msgstr "Ζητήθηκε απάντηση ως"
 
@@ -7088,7 +7130,7 @@ msgstr "Συνημμένο: {label} ({media})"
 msgid "Attachments only"
 msgstr "Μόνο συνημμένα"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Attempts"
 msgstr "Προσπάθειες"
 
@@ -7762,6 +7804,10 @@ msgstr "Μεταφορά όλων μπροστά"
 msgid "Bring back the saved draft"
 msgstr "Επαναφορά του αποθηκευμένου πρόχειρου"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Bring in {name}"
+msgstr "Συμπερίληψη: {name}"
+
 #: src/lib/onboarding/tour-script.ts
 msgid "Bring in tools"
 msgstr "Προσθέστε εργαλεία"
@@ -7871,7 +7917,7 @@ msgstr "Περιήγηση: {hostLabel}"
 
 #: src/components/clio/source-fields.tsx
 msgid "Bucket and prefix"
-msgstr ""
+msgstr "Bucket και πρόθεμα"
 
 #: src/components/clio/science-log-panel.tsx
 msgid "Budget"
@@ -9455,6 +9501,10 @@ msgstr "Επιλέξτε το επόμενο βήμα"
 msgid "Choose the next step for this station report."
 msgstr "Επιλέξτε το επόμενο βήμα για αυτήν την αναφορά σταθμού."
 
+#: src/components/clio/offer-list-row.tsx
+msgid "Choose the plugins {agent} can offer"
+msgstr "Επιλογή προσθέτων που μπορεί να προτείνει: {agent}"
+
 #: src/components/reui/time-picker.tsx
 msgid "Choose time"
 msgstr "Επιλογή ώρας"
@@ -9489,11 +9539,12 @@ msgstr "Επιλέξτε ποιες νέες και ενημερωμένες α�
 #: src/components/clio/folder-attach-form.tsx
 #: src/components/clio/memory-import-dialog.tsx
 #: src/components/clio/obsidian-source-form.tsx
+#: src/components/clio/offer-list-row.tsx
 #: src/components/clio/source-fields.tsx
 msgid "Choose…"
 msgstr "Επιλογή…"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Chosen"
 msgstr "Επιλέχθηκε"
 
@@ -9725,7 +9776,7 @@ msgstr "Κλείσιμο"
 msgid "Close {label}"
 msgstr "Κλείσιμο {label}"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 msgid "Close {name}"
 msgstr "Κλείσιμο {name}"
@@ -9971,6 +10022,7 @@ msgstr "Συνδυάστε εγκατεστημένες δυνατότητες �
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/mcp-connection-dialog.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Command"
@@ -10840,6 +10892,7 @@ msgid "Connections from this client to the agent and managed computers"
 msgstr "Συνδέσεις από αυτόν τον πελάτη προς τον πράκτορα και τους διαχειριζόμενους υπολογιστές"
 
 #: src/components/clio/agent-plugin-menu.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Connector"
@@ -12695,6 +12748,7 @@ msgstr "Σε βάθος έρευνα"
 #: src/components/clio/associated-application-items.tsx
 #: src/components/clio/ndp-workflow-form.tsx
 #: src/components/clio/new-conversation-chips.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/reasoning-level-segmented.tsx
 #: src/components/clio/settings-agents.tsx
 #: src/components/clio/settings-response-settings.tsx
@@ -13060,7 +13114,6 @@ msgstr "Φθίν."
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/catalog-toolset.tsx
 #: src/components/clio/extension-add-dialog.tsx
-#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/settings-prompt-editor.tsx
 msgid "Description"
@@ -13597,6 +13650,7 @@ msgstr "Αρχεία και φάκελοι με τελεία"
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/settings-app-updates.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/surface-toolbar.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -14242,7 +14296,7 @@ msgstr "επεξεργάζεται αρχεία"
 msgid "Editing rounds"
 msgstr "Γύροι επεξεργασίας"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Editor"
 msgstr "Συντάκτης"
 
@@ -15865,7 +15919,7 @@ msgstr "ροή"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/agent-subagent-facts.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/flow-tool-presentation.ts
 #: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -16138,7 +16192,7 @@ msgstr "διαγράφει από τη μνήμη"
 msgid "forgot from memory"
 msgstr "διέγραψε από τη μνήμη"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/study-tree.tsx
 msgid "Fork"
 msgstr "Διακλάδωση"
@@ -16148,7 +16202,7 @@ msgstr "Διακλάδωση"
 msgid "Fork into a new conversation"
 msgstr "Διακλάδωση σε νέα συνομιλία"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/lib/session-export/archive-orchestration.tsx
 msgid "Fork note"
 msgstr "Σημείωση διακλάδωσης"
@@ -16157,7 +16211,7 @@ msgstr "Σημείωση διακλάδωσης"
 msgid "Fork note: {note}"
 msgstr "Σημείωση διακλάδωσης: {note}"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Fork of"
 msgstr "Διακλάδωση του"
 
@@ -17793,6 +17847,7 @@ msgstr "Ανεξάρτητη συνομιλία με κοινόχρηστα αρ
 msgid "Index more sessions"
 msgstr "Ευρετηρίαση περισσότερων συνεδριών"
 
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Indexing"
 msgstr "Ευρετηρίαση"
@@ -17975,6 +18030,14 @@ msgstr "Τιμή εισόδου σε USD ανά 1M token"
 #: src/components/clio/model-row-facts.tsx
 msgid "Input price per 1M tokens"
 msgstr "Τιμή εισόδου ανά 1M token"
+
+#: src/components/clio/flow-step-details.tsx
+msgid "Input to {agent}"
+msgstr "Είσοδος προς {agent}"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Input to the flow"
+msgstr "Είσοδος της ροής"
 
 #: src/lib/model-quick-filters.ts
 msgid "Input under $1 per 1M tokens"
@@ -18466,7 +18529,7 @@ msgstr "Μη έγκυρος δείκτης συνέχειας αποτελέσμ
 msgid "Invalid result fragment boundary."
 msgstr "Μη έγκυρο όριο τμήματος αποτελέσματος."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Investigates"
 msgstr "Διερευνά"
 
@@ -18511,7 +18574,7 @@ msgstr "Δεν μπορεί να εκτελεστεί εδώ αυτή τη στ�
 msgid "It changed before your edit was saved."
 msgstr "Άλλαξε πριν αποθηκευτεί η επεξεργασία σας."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "It did not run."
 msgstr "Δεν εκτελέστηκε."
 
@@ -18572,11 +18635,11 @@ msgstr "Δεν επέστρεψε έξοδο"
 msgid "It runs in this session with the session's agent, model, context and access rules."
 msgstr "Εκτελείται σε αυτή τη συνεδρία με τον πράκτορα, το μοντέλο, το πλαίσιο και τους κανόνες πρόσβασης της συνεδρίας."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "It runs once every entry has answered."
 msgstr "Εκτελείται μόλις απαντήσουν όλες οι καταχωρίσεις."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "It runs once every member has answered."
 msgstr "Εκτελείται μόλις απαντήσουν όλα τα μέλη."
 
@@ -18870,6 +18933,10 @@ msgstr "Να συνεχίζει να εκτελείται αυτός ο απομ
 msgid "Keep this run"
 msgstr "Διατήρηση αυτής της εκτέλεσης"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Keep working"
+msgstr "Συνέχεια εργασίας"
+
 #: src/components/clio/settings-schedule-row.tsx
 msgid "Keep<0> schedule</0>"
 msgstr "Διατήρηση<0> χρονοπρογραμματισμού</0>"
@@ -18880,7 +18947,7 @@ msgstr "Διατηρεί την περιοχή της εικόνας και τη
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Kept by {agent} on the computer it runs on, for this source only; scripts and tools never see it."
-msgstr ""
+msgstr "Το φυλάσσει ο {agent} στον υπολογιστή όπου εκτελείται, μόνο για αυτή την πηγή· τα σενάρια και τα εργαλεία δεν το βλέπουν ποτέ."
 
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Kept in"
@@ -19071,7 +19138,7 @@ msgstr "Αφήστε ένα πεδίο κενό για να διατηρηθεί
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Leave it empty for Amazon S3. For an S3-compatible store such as MinIO, Ceph or the Open Storage Network, enter its address."
-msgstr ""
+msgstr "Αφήστε το κενό για το Amazon S3. Για χώρο αποθήκευσης συμβατό με S3, όπως το MinIO, το Ceph ή το Open Storage Network, εισαγάγετε τη διεύθυνσή του."
 
 #: src/components/clio/remote-agent-conflict.tsx
 msgid "Leave it running and start another"
@@ -19317,9 +19384,14 @@ msgid "Linux / macOS shell"
 msgstr "Κέλυφος Linux / macOS"
 
 #: src/components/clio/tool-operation-contract.ts
+#: src/components/clio/tool-presentation.ts
 msgctxt "verb: tool action"
 msgid "List"
 msgstr "Λίστα"
+
+#: src/components/clio/context-composition-model.ts
+msgid "List heading and closing line"
+msgstr "Επικεφαλίδα και τελευταία γραμμή της λίστας"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "List schedules"
@@ -20049,7 +20121,7 @@ msgstr "Φόρτωση πίνακα…"
 msgid "Loading task choices…"
 msgstr "Φόρτωση επιλογών εργασιών…"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Loading the answer…"
 msgstr "Φόρτωση της απάντησης…"
 
@@ -20078,6 +20150,10 @@ msgstr "Φόρτωση των περιεχομένων του φακέλου"
 #: src/components/clio/artifact-image-preview.tsx
 msgid "Loading the image…"
 msgstr "Φόρτωση της εικόνας…"
+
+#: src/components/clio/flow-step-details.tsx
+msgid "Loading the input…"
+msgstr "Φόρτωση της εισόδου…"
 
 #: src/components/clio/surface-question-notice.tsx
 msgid "Loading the linked view…"
@@ -20149,6 +20225,7 @@ msgstr "Φόρτωση..."
 
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/model-download-search.tsx
+#: src/components/clio/offer-list-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-models-rows.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -21173,7 +21250,7 @@ msgstr "Λειτουργία: {modeLabel}"
 
 #: src/components/clio/agent-subagent-facts.tsx
 #: src/components/clio/agent-tab-run-settings.tsx
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 #: src/components/clio/managed-service-inventory-row.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/service-management-facts.tsx
@@ -22212,7 +22289,7 @@ msgstr "Καμία απάντηση σε αυτή τη διεύθυνση."
 msgid "No answer text was recorded."
 msgstr "Δεν καταγράφηκε κείμενο απάντησης."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "No answer was recorded."
 msgstr "Δεν καταγράφηκε απάντηση."
 
@@ -23579,6 +23656,10 @@ msgstr "δεν καταγράφηκε"
 msgid "Not recorded"
 msgstr "Δεν καταγράφηκε"
 
+#: src/components/clio/flow-step-details.tsx
+msgid "Not recorded here. See conversation shows what it was given."
+msgstr "Δεν καταγράφηκε εδώ. Η «Προβολή συνομιλίας» δείχνει τι δόθηκε."
+
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
@@ -23665,7 +23746,7 @@ msgstr "Δεν ξεκίνησε"
 msgid "Not started yet"
 msgstr "Δεν έχει ξεκινήσει ακόμη"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Not started yet."
 msgstr "Δεν έχει ξεκινήσει ακόμη."
 
@@ -23844,7 +23925,7 @@ msgstr "Δεν υπάρχει τίποτα προγραμματισμένο στ
 
 #: src/components/clio/bound-data-query.tsx
 msgid "Nothing is selected for “{column}” yet."
-msgstr ""
+msgstr "Δεν έχει επιλεγεί ακόμη τίποτα για το «{column}»."
 
 #: src/components/clio/viewer-file-gate.tsx
 msgid "Nothing is selected for this {noun} yet."
@@ -23861,6 +23942,10 @@ msgstr "Τίποτα δεν ταιριάζει με «{query}»"
 #: src/components/clio/search-results-tab.tsx
 msgid "Nothing matches “{query}” here"
 msgstr "Τίποτα δεν ταιριάζει με «{query}» εδώ"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Nothing matches “{search}”."
+msgstr "Τίποτα δεν ταιριάζει με «{search}»."
 
 #: src/components/clio/command-menu-no-match.tsx
 msgid "Nothing matches {shown}"
@@ -23891,6 +23976,10 @@ msgstr "Δεν έχει αποθηκευτεί τίποτα εδώ ακόμη."
 msgid "Nothing there to measure. Click on the model."
 msgstr "Δεν υπάρχει τίποτα εκεί για μέτρηση. Κάντε κλικ στο μοντέλο."
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Nothing to offer yet."
+msgstr "Δεν υπάρχει ακόμη κάτι για πρόταση."
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "Nothing to remember"
 msgstr "Τίποτα προς απομνημόνευση"
@@ -23902,6 +23991,10 @@ msgstr "Τίποτα προς έλεγχο"
 #: src/components/clio/session-rail.tsx
 msgid "Nothing yet."
 msgstr "Τίποτα ακόμη."
+
+#: src/components/clio/flow-step-details.tsx
+msgid "nothing; starts first"
+msgstr "τίποτα· ξεκινά πρώτο"
 
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Notice from a background task"
@@ -24055,6 +24148,11 @@ msgstr "Ανενεργό: ο {agent} την προστατεύει με ένα �
 msgid "Offer"
 msgstr "Προσφορά"
 
+#: src/components/clio/tool-presentation.ts
+msgctxt "verb: tool action"
+msgid "Offer"
+msgstr "Πρόταση"
+
 #: src/components/clio/subagent-canvas-view.tsx
 msgctxt "transcript connection state"
 msgid "offline"
@@ -24163,6 +24261,7 @@ msgstr "Σε αυτόν τον υπολογιστή, σε άλλο μηχάνη�
 msgid "On this host"
 msgstr "Σε αυτόν τον κεντρικό υπολογιστή"
 
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/discover-catalog.tsx
 msgid "On this machine"
 msgstr "Σε αυτόν τον υπολογιστή"
@@ -24198,6 +24297,10 @@ msgstr "Ένα γεγονός ή μία προτίμηση ανά γραμμή"
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "One highlight per model token"
 msgstr "Μία επισήμανση ανά token του μοντέλου"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "One of the first {cap}, brought in unless you untick it"
+msgstr "Ένα από τα πρώτα {cap}· συμπεριλαμβάνεται εκτός αν το αποεπιλέξετε"
 
 #: src/widget-gallery.tsx
 msgid "One plant"
@@ -24279,7 +24382,6 @@ msgstr "ανοιχτή"
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/file-viewer-take.tsx
-#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Open"
 msgstr "Άνοιγμα"
@@ -24357,7 +24459,6 @@ msgstr "Άνοιγμα {label}, {status}"
 #: src/components/clio/artifact-markdown-image.tsx
 #: src/components/clio/artifact-rail-row.tsx
 #: src/components/clio/composer-attachment-chip.tsx
-#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/tool-result-workspace-file.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 #: src/components/clio/workbench-activity-detail.tsx
@@ -24633,10 +24734,6 @@ msgstr "Ανοίξτε το σε άλλη εφαρμογή."
 msgid "Open it to recover the run"
 msgstr "Ανοίξτε την για να ανακτήσετε την εκτέλεση"
 
-#: src/components/clio/flow-run-view.tsx
-msgid "Open its conversation"
-msgstr "Άνοιγμα της συνομιλίας της"
-
 #: src/components/clio/connected-source-detail.tsx
 msgid "Open knowledge"
 msgstr "Ανοιχτή γνώση"
@@ -24734,6 +24831,10 @@ msgstr "Άνοιγμα Ρυθμίσεων συστήματος"
 msgid "Open task"
 msgstr "Άνοιγμα εργασίας"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Open tasks"
+msgstr "Ανοιχτές εργασίες"
+
 #: src/lib/global-search-commands.ts
 msgid "Open terminal"
 msgstr "Άνοιγμα τερματικού"
@@ -24784,7 +24885,7 @@ msgstr "Άνοιγμα του φακέλου του {name}"
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "Open the live view"
-msgstr ""
+msgstr "Άνοιγμα ζωντανής προβολής"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "Open the model picker"
@@ -24825,6 +24926,10 @@ msgstr "Άνοιγμα της συνομιλίας αξιολόγησης SPOTTE
 #: src/components/clio/flow-run-parts.tsx
 msgid "Open the stalled step"
 msgstr "Άνοιγμα του βήματος που κόλλησε"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Open the step it stopped at"
+msgstr "Άνοιγμα του βήματος όπου σταμάτησε"
 
 #: src/components/clio/artifact-card.tsx
 msgid "Open this artifact to read the full {size} result."
@@ -25604,6 +25709,7 @@ msgstr "σε παύση"
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-schedule-row.tsx
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Paused"
 msgstr "Σε παύση"
@@ -25999,6 +26105,7 @@ msgstr "Τα γραφήματα, οι πίνακες και οι αναφορέ�
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
@@ -26037,6 +26144,10 @@ msgstr "Αρχεία πρόσθετου"
 msgid "Plugin from {marketplace}"
 msgstr "Πρόσθετο από: {marketplace}"
 
+#: src/components/clio/context-composition-model.ts
+msgid "Plugin list"
+msgstr "Λίστα προσθέτων"
+
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "Plugin marketplaces in the Agent Plugins or Claude Code format are both supported. The {agent} fetches the source; you trust it in the next step."
 msgstr "Υποστηρίζονται αγορές πρόσθετων τόσο σε μορφή Agent Plugins όσο και σε μορφή Claude Code. Ο {agent} ανακτά την πηγή· εσείς την εμπιστεύεστε στο επόμενο βήμα."
@@ -26068,6 +26179,15 @@ msgstr "πρόσθετα"
 msgid "Plugins"
 msgstr "Πρόσθετα"
 
+#: src/components/clio/offer-list-dialog.tsx
+#: src/components/clio/offer-list-row.tsx
+msgid "Plugins {agent} can offer"
+msgstr "Πρόσθετα που μπορεί να προτείνει: {agent}"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Plugins and connectors"
+msgstr "Πρόσθετα και συνδέσεις"
+
 #: src/lib/plugin-presentation.ts
 msgid "Plugins and connectors changed"
 msgstr "Τα πρόσθετα και οι σύνδεσμοι άλλαξαν"
@@ -26084,6 +26204,10 @@ msgstr "Δεν ήταν δυνατή η φόρτωση των πρόσθετων
 #: src/components/clio/settings-plugins.tsx
 msgid "Plugins from {name}"
 msgstr "Πρόσθετα από {name}"
+
+#: src/components/clio/tool-presentation.ts
+msgid "Plugins in"
+msgstr "Πρόσθετα στην κατηγορία"
 
 #: src/components/clio/plugin-explorer.tsx
 msgid "Plugins in this pack"
@@ -26567,7 +26691,7 @@ msgstr "Το προφίλ και οι προτιμήσεις διατηρούν�
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Profile name"
-msgstr ""
+msgstr "Όνομα προφίλ"
 
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
@@ -26708,11 +26832,11 @@ msgctxt "workflow change"
 msgid "proposed"
 msgstr "προτάθηκε"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Proposed"
 msgstr "Προτάθηκε"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Proposed by"
 msgstr "Προτάθηκε από"
 
@@ -26889,7 +27013,7 @@ msgstr "Οι πάροχοι βρίσκονται στα αριστερά και 
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Public"
-msgstr ""
+msgstr "Δημόσια"
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Public or private repository folder"
@@ -26994,6 +27118,7 @@ msgstr "ερώτηση"
 #: src/components/clio/question-answer-reader.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/science-log-model.ts
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/study-tree.tsx
 #: src/components/clio/surface-question-notice.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -27078,6 +27203,7 @@ msgstr "σε αναμονή"
 #: src/components/clio/resource-processing-presentation.ts
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Queued"
 msgstr "Σε αναμονή"
@@ -29147,6 +29273,10 @@ msgstr "Επαναφορά όλων στις προεπιλογές"
 msgid "Reset layout"
 msgstr "Επαναφορά διάταξης"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Reset to default"
+msgstr "Επαναφορά προεπιλογής"
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "Reset to setup"
 msgstr "Επαναφορά στη διαμόρφωση"
@@ -30167,6 +30297,7 @@ msgstr "σε εκτέλεση"
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/status.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/components/clio/workbench-activity-list.tsx
 #: src/components/clio/workspace-terminal-panel.tsx
@@ -30217,7 +30348,6 @@ msgid "Running, but no model is loaded yet."
 msgstr "Σε εκτέλεση, αλλά δεν έχει φορτωθεί ακόμη μοντέλο."
 
 #: src/components/clio/activity-timeline-list.tsx
-#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
@@ -30467,6 +30597,7 @@ msgstr "Σάββατο"
 #: src/components/clio/composer-queue-row.tsx
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/known-service-actions.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/primitives/save-bar.tsx
 #: src/components/clio/settings-model-server-row.tsx
 #: src/components/clio/source-edit-form.tsx
@@ -30801,6 +30932,10 @@ msgstr "Αποθηκεύτηκε χωρίς κλήση μοντέλου"
 msgid "Saved, not verified"
 msgstr "Αποθηκεύτηκε, δεν επαληθεύτηκε"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Saved. {agent} uses this list from its next turn."
+msgstr "Αποθηκεύτηκε. Αυτή τη λίστα τη χρησιμοποιεί από την επόμενη σειρά: {agent}."
+
 #: src/components/clio/provenance-connections.tsx
 msgid "Saved. Restart the connected {agent} to apply this choice."
 msgstr "Αποθηκεύτηκε. Επανεκκινήστε το συνδεδεμένο {agent} για να εφαρμοστεί αυτή η επιλογή."
@@ -30854,6 +30989,7 @@ msgstr "Αποθήκευση του κλειδιού σας…"
 #: src/components/clio/host-storage-settings.tsx
 #: src/components/clio/memory-create.tsx
 #: src/components/clio/model-storage-locations.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-source-editor.tsx
 #: src/components/clio/primitives/save-bar.tsx
 #: src/components/clio/resource-dialogs.tsx
@@ -31008,6 +31144,7 @@ msgstr "βαθμολογία {score}"
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/science-log-sources.tsx
 #: src/components/clio/script-run-body.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/routes/workspace-page.tsx
 msgid "Script"
@@ -31271,6 +31408,14 @@ msgstr "Αναζήτηση οργανισμών…"
 msgid "Search past sessions"
 msgstr "Αναζήτηση σε προηγούμενες συνεδρίες"
 
+#: src/components/clio/tool-presentation.ts
+msgid "Search plugins"
+msgstr "Αναζήτηση προσθέτων"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Search plugins and connectors"
+msgstr "Αναζήτηση προσθέτων και συνδέσεων"
+
 #: src/components/clio/extension-library-toolbar.tsx
 msgid "Search plugins, connectors and skills"
 msgstr "Αναζήτηση προσθέτων, συνδέσμων και δεξιοτήτων"
@@ -31501,7 +31646,7 @@ msgstr "Δευτερόλεπτα μεταξύ εγγραφών"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Secret access key"
-msgstr ""
+msgstr "Μυστικό κλειδί πρόσβασης"
 
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/cad-model-view.tsx
@@ -31525,9 +31670,18 @@ msgstr "Ενότητες"
 msgid "Secure credential storage is unavailable."
 msgstr "Ο ασφαλής χώρος αποθήκευσης διαπιστευτηρίων δεν είναι διαθέσιμος."
 
+#: src/components/clio/flow-step-details.tsx
+msgid "See {name}'s conversation"
+msgstr "Προβολή της συνομιλίας του {name}"
+
 #: src/components/clio/composed-prompt-view.tsx
 msgid "See all"
 msgstr "Προβολή όλων"
+
+#: src/components/clio/flow-run-view.tsx
+#: src/components/clio/flow-step-details.tsx
+msgid "See conversation"
+msgstr "Προβολή συνομιλίας"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "See each step"
@@ -31721,7 +31875,7 @@ msgstr "Επιλεγμένη περιοχή εικόνας"
 
 #: src/components/clio/file-viewer-shell.tsx
 msgid "Selected in the viewer"
-msgstr ""
+msgstr "Επιλεγμένο στο πρόγραμμα προβολής"
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Selected items"
@@ -32644,6 +32798,10 @@ msgstr "Εμφάνιση διεύθυνσης"
 msgid "Show every section"
 msgstr "Εμφάνιση όλων των ενοτήτων"
 
+#: src/components/clio/flow-step-details.tsx
+msgid "Show exactly as sent"
+msgstr "Προβολή ακριβώς όπως στάλθηκε"
+
 #: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
@@ -32773,6 +32931,10 @@ msgstr "Εμφάνιση ανοιχτών τερματικών"
 msgid "Show queued messages"
 msgstr "Εμφάνιση μηνυμάτων σε αναμονή"
 
+#: src/components/clio/flow-step-details.tsx
+msgid "Show readable"
+msgstr "Αναγνώσιμη προβολή"
+
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
 #: src/components/clio/workspace-navigation-tree-item.tsx
 msgid "Show recent conversations"
@@ -32856,9 +33018,17 @@ msgstr "Εμφάνιση της αριστερής γραμμής"
 msgid "Show the original answer"
 msgstr "Εμφάνιση της αρχικής απάντησης"
 
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the restarted run"
+msgstr "Εμφάνιση της εκτέλεσης μετά την επανεκκίνηση"
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Show the script in Work"
 msgstr "Εμφάνιση του σεναρίου στην Εργασία"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "Show the stopped run"
+msgstr "Εμφάνιση της εκτέλεσης που σταμάτησε"
 
 #: src/components/clio/script-run-body.tsx
 msgid "Show the task in Work"
@@ -32887,10 +33057,6 @@ msgstr "Εμφάνιση μη διαθέσιμων ή εξαιρεμένων α�
 #: src/components/clio/agent-package-filter.tsx
 msgid "Show what packages bring"
 msgstr "Εμφάνιση του τι φέρνουν τα πακέτα"
-
-#: src/components/clio/flow-run-parts.tsx
-msgid "Show what the agent asked"
-msgstr "Εμφάνιση του τι ρώτησε ο πράκτορας"
 
 #: src/components/clio/a2ui-map-data-source.tsx
 msgid "Showing {returned} of {matched} points."
@@ -33298,6 +33464,7 @@ msgstr "Το SKILL.md δεν έχει οδηγίες."
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/agent-tab-values.ts
+#: src/components/clio/context-composition-model.ts
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/command-table.ts
@@ -34042,6 +34209,10 @@ msgstr "Μη αναγνωρισμένη κατάσταση"
 msgid "State shared with this surface"
 msgstr "Κατάσταση κοινή με αυτή την επιφάνεια"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "State unconfirmed"
+msgstr "Μη επιβεβαιωμένη κατάσταση"
+
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
 msgid "state unknown"
@@ -34198,7 +34369,7 @@ msgstr "Ακόμη σε εκτέλεση"
 msgid "Still waiting. This is taking longer than expected. Check {agent} directly, or try again."
 msgstr "Ακόμη σε αναμονή. Αυτό διαρκεί περισσότερο από το αναμενόμενο. Ελέγξτε απευθείας τον {agent} ή δοκιμάστε ξανά."
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Still working."
 msgstr "Ακόμη σε εξέλιξη."
 
@@ -34257,6 +34428,10 @@ msgstr "Διακοπή απάντησης"
 msgid "Stop connecting"
 msgstr "Διακοπή σύνδεσης"
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop everything"
+msgstr "Διακοπή όλων"
+
 #: src/components/clio/ndp-sdk-stream-actions.tsx
 msgid "Stop reader"
 msgstr "Διακοπή αναγνώστη"
@@ -34264,6 +34439,10 @@ msgstr "Διακοπή αναγνώστη"
 #: src/components/clio/ndp-endpoint-browser.tsx
 msgid "Stop replay"
 msgstr "Διακοπή αναπαραγωγής"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop reply only"
+msgstr "Διακοπή μόνο της απάντησης"
 
 #: src/components/clio/rail-runs.tsx
 msgid "Stop run"
@@ -34284,6 +34463,10 @@ msgstr "Διακοπή συγχρονισμού"
 #: src/components/clio/work-record-controls.tsx
 msgid "Stop text"
 msgstr "Κείμενο διακοπής"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Stop the work this conversation started?"
+msgstr "Διακοπή της εργασίας που ξεκίνησε αυτή η συνομιλία;"
 
 #: src/components/clio/rail-runs.tsx
 msgid "Stop this run?"
@@ -34344,6 +34527,10 @@ msgstr "Σταμάτησε από τον πράκτορα"
 #: src/components/clio/flow-run-parts.tsx
 msgid "stopped or rejected"
 msgstr "σταμάτησε ή απορρίφθηκε"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "Stopped with this conversation's Stop. A restart keeps the steps that finished."
+msgstr "Σταμάτησε με τη Διακοπή αυτής της συνομιλίας. Μια επανεκκίνηση διατηρεί τα βήματα που ολοκληρώθηκαν."
 
 #: src/components/clio/flow-run-presentation.ts
 msgid "Stopped: {status}"
@@ -34958,6 +35145,7 @@ msgstr "Ο στόχος δεν αναφέρθηκε"
 #: src/components/clio/model-picker-anchors.tsx
 #: src/components/clio/registry-model-details.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-task-row.tsx
@@ -35402,7 +35590,7 @@ msgstr "Η πλήρης διεύθυνση του πράκτορα, συμπερ
 msgid "The agent’s turn failed"
 msgstr "Η σειρά του πράκτορα απέτυχε"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "The answer could not be loaded: {message}"
 msgstr "Δεν ήταν δυνατή η φόρτωση της απάντησης: {message}"
 
@@ -35614,7 +35802,7 @@ msgstr "Η συνομιλία δεν κατέληξε σε μια βέβαιη �
 
 #: src/components/clio/composer-failure.ts
 msgid "The conversation store is refusing writes."
-msgstr ""
+msgstr "Ο χώρος αποθήκευσης συνομιλιών απορρίπτει τις εγγραφές."
 
 #: src/components/clio/study-views.tsx
 msgid "The conversation that attached this view has since deleted its dashboard."
@@ -35845,6 +36033,10 @@ msgid "The flow has not started any task yet."
 msgstr "Η ροή δεν έχει ξεκινήσει ακόμη καμία εργασία."
 
 #: src/components/clio/flow-run-parts.tsx
+msgid "The flow saw"
+msgstr "Τι είδε η ροή"
+
+#: src/components/clio/flow-run-parts.tsx
 msgid "The flow stalled"
 msgstr "Η ροή κόλλησε"
 
@@ -35904,6 +36096,10 @@ msgstr "Δεν ήταν δυνατή η φόρτωση της εικόνας."
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "The image was not saved: {snapshotError}"
 msgstr "Η εικόνα δεν αποθηκεύτηκε: {snapshotError}"
+
+#: src/components/clio/flow-step-details.tsx
+msgid "The input could not be loaded: {message}"
+msgstr "Η είσοδος δεν φορτώθηκε: {message}"
 
 #: src/components/clio/provider-install-jobs.ts
 msgid "The install failed."
@@ -35981,9 +36177,17 @@ msgstr "Η συνδεδεμένη προβολή ανήκει σε άλλη συ
 msgid "The linked view is unavailable."
 msgstr "Η συνδεδεμένη προβολή δεν είναι διαθέσιμη."
 
+#: src/components/clio/offer-list-row.tsx
+msgid "The list couldn’t be loaded."
+msgstr "Δεν ήταν δυνατή η φόρτωση της λίστας."
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "The list wasn’t saved."
+msgstr "Η λίστα δεν αποθηκεύτηκε."
+
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The live view could not open ({detail}); this is its recording."
-msgstr ""
+msgstr "Δεν ήταν δυνατό να ανοίξει η ζωντανή προβολή ({detail})· αυτή είναι η καταγραφή της."
 
 #: src/components/clio/browser-live-socket.ts
 msgid "The live view ended."
@@ -35991,7 +36195,7 @@ msgstr "Η ζωντανή προβολή τελείωσε."
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The live view opens only in a conversation; this is its recording."
-msgstr ""
+msgstr "Η ζωντανή προβολή ανοίγει μόνο σε συνομιλία· αυτή είναι η καταγραφή της."
 
 #: src/tauri/clio-update-verification.ts
 msgid "The local {agent} service did not report its running version."
@@ -37812,6 +38016,18 @@ msgstr "Αυτή η διαδρομή χρησιμοποιείται μόνο γ�
 msgid "This rule"
 msgstr "Αυτός ο κανόνας"
 
+#: src/components/clio/flow-run-card.tsx
+msgid "This run continues one that was stopped. Steps that finished were kept; only unfinished steps run again."
+msgstr "Αυτή η εκτέλεση συνεχίζει μία που σταμάτησε. Τα ολοκληρωμένα βήματα διατηρήθηκαν· εκτελούνται ξανά μόνο τα ημιτελή."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "This run was stopped"
+msgstr "Αυτή η εκτέλεση σταμάτησε"
+
+#: src/components/clio/flow-run-card.tsx
+msgid "This run was stopped and later restarted."
+msgstr "Αυτή η εκτέλεση σταμάτησε και αργότερα επανεκκινήθηκε."
+
 #: src/offline-review.tsx
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
 msgstr "Δεν ήταν δυνατή η αποκωδικοποίηση αυτής της αποθηκευμένης προβολής. Η ακριβής εγγραφή της παραμένει στα Τεκμήρια."
@@ -38345,6 +38561,10 @@ msgstr "Ενέργεια εργαλείου"
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Tool audio result"
 msgstr "Αποτέλεσμα ήχου εργαλείου"
+
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Tool call"
+msgstr "Κλήση εργαλείου"
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/context-composition-model.ts
@@ -40607,6 +40827,10 @@ msgstr "Αναμονή για σύνδεση στο πρόγραμμα περι�
 msgid "Waiting for converter activity."
 msgstr "Αναμονή για δραστηριότητα του μετατροπέα."
 
+#: src/components/clio/stop-children-dialog.tsx
+msgid "Waiting for input"
+msgstr "Αναμονή για απάντηση"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "Waiting for more conversation messages"
 msgstr "Αναμονή για περισσότερα μηνύματα συνομιλίας"
@@ -40721,7 +40945,7 @@ msgstr "αναμονή για να δει την προβολή"
 msgid "Waiting to send"
 msgstr "Αναμονή για αποστολή"
 
-#: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/flow-step-details.tsx
 msgid "Waits on"
 msgstr "Περιμένει"
 
@@ -40885,6 +41109,10 @@ msgstr "Τι λαμβάνει μια νέα συνομιλία σε αυτόν �
 msgid "What changed in your update."
 msgstr "Τι άλλαξε με την ενημέρωσή σας."
 
+#: src/components/clio/flow-step-details.tsx
+msgid "What happened"
+msgstr "Τι συνέβη"
+
 #: src/components/clio/flow-run-view.tsx
 msgid "What happened, in order ({count})"
 msgstr "Τι συνέβη, με τη σειρά ({count})"
@@ -41000,7 +41228,7 @@ msgstr "Όταν εξαντληθεί το δωρεάν όριο μιας πηγ
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "When to set an endpoint"
-msgstr ""
+msgstr "Πότε να ορίσετε διεύθυνση"
 
 #: src/components/clio/settings-notifications.tsx
 msgid "When to show a system notice while the app is in the background. The system asks for permission the first time."
@@ -41053,6 +41281,10 @@ msgstr "Πού ξεκινούν οι συνομιλίες αυτού του χώ
 #: src/components/clio/settings-schema-copy.ts
 msgid "Which browser"
 msgstr "Ποιο πρόγραμμα περιήγησης"
+
+#: src/components/clio/offer-list-row.tsx
+msgid "Which plugins and connectors {agent} is told about, so it can offer one a conversation does not have."
+msgstr "Για ποια πρόσθετα και συνδέσεις ενημερώνεται: {agent}, ώστε να προτείνει ένα που δεν έχει μια συνομιλία."
 
 #: src/components/clio/attention-center.tsx
 msgid "While you were away"
@@ -41717,6 +41949,10 @@ msgstr "Το είπατε εσείς"
 msgid "You sent a new message instead of picking. {unused}"
 msgstr "Στείλατε νέο μήνυμα αντί να επιλέξετε. {unused}"
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "You stopped this run"
+msgstr "Σταματήσατε αυτή την εκτέλεση"
+
 #: src/lib/provider-availability.ts
 msgid "Your {providerLabel} API key was rejected."
 msgstr "Το κλειδί API σας για το {providerLabel} απορρίφθηκε."
@@ -41806,7 +42042,7 @@ msgstr "Το μήνυμά σας"
 
 #: src/components/clio/composer-store-refusal.tsx
 msgid "Your message was not saved."
-msgstr ""
+msgstr "Το μήνυμά σας δεν αποθηκεύτηκε."
 
 #: src/lib/search-source-text.ts
 msgid "Your own monthly allowance, and deeper search modes."

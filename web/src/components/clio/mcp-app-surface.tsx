@@ -418,6 +418,8 @@ const McpAppSurfaceInstance = forwardRef<
       void bridgeRequest(latest.current.repository, identity, message, {
         onModelContext: (context) => {
           contextRef.current = context;
+          // A view that reports a new state may have drawn since it read blank (FP-D9).
+          firstPaint?.recheck();
           latest.current.onModelContext?.(context);
         },
         onBrowserPage: (page) => latest.current.onBrowserPage?.(page),

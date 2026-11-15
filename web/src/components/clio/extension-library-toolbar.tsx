@@ -94,6 +94,7 @@ export function ExtensionToolbar({
             { value: 'discover', label: t`Discover` },
           ]}
           value={view}
+          wrap
         />
       </div>
       <ExtensionSearchField

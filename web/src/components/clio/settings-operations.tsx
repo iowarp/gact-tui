@@ -200,6 +200,7 @@ function IntegrationList({
                 statusWidth={140}
                 tabIndex={0}
                 title={integrationTitle(integration.name)}
+                wrapTitle
               />
             );
           })}

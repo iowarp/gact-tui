@@ -9,7 +9,7 @@ import type { TakeSnapshot } from './mcp-app-look';
  * initializes the host looks at it with the same snapshot `look_at_view` uses, at a small
  * size, a few times while it settles. The probes stop at the first answer that shows
  * something, or that cannot be read; they never close, expire or reload the view
- * (rule 6). A frame that resizes is looked at again.
+ * (rule 6). A frame that resizes, or a view that reports a new state, is looked at again.
  */
 export type PaintVerdict = 'pending' | 'drawn' | 'blank' | 'unknown';
 

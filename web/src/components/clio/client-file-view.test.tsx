@@ -8,6 +8,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClientFileViewHost, useClientFileView } from './client-file-view';
 import { dispatchFileViewLookFrame, FileViewLooks, fileViewId } from './file-view-look';
+import { HOLDER_RENEW_MS } from './mcp-app-look';
 import { FileViewerShell } from './file-viewer-shell';
 
 const { repository } = vi.hoisted(() => ({
@@ -175,5 +176,42 @@ describe('client-rendered file views', () => {
     looks.stop();
     expect(fileViewId('w1', PATH)).toMatch(/^fv_[0-9a-f]{16}$/u);
     expect(fileViewId('w1', PATH)).not.toBe(fileViewId('w2', PATH));
+  });
+
+  it('renews its claim on the view while mounted, and stops when it unloads', async () => {
+    vi.useFakeTimers();
+    try {
+      const setFileViewShown = vi.fn().mockResolvedValue({ shown: true });
+      const file = {
+        workspace_id: 'w1',
+        path: PATH,
+        name: 'whistle_assembly.step',
+        kind: '3D model',
+      };
+      const looks = new FileViewLooks(
+        { setFileViewShown, postFileViewLook: vi.fn().mockResolvedValue({}) },
+        'sess_3',
+        'fv_r',
+        file,
+        vi.fn(),
+        () => STATE,
+      );
+      looks.start();
+      expect(setFileViewShown).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(HOLDER_RENEW_MS * 2);
+      expect(setFileViewShown).toHaveBeenCalledTimes(3);
+      expect(setFileViewShown).toHaveBeenLastCalledWith('sess_3', 'fv_r', {
+        holder: expect.any(String),
+        shown: true,
+        file,
+        state: STATE,
+      });
+      looks.stop();
+      const after = setFileViewShown.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(HOLDER_RENEW_MS * 2);
+      expect(setFileViewShown).toHaveBeenCalledTimes(after);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
