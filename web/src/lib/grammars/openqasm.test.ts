@@ -1,4 +1,4 @@
-import { createHighlighter } from 'shiki';
+import { type BundledLanguage, createHighlighter } from 'shiki';
 import { describe, expect, it } from 'vitest';
 import openqasm from './openqasm';
 
@@ -14,7 +14,9 @@ c = measure q;`;
 
 async function scopesOf(code: string) {
   const highlighter = await createHighlighter({ langs: [openqasm], themes: [] });
-  const lines = highlighter.codeToTokensBase(code, { lang: 'openqasm', includeExplanation: true });
+  // A custom grammar is not one of shiki's bundled names; code-block.tsx widens it the same way.
+  const lang = 'openqasm' as BundledLanguage;
+  const lines = highlighter.codeToTokensBase(code, { lang, includeExplanation: true });
   const scopes = new Map<string, string>();
   for (const token of lines.flat()) {
     for (const part of token.explanation ?? []) {
