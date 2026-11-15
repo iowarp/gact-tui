@@ -115,6 +115,11 @@ export const connectorSchema = z
       .string()
       .nullish()
       .transform((value) => value ?? null),
+    /**
+     * What must already be on this machine for it to work, in the catalog's words
+     * (clio-agent SL-D8); null for nothing.
+     */
+    requires: optionalWireString(),
   })
   .passthrough();
 export type Connector = z.infer<typeof connectorSchema>;
@@ -155,6 +160,8 @@ export const agentNeedItemSchema = z
     download: z.boolean().default(false),
     download_unknown: z.boolean().default(false),
     asks_sign_in: z.boolean().default(false),
+    /** What must already be on this machine, in the catalog's words (SL-D8). */
+    requires: optionalWireString(),
     missing: z.array(connectorNeedSchema).default([]),
     settings: z.array(connectorNeedSchema).default([]),
     progress: optionalWireString(),

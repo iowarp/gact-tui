@@ -24155,6 +24155,7 @@ msgstr "On this computer, another machine or a cluster node. It is checked as so
 msgid "On this host"
 msgstr "On this host"
 
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/discover-catalog.tsx
 msgid "On this machine"
 msgstr "On this machine"

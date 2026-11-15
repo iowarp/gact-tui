@@ -24155,6 +24155,7 @@ msgstr "このコンピューター、別のマシン、またはクラスター
 msgid "On this host"
 msgstr "このホスト上"
 
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/discover-catalog.tsx
 msgid "On this machine"
 msgstr "このマシンで"
