@@ -19379,6 +19379,7 @@ msgid "Linux / macOS shell"
 msgstr "Linux / macOS shell"
 
 #: src/components/clio/tool-operation-contract.ts
+#: src/components/clio/tool-presentation.ts
 msgctxt "verb: tool action"
 msgid "List"
 msgstr "List"
@@ -24138,6 +24139,11 @@ msgstr "Off: {agent} protects it with a key it makes and sends for you."
 msgid "Offer"
 msgstr "Offer"
 
+#: src/components/clio/tool-presentation.ts
+msgctxt "verb: tool action"
+msgid "Offer"
+msgstr "Offer"
+
 #: src/components/clio/subagent-canvas-view.tsx
 msgctxt "transcript connection state"
 msgid "offline"
@@ -26129,6 +26135,10 @@ msgstr "Plugin files"
 msgid "Plugin from {marketplace}"
 msgstr "Plugin from {marketplace}"
 
+#: src/components/clio/context-composition-model.ts
+msgid "Plugin list"
+msgstr "Plugin list"
+
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "Plugin marketplaces in the Agent Plugins or Claude Code format are both supported. The {agent} fetches the source; you trust it in the next step."
 msgstr "Plugin marketplaces in the Agent Plugins or Claude Code format are both supported. The {agent} fetches the source; you trust it in the next step."
@@ -26186,6 +26196,10 @@ msgstr "Plugins couldn’t be loaded."
 msgid "Plugins from {name}"
 msgstr "Plugins from {name}"
 
+#: src/components/clio/tool-presentation.ts
+msgid "Plugins in"
+msgstr "Plugins in"
+
 #: src/components/clio/plugin-explorer.tsx
 msgid "Plugins in this pack"
 msgstr "Plugins in this pack"
@@ -26193,10 +26207,6 @@ msgstr "Plugins in this pack"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "Plugins that leave too"
-
-#: src/components/clio/context-composition-model.ts
-msgid "Plugins you can add"
-msgstr "Plugins you can add"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -31387,6 +31397,10 @@ msgstr "Search organizations…"
 #: src/components/clio/tool-invocation.tsx
 msgid "Search past sessions"
 msgstr "Search past sessions"
+
+#: src/components/clio/tool-presentation.ts
+msgid "Search plugins"
+msgstr "Search plugins"
 
 #: src/components/clio/offer-list-dialog.tsx
 msgid "Search plugins and connectors"

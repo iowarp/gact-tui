@@ -19362,6 +19362,7 @@ msgid "Linux / macOS shell"
 msgstr ""
 
 #: src/components/clio/tool-operation-contract.ts
+#: src/components/clio/tool-presentation.ts
 msgctxt "verb: tool action"
 msgid "List"
 msgstr ""
@@ -24121,6 +24122,11 @@ msgstr ""
 msgid "Offer"
 msgstr ""
 
+#: src/components/clio/tool-presentation.ts
+msgctxt "verb: tool action"
+msgid "Offer"
+msgstr ""
+
 #: src/components/clio/subagent-canvas-view.tsx
 msgctxt "transcript connection state"
 msgid "offline"
@@ -26112,6 +26118,10 @@ msgstr ""
 msgid "Plugin from {marketplace}"
 msgstr ""
 
+#: src/components/clio/context-composition-model.ts
+msgid "Plugin list"
+msgstr ""
+
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "Plugin marketplaces in the Agent Plugins or Claude Code format are both supported. The {agent} fetches the source; you trust it in the next step."
 msgstr ""
@@ -26169,16 +26179,16 @@ msgstr ""
 msgid "Plugins from {name}"
 msgstr ""
 
+#: src/components/clio/tool-presentation.ts
+msgid "Plugins in"
+msgstr ""
+
 #: src/components/clio/plugin-explorer.tsx
 msgid "Plugins in this pack"
 msgstr ""
 
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
-msgstr ""
-
-#: src/components/clio/context-composition-model.ts
-msgid "Plugins you can add"
 msgstr ""
 
 #: src/components/reui/time-picker.tsx
@@ -31369,6 +31379,10 @@ msgstr ""
 
 #: src/components/clio/tool-invocation.tsx
 msgid "Search past sessions"
+msgstr ""
+
+#: src/components/clio/tool-presentation.ts
+msgid "Search plugins"
 msgstr ""
 
 #: src/components/clio/offer-list-dialog.tsx

@@ -19380,6 +19380,7 @@ msgid "Linux / macOS shell"
 msgstr "Κέλυφος Linux / macOS"
 
 #: src/components/clio/tool-operation-contract.ts
+#: src/components/clio/tool-presentation.ts
 msgctxt "verb: tool action"
 msgid "List"
 msgstr "Λίστα"
@@ -24139,6 +24140,11 @@ msgstr "Ανενεργό: ο {agent} την προστατεύει με ένα �
 msgid "Offer"
 msgstr "Προσφορά"
 
+#: src/components/clio/tool-presentation.ts
+msgctxt "verb: tool action"
+msgid "Offer"
+msgstr "Πρόταση"
+
 #: src/components/clio/subagent-canvas-view.tsx
 msgctxt "transcript connection state"
 msgid "offline"
@@ -26130,6 +26136,10 @@ msgstr "Αρχεία πρόσθετου"
 msgid "Plugin from {marketplace}"
 msgstr "Πρόσθετο από: {marketplace}"
 
+#: src/components/clio/context-composition-model.ts
+msgid "Plugin list"
+msgstr "Λίστα προσθέτων"
+
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "Plugin marketplaces in the Agent Plugins or Claude Code format are both supported. The {agent} fetches the source; you trust it in the next step."
 msgstr "Υποστηρίζονται αγορές πρόσθετων τόσο σε μορφή Agent Plugins όσο και σε μορφή Claude Code. Ο {agent} ανακτά την πηγή· εσείς την εμπιστεύεστε στο επόμενο βήμα."
@@ -26187,6 +26197,10 @@ msgstr "Δεν ήταν δυνατή η φόρτωση των πρόσθετων
 msgid "Plugins from {name}"
 msgstr "Πρόσθετα από {name}"
 
+#: src/components/clio/tool-presentation.ts
+msgid "Plugins in"
+msgstr "Πρόσθετα στην κατηγορία"
+
 #: src/components/clio/plugin-explorer.tsx
 msgid "Plugins in this pack"
 msgstr "Πρόσθετα σε αυτό το πακέτο"
@@ -26194,10 +26208,6 @@ msgstr "Πρόσθετα σε αυτό το πακέτο"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "Πρόσθετα που φεύγουν επίσης"
-
-#: src/components/clio/context-composition-model.ts
-msgid "Plugins you can add"
-msgstr "Πρόσθετα που μπορείτε να προσθέσετε"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -31388,6 +31398,10 @@ msgstr "Αναζήτηση οργανισμών…"
 #: src/components/clio/tool-invocation.tsx
 msgid "Search past sessions"
 msgstr "Αναζήτηση σε προηγούμενες συνεδρίες"
+
+#: src/components/clio/tool-presentation.ts
+msgid "Search plugins"
+msgstr "Αναζήτηση προσθέτων"
 
 #: src/components/clio/offer-list-dialog.tsx
 msgid "Search plugins and connectors"

@@ -58,11 +58,21 @@ const TASK_OPERATIONS: Record<string, string> = {
   cancel_tasks: t`Cancel tasks`,
 };
 
+/** offer_plugin's row actions (clio-agent OL-D11), named in the interface language. */
+const OFFER_ACTIONS: Record<string, string> = {
+  'Search plugins': t`Search plugins`,
+  'Plugins in': t`Plugins in`,
+  Offer: t({ message: 'Offer', context: 'verb: tool action' }),
+  List: t({ message: 'List', context: 'verb: tool action' }),
+};
+
 /** Keep protocol identifiers in details and use the same operation label everywhere. */
 export function getToolActionLabel(tool: ToolInvocation): string {
   if (tool.name === 'ask_user')
     return tool.presentation?.action === 'Answered' ? t`Answered` : t`Ask you`;
   if (TASK_OPERATIONS[tool.name]) return TASK_OPERATIONS[tool.name]!;
+  const offer = tool.name === 'offer_plugin' ? tool.presentation?.action : undefined;
+  if (offer && OFFER_ACTIONS[offer]) return OFFER_ACTIONS[offer]!;
   if (isA2uiCatalogLookup(tool)) return t`Inspect widget catalog`;
   let action = tool.presentation?.action || tool.title || tool.name;
   const title = tool.title?.trim();

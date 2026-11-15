@@ -173,6 +173,14 @@ const childCall: ToolInvocation = {
 };
 
 // Rendered report pages a script viewed, served as real PNG bytes from the workspace.
+// offer_plugin finding what the session facts do not list (clio-agent OL-D11): presentations
+// produced by the agent's own presenter from synthetic candidates.
+const offerTools = JSON.parse(
+  readFileSync(
+    new URL('../tests/review/fixtures/offer-plugin-tools.json', import.meta.url),
+    'utf8',
+  ),
+) as ToolInvocation[];
 const pagePng = readFileSync(new URL('../tests/fixtures/gallery-sample.png', import.meta.url));
 const pageSha = createHash('sha256').update(pagePng).digest('hex');
 const pagePath = (i: number) => `tmp/pdfs/page-${i}.png`;
@@ -693,6 +701,7 @@ const fixture = {
     webFetchFailed,
     literatureSearch,
     literatureLookup,
+    ...offerTools,
   ],
 };
 
@@ -1022,5 +1031,48 @@ for (const width of [1440, 390]) {
     ).toBeLessThan(2);
     expect(errors).toEqual([]);
     await page.screenshot({ path: test.info().outputPath(`search-${width}.png`), fullPage: true });
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`plugin search rows name the query, the matches and what was left out at ${width}px`, async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.route('**/__test/operation-tools', (route) => route.fulfill({ json: fixture }));
+    await page.route('**/v1/**', (route) => route.fulfill({ json: {} }));
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/tests/review/tool-operations.html');
+    const row = (id: string) => page.locator(`#tool-${id}`);
+    const open = (id: string) =>
+      row(id)
+        .getByRole('button', { name: /^(Expand|Show result for) / })
+        .first()
+        .click();
+    if (width > 480) {
+      await expect(row('offer-search')).toContainText('Search plugins');
+      await expect(row('offer-category')).toContainText('Plugins in');
+    }
+    await expect(row('offer-search')).toContainText('earth');
+    await expect(row('offer-category')).toContainText('Earth science');
+    await open('offer-search');
+    await expect(row('offer-search')).toContainText('Seismology (Connector)');
+    await expect(row('offer-search')).toContainText('earthscope (Plugin, left out in Settings)');
+    await open('offer-category');
+    await expect(row('offer-category')).toContainText('Terrain (Connector, left out in Settings)');
+    await open('offer-none');
+    await expect(row('offer-none')).toContainText('Nothing matches');
+    await open('offer-large');
+    await expect(row('offer-large')).toContainText('Found (57)');
+    await expect(row('offer-large')).toContainText('37 more');
+    await open('offer-overview');
+    await expect(row('offer-overview')).toContainText('Research: 57');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+    ).toBeLessThan(2);
+    expect(errors).toEqual([]);
+    await row('offer-search').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: test.info().outputPath(`offer-${width}.png`), fullPage: true });
   });
 }

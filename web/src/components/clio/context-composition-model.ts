@@ -17,7 +17,7 @@ const LABELS: Record<string, string> = {
   other: t`Other context`,
   skills: t`Skills`,
   results: t`Tool results`,
-  offerable: t`Plugins you can add`,
+  offerable: t`Plugin list`,
 };
 
 /** Items the service marks for the interface to name (the offer list's own lines). */
