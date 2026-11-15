@@ -51,7 +51,7 @@ describe('context accounting presentation', () => {
           sections: [
             {
               id: 'offerable',
-              label: 'Plugins you can add',
+              label: 'Plugin list',
               tokens_estimated: 30,
               count: 3,
               items: [
@@ -71,7 +71,7 @@ describe('context accounting presentation', () => {
       [],
     );
     const offer = value.sections.find((section) => section.id === 'offerable')!;
-    expect(offer.label).toBe('Plugins you can add');
+    expect(offer.label).toBe('Plugin list');
     expect(offer.items.map((item) => item.label)).toEqual([
       'HDF5',
       'List heading and closing line',
