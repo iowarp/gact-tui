@@ -9,6 +9,7 @@ import {
   GlobeIcon,
   LaptopIcon,
   LayersIcon,
+  LifeBuoyIcon,
   Link2Icon,
   LoaderCircleIcon,
   PlugIcon,
@@ -35,6 +36,7 @@ import { MenuRow } from '@/components/clio/primitives/menu-row';
 import { ShortcutKeys } from '@/components/clio/primitives/key-chip';
 import { StatusIndicator, type StatusTone } from '@/components/clio/primitives/status-indicator';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { reportProblemRoute } from '@/hooks/use-open-report-problem';
 import { useRuntimeVersion } from '@/hooks/use-runtime-version';
 import { useUpdateStatus, type UpdateStatus } from '@/hooks/use-update-status';
 import {
@@ -138,7 +140,8 @@ const FACT_COLUMNS = 'grid-cols-[46%_minmax(0,1fr)_22px] gap-x-2.5';
  * The facts' own grid lets a longer label ("Έκδοση χρόνου εκτέλεσης") take what its short
  * version values leave, so labels still start and values still end on the same x.
  */
-const FACT_GRID = 'grid-cols-[minmax(46%,max-content)_minmax(0,1fr)_22px] gap-x-2.5 auto-rows-[25px] gap-y-0';
+const FACT_GRID =
+  'grid-cols-[minmax(46%,max-content)_minmax(0,1fr)_22px] gap-x-2.5 auto-rows-[25px] gap-y-0';
 /** A fact row that is also a menu item: the same columns and height as the facts. */
 const FACT_ITEM = cn(
   "-mx-1.5 grid min-h-[25px] rounded-[5px] px-1.5 py-0 text-meta [&_svg:not([class*='size-'])]:size-[13px]",
@@ -383,6 +386,17 @@ export function ClioMenuContent({
                 <span className={cn(FACT_LABEL, 'col-span-2')}>
                   <ConnectionSettingsIcon aria-hidden="true" />
                   <span className="truncate">{t`Connection settings`}</span>
+                </span>
+                <span aria-hidden="true" className={cn(FACT_ACTION, 'text-muted-foreground')}>
+                  <ChevronRightIcon />
+                </span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className={cn(FACT_ITEM, 'text-link')}>
+              <Link state={returnState} to={reportProblemRoute()}>
+                <span className={cn(FACT_LABEL, 'col-span-2')}>
+                  <LifeBuoyIcon aria-hidden="true" />
+                  <span className="truncate">{t`Report a problem`}</span>
                 </span>
                 <span aria-hidden="true" className={cn(FACT_ACTION, 'text-muted-foreground')}>
                   <ChevronRightIcon />

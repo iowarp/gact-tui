@@ -41,6 +41,7 @@ import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { useQuestionAnswer } from './question-answer-context';
 import { StateView, type StateAction, type StateViewProps } from './primitives/state-view';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
+import { requestReportProblem } from '@/hooks/use-open-report-problem';
 import { t, ph } from '@lingui/core/macro';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
@@ -164,6 +165,7 @@ export function ReplyErrorLine({
   retrying = false,
   kind = 'error',
   icon,
+  reportSessionId,
 }: {
   title: string;
   reason?: string;
@@ -172,16 +174,23 @@ export function ReplyErrorLine({
   retrying?: boolean;
   kind?: 'error' | 'marker';
   icon?: StateViewProps['icon'];
+  /** A failed reply's conversation: Report this opens Report a problem about it. */
+  reportSessionId?: string;
 }) {
   const retry: StateAction | undefined = onRetry
     ? { label: retrying ? t`Retrying` : t`Retry`, disabled: retrying, onClick: onRetry }
     : undefined;
+  const report: StateAction | undefined =
+    reportSessionId && kind === 'error'
+      ? { label: t`Report this`, onClick: () => requestReportProblem(reportSessionId) }
+      : undefined;
   return (
     <div className="my-px w-fit min-w-0 max-w-full" data-slot="reply-error" title={reason}>
       <StateView
         action={retry}
         icon={icon}
         kind={kind}
+        secondaryAction={report}
         size="row"
         title={
           <>
@@ -200,9 +209,11 @@ function ReplyError({
   onRetryMessage,
   replyStarted,
   retrying,
+  sessionId,
 }: {
   block: Extract<MessageBlock, { type: 'error' }>;
   messageId?: string;
+  sessionId?: string;
   onRetryMessage?: (messageId: string) => void | Promise<unknown>;
   replyStarted?: boolean;
   retrying: boolean;
@@ -216,6 +227,7 @@ function ReplyError({
           ? () => void onRetryMessage(messageId)
           : undefined
       }
+      reportSessionId={sessionId}
       retrying={retrying}
       title={replyStarted ? t`This reply didn’t finish` : t`This reply didn’t load`}
     />
@@ -345,7 +357,11 @@ function MessageBlockView({
     }
     case 'mcp_app':
       return (
-        <McpAppReopenableCard block={block} repository={mcpAppRepository} sessionId={messageSessionId} />
+        <McpAppReopenableCard
+          block={block}
+          repository={mcpAppRepository}
+          sessionId={messageSessionId}
+        />
       );
     case 'citation':
       return (
@@ -367,6 +383,7 @@ function MessageBlockView({
           onRetryMessage={onRetryMessage}
           replyStarted={replyStarted}
           retrying={retryingMessageId !== undefined && retryingMessageId === messageId}
+          sessionId={messageSessionId}
         />
       );
     case 'routing':

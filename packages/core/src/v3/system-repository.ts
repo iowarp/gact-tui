@@ -30,6 +30,12 @@ export const fleetSettingsSchema = z.object({
 import { InfrastructureRepository } from './infrastructure-repository.js';
 import { spotterAvailabilitySchema, type SpotterAvailability } from './spotter-domain.js';
 import {
+  problemReportQuery,
+  problemReportSchema,
+  type ProblemReport,
+  type ProblemReportRequest,
+} from './problem-report-domain.js';
+import {
   runtimeSettingsSchema,
   type RuntimeSettings,
   type UpdateRuntimeSettings,
@@ -134,6 +140,17 @@ export class SystemRepository extends InfrastructureRepository {
       method: 'GET',
       path: '/v1/system/latest-release',
       decode: (value) => latestReleaseSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** The redacted "Report a problem" report (see `problem-report-domain.ts`). */
+  public problemReport(input: ProblemReportRequest, signal?: AbortSignal): Promise<ProblemReport> {
+    const query = problemReportQuery(input);
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/system/problem-report${query ? `?${query}` : ''}`,
+      decode: (value) => problemReportSchema.parse(value),
       signal,
     });
   }

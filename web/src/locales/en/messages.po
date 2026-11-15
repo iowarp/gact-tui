@@ -917,6 +917,11 @@ msgstr "{0, plural, one {Showing the beginning of this file (# byte in full).} o
 msgid "{0, plural, one {Showing the first # item. {agent} can read the whole folder.} other {Showing the first # items. {agent} can read the whole folder.}}"
 msgstr "{0, plural, one {Showing the first # item. {agent} can read the whole folder.} other {Showing the first # items. {agent} can read the whole folder.}}"
 
+#. placeholder {0}: logs.lines_requested
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "{0, plural, one {Showing the last line of each log.} other {Showing the last # lines of each log.}}"
+msgstr "{0, plural, one {Showing the last line of each log.} other {Showing the last # lines of each log.}}"
+
 #. placeholder {0}: skills.length
 #: src/components/clio/connector-plugin-contents.tsx
 msgid "{0, plural, one {Skill} other {Skills}}"
@@ -3358,6 +3363,10 @@ msgstr "{remaining} left"
 msgid "{remaining} left of {limit}"
 msgstr "{remaining} left of {limit}"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "{removed, plural, =0 {No secrets were found to remove. Your home folder is shown as ~.} one {Removed before showing: # secret. Your home folder is shown as ~.} other {Removed before showing: # secrets. Your home folder is shown as ~.}}"
+msgstr "{removed, plural, =0 {No secrets were found to remove. Your home folder is shown as ~.} one {Removed before showing: # secret. Your home folder is shown as ~.} other {Removed before showing: # secrets. Your home folder is shown as ~.}}"
+
 #: src/components/clio/settings-access-rule-model.ts
 msgid "{removed, plural, one {# rule removed} other {# rules removed}}"
 msgstr "{removed, plural, one {# rule removed} other {# rules removed}}"
@@ -3931,6 +3940,10 @@ msgstr "{title} settings saved"
 #: src/components/clio/settings-tools-table.tsx
 msgid "{title} tools"
 msgstr "{title} tools"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "{title}, last lines"
+msgstr "{title}, last lines"
 
 #: src/components/clio/operation-progress.tsx
 msgid "{title}: in progress"
@@ -4563,6 +4576,10 @@ msgstr "A queued message could not be sent"
 msgid "A read-only snapshot. Anyone with the link can view it until it expires."
 msgstr "A read-only snapshot. Anyone with the link can view it until it expires."
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "A reply is running"
+msgstr "A reply is running"
+
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A repository URL, or a folder on the agent host."
 msgstr "A repository URL, or a folder on the agent host."
@@ -4696,6 +4713,10 @@ msgstr "About {wordmark}"
 #: src/lib/search-source-text.ts
 msgid "About 100 searches a day per network without a key; single-work lookups are free"
 msgstr "About 100 searches a day per network without a key; single-work lookups are free"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "About a conversation"
+msgstr "About a conversation"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "About access rules"
@@ -6414,6 +6435,7 @@ msgstr "answered"
 
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/tool-presentation.ts
 msgid "Answered"
 msgstr "Answered"
@@ -6494,6 +6516,7 @@ msgstr "API URL"
 msgid "API version"
 msgstr "API version"
 
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/lib/global-search-commands.ts
 #: src/routes/settings-window.tsx
 msgid "App"
@@ -7494,12 +7517,12 @@ msgstr "Background memory is off because no model is set for {named}. Choose a m
 msgid "Background memory is off."
 msgstr "Background memory is off."
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Background process ownership"
 msgstr "Background process ownership"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Background processes"
 msgstr "Background processes"
@@ -7874,7 +7897,7 @@ msgstr "Browse…"
 
 #: src/components/clio/browser-frame.tsx
 #: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/use-browser-pages.ts
 #: src/components/clio/use-workbench-strip.tsx
@@ -10222,7 +10245,7 @@ msgstr "Compaction history"
 msgid "Compaction history unavailable."
 msgstr "Compaction history unavailable."
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Compaction instructions"
 msgstr "Compaction instructions"
 
@@ -11162,6 +11185,7 @@ msgstr "conversation"
 #: src/components/clio/markdown-content-link.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-prompt-scope.ts
+#: src/components/clio/settings-report-problem.tsx
 #: src/lib/composer-reference-domain.ts
 msgid "Conversation"
 msgstr "Conversation"
@@ -11220,7 +11244,7 @@ msgstr "Conversation export"
 msgid "Conversation loading"
 msgstr "Conversation loading"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Conversation memory"
 msgstr "Conversation memory"
@@ -11428,6 +11452,7 @@ msgstr "Cool"
 #: src/components/clio/ask-card.tsx
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/settings-report-problem.tsx
 #: src/components/clio/share-session-dialog.tsx
 #: src/components/clio/surface-toolbar.tsx
 #: src/components/clio/text-file-copy-action.tsx
@@ -11703,6 +11728,10 @@ msgstr "Copy prompt"
 #: src/components/clio/plugin-explorer.tsx
 msgid "Copy reference"
 msgstr "Copy reference"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Copy report"
+msgstr "Copy report"
 
 #: src/components/clio/tool-technical-details.tsx
 msgid "Copy result"
@@ -13144,7 +13173,12 @@ msgstr "Desktop and workspace interface changes."
 msgid "Desktop app"
 msgstr "Desktop app"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Desktop app log"
+msgstr "Desktop app log"
+
 #: src/components/clio/settings-about.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "Desktop application"
 msgstr "Desktop application"
 
@@ -13764,6 +13798,10 @@ msgstr "Download progress for {repository}"
 #: src/components/clio/source-fields.tsx
 msgid "Download remote changes"
 msgstr "Download remote changes"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Download report"
+msgstr "Download report"
 
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Download requested"
@@ -14920,7 +14958,7 @@ msgstr "Execution needs the complete plan. Request changes, or choose Exit Plan 
 msgid "Execution or cleanup could not be confirmed. Inspect the task before retrying."
 msgstr "Execution or cleanup could not be confirmed. Inspect the task before retrying."
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Execution protection coverage"
 msgstr "Execution protection coverage"
@@ -15275,6 +15313,7 @@ msgstr "failed"
 #: src/components/clio/resource-processing-presentation.ts
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-health-views.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/task-flow-state.ts
 #: src/components/clio/workbench-activity-detail.tsx
@@ -15381,7 +15420,7 @@ msgctxt "menu bar"
 msgid "File"
 msgstr "File"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "File access policy"
 msgstr "File access policy"
 
@@ -15436,7 +15475,7 @@ msgstr "File read"
 msgid "File representations"
 msgstr "File representations"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "File search"
 msgstr "File search"
@@ -16894,10 +16933,15 @@ msgid "Header values are saved privately on the agent host and hidden after savi
 msgstr "Header values are saved privately on the agent host and hidden after saving."
 
 #: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-usage.tsx
 #: src/lib/application-destinations.ts
 msgid "Health"
 msgstr "Health"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Health checks that need attention"
+msgstr "Health checks that need attention"
 
 #: src/components/clio/settings-health-load-error.tsx
 msgid "health details"
@@ -17809,6 +17853,10 @@ msgstr "Include quality-flagged stations"
 #: src/components/clio/settings-schema-copy.ts
 msgid "Include sensitive topics"
 msgstr "Include sensitive topics"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Include this conversation’s messages"
+msgstr "Include this conversation’s messages"
 
 #: src/components/clio/model-picker-filter-ranges.ts
 msgid "Include unknown context"
@@ -19028,7 +19076,7 @@ msgstr "Lab"
 msgid "Language"
 msgstr "Language"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Language model provider"
 msgstr "Language model provider"
@@ -20227,6 +20275,7 @@ msgstr "Loading..."
 #: src/components/clio/offer-list-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-models-rows.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
 #: src/components/clio/workspace-directory-tree.tsx
 #: src/routes/runs-page.tsx
@@ -20543,7 +20592,7 @@ msgstr "Managed"
 msgid "Managed by {product}"
 msgstr "Managed by {product}"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Managed packages"
 msgstr "Managed packages"
 
@@ -21003,17 +21052,17 @@ msgstr "Memory is off for this conversation"
 msgid "Memory metadata log"
 msgstr "Memory metadata log"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory service attachment"
 msgstr "Memory service attachment"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory service connection"
 msgstr "Memory service connection"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory service process"
 msgstr "Memory service process"
@@ -21022,7 +21071,7 @@ msgstr "Memory service process"
 msgid "Memory settings"
 msgstr "Memory settings"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory storage"
 msgstr "Memory storage"
@@ -21039,7 +21088,7 @@ msgstr "Memory view"
 msgid "Memory views"
 msgstr "Memory views"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory working limit"
 msgstr "Memory working limit"
@@ -21139,6 +21188,10 @@ msgstr "Messages"
 #: src/components/clio/context-composition-model.ts
 msgid "Messages and results"
 msgstr "Messages and results"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Messages included"
+msgstr "Messages included"
 
 #: src/lib/tool-domain-labels.ts
 msgid "Messaging"
@@ -21255,6 +21308,7 @@ msgstr "Mode: {modeLabel}"
 #: src/components/clio/service-management-facts.tsx
 #: src/components/clio/session-usage-readout.tsx
 #: src/components/clio/settings-prompt-editor.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-session-defaults.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
@@ -21863,7 +21917,7 @@ msgstr "Needs approval, set by you"
 
 #: src/components/clio/model-picker-model.ts
 #: src/components/clio/settings-app-updates.tsx
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 #: src/routes/infrastructure-foundation.ts
@@ -22433,6 +22487,10 @@ msgstr "No connected sources."
 msgid "No context snapshot is available for this agent."
 msgstr "No context snapshot is available for this agent."
 
+#: src/components/clio/settings-report-problem.tsx
+msgid "No conversation"
+msgstr "No conversation"
+
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
 #: src/components/clio/workspace-navigation-tree-item.tsx
@@ -22647,6 +22705,10 @@ msgstr "No locations match the current filters. Adjust Filters to see them."
 #: src/components/clio/a2ui-map.tsx
 msgid "No locations to show."
 msgstr "No locations to show."
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No log file was found on this computer. A service started from a terminal writes its log there instead."
+msgstr "No log file was found on this computer. A service started from a terminal writes its log there instead."
 
 #: src/components/clio/infrastructure-activity-row.tsx
 msgid "No log was recorded for this operation."
@@ -23041,6 +23103,14 @@ msgstr "No release to compare with."
 msgid "No remote MCP servers yet."
 msgstr "No remote MCP servers yet."
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No replies yet."
+msgstr "No replies yet."
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No reply"
+msgstr "No reply"
+
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "No resources in this dataset"
 msgstr "No resources in this dataset"
@@ -23346,6 +23416,10 @@ msgstr "No workspaces yet"
 msgid "No workspaces yet."
 msgstr "No workspaces yet."
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No, only reply outcomes"
+msgstr "No, only reply outcomes"
+
 #: src/components/clio/agent-tab-values.ts
 msgid "None"
 msgstr "None"
@@ -23421,6 +23495,7 @@ msgstr "Not approved yet"
 
 #: src/components/clio/file-viewer-take-hooks.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/hooks/use-connection-availability.ts
 msgid "Not available"
 msgstr "Not available"
@@ -23669,6 +23744,7 @@ msgstr "not reported"
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/session-usage-readout.tsx
 #: src/components/clio/settings-health-views.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "Not reported"
 msgstr "Not reported"
 
@@ -23718,6 +23794,7 @@ msgstr "not sent"
 msgid "Not sent"
 msgstr "Not sent"
 
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-runtime-control.tsx
 msgid "Not set"
 msgstr "Not set"
@@ -24142,6 +24219,10 @@ msgstr "Off"
 #: src/components/clio/managed-service-access.tsx
 msgid "Off: {agent} protects it with a key it makes and sends for you."
 msgstr "Off: {agent} protects it with a key it makes and sends for you."
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Off: only reply errors are included, never what was written."
+msgstr "Off: only reply errors are included, never what was written."
 
 #: src/lib/model-facets.ts
 msgid "Offer"
@@ -25136,6 +25217,10 @@ msgstr "Optional"
 #: src/components/clio/settings-schema-copy.ts
 msgid "Optional shared AWS profile name."
 msgstr "Optional shared AWS profile name."
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Optional. Adds the outcome of its recent replies."
+msgstr "Optional. Adds the outcome of its recent replies."
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Optional. Leave unchanged to use {placeholder}."
@@ -26406,6 +26491,10 @@ msgstr "Preparing the managed packages and Office"
 msgid "Preparing the PDF…"
 msgstr "Preparing the PDF…"
 
+#: src/components/clio/settings-report-problem.tsx
+msgid "Preparing the report…"
+msgstr "Preparing the report…"
+
 #: src/lib/mcp-preparation.ts
 msgid "Preparing the server for this conversation; its tools join when it is ready."
 msgstr "Preparing the server for this conversation; its tools join when it is ready."
@@ -26625,7 +26714,7 @@ msgstr "Private sign-in is unavailable in this archive."
 msgid "Problems"
 msgstr "Problems"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Process cleanup"
 msgstr "Process cleanup"
@@ -26876,7 +26965,7 @@ msgstr "Protected by a key"
 msgid "Protected command and file execution is active."
 msgstr "Protected command and file execution is active."
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Protected execution"
 msgstr "Protected execution"
@@ -27711,7 +27800,7 @@ msgstr "Reads up to {tokens} tokens at once. The model itself reads up to {nativ
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/model-picker-model.ts
 #: src/components/clio/resource-availability.ts
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/workbench-sources-list.tsx
 #: src/hooks/use-connection-availability.ts
@@ -27897,9 +27986,17 @@ msgstr "Recent conversations"
 msgid "Recent invocations"
 msgstr "Recent invocations"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Recent log"
+msgstr "Recent log"
+
 #: src/components/clio/service-management-panel.tsx
 msgid "Recent logs on {hostLabel}"
 msgstr "Recent logs on {hostLabel}"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Recent replies"
+msgstr "Recent replies"
 
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Recent session excerpts"
@@ -29056,6 +29153,20 @@ msgstr "Reply details"
 msgid "Reply, or steer the run"
 msgstr "Reply, or steer the run"
 
+#: src/components/clio/settings-report-problem.tsx
+msgid "Report"
+msgstr "Report"
+
+#: src/components/clio/clio-menu.tsx
+#: src/components/clio/settings-report-problem.tsx
+#: src/lib/application-destinations.ts
+msgid "Report a problem"
+msgstr "Report a problem"
+
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Report a problem…"
+msgstr "Report a problem…"
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Report instructions"
 msgstr "Report instructions"
@@ -29067,6 +29178,10 @@ msgstr "Report quality check"
 #: src/widget-gallery-scenarios.ts
 msgid "Report readiness"
 msgstr "Report readiness"
+
+#: src/components/clio/conversation-message-blocks.tsx
+msgid "Report this"
+msgstr "Report this"
 
 #: src/lib/model-options.ts
 msgid "Reported but not verified"
@@ -29778,6 +29893,7 @@ msgstr "Retrieval"
 #: src/components/clio/settings-permissions-lines.tsx
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/settings-providers.tsx
+#: src/components/clio/settings-report-problem.tsx
 #: src/components/clio/settings-schedules.tsx
 #: src/components/clio/settings-session-defaults.tsx
 #: src/components/clio/settings-tool-detail.tsx
@@ -32189,6 +32305,10 @@ msgstr "Service details could not be loaded."
 msgid "Service error"
 msgstr "Service error"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Service error output"
+msgstr "Service error output"
+
 #: src/components/clio/ndp-query-fields.tsx
 msgid "Service filters"
 msgstr "Service filters"
@@ -32204,6 +32324,10 @@ msgstr "Service is available with limitations."
 #: src/hooks/use-connection-availability.ts
 msgid "Service is available."
 msgstr "Service is available."
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Service log"
+msgstr "Service log"
 
 #: src/components/clio/connect-address.tsx
 msgid "Service name"
@@ -32883,6 +33007,7 @@ msgstr "Show locations list"
 #: src/components/clio/bounded-result.tsx
 #: src/components/clio/ndp-dataset-row.tsx
 #: src/components/clio/ndp-endpoint-browser.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/tool-operation-value.tsx
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Show more"
@@ -34189,6 +34314,7 @@ msgstr "Startup details"
 msgid "Startup progress"
 msgstr "Startup progress"
 
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/transcript-task-row.tsx
 #: src/components/clio/workbench-activity-detail.tsx
@@ -34600,24 +34726,24 @@ msgstr "Storage statistics unavailable."
 msgid "Stored conversations"
 msgstr "Stored conversations"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored data format"
 msgstr "Stored data format"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored data upgrades"
 msgstr "Stored data upgrades"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Stored memory capacity"
 msgstr "Stored memory capacity"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored memory location"
 msgstr "Stored memory location"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored memory log"
 msgstr "Stored memory log"
 
@@ -35087,6 +35213,7 @@ msgstr "Synthetic Atlantic storm tracks"
 #: src/components/clio/global-search-results.tsx
 #: src/components/clio/infrastructure-host-inspection.tsx
 #: src/components/clio/settings-appearance.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "System"
 msgstr "System"
 
@@ -35394,6 +35521,10 @@ msgstr "That change was not applied."
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "That connection name already exists. Choose another name."
 msgstr "That connection name already exists. Choose another name."
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "That conversation is not on this agent service."
+msgstr "That conversation is not on this agent service."
 
 #: src/components/clio/file-viewer-take-hooks.tsx
 msgid "That did not work."
@@ -35791,6 +35922,10 @@ msgstr "The connector was not removed"
 msgid "The connector was not turned off"
 msgstr "The connector was not turned off"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "The conversation"
+msgstr "The conversation"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
 msgstr "The conversation changed while it was being read. A later pass can read the new messages."
@@ -35818,6 +35953,10 @@ msgstr "The conversation was not changed"
 #: src/components/clio/agent-composition-view.tsx
 msgid "The conversation was not switched to {name}"
 msgstr "The conversation was not switched to {name}"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The conversation you came from"
+msgstr "The conversation you came from"
 
 #: src/components/clio/workbench-tab-content.tsx
 msgid "The conversation's agent appears after you send your first message."
@@ -36212,6 +36351,14 @@ msgstr "The local runtime is newer than the selected app release. Check for a ma
 msgid "The local runtime is unavailable. Restore the app and runtime to the same release."
 msgstr "The local runtime is unavailable. Restore the app and runtime to the same release."
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "The log file could not be read."
+msgstr "The log file could not be read."
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "The log file is empty."
+msgstr "The log file is empty."
+
 #: src/tauri/managed-backend.ts
 msgid "The managed {agent} service could not start."
 msgstr "The managed {agent} service could not start."
@@ -36534,6 +36681,18 @@ msgstr "The removal could not be previewed: {previewError}"
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "The reply couldn’t be retried"
 msgstr "The reply couldn’t be retried"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The report could not be copied. Use Download report instead."
+msgstr "The report could not be copied. Use Download report instead."
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The report could not be prepared. This service may be too old to offer it."
+msgstr "The report could not be prepared. This service may be too old to offer it."
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The report holds the {wordmark} version, its health checks and its recent log. Passwords, keys and tokens are removed before you see it."
+msgstr "The report holds the {wordmark} version, its health checks and its recent log. Passwords, keys and tokens are removed before you see it."
 
 #: src/components/clio/a2ui-surface.tsx
 msgid "The request could not be completed."
@@ -38674,7 +38833,7 @@ msgstr "tools"
 #: src/components/clio/extension-library-panes.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/plugin-explorer.tsx
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-tools-tabs.tsx
 #: src/components/clio/settings-tools.tsx
 #: src/lib/application-destinations.ts
@@ -39228,8 +39387,8 @@ msgstr "unavailable"
 #: src/components/clio/relative-time.tsx
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/settings-about.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-health-views.tsx
-#: src/components/clio/settings-operations.tsx
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/settings-schedule-time.ts
 #: src/components/clio/status.tsx
@@ -39582,6 +39741,10 @@ msgstr "Until you remove it in Settings, Folders"
 #: src/components/clio/transcript-task-row.tsx
 msgid "Untitled"
 msgstr "Untitled"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Untitled conversation"
+msgstr "Untitled conversation"
 
 #: src/components/clio/settings-tools.tsx
 msgid "Untitled item"
@@ -40492,6 +40655,7 @@ msgid "Verifying…"
 msgstr "Verifying…"
 
 #: src/components/clio/managed-service-inventory-row.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "Version"
 msgstr "Version"
 
@@ -41024,6 +41188,7 @@ msgid "Web"
 msgstr "Web"
 
 #: src/components/clio/settings-about.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-foundation.ts
 msgid "Web browser"
 msgstr "Web browser"
@@ -41662,7 +41827,7 @@ msgstr "Workspace resources"
 msgid "Workspace saved"
 msgstr "Workspace saved"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Workspace service"
 msgstr "Workspace service"
@@ -41809,6 +41974,7 @@ msgstr "Year"
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Yes"
 msgstr "Yes"

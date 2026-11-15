@@ -918,6 +918,11 @@ msgstr "{0, plural, one {このファイルの冒頭を表示しています（�
 msgid "{0, plural, one {Showing the first # item. {agent} can read the whole folder.} other {Showing the first # items. {agent} can read the whole folder.}}"
 msgstr "{0, plural, one {最初の#件を表示しています。{agent}はフォルダー全体を読み取れます。} other {最初の#件を表示しています。{agent}はフォルダー全体を読み取れます。}}"
 
+#. placeholder {0}: logs.lines_requested
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "{0, plural, one {Showing the last line of each log.} other {Showing the last # lines of each log.}}"
+msgstr "{0, plural, other {各ログの最後の#行を表示しています。}}"
+
 #. placeholder {0}: skills.length
 #: src/components/clio/connector-plugin-contents.tsx
 msgid "{0, plural, one {Skill} other {Skills}}"
@@ -3359,6 +3364,10 @@ msgstr "残り{remaining}"
 msgid "{remaining} left of {limit}"
 msgstr "残り{remaining} / {limit}"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "{removed, plural, =0 {No secrets were found to remove. Your home folder is shown as ~.} one {Removed before showing: # secret. Your home folder is shown as ~.} other {Removed before showing: # secrets. Your home folder is shown as ~.}}"
+msgstr "{removed, plural, =0 {削除が必要な秘密情報は見つかりませんでした。ホームフォルダーは~と表示されます。} other {表示前に#件の秘密情報を削除しました。ホームフォルダーは~と表示されます。}}"
+
 #: src/components/clio/settings-access-rule-model.ts
 msgid "{removed, plural, one {# rule removed} other {# rules removed}}"
 msgstr "{removed, plural, one {#件のルールを削除} other {#件のルールを削除}}"
@@ -3932,6 +3941,10 @@ msgstr "{title}の設定を保存しました"
 #: src/components/clio/settings-tools-table.tsx
 msgid "{title} tools"
 msgstr "{title}のツール"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "{title}, last lines"
+msgstr "{title}、最後の行"
 
 #: src/components/clio/operation-progress.tsx
 msgid "{title}: in progress"
@@ -4564,6 +4577,10 @@ msgstr "待機中のメッセージを送信できませんでした"
 msgid "A read-only snapshot. Anyone with the link can view it until it expires."
 msgstr "読み取り専用のスナップショットです。リンクを知っている人は誰でも、有効期限まで閲覧できます。"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "A reply is running"
+msgstr "返信を実行中です"
+
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A repository URL, or a folder on the agent host."
 msgstr "リポジトリのURL、またはエージェントホスト上のフォルダー。"
@@ -4697,6 +4714,10 @@ msgstr "{wordmark}について"
 #: src/lib/search-source-text.ts
 msgid "About 100 searches a day per network without a key; single-work lookups are free"
 msgstr "キーなしでネットワークごとに 1 日約 100 件の検索。個別の文献の参照は無料"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "About a conversation"
+msgstr "会話について"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "About access rules"
@@ -6415,6 +6436,7 @@ msgstr "回答済み"
 
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/tool-presentation.ts
 msgid "Answered"
 msgstr "回答済み"
@@ -6495,6 +6517,7 @@ msgstr "API URL"
 msgid "API version"
 msgstr "APIバージョン"
 
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/lib/global-search-commands.ts
 #: src/routes/settings-window.tsx
 msgid "App"
@@ -7495,12 +7518,12 @@ msgstr "{named}にモデルが設定されていないため、バックグラ�
 msgid "Background memory is off."
 msgstr "バックグラウンドメモリーはオフです。"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Background process ownership"
 msgstr "バックグラウンドプロセスの所有"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Background processes"
 msgstr "バックグラウンドプロセス"
@@ -7875,7 +7898,7 @@ msgstr "参照…"
 
 #: src/components/clio/browser-frame.tsx
 #: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/use-browser-pages.ts
 #: src/components/clio/use-workbench-strip.tsx
@@ -10223,7 +10246,7 @@ msgstr "圧縮の履歴"
 msgid "Compaction history unavailable."
 msgstr "圧縮の履歴を利用できません。"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Compaction instructions"
 msgstr "圧縮の指示"
 
@@ -11163,6 +11186,7 @@ msgstr "会話"
 #: src/components/clio/markdown-content-link.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-prompt-scope.ts
+#: src/components/clio/settings-report-problem.tsx
 #: src/lib/composer-reference-domain.ts
 msgid "Conversation"
 msgstr "会話"
@@ -11221,7 +11245,7 @@ msgstr "会話のエクスポート"
 msgid "Conversation loading"
 msgstr "会話を読み込み中"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Conversation memory"
 msgstr "会話のメモリー"
@@ -11429,6 +11453,7 @@ msgstr "クール"
 #: src/components/clio/ask-card.tsx
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/settings-report-problem.tsx
 #: src/components/clio/share-session-dialog.tsx
 #: src/components/clio/surface-toolbar.tsx
 #: src/components/clio/text-file-copy-action.tsx
@@ -11704,6 +11729,10 @@ msgstr "プロンプトをコピー"
 #: src/components/clio/plugin-explorer.tsx
 msgid "Copy reference"
 msgstr "参照をコピー"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Copy report"
+msgstr "レポートをコピー"
 
 #: src/components/clio/tool-technical-details.tsx
 msgid "Copy result"
@@ -13145,7 +13174,12 @@ msgstr "デスクトップとワークスペースのインターフェースの
 msgid "Desktop app"
 msgstr "デスクトップアプリ"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Desktop app log"
+msgstr "デスクトップアプリのログ"
+
 #: src/components/clio/settings-about.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "Desktop application"
 msgstr "デスクトップアプリ"
 
@@ -13765,6 +13799,10 @@ msgstr "{repository}のダウンロードの進行状況"
 #: src/components/clio/source-fields.tsx
 msgid "Download remote changes"
 msgstr "リモートの変更をダウンロード"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Download report"
+msgstr "レポートをダウンロード"
 
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Download requested"
@@ -14921,7 +14959,7 @@ msgstr "実行にはプラン全体が必要です。変更をリクエストす
 msgid "Execution or cleanup could not be confirmed. Inspect the task before retrying."
 msgstr "実行またはクリーンアップを確認できませんでした。再試行する前にタスクを確認してください。"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Execution protection coverage"
 msgstr "実行保護の適用範囲"
@@ -15276,6 +15314,7 @@ msgstr "失敗"
 #: src/components/clio/resource-processing-presentation.ts
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-health-views.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/task-flow-state.ts
 #: src/components/clio/workbench-activity-detail.tsx
@@ -15382,7 +15421,7 @@ msgctxt "menu bar"
 msgid "File"
 msgstr "ファイル"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "File access policy"
 msgstr "ファイルアクセスポリシー"
 
@@ -15437,7 +15476,7 @@ msgstr "ファイルの読み取り"
 msgid "File representations"
 msgstr "ファイルの表示形式"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "File search"
 msgstr "ファイル検索"
@@ -16895,10 +16934,15 @@ msgid "Header values are saved privately on the agent host and hidden after savi
 msgstr "ヘッダーの値はエージェントホストに非公開で保存され、保存後は非表示になります。"
 
 #: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-usage.tsx
 #: src/lib/application-destinations.ts
 msgid "Health"
 msgstr "状態"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Health checks that need attention"
+msgstr "対応が必要な状態チェック"
 
 #: src/components/clio/settings-health-load-error.tsx
 msgid "health details"
@@ -17810,6 +17854,10 @@ msgstr "品質フラグ付きの観測点を含める"
 #: src/components/clio/settings-schema-copy.ts
 msgid "Include sensitive topics"
 msgstr "センシティブな話題を含める"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Include this conversation’s messages"
+msgstr "この会話のメッセージを含める"
 
 #: src/components/clio/model-picker-filter-ranges.ts
 msgid "Include unknown context"
@@ -19029,7 +19077,7 @@ msgstr "ラボ"
 msgid "Language"
 msgstr "言語"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Language model provider"
 msgstr "言語モデルのプロバイダー"
@@ -20228,6 +20276,7 @@ msgstr "読み込み中..."
 #: src/components/clio/offer-list-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-models-rows.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
 #: src/components/clio/workspace-directory-tree.tsx
 #: src/routes/runs-page.tsx
@@ -20544,7 +20593,7 @@ msgstr "管理対象"
 msgid "Managed by {product}"
 msgstr "{product}が管理"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Managed packages"
 msgstr "管理対象パッケージ"
 
@@ -21004,17 +21053,17 @@ msgstr "この会話ではメモリーはオフです"
 msgid "Memory metadata log"
 msgstr "メモリーメタデータログ"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory service attachment"
 msgstr "メモリーサービスの接続先"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory service connection"
 msgstr "メモリーサービスの接続"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory service process"
 msgstr "メモリーサービスのプロセス"
@@ -21023,7 +21072,7 @@ msgstr "メモリーサービスのプロセス"
 msgid "Memory settings"
 msgstr "メモリー設定"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory storage"
 msgstr "メモリーのストレージ"
@@ -21040,7 +21089,7 @@ msgstr "メモリービュー"
 msgid "Memory views"
 msgstr "メモリーのビュー"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory working limit"
 msgstr "メモリーの作業上限"
@@ -21140,6 +21189,10 @@ msgstr "メッセージ"
 #: src/components/clio/context-composition-model.ts
 msgid "Messages and results"
 msgstr "メッセージと結果"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Messages included"
+msgstr "メッセージを含む"
 
 #: src/lib/tool-domain-labels.ts
 msgid "Messaging"
@@ -21256,6 +21309,7 @@ msgstr "モード: {modeLabel}"
 #: src/components/clio/service-management-facts.tsx
 #: src/components/clio/session-usage-readout.tsx
 #: src/components/clio/settings-prompt-editor.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-session-defaults.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
@@ -21864,7 +21918,7 @@ msgstr "承認が必要（あなたが設定）"
 
 #: src/components/clio/model-picker-model.ts
 #: src/components/clio/settings-app-updates.tsx
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 #: src/routes/infrastructure-foundation.ts
@@ -22434,6 +22488,10 @@ msgstr "接続済みのソースはありません。"
 msgid "No context snapshot is available for this agent."
 msgstr "このエージェントのコンテキストスナップショットはありません。"
 
+#: src/components/clio/settings-report-problem.tsx
+msgid "No conversation"
+msgstr "会話なし"
+
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
 #: src/components/clio/workspace-navigation-tree-item.tsx
@@ -22648,6 +22706,10 @@ msgstr "現在のフィルターに一致する場所はありません。表示
 #: src/components/clio/a2ui-map.tsx
 msgid "No locations to show."
 msgstr "表示する場所はありません。"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No log file was found on this computer. A service started from a terminal writes its log there instead."
+msgstr "このコンピューターにログファイルが見つかりませんでした。ターミナルから起動したサービスは、ログをそのターミナルに出力します。"
 
 #: src/components/clio/infrastructure-activity-row.tsx
 msgid "No log was recorded for this operation."
@@ -23042,6 +23104,14 @@ msgstr "比較するリリースがありません。"
 msgid "No remote MCP servers yet."
 msgstr "リモートMCPサーバーはまだありません。"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No replies yet."
+msgstr "まだ返信はありません。"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No reply"
+msgstr "返信なし"
+
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "No resources in this dataset"
 msgstr "このデータセットにはリソースがありません"
@@ -23347,6 +23417,10 @@ msgstr "ワークスペースはまだありません"
 msgid "No workspaces yet."
 msgstr "まだワークスペースはありません。"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No, only reply outcomes"
+msgstr "いいえ、返信の結果のみ"
+
 #: src/components/clio/agent-tab-values.ts
 msgid "None"
 msgstr "なし"
@@ -23422,6 +23496,7 @@ msgstr "未承認"
 
 #: src/components/clio/file-viewer-take-hooks.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/hooks/use-connection-availability.ts
 msgid "Not available"
 msgstr "利用できません"
@@ -23670,6 +23745,7 @@ msgstr "未報告"
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/session-usage-readout.tsx
 #: src/components/clio/settings-health-views.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "Not reported"
 msgstr "報告なし"
 
@@ -23719,6 +23795,7 @@ msgstr "未送信"
 msgid "Not sent"
 msgstr "未送信"
 
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-runtime-control.tsx
 msgid "Not set"
 msgstr "未設定"
@@ -24143,6 +24220,10 @@ msgstr "オフ"
 #: src/components/clio/managed-service-access.tsx
 msgid "Off: {agent} protects it with a key it makes and sends for you."
 msgstr "オフ：{agent}が作成して自動送信するキーで保護します。"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Off: only reply errors are included, never what was written."
+msgstr "オフ: 返信のエラーのみを含め、書かれた内容は含めません。"
 
 #: src/lib/model-facets.ts
 msgid "Offer"
@@ -25137,6 +25218,10 @@ msgstr "任意"
 #: src/components/clio/settings-schema-copy.ts
 msgid "Optional shared AWS profile name."
 msgstr "共有AWSプロファイル名(省略可)。"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Optional. Adds the outcome of its recent replies."
+msgstr "任意。最近の返信の結果を追加します。"
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Optional. Leave unchanged to use {placeholder}."
@@ -26407,6 +26492,10 @@ msgstr "管理パッケージとOfficeを準備中"
 msgid "Preparing the PDF…"
 msgstr "PDFを準備中…"
 
+#: src/components/clio/settings-report-problem.tsx
+msgid "Preparing the report…"
+msgstr "レポートを準備しています…"
+
 #: src/lib/mcp-preparation.ts
 msgid "Preparing the server for this conversation; its tools join when it is ready."
 msgstr "この会話のためにサーバーを準備しています。準備ができるとツールが追加されます。"
@@ -26626,7 +26715,7 @@ msgstr "このアーカイブでは非公開のサインインは利用できま
 msgid "Problems"
 msgstr "問題"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Process cleanup"
 msgstr "プロセスのクリーンアップ"
@@ -26877,7 +26966,7 @@ msgstr "キーで保護"
 msgid "Protected command and file execution is active."
 msgstr "コマンドとファイルの保護された実行が有効です。"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Protected execution"
 msgstr "保護された実行"
@@ -27712,7 +27801,7 @@ msgstr "一度に最大{tokens}トークンを読み取ります。モデル自�
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/model-picker-model.ts
 #: src/components/clio/resource-availability.ts
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/workbench-sources-list.tsx
 #: src/hooks/use-connection-availability.ts
@@ -27898,9 +27987,17 @@ msgstr "最近の会話"
 msgid "Recent invocations"
 msgstr "最近の呼び出し"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Recent log"
+msgstr "最近のログ"
+
 #: src/components/clio/service-management-panel.tsx
 msgid "Recent logs on {hostLabel}"
 msgstr "{hostLabel}の最近のログ"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Recent replies"
+msgstr "最近の返信"
 
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Recent session excerpts"
@@ -29057,6 +29154,20 @@ msgstr "返信の詳細"
 msgid "Reply, or steer the run"
 msgstr "返信するか、実行を誘導"
 
+#: src/components/clio/settings-report-problem.tsx
+msgid "Report"
+msgstr "レポート"
+
+#: src/components/clio/clio-menu.tsx
+#: src/components/clio/settings-report-problem.tsx
+#: src/lib/application-destinations.ts
+msgid "Report a problem"
+msgstr "問題を報告"
+
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Report a problem…"
+msgstr "問題を報告…"
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Report instructions"
 msgstr "レポートの指示"
@@ -29068,6 +29179,10 @@ msgstr "レポートの品質チェック"
 #: src/widget-gallery-scenarios.ts
 msgid "Report readiness"
 msgstr "レポートの準備状況"
+
+#: src/components/clio/conversation-message-blocks.tsx
+msgid "Report this"
+msgstr "報告"
 
 #: src/lib/model-options.ts
 msgid "Reported but not verified"
@@ -29779,6 +29894,7 @@ msgstr "検索取得"
 #: src/components/clio/settings-permissions-lines.tsx
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/settings-providers.tsx
+#: src/components/clio/settings-report-problem.tsx
 #: src/components/clio/settings-schedules.tsx
 #: src/components/clio/settings-session-defaults.tsx
 #: src/components/clio/settings-tool-detail.tsx
@@ -32190,6 +32306,10 @@ msgstr "サービスの詳細を読み込めませんでした。"
 msgid "Service error"
 msgstr "サービスエラー"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Service error output"
+msgstr "サービスのエラー出力"
+
 #: src/components/clio/ndp-query-fields.tsx
 msgid "Service filters"
 msgstr "サービスのフィルター"
@@ -32205,6 +32325,10 @@ msgstr "サービスは制限付きで利用できます。"
 #: src/hooks/use-connection-availability.ts
 msgid "Service is available."
 msgstr "サービスは利用できます。"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Service log"
+msgstr "サービスのログ"
 
 #: src/components/clio/connect-address.tsx
 msgid "Service name"
@@ -32884,6 +33008,7 @@ msgstr "場所の一覧を表示"
 #: src/components/clio/bounded-result.tsx
 #: src/components/clio/ndp-dataset-row.tsx
 #: src/components/clio/ndp-endpoint-browser.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/tool-operation-value.tsx
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Show more"
@@ -34190,6 +34315,7 @@ msgstr "起動の詳細"
 msgid "Startup progress"
 msgstr "起動の進行状況"
 
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/transcript-task-row.tsx
 #: src/components/clio/workbench-activity-detail.tsx
@@ -34601,24 +34727,24 @@ msgstr "ストレージの統計を利用できません。"
 msgid "Stored conversations"
 msgstr "保存された会話"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored data format"
 msgstr "保存データの形式"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored data upgrades"
 msgstr "保存データのアップグレード"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Stored memory capacity"
 msgstr "保存済みメモリーの容量"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored memory location"
 msgstr "保存済みメモリーの場所"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored memory log"
 msgstr "保存済みメモリーのログ"
 
@@ -35088,6 +35214,7 @@ msgstr "大西洋の嵐の合成経路"
 #: src/components/clio/global-search-results.tsx
 #: src/components/clio/infrastructure-host-inspection.tsx
 #: src/components/clio/settings-appearance.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "System"
 msgstr "システム"
 
@@ -35395,6 +35522,10 @@ msgstr "その変更は適用されませんでした。"
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "That connection name already exists. Choose another name."
 msgstr "その接続名は既に存在します。別の名前を選択してください。"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "That conversation is not on this agent service."
+msgstr "その会話はこのエージェントサービスにありません。"
 
 #: src/components/clio/file-viewer-take-hooks.tsx
 msgid "That did not work."
@@ -35792,6 +35923,10 @@ msgstr "コネクターは削除されませんでした"
 msgid "The connector was not turned off"
 msgstr "コネクターはオフになりませんでした"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "The conversation"
+msgstr "会話"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
 msgstr "読み取り中に会話が変更されました。後の処理で新しいメッセージを読み取れます。"
@@ -35819,6 +35954,10 @@ msgstr "会話は変更されませんでした"
 #: src/components/clio/agent-composition-view.tsx
 msgid "The conversation was not switched to {name}"
 msgstr "会話は{name}に切り替えられませんでした"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The conversation you came from"
+msgstr "移動元の会話"
 
 #: src/components/clio/workbench-tab-content.tsx
 msgid "The conversation's agent appears after you send your first message."
@@ -36213,6 +36352,14 @@ msgstr "ローカルランタイムは選択したアプリリリースより新
 msgid "The local runtime is unavailable. Restore the app and runtime to the same release."
 msgstr "ローカルランタイムは利用できません。アプリとランタイムを同じリリースに復元してください。"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "The log file could not be read."
+msgstr "ログファイルを読み取れませんでした。"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "The log file is empty."
+msgstr "ログファイルは空です。"
+
 #: src/tauri/managed-backend.ts
 msgid "The managed {agent} service could not start."
 msgstr "管理対象の{agent}サービスを開始できませんでした。"
@@ -36535,6 +36682,18 @@ msgstr "削除のプレビューを表示できませんでした: {previewError
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "The reply couldn’t be retried"
 msgstr "返信を再試行できませんでした"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The report could not be copied. Use Download report instead."
+msgstr "レポートをコピーできませんでした。代わりに「レポートをダウンロード」を使用してください。"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The report could not be prepared. This service may be too old to offer it."
+msgstr "レポートを準備できませんでした。このサービスは古く、この機能に対応していない可能性があります。"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The report holds the {wordmark} version, its health checks and its recent log. Passwords, keys and tokens are removed before you see it."
+msgstr "レポートには{wordmark}のバージョン、状態チェック、最近のログが含まれます。パスワード、キー、トークンは表示前に削除されます。"
 
 #: src/components/clio/a2ui-surface.tsx
 msgid "The request could not be completed."
@@ -38675,7 +38834,7 @@ msgstr "ツール"
 #: src/components/clio/extension-library-panes.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/plugin-explorer.tsx
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-tools-tabs.tsx
 #: src/components/clio/settings-tools.tsx
 #: src/lib/application-destinations.ts
@@ -39229,8 +39388,8 @@ msgstr "利用不可"
 #: src/components/clio/relative-time.tsx
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/settings-about.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-health-views.tsx
-#: src/components/clio/settings-operations.tsx
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/settings-schedule-time.ts
 #: src/components/clio/status.tsx
@@ -39583,6 +39742,10 @@ msgstr "「設定」の「フォルダー」で削除するまで"
 #: src/components/clio/transcript-task-row.tsx
 msgid "Untitled"
 msgstr "無題"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Untitled conversation"
+msgstr "無題の会話"
 
 #: src/components/clio/settings-tools.tsx
 msgid "Untitled item"
@@ -40493,6 +40656,7 @@ msgid "Verifying…"
 msgstr "検証中…"
 
 #: src/components/clio/managed-service-inventory-row.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "Version"
 msgstr "バージョン"
 
@@ -41025,6 +41189,7 @@ msgid "Web"
 msgstr "ウェブ"
 
 #: src/components/clio/settings-about.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-foundation.ts
 msgid "Web browser"
 msgstr "ウェブブラウザー"
@@ -41663,7 +41828,7 @@ msgstr "ワークスペースのリソース"
 msgid "Workspace saved"
 msgstr "ワークスペースを保存しました"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Workspace service"
 msgstr "ワークスペースサービス"
@@ -41810,6 +41975,7 @@ msgstr "年"
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Yes"
 msgstr "はい"

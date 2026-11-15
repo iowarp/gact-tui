@@ -28,6 +28,7 @@ export * from './infrastructure-contract.js';
 export * from './storage-contract.js';
 export * from './infrastructure-repository.js';
 export * from './system-repository.js';
+export * from './problem-report-domain.js';
 export * from './runtime-settings-domain.js';
 export * from './structured-file-repository.js';
 export * from './browser-repository.js';
