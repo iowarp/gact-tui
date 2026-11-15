@@ -22,9 +22,14 @@ export function OfferListRow() {
         note={
           list.error
             ? t`The list couldn’t be loaded.`
-            : list.data
-              ? plural(count, { one: '# brought in', other: '# brought in' })
-              : t`Loading…`
+            : list.data?.customized
+              ? plural(count, {
+                  one: '# brought in, chosen by you',
+                  other: '# brought in, chosen by you',
+                })
+              : list.data
+                ? plural(count, { one: '# brought in', other: '# brought in' })
+                : t`Loading…`
         }
         title={t`Plugins ${agent} can offer`}
       >

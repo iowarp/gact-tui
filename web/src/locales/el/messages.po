@@ -1544,6 +1544,10 @@ msgid "{count, plural, one {{plugin} brings this tool} other {{plugin} brings th
 msgstr "{count, plural, one {Το {plugin} φέρνει αυτό το εργαλείο} other {Το {plugin} φέρνει αυτά τα εργαλεία}}"
 
 #: src/components/clio/offer-list-row.tsx
+msgid "{count, plural, one {# brought in, chosen by you} other {# brought in, chosen by you}}"
+msgstr "{count, plural, one {# συμπεριλαμβάνεται, δική σας επιλογή} other {# συμπεριλαμβάνονται, δική σας επιλογή}}"
+
+#: src/components/clio/offer-list-row.tsx
 msgid "{count, plural, one {# brought in} other {# brought in}}"
 msgstr "{count, plural, one {# συμπεριλαμβάνεται} other {# συμπεριλαμβάνονται}}"
 

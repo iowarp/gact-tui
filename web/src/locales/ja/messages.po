@@ -1544,6 +1544,10 @@ msgid "{count, plural, one {{plugin} brings this tool} other {{plugin} brings th
 msgstr "{count, plural, one {{plugin}が提供するツール} other {{plugin}が提供するツール}}"
 
 #: src/components/clio/offer-list-row.tsx
+msgid "{count, plural, one {# brought in, chosen by you} other {# brought in, chosen by you}}"
+msgstr "{count, plural, other {#件を含める（選択済み）}}"
+
+#: src/components/clio/offer-list-row.tsx
 msgid "{count, plural, one {# brought in} other {# brought in}}"
 msgstr "{count, plural, other {#件を含める}}"
 

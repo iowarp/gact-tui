@@ -1543,6 +1543,10 @@ msgid "{count, plural, one {{plugin} brings this tool} other {{plugin} brings th
 msgstr ""
 
 #: src/components/clio/offer-list-row.tsx
+msgid "{count, plural, one {# brought in, chosen by you} other {# brought in, chosen by you}}"
+msgstr ""
+
+#: src/components/clio/offer-list-row.tsx
 msgid "{count, plural, one {# brought in} other {# brought in}}"
 msgstr ""
 
