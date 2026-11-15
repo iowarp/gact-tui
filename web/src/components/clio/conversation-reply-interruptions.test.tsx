@@ -76,6 +76,44 @@ describe('ClioConversation reply interruptions', () => {
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
 
+  it.each([
+    ['without content', []],
+    ['after a partial answer', [{ id: 'part_partial', type: 'text', text: 'The first half' }]],
+  ])('says a reply the service stopped was interrupted, %s', (_label, blocks) => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_service_stopped',
+            session_id: 'session_1',
+            role: 'assistant',
+            created_at: '2026-11-15T23:02:00Z',
+            blocks: blocks as never,
+            stop_reason: 'cancelled',
+            error_info: {
+              error: 'cancelled',
+              message: 'turn cancelled by server shutdown',
+              details: { reason: 'server_shutdown', session_id: 'session_1' },
+              recoverable: true,
+            },
+          },
+        ]}
+        onRetryMessage={() => undefined}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    // CC-F2: not "Reply cancelled" (the person did not cancel it), and a reason.
+    expect(screen.getByText('This reply was interrupted')).toBeInTheDocument();
+    expect(screen.getByText(/agent service stopped before this reply finished/)).toBeInTheDocument();
+    expect(screen.queryByText('Reply cancelled')).not.toBeInTheDocument();
+    expect(screen.queryByText(/turn cancelled by server shutdown/)).not.toBeInTheDocument();
+  });
+
   it('renders a client-cancelled response as one compact line', () => {
     renderConversation(
       <ClioConversation

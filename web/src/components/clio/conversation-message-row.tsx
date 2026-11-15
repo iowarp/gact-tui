@@ -77,9 +77,23 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     typeof message.error_info?.error === 'string' ? message.error_info.error : undefined;
   const emptyResponseErrorMessage =
     typeof message.error_info?.message === 'string' ? message.error_info.message : undefined;
+  // The service stopping cancels a turn too (`reason: server_shutdown`); that is an
+  // interruption the person did not ask for, so it is said, not shown as their cancel.
+  const errorDetails = message.error_info?.details;
+  const stoppedByService =
+    emptyResponseErrorCode === 'cancelled' &&
+    typeof errorDetails === 'object' &&
+    errorDetails !== null &&
+    (errorDetails as Record<string, unknown>).reason === 'server_shutdown';
+  const interruptedByService =
+    stoppedByService || emptyResponseErrorCode === 'server_restart_interrupted';
+  const interruptionReason = stoppedByService
+    ? t`The agent service stopped before this reply finished. Your request was kept.`
+    : emptyResponseErrorMessage;
   const emptyResponseWasClientCancelled =
-    emptyResponseErrorCode === 'cancelled' ||
-    emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client';
+    !stoppedByService &&
+    (emptyResponseErrorCode === 'cancelled' ||
+      emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client');
   const signInProvider = turnSignInProvider(message.error_info);
   const modelExhausted = turnModelExhausted(message.error_info);
   // A reply the service failed as recoverable (a timed-out model call: error_info
@@ -282,7 +296,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                       reason={
                         emptyResponseWasClientCancelled
                           ? undefined
-                          : (emptyResponseErrorMessage ??
+                          : (interruptionReason ??
                             t`No response content was recorded for this turn.`)
                       }
                       onRetry={retryReply}
@@ -290,7 +304,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                       title={
                         emptyResponseWasClientCancelled
                           ? t`Reply cancelled`
-                          : emptyResponseErrorCode === 'server_restart_interrupted'
+                          : interruptedByService
                             ? t`This reply was interrupted`
                             : t`This reply didn’t load`
                       }
@@ -433,10 +447,14 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 !emptyResponseWasClientCancelled &&
                 !message.blocks.some((block) => block.type === 'error') ? (
                   <ReplyErrorLine
-                    reason={emptyResponseErrorMessage}
+                    reason={interruptionReason}
                     onRetry={retryReply}
                     retrying={entities.retryingMessageId === message.id}
-                    title={t`This reply didn’t finish`}
+                    title={
+                      interruptedByService
+                        ? t`This reply was interrupted`
+                        : t`This reply didn’t finish`
+                    }
                   />
                 ) : null}
               </MessageContent>

@@ -35574,6 +35574,10 @@ msgstr "新しいセッションで実行されるエージェントです。そ
 msgid "The agent places it"
 msgstr "エージェントが配置"
 
+#: src/components/clio/conversation-message-row.tsx
+msgid "The agent service stopped before this reply finished. Your request was kept."
+msgstr "この返信が終わる前にエージェントサービスが停止しました。リクエストは保持されています。"
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "The agent was not changed"
 msgstr "エージェントは変更されませんでした"

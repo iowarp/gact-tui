@@ -35574,6 +35574,10 @@ msgstr "El agente que ejecutan las sesiones nuevas. Sus complementos aportan her
 msgid "The agent places it"
 msgstr "El agente la coloca"
 
+#: src/components/clio/conversation-message-row.tsx
+msgid "The agent service stopped before this reply finished. Your request was kept."
+msgstr "El servicio del agente se detuvo antes de que terminara esta respuesta. Se conservó tu solicitud."
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "The agent was not changed"
 msgstr "No se cambió el agente"

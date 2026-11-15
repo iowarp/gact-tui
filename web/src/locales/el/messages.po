@@ -35574,6 +35574,10 @@ msgstr "Ο πράκτορας που εκτελούν οι νέες συνεδρ
 msgid "The agent places it"
 msgstr "Ο πράκτορας τον τοποθετεί"
 
+#: src/components/clio/conversation-message-row.tsx
+msgid "The agent service stopped before this reply finished. Your request was kept."
+msgstr "Η υπηρεσία του πράκτορα σταμάτησε πριν ολοκληρωθεί αυτή η απάντηση. Το αίτημά σας διατηρήθηκε."
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "The agent was not changed"
 msgstr "Ο πράκτορας δεν άλλαξε"

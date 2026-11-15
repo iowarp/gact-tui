@@ -35573,6 +35573,10 @@ msgstr "The agent new sessions run. Its plugins bring tools, skills and guidance
 msgid "The agent places it"
 msgstr "The agent places it"
 
+#: src/components/clio/conversation-message-row.tsx
+msgid "The agent service stopped before this reply finished. Your request was kept."
+msgstr "The agent service stopped before this reply finished. Your request was kept."
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "The agent was not changed"
 msgstr "The agent was not changed"
