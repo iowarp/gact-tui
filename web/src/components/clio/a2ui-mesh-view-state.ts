@@ -9,6 +9,8 @@ export interface ViewInputs {
   color?: MeshField;
   threshold?: { field: MeshField; min: number; max: number };
   frame: number;
+  /** Opacity of see-through parts, from the producer's `nodeOpacity`. */
+  partOpacity?: ReadonlyMap<number, number>;
 }
 
 export function artifactIdFromMeshUri(uri: string): string | undefined {

@@ -22842,6 +22842,10 @@ msgstr ""
 msgid "No paper or dataset sources are available on this service."
 msgstr ""
 
+#: src/components/clio/a2ui-mesh-viewport.tsx
+msgid "No part of this model is named {names}, so its opacity is not applied."
+msgstr ""
+
 #: src/components/clio/latex-workspace.tsx
 msgid "No PDF: the build stopped before making one"
 msgstr ""
