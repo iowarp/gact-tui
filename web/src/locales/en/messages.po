@@ -8198,6 +8198,7 @@ msgstr "Can't start"
 #: src/components/clio/primitives/dialog-frame.tsx
 #: src/components/clio/provenance-connections.tsx
 #: src/components/clio/provider-endpoint-editor.tsx
+#: src/components/clio/reply-failure-recovery.tsx
 #: src/components/clio/response-feedback-comment.tsx
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/service-management-confirm-dialog.tsx
@@ -11130,6 +11131,10 @@ msgstr "Continue after"
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Continue at a specific date and time."
 msgstr "Continue at a specific date and time."
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Continue in a copy"
+msgstr "Continue in a copy"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Continue in background"
@@ -16744,12 +16749,21 @@ msgid "Go"
 msgstr "Go"
 
 #: src/components/clio/desktop-title-bar.tsx
+#: src/components/clio/reply-failure-recovery.tsx
 msgid "Go back"
 msgstr "Go back"
 
 #: src/components/clio/settings-model-server-row.tsx
 msgid "Go back to {address}?"
 msgstr "Go back to {address}?"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Go back to the last reply that worked"
+msgstr "Go back to the last reply that worked"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Go back to the last reply that worked?"
+msgstr "Go back to the last reply that worked?"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Go forward"
@@ -16835,6 +16849,10 @@ msgstr "Goal: {title}"
 #: src/lib/tool-domain-labels.ts
 msgid "Goals"
 msgstr "Goals"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Going back…"
+msgstr "Going back…"
 
 #: src/components/clio/response-feedback-comment.tsx
 #: src/components/clio/response-rating.tsx
@@ -20524,6 +20542,10 @@ msgstr "Make central"
 #: src/lib/model-capability-tags.ts
 msgid "Makes {modality}"
 msgstr "Makes {modality}"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Making a copy…"
+msgstr "Making a copy…"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Manage"
@@ -25632,6 +25654,10 @@ msgstr "Part"
 #: src/components/clio/cad-tool-panels.tsx
 msgid "Part {number}"
 msgstr "Part {number}"
+
+#: src/components/clio/reply-failure.ts
+msgid "Part of this conversation’s saved history can’t be read back, so the agent can’t continue from it."
+msgstr "Part of this conversation’s saved history can’t be read back, so the agent can’t continue from it."
 
 #: src/hooks/use-execution-provenance.ts
 msgid "Partial {provider} provenance: {reasons}."
@@ -35364,6 +35390,7 @@ msgstr "Tasks and processes"
 #: src/components/clio/artifact-lineage-view.tsx
 #: src/components/clio/ask-card.tsx
 #: src/components/clio/connect-address.tsx
+#: src/components/clio/conversation-message-blocks.tsx
 #: src/components/clio/host-folder-view.tsx
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/model-inventory-row.tsx
@@ -36399,6 +36426,10 @@ msgstr "The mesh format could not be identified; set the viewport format to glb,
 msgid "The mesh source is not a registered artifact id."
 msgstr "The mesh source is not a registered artifact id."
 
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "The messages after that reply are removed from this conversation, including the ones that failed. Files and artifacts already created or edited are kept."
+msgstr "The messages after that reply are removed from this conversation, including the ones that failed. Files and artifacts already created or edited are kept."
+
 #: src/components/clio/registry-model-card.tsx
 msgid "The model card could not be retrieved."
 msgstr "The model card could not be retrieved."
@@ -36995,6 +37026,7 @@ msgid "The service hit an error starting it."
 msgstr "The service hit an error starting it."
 
 #: src/components/clio/composer-failure.ts
+#: src/components/clio/reply-failure.ts
 msgid "The service hit an error."
 msgstr "The service hit an error."
 
@@ -37886,6 +37918,14 @@ msgstr "This conversation’s account"
 #: src/lib/shortcuts/catalog.ts
 msgid "This conversation's menu"
 msgstr "This conversation's menu"
+
+#: src/components/clio/reply-failure.ts
+msgid "This conversation’s progress couldn’t be saved."
+msgstr "This conversation’s progress couldn’t be saved."
+
+#: src/components/clio/reply-failure.ts
+msgid "This conversation’s saved history couldn’t be read."
+msgstr "This conversation’s saved history couldn’t be read."
 
 #: src/components/clio/ndp-nested-fields.tsx
 msgid "This deeply nested field is available in Advanced API tools."

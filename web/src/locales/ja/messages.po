@@ -8199,6 +8199,7 @@ msgstr "起動できません"
 #: src/components/clio/primitives/dialog-frame.tsx
 #: src/components/clio/provenance-connections.tsx
 #: src/components/clio/provider-endpoint-editor.tsx
+#: src/components/clio/reply-failure-recovery.tsx
 #: src/components/clio/response-feedback-comment.tsx
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/service-management-confirm-dialog.tsx
@@ -11131,6 +11132,10 @@ msgstr "完了後に続行"
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Continue at a specific date and time."
 msgstr "特定の日時に続行します。"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Continue in a copy"
+msgstr "コピーで続ける"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Continue in background"
@@ -16745,12 +16750,21 @@ msgid "Go"
 msgstr "移動"
 
 #: src/components/clio/desktop-title-bar.tsx
+#: src/components/clio/reply-failure-recovery.tsx
 msgid "Go back"
 msgstr "戻る"
 
 #: src/components/clio/settings-model-server-row.tsx
 msgid "Go back to {address}?"
 msgstr "{address}に戻しますか？"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Go back to the last reply that worked"
+msgstr "最後に成功した返信に戻る"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Go back to the last reply that worked?"
+msgstr "最後に成功した返信に戻りますか？"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Go forward"
@@ -16836,6 +16850,10 @@ msgstr "目標：{title}"
 #: src/lib/tool-domain-labels.ts
 msgid "Goals"
 msgstr "目標"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Going back…"
+msgstr "戻しています…"
 
 #: src/components/clio/response-feedback-comment.tsx
 #: src/components/clio/response-rating.tsx
@@ -20525,6 +20543,10 @@ msgstr "中央に表示"
 #: src/lib/model-capability-tags.ts
 msgid "Makes {modality}"
 msgstr "{modality}を生成"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Making a copy…"
+msgstr "コピーを作成しています…"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Manage"
@@ -25633,6 +25655,10 @@ msgstr "パーツ"
 #: src/components/clio/cad-tool-panels.tsx
 msgid "Part {number}"
 msgstr "部品 {number}"
+
+#: src/components/clio/reply-failure.ts
+msgid "Part of this conversation’s saved history can’t be read back, so the agent can’t continue from it."
+msgstr "この会話の保存された履歴の一部を読み込めないため、エージェントはそこから続行できません。"
 
 #: src/hooks/use-execution-provenance.ts
 msgid "Partial {provider} provenance: {reasons}."
@@ -35365,6 +35391,7 @@ msgstr "タスクとプロセス"
 #: src/components/clio/artifact-lineage-view.tsx
 #: src/components/clio/ask-card.tsx
 #: src/components/clio/connect-address.tsx
+#: src/components/clio/conversation-message-blocks.tsx
 #: src/components/clio/host-folder-view.tsx
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/model-inventory-row.tsx
@@ -36400,6 +36427,10 @@ msgstr "メッシュの形式を特定できませんでした。ビューポー
 msgid "The mesh source is not a registered artifact id."
 msgstr "メッシュのソースが登録済みの成果物IDではありません。"
 
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "The messages after that reply are removed from this conversation, including the ones that failed. Files and artifacts already created or edited are kept."
+msgstr "その返信より後のメッセージは、失敗したものも含めてこの会話から削除されます。作成または編集済みのファイルと成果物は残ります。"
+
 #: src/components/clio/registry-model-card.tsx
 msgid "The model card could not be retrieved."
 msgstr "モデルカードを取得できませんでした。"
@@ -36996,6 +37027,7 @@ msgid "The service hit an error starting it."
 msgstr "開始時にサービスでエラーが発生しました。"
 
 #: src/components/clio/composer-failure.ts
+#: src/components/clio/reply-failure.ts
 msgid "The service hit an error."
 msgstr "サービスでエラーが発生しました。"
 
@@ -37887,6 +37919,14 @@ msgstr "この会話のアカウント"
 #: src/lib/shortcuts/catalog.ts
 msgid "This conversation's menu"
 msgstr "この会話のメニュー"
+
+#: src/components/clio/reply-failure.ts
+msgid "This conversation’s progress couldn’t be saved."
+msgstr "この会話の進行状況を保存できませんでした。"
+
+#: src/components/clio/reply-failure.ts
+msgid "This conversation’s saved history couldn’t be read."
+msgstr "この会話の保存された履歴を読み込めませんでした。"
 
 #: src/components/clio/ndp-nested-fields.tsx
 msgid "This deeply nested field is available in Advanced API tools."

@@ -8199,6 +8199,7 @@ msgstr "Δεν είναι δυνατή η εκκίνηση"
 #: src/components/clio/primitives/dialog-frame.tsx
 #: src/components/clio/provenance-connections.tsx
 #: src/components/clio/provider-endpoint-editor.tsx
+#: src/components/clio/reply-failure-recovery.tsx
 #: src/components/clio/response-feedback-comment.tsx
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/service-management-confirm-dialog.tsx
@@ -11131,6 +11132,10 @@ msgstr "Συνέχεια μετά από"
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Continue at a specific date and time."
 msgstr "Συνέχεια σε συγκεκριμένη ημερομηνία και ώρα."
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Continue in a copy"
+msgstr "Συνέχεια σε αντίγραφο"
 
 #: src/components/clio/model-acquisition.tsx
 msgid "Continue in background"
@@ -16745,12 +16750,21 @@ msgid "Go"
 msgstr "Μετάβαση"
 
 #: src/components/clio/desktop-title-bar.tsx
+#: src/components/clio/reply-failure-recovery.tsx
 msgid "Go back"
 msgstr "Πίσω"
 
 #: src/components/clio/settings-model-server-row.tsx
 msgid "Go back to {address}?"
 msgstr "Επιστροφή στη διεύθυνση {address};"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Go back to the last reply that worked"
+msgstr "Επιστροφή στην τελευταία απάντηση που λειτούργησε"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Go back to the last reply that worked?"
+msgstr "Επιστροφή στην τελευταία απάντηση που λειτούργησε;"
 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Go forward"
@@ -16836,6 +16850,10 @@ msgstr "Στόχος: {title}"
 #: src/lib/tool-domain-labels.ts
 msgid "Goals"
 msgstr "Στόχοι"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Going back…"
+msgstr "Γίνεται επιστροφή…"
 
 #: src/components/clio/response-feedback-comment.tsx
 #: src/components/clio/response-rating.tsx
@@ -20525,6 +20543,10 @@ msgstr "Μετακίνηση στο κέντρο"
 #: src/lib/model-capability-tags.ts
 msgid "Makes {modality}"
 msgstr "Παράγει {modality}"
+
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "Making a copy…"
+msgstr "Δημιουργία αντιγράφου…"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "Manage"
@@ -25633,6 +25655,10 @@ msgstr "Τμήμα"
 #: src/components/clio/cad-tool-panels.tsx
 msgid "Part {number}"
 msgstr "Τμήμα {number}"
+
+#: src/components/clio/reply-failure.ts
+msgid "Part of this conversation’s saved history can’t be read back, so the agent can’t continue from it."
+msgstr "Ένα μέρος του αποθηκευμένου ιστορικού αυτής της συνομιλίας δεν μπορεί να διαβαστεί, οπότε ο πράκτορας δεν μπορεί να συνεχίσει από αυτό."
 
 #: src/hooks/use-execution-provenance.ts
 msgid "Partial {provider} provenance: {reasons}."
@@ -35365,6 +35391,7 @@ msgstr "Εργασίες και διεργασίες"
 #: src/components/clio/artifact-lineage-view.tsx
 #: src/components/clio/ask-card.tsx
 #: src/components/clio/connect-address.tsx
+#: src/components/clio/conversation-message-blocks.tsx
 #: src/components/clio/host-folder-view.tsx
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/model-inventory-row.tsx
@@ -36400,6 +36427,10 @@ msgstr "Δεν ήταν δυνατός ο προσδιορισμός της μο
 msgid "The mesh source is not a registered artifact id."
 msgstr "Η πηγή του πλέγματος δεν είναι καταχωρισμένο αναγνωριστικό τεχνουργήματος."
 
+#: src/components/clio/reply-failure-recovery.tsx
+msgid "The messages after that reply are removed from this conversation, including the ones that failed. Files and artifacts already created or edited are kept."
+msgstr "Τα μηνύματα μετά από εκείνη την απάντηση αφαιρούνται από αυτή τη συνομιλία, μαζί με όσα απέτυχαν. Τα αρχεία και τα τεχνουργήματα που έχουν ήδη δημιουργηθεί ή επεξεργαστεί διατηρούνται."
+
 #: src/components/clio/registry-model-card.tsx
 msgid "The model card could not be retrieved."
 msgstr "Δεν ήταν δυνατή η ανάκτηση της κάρτας μοντέλου."
@@ -36996,6 +37027,7 @@ msgid "The service hit an error starting it."
 msgstr "Η υπηρεσία αντιμετώπισε σφάλμα κατά την έναρξή του."
 
 #: src/components/clio/composer-failure.ts
+#: src/components/clio/reply-failure.ts
 msgid "The service hit an error."
 msgstr "Η υπηρεσία αντιμετώπισε σφάλμα."
 
@@ -37887,6 +37919,14 @@ msgstr "Λογαριασμός αυτής της συνομιλίας"
 #: src/lib/shortcuts/catalog.ts
 msgid "This conversation's menu"
 msgstr "Μενού αυτής της συνομιλίας"
+
+#: src/components/clio/reply-failure.ts
+msgid "This conversation’s progress couldn’t be saved."
+msgstr "Η πρόοδος αυτής της συνομιλίας δεν ήταν δυνατό να αποθηκευτεί."
+
+#: src/components/clio/reply-failure.ts
+msgid "This conversation’s saved history couldn’t be read."
+msgstr "Το αποθηκευμένο ιστορικό αυτής της συνομιλίας δεν ήταν δυνατό να διαβαστεί."
 
 #: src/components/clio/ndp-nested-fields.tsx
 msgid "This deeply nested field is available in Advanced API tools."
