@@ -276,6 +276,11 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
                 label: "Keyboard Shortcuts",
                 accel: Some("CmdOrCtrl+/"),
             },
+            Item::Action {
+                id: "report-problem",
+                label: "Report a Problem…",
+                accel: None,
+            },
         ],
     },
 ];

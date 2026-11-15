@@ -918,6 +918,11 @@ msgstr "{0, plural, one {Εμφανίζεται η αρχή αυτού του α
 msgid "{0, plural, one {Showing the first # item. {agent} can read the whole folder.} other {Showing the first # items. {agent} can read the whole folder.}}"
 msgstr "{0, plural, one {Εμφανίζεται το πρώτο # στοιχείο. Ο {agent} μπορεί να διαβάσει ολόκληρο τον φάκελο.} other {Εμφανίζονται τα πρώτα # στοιχεία. Ο {agent} μπορεί να διαβάσει ολόκληρο τον φάκελο.}}"
 
+#. placeholder {0}: logs.lines_requested
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "{0, plural, one {Showing the last line of each log.} other {Showing the last # lines of each log.}}"
+msgstr "{0, plural, one {Εμφανίζεται η τελευταία γραμμή κάθε αρχείου καταγραφής.} other {Εμφανίζονται οι τελευταίες # γραμμές κάθε αρχείου καταγραφής.}}"
+
 #. placeholder {0}: skills.length
 #: src/components/clio/connector-plugin-contents.tsx
 msgid "{0, plural, one {Skill} other {Skills}}"
@@ -3359,6 +3364,10 @@ msgstr "Απομένουν {remaining}"
 msgid "{remaining} left of {limit}"
 msgstr "Απομένουν {remaining} από {limit}"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "{removed, plural, =0 {No secrets were found to remove. Your home folder is shown as ~.} one {Removed before showing: # secret. Your home folder is shown as ~.} other {Removed before showing: # secrets. Your home folder is shown as ~.}}"
+msgstr "{removed, plural, =0 {Δεν βρέθηκαν μυστικά για αφαίρεση. Ο προσωπικός σας φάκελος εμφανίζεται ως ~.} one {Αφαιρέθηκε πριν από την εμφάνιση: # μυστικό. Ο προσωπικός σας φάκελος εμφανίζεται ως ~.} other {Αφαιρέθηκαν πριν από την εμφάνιση: # μυστικά. Ο προσωπικός σας φάκελος εμφανίζεται ως ~.}}"
+
 #: src/components/clio/settings-access-rule-model.ts
 msgid "{removed, plural, one {# rule removed} other {# rules removed}}"
 msgstr "{removed, plural, one {Αφαιρέθηκε # κανόνας} other {Αφαιρέθηκαν # κανόνες}}"
@@ -3932,6 +3941,10 @@ msgstr "Οι ρυθμίσεις {title} αποθηκεύτηκαν"
 #: src/components/clio/settings-tools-table.tsx
 msgid "{title} tools"
 msgstr "Εργαλεία {title}"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "{title}, last lines"
+msgstr "{title}, τελευταίες γραμμές"
 
 #: src/components/clio/operation-progress.tsx
 msgid "{title}: in progress"
@@ -4564,6 +4577,10 @@ msgstr "Δεν ήταν δυνατή η αποστολή ενός μηνύματ
 msgid "A read-only snapshot. Anyone with the link can view it until it expires."
 msgstr "Ένα στιγμιότυπο μόνο για ανάγνωση. Όποιος έχει τον σύνδεσμο μπορεί να το δει μέχρι να λήξει."
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "A reply is running"
+msgstr "Εκτελείται μια απάντηση"
+
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A repository URL, or a folder on the agent host."
 msgstr "Μια URL αποθετηρίου ή ένας φάκελος στον κεντρικό υπολογιστή του πράκτορα."
@@ -4697,6 +4714,10 @@ msgstr "Σχετικά: {wordmark}"
 #: src/lib/search-source-text.ts
 msgid "About 100 searches a day per network without a key; single-work lookups are free"
 msgstr "Περίπου 100 αναζητήσεις την ημέρα ανά δίκτυο χωρίς κλειδί· οι αναζητήσεις μεμονωμένων έργων είναι δωρεάν"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "About a conversation"
+msgstr "Σχετικά με μια συνομιλία"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "About access rules"
@@ -6415,6 +6436,7 @@ msgstr "απαντήθηκε"
 
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/tool-presentation.ts
 msgid "Answered"
 msgstr "Απαντήθηκε"
@@ -6495,6 +6517,7 @@ msgstr "URL του API"
 msgid "API version"
 msgstr "Έκδοση API"
 
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/lib/global-search-commands.ts
 #: src/routes/settings-window.tsx
 msgid "App"
@@ -7495,12 +7518,12 @@ msgstr "Η μνήμη παρασκηνίου είναι απενεργοποιη
 msgid "Background memory is off."
 msgstr "Η μνήμη παρασκηνίου είναι απενεργοποιημένη."
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Background process ownership"
 msgstr "Κατοχή διεργασιών παρασκηνίου"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Background processes"
 msgstr "Διεργασίες παρασκηνίου"
@@ -7875,7 +7898,7 @@ msgstr "Περιήγηση…"
 
 #: src/components/clio/browser-frame.tsx
 #: src/components/clio/infrastructure-overview.tsx
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-schema-copy.ts
 #: src/components/clio/use-browser-pages.ts
 #: src/components/clio/use-workbench-strip.tsx
@@ -10223,7 +10246,7 @@ msgstr "Ιστορικό συμπύκνωσης"
 msgid "Compaction history unavailable."
 msgstr "Το ιστορικό συμπύκνωσης δεν είναι διαθέσιμο."
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Compaction instructions"
 msgstr "Οδηγίες συμπύκνωσης"
 
@@ -11163,6 +11186,7 @@ msgstr "συνομιλία"
 #: src/components/clio/markdown-content-link.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-prompt-scope.ts
+#: src/components/clio/settings-report-problem.tsx
 #: src/lib/composer-reference-domain.ts
 msgid "Conversation"
 msgstr "Συνομιλία"
@@ -11221,7 +11245,7 @@ msgstr "Εξαγωγή συνομιλίας"
 msgid "Conversation loading"
 msgstr "Φόρτωση συνομιλίας"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Conversation memory"
 msgstr "Μνήμη συνομιλίας"
@@ -11429,6 +11453,7 @@ msgstr "Ψυχρό"
 #: src/components/clio/ask-card.tsx
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/settings-report-problem.tsx
 #: src/components/clio/share-session-dialog.tsx
 #: src/components/clio/surface-toolbar.tsx
 #: src/components/clio/text-file-copy-action.tsx
@@ -11703,6 +11728,10 @@ msgstr "Αντιγραφή προτροπής"
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/plugin-explorer.tsx
 msgid "Copy reference"
+msgstr "Αντιγραφή αναφοράς"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Copy report"
 msgstr "Αντιγραφή αναφοράς"
 
 #: src/components/clio/tool-technical-details.tsx
@@ -13145,7 +13174,12 @@ msgstr "Αλλαγές στη διεπαφή της εφαρμογής υπολ�
 msgid "Desktop app"
 msgstr "Εφαρμογή υπολογιστή"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Desktop app log"
+msgstr "Αρχείο καταγραφής εφαρμογής υπολογιστή"
+
 #: src/components/clio/settings-about.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "Desktop application"
 msgstr "Εφαρμογή υπολογιστή"
 
@@ -13765,6 +13799,10 @@ msgstr "Πρόοδος λήψης για {repository}"
 #: src/components/clio/source-fields.tsx
 msgid "Download remote changes"
 msgstr "Λήψη απομακρυσμένων αλλαγών"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Download report"
+msgstr "Λήψη αναφοράς"
 
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Download requested"
@@ -14921,7 +14959,7 @@ msgstr "Η εκτέλεση χρειάζεται το πλήρες σχέδιο.
 msgid "Execution or cleanup could not be confirmed. Inspect the task before retrying."
 msgstr "Δεν ήταν δυνατή η επιβεβαίωση της εκτέλεσης ή του καθαρισμού. Ελέγξτε την εργασία πριν από την επανάληψη."
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Execution protection coverage"
 msgstr "Κάλυψη προστασίας εκτέλεσης"
@@ -15276,6 +15314,7 @@ msgstr "απέτυχε"
 #: src/components/clio/resource-processing-presentation.ts
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-health-views.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/task-flow-state.ts
 #: src/components/clio/workbench-activity-detail.tsx
@@ -15382,7 +15421,7 @@ msgctxt "menu bar"
 msgid "File"
 msgstr "Αρχείο"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "File access policy"
 msgstr "Πολιτική πρόσβασης σε αρχεία"
 
@@ -15437,7 +15476,7 @@ msgstr "Ανάγνωση αρχείου"
 msgid "File representations"
 msgstr "Αναπαραστάσεις αρχείου"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "File search"
 msgstr "Αναζήτηση αρχείων"
@@ -16895,10 +16934,15 @@ msgid "Header values are saved privately on the agent host and hidden after savi
 msgstr "Οι τιμές των κεφαλίδων αποθηκεύονται ιδιωτικά στον κεντρικό υπολογιστή του πράκτορα και αποκρύπτονται μετά την αποθήκευση."
 
 #: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-usage.tsx
 #: src/lib/application-destinations.ts
 msgid "Health"
 msgstr "Κατάσταση"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Health checks that need attention"
+msgstr "Έλεγχοι κατάστασης που χρειάζονται προσοχή"
 
 #: src/components/clio/settings-health-load-error.tsx
 msgid "health details"
@@ -17810,6 +17854,10 @@ msgstr "Συμπερίληψη σταθμών με σήμανση ποιότητ
 #: src/components/clio/settings-schema-copy.ts
 msgid "Include sensitive topics"
 msgstr "Συμπερίληψη ευαίσθητων θεμάτων"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Include this conversation’s messages"
+msgstr "Συμπερίληψη των μηνυμάτων αυτής της συνομιλίας"
 
 #: src/components/clio/model-picker-filter-ranges.ts
 msgid "Include unknown context"
@@ -19029,7 +19077,7 @@ msgstr "Εργαστήριο"
 msgid "Language"
 msgstr "Γλώσσα"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Language model provider"
 msgstr "Πάροχος γλωσσικού μοντέλου"
@@ -20228,6 +20276,7 @@ msgstr "Φόρτωση..."
 #: src/components/clio/offer-list-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-models-rows.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
 #: src/components/clio/workspace-directory-tree.tsx
 #: src/routes/runs-page.tsx
@@ -20544,7 +20593,7 @@ msgstr "Διαχειριζόμενο"
 msgid "Managed by {product}"
 msgstr "Διαχειρίζεται από {product}"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Managed packages"
 msgstr "Διαχειριζόμενα πακέτα"
 
@@ -21004,17 +21053,17 @@ msgstr "Η μνήμη είναι απενεργοποιημένη για αυτ�
 msgid "Memory metadata log"
 msgstr "Αρχείο καταγραφής μεταδεδομένων μνήμης"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory service attachment"
 msgstr "Σύνδεση υπηρεσίας μνήμης"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory service connection"
 msgstr "Σύνδεση με την υπηρεσία μνήμης"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory service process"
 msgstr "Διεργασία υπηρεσίας μνήμης"
@@ -21023,7 +21072,7 @@ msgstr "Διεργασία υπηρεσίας μνήμης"
 msgid "Memory settings"
 msgstr "Ρυθμίσεις μνήμης"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory storage"
 msgstr "Αποθήκευση μνήμης"
@@ -21040,7 +21089,7 @@ msgstr "Προβολή μνήμης"
 msgid "Memory views"
 msgstr "Προβολές μνήμης"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Memory working limit"
 msgstr "Όριο εργασίας μνήμης"
@@ -21140,6 +21189,10 @@ msgstr "Μηνύματα"
 #: src/components/clio/context-composition-model.ts
 msgid "Messages and results"
 msgstr "Μηνύματα και αποτελέσματα"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Messages included"
+msgstr "Περιλαμβάνονται μηνύματα"
 
 #: src/lib/tool-domain-labels.ts
 msgid "Messaging"
@@ -21256,6 +21309,7 @@ msgstr "Λειτουργία: {modeLabel}"
 #: src/components/clio/service-management-facts.tsx
 #: src/components/clio/session-usage-readout.tsx
 #: src/components/clio/settings-prompt-editor.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-session-defaults.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
@@ -21864,7 +21918,7 @@ msgstr "Απαιτεί έγκριση, ορίστηκε από εσάς"
 
 #: src/components/clio/model-picker-model.ts
 #: src/components/clio/settings-app-updates.tsx
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 #: src/routes/infrastructure-foundation.ts
@@ -22434,6 +22488,10 @@ msgstr "Δεν υπάρχουν συνδεδεμένες πηγές."
 msgid "No context snapshot is available for this agent."
 msgstr "Δεν υπάρχει διαθέσιμο στιγμιότυπο πλαισίου για αυτόν τον πράκτορα."
 
+#: src/components/clio/settings-report-problem.tsx
+msgid "No conversation"
+msgstr "Καμία συνομιλία"
+
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
 #: src/components/clio/workspace-navigation-tree-item.tsx
@@ -22648,6 +22706,10 @@ msgstr "Καμία τοποθεσία δεν ταιριάζει με τα τρέ
 #: src/components/clio/a2ui-map.tsx
 msgid "No locations to show."
 msgstr "Δεν υπάρχουν τοποθεσίες για εμφάνιση."
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No log file was found on this computer. A service started from a terminal writes its log there instead."
+msgstr "Δεν βρέθηκε αρχείο καταγραφής σε αυτόν τον υπολογιστή. Μια υπηρεσία που ξεκίνησε από τερματικό γράφει εκεί την καταγραφή της."
 
 #: src/components/clio/infrastructure-activity-row.tsx
 msgid "No log was recorded for this operation."
@@ -23042,6 +23104,14 @@ msgstr "Δεν υπάρχει έκδοση για σύγκριση."
 msgid "No remote MCP servers yet."
 msgstr "Δεν υπάρχουν ακόμη απομακρυσμένοι διακομιστές MCP."
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No replies yet."
+msgstr "Δεν υπάρχουν ακόμη απαντήσεις."
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No reply"
+msgstr "Χωρίς απάντηση"
+
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "No resources in this dataset"
 msgstr "Δεν υπάρχουν πόροι σε αυτό το σύνολο δεδομένων"
@@ -23347,6 +23417,10 @@ msgstr "Δεν υπάρχουν ακόμη χώροι εργασίας"
 msgid "No workspaces yet."
 msgstr "Δεν υπάρχουν ακόμη χώροι εργασίας."
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "No, only reply outcomes"
+msgstr "Όχι, μόνο τα αποτελέσματα των απαντήσεων"
+
 #: src/components/clio/agent-tab-values.ts
 msgid "None"
 msgstr "Κανένα"
@@ -23422,6 +23496,7 @@ msgstr "Δεν έχει εγκριθεί ακόμη"
 
 #: src/components/clio/file-viewer-take-hooks.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/hooks/use-connection-availability.ts
 msgid "Not available"
 msgstr "Μη διαθέσιμο"
@@ -23670,6 +23745,7 @@ msgstr "δεν αναφέρθηκε"
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/session-usage-readout.tsx
 #: src/components/clio/settings-health-views.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "Not reported"
 msgstr "Δεν αναφέρθηκε"
 
@@ -23719,6 +23795,7 @@ msgstr "δεν στάλθηκε"
 msgid "Not sent"
 msgstr "Δεν στάλθηκε"
 
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-runtime-control.tsx
 msgid "Not set"
 msgstr "Δεν έχει οριστεί"
@@ -24143,6 +24220,10 @@ msgstr "Ανενεργή"
 #: src/components/clio/managed-service-access.tsx
 msgid "Off: {agent} protects it with a key it makes and sends for you."
 msgstr "Ανενεργό: ο {agent} την προστατεύει με ένα κλειδί που δημιουργεί και στέλνει για εσάς."
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Off: only reply errors are included, never what was written."
+msgstr "Ανενεργό: περιλαμβάνονται μόνο τα σφάλματα των απαντήσεων, ποτέ όσα γράφτηκαν."
 
 #: src/lib/model-facets.ts
 msgid "Offer"
@@ -25137,6 +25218,10 @@ msgstr "Προαιρετικό"
 #: src/components/clio/settings-schema-copy.ts
 msgid "Optional shared AWS profile name."
 msgstr "Προαιρετικό όνομα κοινόχρηστου προφίλ AWS."
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Optional. Adds the outcome of its recent replies."
+msgstr "Προαιρετικό. Προσθέτει το αποτέλεσμα των πρόσφατων απαντήσεών της."
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Optional. Leave unchanged to use {placeholder}."
@@ -26407,6 +26492,10 @@ msgstr "Προετοιμασία των διαχειριζόμενων πακέ�
 msgid "Preparing the PDF…"
 msgstr "Προετοιμασία του PDF…"
 
+#: src/components/clio/settings-report-problem.tsx
+msgid "Preparing the report…"
+msgstr "Προετοιμασία της αναφοράς…"
+
 #: src/lib/mcp-preparation.ts
 msgid "Preparing the server for this conversation; its tools join when it is ready."
 msgstr "Προετοιμασία του διακομιστή για αυτή τη συνομιλία· τα εργαλεία του προστίθενται όταν είναι έτοιμος."
@@ -26626,7 +26715,7 @@ msgstr "Η ιδιωτική σύνδεση δεν είναι διαθέσιμη 
 msgid "Problems"
 msgstr "Προβλήματα"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Process cleanup"
 msgstr "Εκκαθάριση διεργασιών"
@@ -26877,7 +26966,7 @@ msgstr "Προστατεύεται με κλειδί"
 msgid "Protected command and file execution is active."
 msgstr "Η προστατευμένη εκτέλεση εντολών και αρχείων είναι ενεργή."
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Protected execution"
 msgstr "Προστατευμένη εκτέλεση"
@@ -27712,7 +27801,7 @@ msgstr "Διαβάζει έως {tokens} token ταυτόχρονα. Το ίδι
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/model-picker-model.ts
 #: src/components/clio/resource-availability.ts
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/workbench-sources-list.tsx
 #: src/hooks/use-connection-availability.ts
@@ -27898,9 +27987,17 @@ msgstr "Πρόσφατες συνομιλίες"
 msgid "Recent invocations"
 msgstr "Πρόσφατες κλήσεις"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Recent log"
+msgstr "Πρόσφατη καταγραφή"
+
 #: src/components/clio/service-management-panel.tsx
 msgid "Recent logs on {hostLabel}"
 msgstr "Πρόσφατα αρχεία καταγραφής ({hostLabel})"
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Recent replies"
+msgstr "Πρόσφατες απαντήσεις"
 
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Recent session excerpts"
@@ -29057,6 +29154,24 @@ msgstr "Λεπτομέρειες απάντησης"
 msgid "Reply, or steer the run"
 msgstr "Απαντήστε ή κατευθύνετε την εκτέλεση"
 
+#: src/components/clio/settings-report-problem.tsx
+msgid "Report"
+msgstr "Αναφορά"
+
+#: src/components/clio/clio-menu.tsx
+#: src/components/clio/settings-report-problem.tsx
+#: src/lib/application-destinations.ts
+msgid "Report a problem"
+msgstr "Αναφορά προβλήματος"
+
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Report a problem…"
+msgstr "Αναφορά προβλήματος…"
+
+#: src/tauri/native-copy.ts
+msgid "Report a Problem…"
+msgstr "Αναφορά προβλήματος…"
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Report instructions"
 msgstr "Οδηγίες αναφοράς"
@@ -29068,6 +29183,10 @@ msgstr "Έλεγχος ποιότητας αναφοράς"
 #: src/widget-gallery-scenarios.ts
 msgid "Report readiness"
 msgstr "Ετοιμότητα αναφοράς"
+
+#: src/components/clio/conversation-message-blocks.tsx
+msgid "Report this"
+msgstr "Αναφορά"
 
 #: src/lib/model-options.ts
 msgid "Reported but not verified"
@@ -29779,6 +29898,7 @@ msgstr "Ανάκτηση"
 #: src/components/clio/settings-permissions-lines.tsx
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/settings-providers.tsx
+#: src/components/clio/settings-report-problem.tsx
 #: src/components/clio/settings-schedules.tsx
 #: src/components/clio/settings-session-defaults.tsx
 #: src/components/clio/settings-tool-detail.tsx
@@ -32190,6 +32310,10 @@ msgstr "Δεν ήταν δυνατή η φόρτωση των στοιχείων
 msgid "Service error"
 msgstr "Σφάλμα υπηρεσίας"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Service error output"
+msgstr "Έξοδος σφαλμάτων υπηρεσίας"
+
 #: src/components/clio/ndp-query-fields.tsx
 msgid "Service filters"
 msgstr "Φίλτρα υπηρεσίας"
@@ -32205,6 +32329,10 @@ msgstr "Η υπηρεσία είναι διαθέσιμη με περιορισ�
 #: src/hooks/use-connection-availability.ts
 msgid "Service is available."
 msgstr "Η υπηρεσία είναι διαθέσιμη."
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "Service log"
+msgstr "Αρχείο καταγραφής υπηρεσίας"
 
 #: src/components/clio/connect-address.tsx
 msgid "Service name"
@@ -32884,6 +33012,7 @@ msgstr "Εμφάνιση λίστας τοποθεσιών"
 #: src/components/clio/bounded-result.tsx
 #: src/components/clio/ndp-dataset-row.tsx
 #: src/components/clio/ndp-endpoint-browser.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/tool-operation-value.tsx
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Show more"
@@ -34190,6 +34319,7 @@ msgstr "Λεπτομέρειες εκκίνησης"
 msgid "Startup progress"
 msgstr "Πρόοδος εκκίνησης"
 
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/transcript-task-row.tsx
 #: src/components/clio/workbench-activity-detail.tsx
@@ -34601,24 +34731,24 @@ msgstr "Τα στατιστικά αποθήκευσης δεν είναι δι�
 msgid "Stored conversations"
 msgstr "Αποθηκευμένες συνομιλίες"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored data format"
 msgstr "Μορφή αποθηκευμένων δεδομένων"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored data upgrades"
 msgstr "Αναβαθμίσεις αποθηκευμένων δεδομένων"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Stored memory capacity"
 msgstr "Χωρητικότητα αποθηκευμένης μνήμης"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored memory location"
 msgstr "Τοποθεσία αποθηκευμένης μνήμης"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 msgid "Stored memory log"
 msgstr "Αρχείο καταγραφής αποθηκευμένης μνήμης"
 
@@ -35088,6 +35218,7 @@ msgstr "Συνθετικές τροχιές καταιγίδων του Ατλα
 #: src/components/clio/global-search-results.tsx
 #: src/components/clio/infrastructure-host-inspection.tsx
 #: src/components/clio/settings-appearance.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "System"
 msgstr "Σύστημα"
 
@@ -35395,6 +35526,10 @@ msgstr "Αυτή η αλλαγή δεν εφαρμόστηκε."
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "That connection name already exists. Choose another name."
 msgstr "Αυτό το όνομα σύνδεσης υπάρχει ήδη. Επιλέξτε άλλο όνομα."
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "That conversation is not on this agent service."
+msgstr "Αυτή η συνομιλία δεν βρίσκεται σε αυτή την υπηρεσία πράκτορα."
 
 #: src/components/clio/file-viewer-take-hooks.tsx
 msgid "That did not work."
@@ -35792,6 +35927,10 @@ msgstr "Ο σύνδεσμος δεν αφαιρέθηκε"
 msgid "The connector was not turned off"
 msgstr "Ο σύνδεσμος δεν απενεργοποιήθηκε"
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "The conversation"
+msgstr "Η συνομιλία"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
 msgstr "Η συνομιλία άλλαξε ενώ διαβαζόταν. Ένα μεταγενέστερο πέρασμα μπορεί να διαβάσει τα νέα μηνύματα."
@@ -35819,6 +35958,10 @@ msgstr "Η συνομιλία δεν άλλαξε"
 #: src/components/clio/agent-composition-view.tsx
 msgid "The conversation was not switched to {name}"
 msgstr "Η συνομιλία δεν άλλαξε σε {name}"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The conversation you came from"
+msgstr "Η συνομιλία από την οποία ήρθατε"
 
 #: src/components/clio/workbench-tab-content.tsx
 msgid "The conversation's agent appears after you send your first message."
@@ -36213,6 +36356,14 @@ msgstr "Το τοπικό περιβάλλον εκτέλεσης είναι ν�
 msgid "The local runtime is unavailable. Restore the app and runtime to the same release."
 msgstr "Το τοπικό περιβάλλον εκτέλεσης δεν είναι διαθέσιμο. Επαναφέρετε την εφαρμογή και το περιβάλλον εκτέλεσης στην ίδια έκδοση."
 
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "The log file could not be read."
+msgstr "Δεν ήταν δυνατή η ανάγνωση του αρχείου καταγραφής."
+
+#: src/components/clio/settings-report-problem-preview.tsx
+msgid "The log file is empty."
+msgstr "Το αρχείο καταγραφής είναι κενό."
+
 #: src/tauri/managed-backend.ts
 msgid "The managed {agent} service could not start."
 msgstr "Η διαχειριζόμενη υπηρεσία {agent} δεν μπόρεσε να ξεκινήσει."
@@ -36535,6 +36686,18 @@ msgstr "Δεν ήταν δυνατή η προεπισκόπηση της αφα
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "The reply couldn’t be retried"
 msgstr "Δεν ήταν δυνατή η επανάληψη της απάντησης"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The report could not be copied. Use Download report instead."
+msgstr "Δεν ήταν δυνατή η αντιγραφή της αναφοράς. Χρησιμοποιήστε τη Λήψη αναφοράς."
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The report could not be prepared. This service may be too old to offer it."
+msgstr "Δεν ήταν δυνατή η προετοιμασία της αναφοράς. Η υπηρεσία ίσως είναι πολύ παλιά για να την προσφέρει."
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "The report holds the {wordmark} version, its health checks and its recent log. Passwords, keys and tokens are removed before you see it."
+msgstr "Η αναφορά περιέχει την έκδοση ({wordmark}), τους ελέγχους κατάστασης και την πρόσφατη καταγραφή. Οι κωδικοί πρόσβασης, τα κλειδιά και τα διακριτικά αφαιρούνται πριν τη δείτε."
 
 #: src/components/clio/a2ui-surface.tsx
 msgid "The request could not be completed."
@@ -38675,7 +38838,7 @@ msgstr "εργαλεία"
 #: src/components/clio/extension-library-panes.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/plugin-explorer.tsx
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-tools-tabs.tsx
 #: src/components/clio/settings-tools.tsx
 #: src/lib/application-destinations.ts
@@ -39229,8 +39392,8 @@ msgstr "μη διαθέσιμο"
 #: src/components/clio/relative-time.tsx
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/settings-about.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/components/clio/settings-health-views.tsx
-#: src/components/clio/settings-operations.tsx
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/settings-schedule-time.ts
 #: src/components/clio/status.tsx
@@ -39583,6 +39746,10 @@ msgstr "Μέχρι να τον αφαιρέσετε στις Ρυθμίσεις,
 #: src/components/clio/transcript-task-row.tsx
 msgid "Untitled"
 msgstr "Χωρίς τίτλο"
+
+#: src/components/clio/settings-report-problem.tsx
+msgid "Untitled conversation"
+msgstr "Συνομιλία χωρίς τίτλο"
 
 #: src/components/clio/settings-tools.tsx
 msgid "Untitled item"
@@ -40493,6 +40660,7 @@ msgid "Verifying…"
 msgstr "Επαλήθευση…"
 
 #: src/components/clio/managed-service-inventory-row.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 msgid "Version"
 msgstr "Έκδοση"
 
@@ -41025,6 +41193,7 @@ msgid "Web"
 msgstr "Ιστός"
 
 #: src/components/clio/settings-about.tsx
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-foundation.ts
 msgid "Web browser"
 msgstr "Πρόγραμμα περιήγησης"
@@ -41663,7 +41832,7 @@ msgstr "Πόροι χώρου εργασίας"
 msgid "Workspace saved"
 msgstr "Ο χώρος εργασίας αποθηκεύτηκε"
 
-#: src/components/clio/settings-operations.tsx
+#: src/components/clio/settings-health-labels.ts
 #: src/routes/infrastructure-foundation.ts
 msgid "Workspace service"
 msgstr "Υπηρεσία χώρου εργασίας"
@@ -41810,6 +41979,7 @@ msgstr "Έτος"
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Yes"
 msgstr "Ναι"

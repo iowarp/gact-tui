@@ -286,6 +286,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                             t`No response content was recorded for this turn.`)
                       }
                       onRetry={retryReply}
+                      reportSessionId={message.session_id}
                       retrying={entities.retryingMessageId === message.id}
                       title={
                         emptyResponseWasClientCancelled
@@ -435,6 +436,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   <ReplyErrorLine
                     reason={emptyResponseErrorMessage}
                     onRetry={retryReply}
+                    reportSessionId={message.session_id}
                     retrying={entities.retryingMessageId === message.id}
                     title={t`This reply didn’t finish`}
                   />

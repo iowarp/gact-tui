@@ -14,6 +14,7 @@ import {
   HardDriveIcon,
   HeartPulseIcon,
   HistoryIcon,
+  LifeBuoyIcon,
   LayoutDashboardIcon,
   PaletteIcon,
   PlugIcon,
@@ -77,6 +78,13 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     icon: InfoIcon,
     group: 'App',
     keywords: 'version updates build',
+  },
+  {
+    id: 'report-problem',
+    label: t`Report a problem`,
+    icon: LifeBuoyIcon,
+    group: 'App',
+    keywords: 'bug issue help support logs diagnostics error crash send report',
   },
   {
     id: 'folders',

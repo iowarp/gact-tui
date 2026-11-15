@@ -265,7 +265,7 @@ export const StateView = memo(function StateView({
         </span>
       </span>
       {children}
-      {action ? (
+      {action || secondaryAction ? (
         <span className={cn('flex shrink-0 items-center gap-2', row && 'ml-auto')}>
           {secondaryAction ? (
             <Button
@@ -277,24 +277,26 @@ export const StateView = memo(function StateView({
               {secondaryAction.label}
             </Button>
           ) : null}
-          <Button
-            variant={kind === 'changed-elsewhere' ? 'default' : 'outline'}
-            size={row ? 'xs' : 'default'}
-            disabled={action.disabled}
-            onClick={keepingFocus(action.onClick)}
-            className={cn(
-              kind !== 'changed-elsewhere' && 'text-foreground',
-              row && kind !== 'changed-elsewhere' && 'rounded-[7px] border-input',
-            )}
-          >
-            {/* An action's own icon (or `null` for none) replaces Retry's. */}
-            {action.icon !== undefined ? (
-              action.icon
-            ) : kind === 'error' ? (
-              <RetryIcon aria-hidden="true" className={row ? 'size-3.5' : undefined} />
-            ) : null}
-            {actionLabel}
-          </Button>
+          {action ? (
+            <Button
+              variant={kind === 'changed-elsewhere' ? 'default' : 'outline'}
+              size={row ? 'xs' : 'default'}
+              disabled={action.disabled}
+              onClick={keepingFocus(action.onClick)}
+              className={cn(
+                kind !== 'changed-elsewhere' && 'text-foreground',
+                row && kind !== 'changed-elsewhere' && 'rounded-[7px] border-input',
+              )}
+            >
+              {/* An action's own icon (or `null` for none) replaces Retry's. */}
+              {action.icon !== undefined ? (
+                action.icon
+              ) : kind === 'error' ? (
+                <RetryIcon aria-hidden="true" className={row ? 'size-3.5' : undefined} />
+              ) : null}
+              {actionLabel}
+            </Button>
+          ) : null}
         </span>
       ) : null}
       {link && !row ? (

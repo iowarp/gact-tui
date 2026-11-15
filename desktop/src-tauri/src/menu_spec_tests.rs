@@ -148,7 +148,7 @@ fn spec_has_the_full_menu_bar_with_expected_item_counts() {
         ("View", 12), // search, sep, left bar, workbench, sep, reload, sep, zoom x3, sep, full screen
         ("Agent", 7), // connection settings, switch to, manage, sep, add an agent submenu, sep, infrastructure
         ("Window", 4), // minimize, zoom, sep, bring all to front
-        ("Help", 2),  // documentation, keyboard shortcuts
+        ("Help", 3),  // documentation, keyboard shortcuts, report a problem
     ];
     assert_eq!(MENU_SPEC.len(), expected_counts.len());
     for (spec, (title, count)) in MENU_SPEC.iter().zip(expected_counts) {
@@ -210,7 +210,7 @@ fn product_submenus_bridge_their_actions_in_order() {
     );
     assert_eq!(
         ids(HELP_MENU_TITLE),
-        vec!["help-docs", "keyboard-shortcuts"]
+        vec!["help-docs", "keyboard-shortcuts", "report-problem"]
     );
 }
 
