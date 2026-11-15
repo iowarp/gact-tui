@@ -1868,7 +1868,7 @@ msgstr "{detail} ({elapsed}) Puedes seguir usando {agent} mientras termina."
 
 #: src/components/clio/a2ui-raster-viewport.tsx
 msgid "{dimension} {value} ({position} of {count})"
-msgstr ""
+msgstr "{dimension} {value} ({position} de {count})"
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "{displayName} view closed"
@@ -4530,7 +4530,7 @@ msgstr "Una cuota privada y listas de sitios permitidos."
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "A profile in the AWS configuration of the computer {agent} runs on."
-msgstr ""
+msgstr "Un perfil de la configuración de AWS del equipo donde se ejecuta {agent}."
 
 #: src/widget-preview-app.tsx
 msgid "A question becomes an explorable answer"
@@ -4891,11 +4891,11 @@ msgstr "Acceso"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Access key"
-msgstr ""
+msgstr "Clave de acceso"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Access key ID"
-msgstr ""
+msgstr "ID de clave de acceso"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "Access rules"
@@ -7893,7 +7893,7 @@ msgstr "Explorando {hostLabel}"
 
 #: src/components/clio/source-fields.tsx
 msgid "Bucket and prefix"
-msgstr ""
+msgstr "Bucket y prefijo"
 
 #: src/components/clio/science-log-panel.tsx
 msgid "Budget"
@@ -18912,7 +18912,7 @@ msgstr "Conserva la región de la imagen y la fuente registrada. El mapa de calo
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Kept by {agent} on the computer it runs on, for this source only; scripts and tools never see it."
-msgstr ""
+msgstr "{agent} la guarda en el equipo donde se ejecuta, solo para esta fuente; los scripts y las herramientas nunca la ven."
 
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Kept in"
@@ -19103,7 +19103,7 @@ msgstr "Deja un campo vacío para mantener el valor predeterminado del motor. Un
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Leave it empty for Amazon S3. For an S3-compatible store such as MinIO, Ceph or the Open Storage Network, enter its address."
-msgstr ""
+msgstr "Déjalo vacío para Amazon S3. Para un almacén compatible con S3, como MinIO, Ceph u Open Storage Network, introduce su dirección."
 
 #: src/components/clio/remote-agent-conflict.tsx
 msgid "Leave it running and start another"
@@ -23880,7 +23880,7 @@ msgstr "No hay nada programado en {title}"
 
 #: src/components/clio/bound-data-query.tsx
 msgid "Nothing is selected for “{column}” yet."
-msgstr ""
+msgstr "Aún no hay nada seleccionado para “{column}”."
 
 #: src/components/clio/viewer-file-gate.tsx
 msgid "Nothing is selected for this {noun} yet."
@@ -24823,7 +24823,7 @@ msgstr "Abrir la carpeta de {name}"
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "Open the live view"
-msgstr ""
+msgstr "Abrir la vista en directo"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "Open the model picker"
@@ -26611,7 +26611,7 @@ msgstr "El perfil y las preferencias se conservan siempre. Las demás propuestas
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Profile name"
-msgstr ""
+msgstr "Nombre del perfil"
 
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
@@ -26933,7 +26933,7 @@ msgstr "Los proveedores están a la izquierda y sus modelos a la derecha. Escrib
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Public"
-msgstr ""
+msgstr "Público"
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Public or private repository folder"
@@ -31547,7 +31547,7 @@ msgstr "Segundos entre registros"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Secret access key"
-msgstr ""
+msgstr "Clave de acceso secreta"
 
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/cad-model-view.tsx
@@ -31776,7 +31776,7 @@ msgstr "Región de imagen seleccionada"
 
 #: src/components/clio/file-viewer-shell.tsx
 msgid "Selected in the viewer"
-msgstr ""
+msgstr "Seleccionado en el visor"
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Selected items"
@@ -35702,7 +35702,7 @@ msgstr "La conversación no permitió establecer una respuesta fiable."
 
 #: src/components/clio/composer-failure.ts
 msgid "The conversation store is refusing writes."
-msgstr ""
+msgstr "El almacén de conversaciones está rechazando las escrituras."
 
 #: src/components/clio/study-views.tsx
 msgid "The conversation that attached this view has since deleted its dashboard."
@@ -36079,7 +36079,7 @@ msgstr "La vista vinculada no está disponible."
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The live view could not open ({detail}); this is its recording."
-msgstr ""
+msgstr "No se pudo abrir la vista en directo ({detail}); esta es su grabación."
 
 #: src/components/clio/browser-live-socket.ts
 msgid "The live view ended."
@@ -36087,7 +36087,7 @@ msgstr "La vista en directo terminó."
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The live view opens only in a conversation; this is its recording."
-msgstr ""
+msgstr "La vista en directo solo se abre en una conversación; esta es su grabación."
 
 #: src/tauri/clio-update-verification.ts
 msgid "The local {agent} service did not report its running version."
@@ -41120,7 +41120,7 @@ msgstr "Cuando se agote la cuota gratuita de una fuente, usar la siguiente sin p
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "When to set an endpoint"
-msgstr ""
+msgstr "Cuándo indicar una dirección"
 
 #: src/components/clio/settings-notifications.tsx
 msgid "When to show a system notice while the app is in the background. The system asks for permission the first time."
@@ -41930,7 +41930,7 @@ msgstr "Tu mensaje"
 
 #: src/components/clio/composer-store-refusal.tsx
 msgid "Your message was not saved."
-msgstr ""
+msgstr "Tu mensaje no se guardó."
 
 #: src/lib/search-source-text.ts
 msgid "Your own monthly allowance, and deeper search modes."

@@ -1868,7 +1868,7 @@ msgstr "{detail}（{elapsed}）完了するまでの間も{agent}を使い続け
 
 #: src/components/clio/a2ui-raster-viewport.tsx
 msgid "{dimension} {value} ({position} of {count})"
-msgstr ""
+msgstr "{dimension} {value}（{position}/{count}）"
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "{displayName} view closed"
@@ -4530,7 +4530,7 @@ msgstr "専用の利用枠とサイトの許可リスト。"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "A profile in the AWS configuration of the computer {agent} runs on."
-msgstr ""
+msgstr "{agent}が動作しているコンピューターのAWS設定にあるプロファイルです。"
 
 #: src/widget-preview-app.tsx
 msgid "A question becomes an explorable answer"
@@ -4891,11 +4891,11 @@ msgstr "アクセス"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Access key"
-msgstr ""
+msgstr "アクセスキー"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Access key ID"
-msgstr ""
+msgstr "アクセスキーID"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "Access rules"
@@ -7893,7 +7893,7 @@ msgstr "{hostLabel}を参照中"
 
 #: src/components/clio/source-fields.tsx
 msgid "Bucket and prefix"
-msgstr ""
+msgstr "バケットとプレフィックス"
 
 #: src/components/clio/science-log-panel.tsx
 msgid "Budget"
@@ -18912,7 +18912,7 @@ msgstr "画像の領域と記録されたソースを保持します。ヒート
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Kept by {agent} on the computer it runs on, for this source only; scripts and tools never see it."
-msgstr ""
+msgstr "{agent}が動作しているコンピューター上に、このソース専用として保持されます。スクリプトやツールからは参照できません。"
 
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Kept in"
@@ -19103,7 +19103,7 @@ msgstr "エンジンの既定値を使う場合はフィールドを空のまま
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Leave it empty for Amazon S3. For an S3-compatible store such as MinIO, Ceph or the Open Storage Network, enter its address."
-msgstr ""
+msgstr "Amazon S3の場合は空欄のままにします。MinIO、Ceph、Open Storage NetworkなどのS3互換ストアの場合は、そのアドレスを入力します。"
 
 #: src/components/clio/remote-agent-conflict.tsx
 msgid "Leave it running and start another"
@@ -23880,7 +23880,7 @@ msgstr "{title}には何もスケジュールされていません"
 
 #: src/components/clio/bound-data-query.tsx
 msgid "Nothing is selected for “{column}” yet."
-msgstr ""
+msgstr "「{column}」ではまだ何も選択されていません。"
 
 #: src/components/clio/viewer-file-gate.tsx
 msgid "Nothing is selected for this {noun} yet."
@@ -24823,7 +24823,7 @@ msgstr "{name}のフォルダーを開く"
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "Open the live view"
-msgstr ""
+msgstr "ライブビューを開く"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "Open the model picker"
@@ -26611,7 +26611,7 @@ msgstr "プロフィールと好みは常に保持されます。その他の廃
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Profile name"
-msgstr ""
+msgstr "プロファイル名"
 
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
@@ -26933,7 +26933,7 @@ msgstr "左側にプロバイダー、右側にそのモデルが表示されま
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Public"
-msgstr ""
+msgstr "公開"
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Public or private repository folder"
@@ -31547,7 +31547,7 @@ msgstr "レコード間の秒数"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Secret access key"
-msgstr ""
+msgstr "シークレットアクセスキー"
 
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/cad-model-view.tsx
@@ -31776,7 +31776,7 @@ msgstr "選択した画像領域"
 
 #: src/components/clio/file-viewer-shell.tsx
 msgid "Selected in the viewer"
-msgstr ""
+msgstr "ビューアーで選択"
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Selected items"
@@ -35702,7 +35702,7 @@ msgstr "会話から確実な回答を得られませんでした。"
 
 #: src/components/clio/composer-failure.ts
 msgid "The conversation store is refusing writes."
-msgstr ""
+msgstr "会話ストアが書き込みを拒否しています。"
 
 #: src/components/clio/study-views.tsx
 msgid "The conversation that attached this view has since deleted its dashboard."
@@ -36079,7 +36079,7 @@ msgstr "リンクされたビューを利用できません。"
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The live view could not open ({detail}); this is its recording."
-msgstr ""
+msgstr "ライブビューを開けませんでした（{detail}）。これはその記録です。"
 
 #: src/components/clio/browser-live-socket.ts
 msgid "The live view ended."
@@ -36087,7 +36087,7 @@ msgstr "ライブビューが終了しました。"
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The live view opens only in a conversation; this is its recording."
-msgstr ""
+msgstr "ライブビューは会話内でのみ開きます。これはその記録です。"
 
 #: src/tauri/clio-update-verification.ts
 msgid "The local {agent} service did not report its running version."
@@ -41120,7 +41120,7 @@ msgstr "ソースの無料枠を使い切ったら、確認せずに次のソー
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "When to set an endpoint"
-msgstr ""
+msgstr "アドレスを設定するタイミング"
 
 #: src/components/clio/settings-notifications.tsx
 msgid "When to show a system notice while the app is in the background. The system asks for permission the first time."
@@ -41930,7 +41930,7 @@ msgstr "あなたのメッセージ"
 
 #: src/components/clio/composer-store-refusal.tsx
 msgid "Your message was not saved."
-msgstr ""
+msgstr "メッセージは保存されませんでした。"
 
 #: src/lib/search-source-text.ts
 msgid "Your own monthly allowance, and deeper search modes."

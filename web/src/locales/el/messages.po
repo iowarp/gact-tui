@@ -1868,7 +1868,7 @@ msgstr "{detail} ({elapsed}) Μπορείτε να συνεχίσετε να χ�
 
 #: src/components/clio/a2ui-raster-viewport.tsx
 msgid "{dimension} {value} ({position} of {count})"
-msgstr ""
+msgstr "{dimension} {value} ({position} από {count})"
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "{displayName} view closed"
@@ -4530,7 +4530,7 @@ msgstr "Ένα ιδιωτικό όριο και λίστες επιτρεπόμ�
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "A profile in the AWS configuration of the computer {agent} runs on."
-msgstr ""
+msgstr "Ένα προφίλ στη διαμόρφωση AWS του υπολογιστή όπου εκτελείται ο {agent}."
 
 #: src/widget-preview-app.tsx
 msgid "A question becomes an explorable answer"
@@ -4891,11 +4891,11 @@ msgstr "Πρόσβαση"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Access key"
-msgstr ""
+msgstr "Κλειδί πρόσβασης"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Access key ID"
-msgstr ""
+msgstr "Αναγνωριστικό κλειδιού πρόσβασης"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "Access rules"
@@ -7893,7 +7893,7 @@ msgstr "Περιήγηση: {hostLabel}"
 
 #: src/components/clio/source-fields.tsx
 msgid "Bucket and prefix"
-msgstr ""
+msgstr "Bucket και πρόθεμα"
 
 #: src/components/clio/science-log-panel.tsx
 msgid "Budget"
@@ -18912,7 +18912,7 @@ msgstr "Διατηρεί την περιοχή της εικόνας και τη
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Kept by {agent} on the computer it runs on, for this source only; scripts and tools never see it."
-msgstr ""
+msgstr "Το φυλάσσει ο {agent} στον υπολογιστή όπου εκτελείται, μόνο για αυτή την πηγή· τα σενάρια και τα εργαλεία δεν το βλέπουν ποτέ."
 
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Kept in"
@@ -19103,7 +19103,7 @@ msgstr "Αφήστε ένα πεδίο κενό για να διατηρηθεί
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Leave it empty for Amazon S3. For an S3-compatible store such as MinIO, Ceph or the Open Storage Network, enter its address."
-msgstr ""
+msgstr "Αφήστε το κενό για το Amazon S3. Για χώρο αποθήκευσης συμβατό με S3, όπως το MinIO, το Ceph ή το Open Storage Network, εισαγάγετε τη διεύθυνσή του."
 
 #: src/components/clio/remote-agent-conflict.tsx
 msgid "Leave it running and start another"
@@ -23880,7 +23880,7 @@ msgstr "Δεν υπάρχει τίποτα προγραμματισμένο στ
 
 #: src/components/clio/bound-data-query.tsx
 msgid "Nothing is selected for “{column}” yet."
-msgstr ""
+msgstr "Δεν έχει επιλεγεί ακόμη τίποτα για το «{column}»."
 
 #: src/components/clio/viewer-file-gate.tsx
 msgid "Nothing is selected for this {noun} yet."
@@ -24823,7 +24823,7 @@ msgstr "Άνοιγμα του φακέλου του {name}"
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "Open the live view"
-msgstr ""
+msgstr "Άνοιγμα ζωντανής προβολής"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "Open the model picker"
@@ -26611,7 +26611,7 @@ msgstr "Το προφίλ και οι προτιμήσεις διατηρούν�
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Profile name"
-msgstr ""
+msgstr "Όνομα προφίλ"
 
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
@@ -26933,7 +26933,7 @@ msgstr "Οι πάροχοι βρίσκονται στα αριστερά και 
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Public"
-msgstr ""
+msgstr "Δημόσια"
 
 #: src/components/clio/connected-source-picker.tsx
 msgid "Public or private repository folder"
@@ -31547,7 +31547,7 @@ msgstr "Δευτερόλεπτα μεταξύ εγγραφών"
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "Secret access key"
-msgstr ""
+msgstr "Μυστικό κλειδί πρόσβασης"
 
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/cad-model-view.tsx
@@ -31776,7 +31776,7 @@ msgstr "Επιλεγμένη περιοχή εικόνας"
 
 #: src/components/clio/file-viewer-shell.tsx
 msgid "Selected in the viewer"
-msgstr ""
+msgstr "Επιλεγμένο στο πρόγραμμα προβολής"
 
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Selected items"
@@ -35702,7 +35702,7 @@ msgstr "Η συνομιλία δεν κατέληξε σε μια βέβαιη �
 
 #: src/components/clio/composer-failure.ts
 msgid "The conversation store is refusing writes."
-msgstr ""
+msgstr "Ο χώρος αποθήκευσης συνομιλιών απορρίπτει τις εγγραφές."
 
 #: src/components/clio/study-views.tsx
 msgid "The conversation that attached this view has since deleted its dashboard."
@@ -36079,7 +36079,7 @@ msgstr "Η συνδεδεμένη προβολή δεν είναι διαθέσ�
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The live view could not open ({detail}); this is its recording."
-msgstr ""
+msgstr "Δεν ήταν δυνατό να ανοίξει η ζωντανή προβολή ({detail})· αυτή είναι η καταγραφή της."
 
 #: src/components/clio/browser-live-socket.ts
 msgid "The live view ended."
@@ -36087,7 +36087,7 @@ msgstr "Η ζωντανή προβολή τελείωσε."
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The live view opens only in a conversation; this is its recording."
-msgstr ""
+msgstr "Η ζωντανή προβολή ανοίγει μόνο σε συνομιλία· αυτή είναι η καταγραφή της."
 
 #: src/tauri/clio-update-verification.ts
 msgid "The local {agent} service did not report its running version."
@@ -41120,7 +41120,7 @@ msgstr "Όταν εξαντληθεί το δωρεάν όριο μιας πηγ
 
 #: src/components/clio/source-s3-fields.tsx
 msgid "When to set an endpoint"
-msgstr ""
+msgstr "Πότε να ορίσετε διεύθυνση"
 
 #: src/components/clio/settings-notifications.tsx
 msgid "When to show a system notice while the app is in the background. The system asks for permission the first time."
@@ -41930,7 +41930,7 @@ msgstr "Το μήνυμά σας"
 
 #: src/components/clio/composer-store-refusal.tsx
 msgid "Your message was not saved."
-msgstr ""
+msgstr "Το μήνυμά σας δεν αποθηκεύτηκε."
 
 #: src/lib/search-source-text.ts
 msgid "Your own monthly allowance, and deeper search modes."
