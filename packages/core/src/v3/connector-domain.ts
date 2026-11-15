@@ -29,6 +29,11 @@ export const connectorNeedSchema = z
     help: wireText,
     required: z.boolean().default(false),
     agent_settable: z.boolean().default(false),
+    /** A heading the card shows this need under, with the others of the same group. */
+    group: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? ''),
     default: z
       .string()
       .nullish()
@@ -215,6 +220,14 @@ export function connectorSetupPayload(payload: unknown): ConnectorSetupPayload |
 /** Whether a `connector_setup` payload is the agent's offer to add a connector here. */
 export function isConnectorOffer(payload: unknown): boolean {
   return connectorSetupPayload(payload)?.intent === 'enable';
+}
+
+/**
+ * Whether a `connector_setup` payload is the agent asking for optional needs of a
+ * connector already here (`values`, KiCad plan KC5): the same card, showing only those.
+ */
+export function isConnectorValuesRequest(payload: unknown): boolean {
+  return connectorSetupPayload(payload)?.intent === 'values';
 }
 
 /** Whether a `connector_setup` payload is the agent-load card (`agent_needs`). */

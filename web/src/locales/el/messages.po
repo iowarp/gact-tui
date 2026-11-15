@@ -16607,6 +16607,10 @@ msgstr "Κωδικός σύνδεσης GitHub"
 msgid "GitHub's limit for update checks from this network is used up until {time}."
 msgstr "Το όριο του GitHub για ελέγχους ενημερώσεων από αυτό το δίκτυο έχει εξαντληθεί έως τις {time}."
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Give {name} {asked}?"
+msgstr ""
+
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
 msgstr "Δώστε όνομα σε αυτή την υπηρεσία."
@@ -30457,6 +30461,7 @@ msgid "Saturday"
 msgstr "Σάββατο"
 
 #: src/components/clio/composer-queue-row.tsx
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/known-service-actions.tsx
 #: src/components/clio/primitives/save-bar.tsx
 #: src/components/clio/settings-model-server-row.tsx

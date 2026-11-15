@@ -2,6 +2,7 @@ import {
   connectorSetupPayload,
   isAgentNeeds,
   isConnectorOffer,
+  isConnectorValuesRequest,
   isPluginOffer,
   type PendingInteraction,
 } from '@clio/core/v3';
@@ -30,7 +31,9 @@ export function ConnectorSetupResponse(props: ConnectorCardProps) {
   // The agent-load card (LZ-D2): what this conversation's agent needs that is not ready.
   if (isAgentNeeds(props.interaction.payload)) return <AgentNeedsResponse {...props} />;
   // The agent's offer of a connector or a plugin is the same card, in its offer form.
-  return isConnectorOffer(props.interaction.payload) || isPluginOffer(props.interaction.payload) ? (
+  return isConnectorOffer(props.interaction.payload) ||
+    isPluginOffer(props.interaction.payload) ||
+    isConnectorValuesRequest(props.interaction.payload) ? (
     <ConnectorOfferResponse {...props} />
   ) : (
     <ConnectorSetupCard {...props} />

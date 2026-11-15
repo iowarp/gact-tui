@@ -16607,6 +16607,10 @@ msgstr "Código de inicio de sesión de GitHub"
 msgid "GitHub's limit for update checks from this network is used up until {time}."
 msgstr "El límite de GitHub para buscar actualizaciones desde esta red está agotado hasta las {time}."
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Give {name} {asked}?"
+msgstr ""
+
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
 msgstr "Ponle un nombre a este servicio."
@@ -30457,6 +30461,7 @@ msgid "Saturday"
 msgstr "Sábado"
 
 #: src/components/clio/composer-queue-row.tsx
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/known-service-actions.tsx
 #: src/components/clio/primitives/save-bar.tsx
 #: src/components/clio/settings-model-server-row.tsx

@@ -98,8 +98,13 @@ export function ConnectorNeedRows({
         onSubmit?.();
       }}
     >
-      {needs.map((need) => {
+      {needs.map((need, index) => {
         const id = `${ids}-${need.key}`;
+        // Needs of one group (such as "Part catalogs") sit under its heading, once.
+        const group = 'group' in need && typeof need.group === 'string' ? need.group : '';
+        const previous = index > 0 ? needs[index - 1] : undefined;
+        const heading =
+          group && (!previous || !('group' in previous) || previous.group !== group) ? group : '';
         // A catalog's help may end without a full stop (a URL); the next sentence needs one.
         const help = need.help?.trim().replace(/([^.!?…])$/u, '$1.');
         const hint = [help, need.agent_settable ? t`The agent can set this.` : '']
@@ -109,9 +114,19 @@ export function ConnectorNeedRows({
           <div
             className="grid min-w-0 gap-1"
             data-need={need.key}
+            data-need-group={group || undefined}
             data-need-kind={need.kind}
             key={need.key}
           >
+            {heading ? (
+              <div
+                className="pt-1 text-xs font-medium text-muted-foreground"
+                role="heading"
+                aria-level={4}
+              >
+                {heading}
+              </div>
+            ) : null}
             <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
               {/* A sign-in row's button says what it does; its label names the row. */}
               <label

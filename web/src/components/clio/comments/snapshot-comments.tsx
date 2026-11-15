@@ -40,6 +40,25 @@ export interface SnapshotCommentTarget {
   source: () => Record<string, unknown>;
   /** The view's snapshot, once the view is ready. */
   snapshot: () => TakeViewSnapshot | undefined;
+  /**
+   * KF2: what the view says lies under a mark, from the view's own `describe_region`
+   * tool, given the mark's rectangle in the view's CSS pixels. Undefined when the view
+   * offers no such tool.
+   */
+  describeRegion?: (rect: CssRect) => Promise<RegionDescription> | undefined;
+}
+
+export interface CssRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** A view's answer for one mark: a picture it drew of the region, and what lies under it. */
+export interface RegionDescription {
+  image?: string;
+  under?: unknown;
 }
 
 const CaptureContext = createContext<
@@ -100,6 +119,39 @@ export function SnapshotRegionLayer() {
   const host = useRef<HTMLDivElement>(null);
   if (!session || !capture || !session.open) return null;
   const capturing = session.active && session.mode === 'region';
+  // KF2: ask the view what lies under the mark; a view without the tool says nothing.
+  const describe = (label: string, anchor: DocumentAnchor, rect: Rect, box?: DOMRect) => {
+    if (capture.target.kind !== 'mcp-app') return;
+    const css: CssRect = {
+      x: Math.round(rect[0] * (box?.width ?? 0)),
+      y: Math.round(rect[1] * (box?.height ?? 0)),
+      width: Math.max(1, Math.round(rect[2] * (box?.width ?? 0))),
+      height: Math.max(1, Math.round(rect[3] * (box?.height ?? 0))),
+    };
+    const asked = capture.target.describeRegion?.(css);
+    const note = (source: Record<string, unknown>) =>
+      session.updateMark(label, { anchor: { ...anchor, source: { ...anchor.source, ...source } } });
+    if (!asked) {
+      // i18n-ignore: travels with the comment to the agent, kept in English
+      note({ region: { rect_css: css, note: 'The view could not describe this region.' } });
+      return;
+    }
+    void asked.then(
+      (found) => {
+        const held = capture.captures.get(label);
+        if (found.image) capture.captures.set(label, { ...(held ?? {}), regionImage: found.image });
+        note({ region: { rect_css: css, under: found.under ?? null } });
+      },
+      (error: unknown) =>
+        note({
+          region: {
+            rect_css: css,
+            // i18n-ignore: travels with the comment to the agent, kept in English
+            note: `The view could not describe this region: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        }),
+    );
+  };
   const add = (rect: Rect, point?: [number, number]) => {
     const box = host.current?.getBoundingClientRect();
     const take = capture.target.snapshot();
@@ -131,6 +183,7 @@ export function SnapshotRegionLayer() {
         // i18n-ignore: travels with the comment to the agent, kept in English
         note: `No picture of this mark: ${message}`,
       });
+    describe(label, anchor, rect, box);
     if (!take) {
       // i18n-ignore: the refusal travels with the comment to the agent, kept in English
       refuse('view_not_ready', 'The view has not finished loading.');
@@ -138,7 +191,7 @@ export function SnapshotRegionLayer() {
     }
     void take({ scale: 2, maxSide: 4096 }).then(
       (snapshot) => {
-        capture.captures.set(label, { snapshot });
+        capture.captures.set(label, { ...capture.captures.get(label), snapshot });
         if ('error' in snapshot) refuse(snapshot.error.reason, snapshot.error.message);
         else if (snapshot.skipped.length)
           session.updateMark(label, {

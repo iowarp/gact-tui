@@ -16607,6 +16607,10 @@ msgstr "GitHub sign-in code"
 msgid "GitHub's limit for update checks from this network is used up until {time}."
 msgstr "GitHub's limit for update checks from this network is used up until {time}."
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Give {name} {asked}?"
+msgstr "Give {name} {asked}?"
+
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
 msgstr "Give this service a name."
@@ -30457,6 +30461,7 @@ msgid "Saturday"
 msgstr "Saturday"
 
 #: src/components/clio/composer-queue-row.tsx
+#: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/known-service-actions.tsx
 #: src/components/clio/primitives/save-bar.tsx
 #: src/components/clio/settings-model-server-row.tsx

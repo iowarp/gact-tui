@@ -2,6 +2,7 @@ import { TransportError, type McpAppDescriptor, type McpAppIdentity } from '@cli
 import { AlertTriangleIcon, CornerDownRightIcon, PanelsTopLeftIcon } from 'lucide-react';
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -38,6 +39,8 @@ import { onScreen, revealView, trackViewLook } from './mcp-app-look-waiting';
 import { ViewLookCardNotice } from './mcp-app-look-waiting-notice';
 import { mcpAppServiceHostContext } from './mcp-app-service';
 import { McpAppViewTools } from './mcp-app-view-tools';
+import { describeRegionWith } from './mcp-app-describe-region';
+import type { CssRect } from './comments/snapshot-comments';
 import {
   McpAppLooks,
   registerViewSnapshot,
@@ -174,11 +177,17 @@ const McpAppSurfaceInstance = forwardRef<
   // The view's snapshot (CM1), once it is ready, and the context it last reported (CM3).
   const snapshotRef = useRef<TakeSnapshot | undefined>(undefined);
   const contextRef = useRef<unknown>(undefined);
+  // KF2: the view's own tools, to ask it what lies under a comment mark.
+  const viewToolsRef = useRef<McpAppViewTools | undefined>(undefined);
   // Callbacks read at call time, so a parent re-render never rebuilds the bridge.
   const latest = useRef(props);
   useLayoutEffect(() => {
     latest.current = props;
   });
+  const describeRegion = useCallback(
+    (rect: CssRect) => describeRegionWith(viewToolsRef.current, rect),
+    [],
+  );
   const frameHeight =
     placement === 'surface' && props.height
       ? props.height
@@ -270,6 +279,7 @@ const McpAppSurfaceInstance = forwardRef<
           post({ jsonrpc: '2.0', id, method, params });
         }),
     );
+    viewToolsRef.current = viewTools;
     // CLIO's sandbox document answers a snapshot request itself; the view never sees it.
     const snapshot: TakeSnapshot = (options) =>
       new Promise<unknown>((resolve, reject) => {
@@ -444,6 +454,7 @@ const McpAppSurfaceInstance = forwardRef<
     return () => {
       active = false;
       viewTools.stop();
+      if (viewToolsRef.current === viewTools) viewToolsRef.current = undefined;
       looks.stop();
       firstPaint?.stop();
       snapshotRef.current = undefined;
@@ -556,6 +567,7 @@ const McpAppSurfaceInstance = forwardRef<
   return (
     <McpAppCommentSession
       context={() => contextRef.current}
+      describeRegion={describeRegion}
       snapshot={() => snapshotRef.current}
       target={{
         appInstanceId: props.appInstanceId,

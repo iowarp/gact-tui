@@ -4,7 +4,9 @@ import { readThemeColor } from '@/theme/runtime';
 
 /** The snapshot a mark kept of the view when it was made (CM3). */
 export interface Capture {
-  snapshot: McpAppSnapshot;
+  snapshot?: McpAppSnapshot;
+  /** KF2: the region as the view itself drew it (a PNG data URL). */
+  regionImage?: string;
 }
 
 const OVERVIEW_SIDE = 1568;
@@ -74,6 +76,11 @@ export async function appViewImages(
   if (!shot || !('image' in shot)) return images;
   images.push({ data: await overviewPng(await loadImage(shot.image), marks) });
   for (const mark of marks) {
+    const drawn = captures.get(mark.label)?.regionImage;
+    if (drawn) {
+      images.push({ label: mark.label, data: drawn });
+      continue;
+    }
     const snapshot = captures.get(mark.label)?.snapshot;
     if (!snapshot || !('image' in snapshot) || mark.anchor.rect?.length !== 4) continue;
     images.push({
