@@ -125,7 +125,7 @@ export function useWorkbenchTabState(
       if (closing.has(tab.id) && tab.kind === 'terminal') void closeEmbeddedTerminalTab(tab.id);
       // Closing an App's tab returns the App to its card, or closes it (MA2, MA7).
       if (closing.has(tab.id) && tab.kind === 'mcp-app')
-        returnMcpAppToConversation(tab.appInstanceId);
+        returnMcpAppToConversation(tab.appInstanceId, { byPerson: true });
     }
     if (closing.has(shownActiveTabId)) {
       const before = orderedTabs.slice(0, Math.max(0, index)).reverse();

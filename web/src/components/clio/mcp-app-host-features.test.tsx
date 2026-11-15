@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkedLink, McpAppRpcFailure, resolveDisplayMode } from './mcp-app-bridge';
 import { mcpAppStyleVariables } from './mcp-app-host-styles';
 import {
+  mcpAppKeptInline,
   OPEN_MCP_APP_TAB_EVENT,
   openMcpAppInTab,
   resetMcpAppLiveSet,
@@ -138,6 +139,18 @@ describe('MCP App host features', () => {
     send({ id: 'in', method: 'ui/request-display-mode', params: { mode: 'inline' } });
     expect(reply('in')?.result).toEqual({ mode: 'inline' });
     await waitFor(() => expect(onDisplayModeChange).toHaveBeenCalledWith('inline'));
+  });
+
+  it('keeps the current mode when the owner declines the view’s request', async () => {
+    const onDisplayModeChange = vi.fn();
+    const { reply, send } = await mountView(repository(), {
+      onDisplayModeChange,
+      declinesDisplayMode: (mode: string) => mode === 'fullscreen',
+    });
+    send({ id: 'full', method: 'ui/request-display-mode', params: { mode: 'fullscreen' } });
+    expect(reply('full')?.result).toEqual({ mode: 'inline' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onDisplayModeChange).not.toHaveBeenCalled();
   });
 
   it('opens https links in the in-app browser and refuses other schemes with a reason', async () => {
@@ -298,5 +311,26 @@ describe('the live set', () => {
       expect.objectContaining({ appInstanceId: 'app_1' }),
     );
     window.removeEventListener(OPEN_MCP_APP_TAB_EVENT, opened);
+  });
+
+  it('keeps an app the person put back in the conversation there until they open its tab', () => {
+    const client = repository();
+    useMcpAppLiveSetStore.setState({ apps: {}, latest: { sess: 'app_1' } });
+
+    openMcpAppInTab(target, client);
+    // The view asked for inline itself: its next request for the tab is its own choice.
+    returnMcpAppToConversation('app_1');
+    expect(mcpAppKeptInline('app_1')).toBe(false);
+
+    openMcpAppInTab(target, client);
+    // The person closed the tab: the card mounts the view again, and a view that asks
+    // for its tab whenever it starts must not reopen it.
+    returnMcpAppToConversation('app_1', { byPerson: true });
+    expect(useMcpAppLiveSetStore.getState().apps.app_1?.placement).toBe('inline');
+    expect(mcpAppKeptInline('app_1')).toBe(true);
+
+    // Open in tab is the person's own choice again.
+    openMcpAppInTab(target, client);
+    expect(mcpAppKeptInline('app_1')).toBe(false);
   });
 });
