@@ -15,7 +15,26 @@ const LABELS: Record<string, string> = {
   summary: t`Conversation summary`,
   io: t`Messages and results`,
   other: t`Other context`,
+  skills: t`Skills`,
+  results: t`Tool results`,
+  offerable: t`Plugins you can add`,
 };
+
+/** Items the service marks for the interface to name (the offer list's own lines). */
+const ITEM_LABELS: Record<string, string> = {
+  offer_list_frame: t`List heading and closing line`,
+};
+
+/** A server section with its category and marked items named in the interface language. */
+function namedSection(section: ContextPromptSection): ContextPromptSection {
+  return {
+    ...section,
+    label: LABELS[section.id] ?? section.label,
+    items: section.items.map((item) =>
+      item.id && ITEM_LABELS[item.id] ? { ...item, label: ITEM_LABELS[item.id]! } : item,
+    ),
+  };
+}
 
 export function contextComposition(
   context: ContextSnapshot | undefined,
@@ -37,7 +56,7 @@ export function contextComposition(
   const limit = context?.limit_tokens ?? 0;
   const breakdown = context?.prompt_breakdown;
   const sections: ContextPromptSection[] =
-    (breakdown ? [...breakdown.sections] : undefined) ??
+    (breakdown ? breakdown.sections.map(namedSection) : undefined) ??
     Object.entries(context?.categories ?? {})
       .filter(([, tokens]) => tokens > 0)
       .map(([id, tokens]) => ({

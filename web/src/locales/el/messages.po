@@ -57,6 +57,10 @@ msgstr "«Πώς κινήθηκαν οι Harvey, Maria και Dorian και πό
 msgid "(Add turns it on)"
 msgstr "(Η προσθήκη το ενεργοποιεί)"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "(default: the first {cap})"
+msgstr "(προεπιλογή: τα πρώτα {cap})"
+
 #: src/components/clio/ndp-endpoint-panel.tsx
 msgid "(Hidden)"
 msgstr "(Κρυφό)"
@@ -1249,6 +1253,10 @@ msgstr "Τοποθεσία εγκατάστασης και εκτέλεσης τ
 msgid "{agent} is already running at {url}, but this app can't sign in to it: {reason}. Stop that {agent} or restart it with this version, then reopen the app."
 msgstr "Ο {agent} εκτελείται ήδη στο {url}, αλλά αυτή η εφαρμογή δεν μπορεί να συνδεθεί σε αυτόν: {reason}. Σταματήστε αυτόν τον {agent} ή επανεκκινήστε τον με αυτήν την έκδοση και, στη συνέχεια, ανοίξτε ξανά την εφαρμογή."
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "{agent} is told about the ticked plugins and connectors a conversation does not have, so it can offer one when a request needs it. Changes apply from its next turn."
+msgstr "Ενημερώνεται: {agent}, για τα επιλεγμένα πρόσθετα και τις συνδέσεις που δεν έχει μια συνομιλία, ώστε να προτείνει ένα όταν το χρειάζεται ένα αίτημα. Οι αλλαγές ισχύουν από την επόμενη σειρά του."
+
 #: src/hooks/use-system-version-status.ts
 msgid "{agent} is up to date"
 msgstr "Το {agent} είναι ενημερωμένο"
@@ -1535,6 +1543,14 @@ msgstr "{count, plural, one {Το {plugin} φέρνει αυτόν τον υπο
 msgid "{count, plural, one {{plugin} brings this tool} other {{plugin} brings these tools}}"
 msgstr "{count, plural, one {Το {plugin} φέρνει αυτό το εργαλείο} other {Το {plugin} φέρνει αυτά τα εργαλεία}}"
 
+#: src/components/clio/offer-list-row.tsx
+msgid "{count, plural, one {# brought in, chosen by you} other {# brought in, chosen by you}}"
+msgstr "{count, plural, one {# συμπεριλαμβάνεται, δική σας επιλογή} other {# συμπεριλαμβάνονται, δική σας επιλογή}}"
+
+#: src/components/clio/offer-list-row.tsx
+msgid "{count, plural, one {# brought in} other {# brought in}}"
+msgstr "{count, plural, one {# συμπεριλαμβάνεται} other {# συμπεριλαμβάνονται}}"
+
 #: src/lib/plugin-presentation.ts
 msgid "{count, plural, one {# catalog} other {# catalogs}}"
 msgstr "{count, plural, one {# κατάλογος} other {# κατάλογοι}}"
@@ -1808,6 +1824,10 @@ msgstr "{count} ακόμη: {tabs}"
 #: src/components/clio/model-row-facts.tsx
 msgid "{count} more: {tags}"
 msgstr "{count} ακόμη: {tags}"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "{count} of {total} brought in"
+msgstr "{count} από {total} συμπεριλαμβάνονται"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{count} rejected"
@@ -7784,6 +7804,10 @@ msgstr "Μεταφορά όλων μπροστά"
 msgid "Bring back the saved draft"
 msgstr "Επαναφορά του αποθηκευμένου πρόχειρου"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Bring in {name}"
+msgstr "Συμπερίληψη: {name}"
+
 #: src/lib/onboarding/tour-script.ts
 msgid "Bring in tools"
 msgstr "Προσθέστε εργαλεία"
@@ -9477,6 +9501,10 @@ msgstr "Επιλέξτε το επόμενο βήμα"
 msgid "Choose the next step for this station report."
 msgstr "Επιλέξτε το επόμενο βήμα για αυτήν την αναφορά σταθμού."
 
+#: src/components/clio/offer-list-row.tsx
+msgid "Choose the plugins {agent} can offer"
+msgstr "Επιλογή προσθέτων που μπορεί να προτείνει: {agent}"
+
 #: src/components/reui/time-picker.tsx
 msgid "Choose time"
 msgstr "Επιλογή ώρας"
@@ -9511,6 +9539,7 @@ msgstr "Επιλέξτε ποιες νέες και ενημερωμένες α�
 #: src/components/clio/folder-attach-form.tsx
 #: src/components/clio/memory-import-dialog.tsx
 #: src/components/clio/obsidian-source-form.tsx
+#: src/components/clio/offer-list-row.tsx
 #: src/components/clio/source-fields.tsx
 msgid "Choose…"
 msgstr "Επιλογή…"
@@ -10863,6 +10892,7 @@ msgid "Connections from this client to the agent and managed computers"
 msgstr "Συνδέσεις από αυτόν τον πελάτη προς τον πράκτορα και τους διαχειριζόμενους υπολογιστές"
 
 #: src/components/clio/agent-plugin-menu.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Connector"
@@ -12718,6 +12748,7 @@ msgstr "Σε βάθος έρευνα"
 #: src/components/clio/associated-application-items.tsx
 #: src/components/clio/ndp-workflow-form.tsx
 #: src/components/clio/new-conversation-chips.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/reasoning-level-segmented.tsx
 #: src/components/clio/settings-agents.tsx
 #: src/components/clio/settings-response-settings.tsx
@@ -19353,6 +19384,10 @@ msgctxt "verb: tool action"
 msgid "List"
 msgstr "Λίστα"
 
+#: src/components/clio/context-composition-model.ts
+msgid "List heading and closing line"
+msgstr "Επικεφαλίδα και τελευταία γραμμή της λίστας"
+
 #: src/components/clio/tool-operation-contract.ts
 msgid "List schedules"
 msgstr "Λίστα χρονοπρογραμματισμών"
@@ -20185,6 +20220,7 @@ msgstr "Φόρτωση..."
 
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/model-download-search.tsx
+#: src/components/clio/offer-list-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-models-rows.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -23898,6 +23934,10 @@ msgstr "Τίποτα δεν ταιριάζει με «{query}»"
 msgid "Nothing matches “{query}” here"
 msgstr "Τίποτα δεν ταιριάζει με «{query}» εδώ"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Nothing matches “{search}”."
+msgstr "Τίποτα δεν ταιριάζει με «{search}»."
+
 #: src/components/clio/command-menu-no-match.tsx
 msgid "Nothing matches {shown}"
 msgstr "Τίποτα δεν ταιριάζει με {shown}"
@@ -23926,6 +23966,10 @@ msgstr "Δεν έχει αποθηκευτεί τίποτα εδώ ακόμη."
 #: src/components/clio/cad-measure-state.ts
 msgid "Nothing there to measure. Click on the model."
 msgstr "Δεν υπάρχει τίποτα εκεί για μέτρηση. Κάντε κλικ στο μοντέλο."
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Nothing to offer yet."
+msgstr "Δεν υπάρχει ακόμη κάτι για πρόταση."
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "Nothing to remember"
@@ -24239,6 +24283,10 @@ msgstr "Ένα γεγονός ή μία προτίμηση ανά γραμμή"
 #: src/components/clio/attention-heat-view-controls.tsx
 msgid "One highlight per model token"
 msgstr "Μία επισήμανση ανά token του μοντέλου"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "One of the first {cap}, brought in unless you untick it"
+msgstr "Ένα από τα πρώτα {cap}· συμπεριλαμβάνεται εκτός αν το αποεπιλέξετε"
 
 #: src/widget-gallery.tsx
 msgid "One plant"
@@ -26043,6 +26091,7 @@ msgstr "Τα γραφήματα, οι πίνακες και οι αναφορέ�
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
@@ -26112,6 +26161,15 @@ msgstr "πρόσθετα"
 msgid "Plugins"
 msgstr "Πρόσθετα"
 
+#: src/components/clio/offer-list-dialog.tsx
+#: src/components/clio/offer-list-row.tsx
+msgid "Plugins {agent} can offer"
+msgstr "Πρόσθετα που μπορεί να προτείνει: {agent}"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Plugins and connectors"
+msgstr "Πρόσθετα και συνδέσεις"
+
 #: src/lib/plugin-presentation.ts
 msgid "Plugins and connectors changed"
 msgstr "Τα πρόσθετα και οι σύνδεσμοι άλλαξαν"
@@ -26136,6 +26194,10 @@ msgstr "Πρόσθετα σε αυτό το πακέτο"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "Πρόσθετα που φεύγουν επίσης"
+
+#: src/components/clio/context-composition-model.ts
+msgid "Plugins you can add"
+msgstr "Πρόσθετα που μπορείτε να προσθέσετε"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -29193,6 +29255,10 @@ msgstr "Επαναφορά όλων στις προεπιλογές"
 msgid "Reset layout"
 msgstr "Επαναφορά διάταξης"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Reset to default"
+msgstr "Επαναφορά προεπιλογής"
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "Reset to setup"
 msgstr "Επαναφορά στη διαμόρφωση"
@@ -30512,6 +30578,7 @@ msgstr "Σάββατο"
 
 #: src/components/clio/composer-queue-row.tsx
 #: src/components/clio/known-service-actions.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/primitives/save-bar.tsx
 #: src/components/clio/settings-model-server-row.tsx
 #: src/components/clio/source-edit-form.tsx
@@ -30846,6 +30913,10 @@ msgstr "Αποθηκεύτηκε χωρίς κλήση μοντέλου"
 msgid "Saved, not verified"
 msgstr "Αποθηκεύτηκε, δεν επαληθεύτηκε"
 
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Saved. {agent} uses this list from its next turn."
+msgstr "Αποθηκεύτηκε. Αυτή τη λίστα τη χρησιμοποιεί από την επόμενη σειρά: {agent}."
+
 #: src/components/clio/provenance-connections.tsx
 msgid "Saved. Restart the connected {agent} to apply this choice."
 msgstr "Αποθηκεύτηκε. Επανεκκινήστε το συνδεδεμένο {agent} για να εφαρμοστεί αυτή η επιλογή."
@@ -30899,6 +30970,7 @@ msgstr "Αποθήκευση του κλειδιού σας…"
 #: src/components/clio/host-storage-settings.tsx
 #: src/components/clio/memory-create.tsx
 #: src/components/clio/model-storage-locations.tsx
+#: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-source-editor.tsx
 #: src/components/clio/primitives/save-bar.tsx
 #: src/components/clio/resource-dialogs.tsx
@@ -31316,6 +31388,10 @@ msgstr "Αναζήτηση οργανισμών…"
 #: src/components/clio/tool-invocation.tsx
 msgid "Search past sessions"
 msgstr "Αναζήτηση σε προηγούμενες συνεδρίες"
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "Search plugins and connectors"
+msgstr "Αναζήτηση προσθέτων και συνδέσεων"
 
 #: src/components/clio/extension-library-toolbar.tsx
 msgid "Search plugins, connectors and skills"
@@ -33365,6 +33441,7 @@ msgstr "Το SKILL.md δεν έχει οδηγίες."
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/agent-tab-values.ts
+#: src/components/clio/context-composition-model.ts
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/command-table.ts
@@ -36076,6 +36153,14 @@ msgstr "Η συνδεδεμένη προβολή ανήκει σε άλλη συ
 #: src/components/clio/surface-question-notice.tsx
 msgid "The linked view is unavailable."
 msgstr "Η συνδεδεμένη προβολή δεν είναι διαθέσιμη."
+
+#: src/components/clio/offer-list-row.tsx
+msgid "The list couldn’t be loaded."
+msgstr "Δεν ήταν δυνατή η φόρτωση της λίστας."
+
+#: src/components/clio/offer-list-dialog.tsx
+msgid "The list wasn’t saved."
+msgstr "Η λίστα δεν αποθηκεύτηκε."
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The live view could not open ({detail}); this is its recording."
@@ -41173,6 +41258,10 @@ msgstr "Πού ξεκινούν οι συνομιλίες αυτού του χώ
 #: src/components/clio/settings-schema-copy.ts
 msgid "Which browser"
 msgstr "Ποιο πρόγραμμα περιήγησης"
+
+#: src/components/clio/offer-list-row.tsx
+msgid "Which plugins and connectors {agent} is told about, so it can offer one a conversation does not have."
+msgstr "Για ποια πρόσθετα και συνδέσεις ενημερώνεται: {agent}, ώστε να προτείνει ένα που δεν έχει μια συνομιλία."
 
 #: src/components/clio/attention-center.tsx
 msgid "While you were away"

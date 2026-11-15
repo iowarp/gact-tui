@@ -42,6 +42,7 @@ export * from './latex-repository.js';
 export * from './document-repository.js';
 export * from './mcp-repository.js';
 export * from './connector-domain.js';
+export * from './offer-list-domain.js';
 export * from './connector-repository.js';
 export * from './fleet-repository.js';
 export * from './prompt-repository.js';

@@ -7,8 +7,10 @@ import {
   type ConnectorValues,
 } from './connector-domain.js';
 import { McpRepository } from './mcp-repository.js';
+import { offerListSchema, type OfferList, type OfferListChoice } from './offer-list-domain.js';
 
 const connectorPath = (id: string) => `/v1/connectors/${encodeURIComponent(id)}`;
+const OFFER_LIST = '/v1/plugins/offer-list';
 
 /** Connectors: the list with each one's state, its logo, its values, and where it applies. */
 export class ConnectorRepository extends McpRepository {
@@ -108,6 +110,37 @@ export class ConnectorRepository extends McpRepository {
       path: '/v1/connectors',
       body: input,
       decode: (value) => connectorSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Every plugin and connector the agent may offer, with the person's ticks. */
+  public offerList(signal?: AbortSignal): Promise<OfferList> {
+    return this.transport.request({
+      method: 'GET',
+      path: OFFER_LIST,
+      decode: (value) => offerListSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Saves the ticks over the default list; it applies from the next turn. */
+  public saveOfferList(choice: OfferListChoice, signal?: AbortSignal): Promise<OfferList> {
+    return this.transport.request({
+      method: 'PUT',
+      path: OFFER_LIST,
+      body: choice,
+      decode: (value) => offerListSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Back to the default list. */
+  public resetOfferList(signal?: AbortSignal): Promise<OfferList> {
+    return this.transport.request({
+      method: 'DELETE',
+      path: OFFER_LIST,
+      decode: (value) => offerListSchema.parse(value),
       signal,
     });
   }

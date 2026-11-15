@@ -51,6 +51,7 @@ import { marketplaceSlot, useMarketplaceManager } from './marketplace-manager';
 import { MarketplaceActions } from './marketplace-actions';
 import { McpSignInDialog } from './mcp-sign-in';
 import { PluginDetailPane } from './plugin-explorer';
+import { OfferListRow } from './offer-list-row';
 import { ListDetailLayout } from './primitives/detail-pane';
 import { IconButton } from './primitives/icon-button';
 import { ItemList } from './primitives/item-row';
@@ -700,6 +701,7 @@ function ExtensionLibraryContents({
       )}
     >
       <ExtensionScopeHeading />
+      {supported === true ? <OfferListRow /> : null}
       <ExtensionToolbar
         onAdd={setAdding}
         onAddMarketplace={manager.openInstall}
