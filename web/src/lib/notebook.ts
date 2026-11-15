@@ -1,5 +1,4 @@
-import type { BundledLanguage } from 'shiki';
-import { languageForPath } from './code-language';
+import { type CodeLanguage, languageForPath } from './code-language';
 import { t } from '@lingui/core/macro';
 
 /** One output a notebook cell keeps, reduced to what the reader can show. */
@@ -18,7 +17,7 @@ export type NotebookCell =
 
 export type Notebook = {
   cells: NotebookCell[];
-  language: BundledLanguage;
+  language: CodeLanguage;
   /** The kernel's display name, e.g. "Python 3 (ipykernel)". */
   kernel?: string;
 };
@@ -27,7 +26,7 @@ export type NotebookRead = { ok: true; notebook: Notebook } | { ok: false; reaso
 
 type Json = Record<string, unknown>;
 
-const KERNEL_LANGUAGES: Record<string, BundledLanguage> = {
+const KERNEL_LANGUAGES: Record<string, CodeLanguage> = {
   python: 'python',
   python3: 'python',
   julia: 'julia',
@@ -71,7 +70,7 @@ export function plainTerminalText(text: string): string {
     .join('\n');
 }
 
-function notebookLanguage(metadata: Json): BundledLanguage {
+function notebookLanguage(metadata: Json): CodeLanguage {
   const info = isRecord(metadata['language_info']) ? metadata['language_info'] : {};
   const spec = isRecord(metadata['kernelspec']) ? metadata['kernelspec'] : {};
   for (const name of [info['name'], spec['language']]) {

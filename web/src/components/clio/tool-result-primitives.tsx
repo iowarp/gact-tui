@@ -1,10 +1,9 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { BotIcon, CalendarClockIcon, ChevronRightIcon, ServerIcon } from 'lucide-react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
-import type { BundledLanguage } from 'shiki';
-import { bundledLanguages } from 'shiki/langs';
 import type { ToolPresentationBlock } from '@clio/core/v3';
 import { CodeBlock } from '@/components/ai-elements/code-block';
+import { type CodeLanguage, resolveCodeLanguage } from '@/lib/code-language';
 import { Terminal, TerminalContent } from '@/components/ai-elements/terminal';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { BoundedResult } from './bounded-result';
@@ -378,9 +377,7 @@ export function BlockBody({
           language={
             block.type === 'diff'
               ? 'diff'
-              : block.language && block.language in bundledLanguages
-                ? (block.language as BundledLanguage)
-                : ('text' as BundledLanguage)
+              : (resolveCodeLanguage(block.language) ?? ('text' as CodeLanguage))
           }
         />
       );
