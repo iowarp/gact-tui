@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 import { formatClockTime, formatDateTime } from '@/lib/locale-format';
 import { Message, MessageContent } from '@/components/ai-elements/message';
 import { MessageBlockSequence, ReplyErrorLine } from './conversation-message-blocks';
+import { replyFailureCode, replyFailureReason } from './reply-failure';
+import { ReplyRecoveryActions } from './reply-failure-recovery';
 import { ConversationTurn } from './conversation-turn';
 import { VariantRunsForMessage } from './variant-runs-for-message';
 import { subagentsForTool } from './subagent-tool-link';
@@ -67,6 +69,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   userContinuation = false,
   userContinued = false,
   turnPresentation,
+  replyRecovery,
   ...entities
 }: ConversationMessageRowProps) {
   useAttentionEvidenceTarget(
@@ -80,6 +83,10 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const emptyResponseWasClientCancelled =
     emptyResponseErrorCode === 'cancelled' ||
     emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client';
+  const failureReason = replyFailureReason(
+    replyFailureCode(message.error_info),
+    emptyResponseErrorMessage,
+  );
   const signInProvider = turnSignInProvider(message.error_info);
   const modelExhausted = turnModelExhausted(message.error_info);
   // A reply the service failed as recoverable (a timed-out model call: error_info
@@ -282,9 +289,9 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                       reason={
                         emptyResponseWasClientCancelled
                           ? undefined
-                          : (emptyResponseErrorMessage ??
-                            t`No response content was recorded for this turn.`)
+                          : (failureReason ?? t`No response content was recorded for this turn.`)
                       }
+                      technical={emptyResponseWasClientCancelled ? undefined : message.error_info}
                       onRetry={retryReply}
                       retrying={entities.retryingMessageId === message.id}
                       title={
@@ -294,7 +301,15 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                             ? t`This reply was interrupted`
                             : t`This reply didn’t load`
                       }
-                    />
+                    >
+                      {replyRecovery ? (
+                        <ReplyRecoveryActions
+                          onForkFromMessage={entities.onForkFromMessage}
+                          onRewindToMessage={entities.onRewindToMessage}
+                          point={replyRecovery}
+                        />
+                      ) : null}
+                    </ReplyErrorLine>
                     {signInProvider || modelExhausted ? (
                       // Aligned under the line's text, past its icon.
                       <div className="-mt-1 pl-[30px]">
@@ -433,7 +448,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 !emptyResponseWasClientCancelled &&
                 !message.blocks.some((block) => block.type === 'error') ? (
                   <ReplyErrorLine
-                    reason={emptyResponseErrorMessage}
+                    reason={failureReason}
+                    technical={message.error_info}
                     onRetry={retryReply}
                     retrying={entities.retryingMessageId === message.id}
                     title={t`This reply didn’t finish`}
@@ -661,6 +677,7 @@ export function conversationMessageRowPropsEqual(
     left.mcpAppRepository !== right.mcpAppRepository ||
     left.mcpAppResponse !== right.mcpAppResponse ||
     left.messageCompactions !== right.messageCompactions ||
+    left.replyRecovery !== right.replyRecovery ||
     modelBoundaryKey(left.modelBoundary) !== modelBoundaryKey(right.modelBoundary) ||
     left.forkOrigin !== right.forkOrigin ||
     left.agentName !== right.agentName ||

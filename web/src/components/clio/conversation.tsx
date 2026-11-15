@@ -23,6 +23,7 @@ import { ClioTurnPreparation } from './turn-preparation';
 import { ClioTurnWaitFeedback } from './turn-wait-feedback';
 import { SessionResponseFeedback } from './goal-check-feedback';
 import { placeCompactions } from './conversation-compaction-placement';
+import { replyRecoveryPoints } from './reply-failure';
 import { conversationModelBoundaries } from './conversation-model-boundaries';
 import { TranscriptMessagesContext } from './transcript-messages-context';
 import { ConversationForkCheckpoint } from './conversation-fork-checkpoint';
@@ -163,6 +164,7 @@ function ConversationBody({
     [compactions, messages],
   );
   const modelBoundaries = useMemo(() => conversationModelBoundaries(messages), [messages]);
+  const replyRecovery = useMemo(() => replyRecoveryPoints(messages), [messages]);
   const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);
   const disclosure = useContext(TranscriptDisclosureContext);
@@ -629,6 +631,7 @@ function ConversationBody({
                     mcpAppResponse={mcpAppResponses.get(message.id)}
                     messageCompactions={compactionPlacement.byMessage.get(message.id)}
                     modelBoundary={modelBoundaries.get(message.id)}
+                    replyRecovery={replyRecovery.get(message.id)}
                     onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
                     recent={index >= messages.length - 2}
                     start={start}

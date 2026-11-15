@@ -613,7 +613,9 @@ describe('ClioConversation recovery actions', () => {
     );
 
     expect(screen.getByText('This reply didn’t load')).toBeInTheDocument();
-    expect(screen.getByText(/No response content was recorded/)).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="reply-error-reason"]')).toHaveTextContent(
+      /No response content was recorded/,
+    );
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
     expect(document.querySelector('[data-slot="message-completion-footer"]')).toBeNull();
@@ -648,7 +650,9 @@ describe('ClioConversation recovery actions', () => {
     );
 
     expect(screen.getByText('This reply was interrupted')).toBeInTheDocument();
-    expect(screen.getByText(/agent service restarted/)).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="reply-error-reason"]')).toHaveTextContent(
+      /agent service restarted/,
+    );
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
 
