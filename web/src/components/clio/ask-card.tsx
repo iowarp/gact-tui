@@ -120,6 +120,8 @@ export function AskPagerControls({
 export interface AskCardProps extends Omit<ComponentProps<'section'>, 'title'> {
   kind: AskKind;
   icon: LucideIcon;
+  /** Drawn in the icon's place: a connector's logo. */
+  leading?: ReactNode;
   title: ReactNode;
   /** Full title on hover when it is cut. */
   titleText?: string;
@@ -140,6 +142,7 @@ export interface AskCardProps extends Omit<ComponentProps<'section'>, 'title'> {
 export function AskCard({
   kind,
   icon: Icon,
+  leading,
   title,
   titleText,
   wrapTitle,
@@ -191,11 +194,13 @@ export function AskCard({
           EDGE[kind],
         )}
       >
-        <Icon
-          aria-hidden="true"
-          // A wrapped question keeps its icon on the first line.
-          className={cn('size-4 shrink-0', wrapTitle && 'mt-1.5 self-start', TONE[kind])}
-        />
+        {leading ?? (
+          <Icon
+            aria-hidden="true"
+            // A wrapped question keeps its icon on the first line.
+            className={cn('size-4 shrink-0', wrapTitle && 'mt-1.5 self-start', TONE[kind])}
+          />
+        )}
         <h2
           className={cn(
             'min-w-0 shrink text-[0.84375rem] leading-5 font-medium',

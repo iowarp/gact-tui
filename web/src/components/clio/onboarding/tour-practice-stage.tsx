@@ -42,6 +42,7 @@ import {
 import { SelectionActionsContext } from '@/lib/selection-actions-context';
 import { createSelectionActionRegistry } from '@/lib/selection-actions';
 import { RepositoryOverrideProvider } from '@/providers/repository-override';
+import { TourOfferCard } from './tour-offer-card';
 import { useTheme } from '@/providers/appearance-provider';
 import { t, ph } from '@lingui/core/macro';
 
@@ -161,6 +162,20 @@ interface Box {
   height: number;
 }
 
+/** The example offer's height, so the conversation scrolls clear of it. */
+function useOfferHeight(shown: boolean): [number, (element: HTMLDivElement | null) => void] {
+  const [height, setHeight] = useState(0);
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    if (!element) return;
+    // The observer reports the first size on observe, then every change.
+    const observer = new ResizeObserver(() => setHeight(element.offsetHeight));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [element]);
+  return [shown && element ? height : 0, setElement];
+}
+
 /** Follows the app's conversation area, so the practice conversation sits exactly where real ones do. */
 function useConversationArea(): Box | undefined {
   const [box, setBox] = useState<Box>();
@@ -236,7 +251,9 @@ export function TourPracticeStage({
   const [draft, setDraft] = useState('');
   const [annotations, setAnnotations] = useState<readonly CommentAttachment[]>([]);
   const [viewer, setViewer] = useState(false);
+  const [offer, setOffer] = useState(false);
   const [composerHeight, setComposerHeight] = useState(0);
+  const [offerHeight, offerRef] = useOfferHeight(offer);
   const emit = useRef(onEvent);
   useLayoutEffect(() => {
     emit.current = onEvent;
@@ -257,6 +274,7 @@ export function TourPracticeStage({
         });
       setDraft(scene.draft ?? '');
       setViewer(Boolean(scene.viewer));
+      setOffer(Boolean(scene.offer));
       if (scene.turns < 2) setAnnotations([]);
     }
   }
@@ -400,7 +418,7 @@ export function TourPracticeStage({
                       <ClioConversation
                         {...conversation}
                         agentName={vocab.agent}
-                        bottomInset={composerHeight}
+                        bottomInset={composerHeight + offerHeight}
                         onOpenArtifact={() => {
                           setViewer(true);
                           emit.current('artifact-opened');
@@ -409,6 +427,11 @@ export function TourPracticeStage({
                     </ActivityRunsFold.Provider>
                   )}
                   <div className="pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end">
+                    {offer ? (
+                      <div className="mx-auto w-full max-w-3xl px-3 pb-2" ref={offerRef}>
+                        <TourOfferCard />
+                      </div>
+                    ) : null}
                     <ClioComposer
                       annotations={annotations}
                       attachments

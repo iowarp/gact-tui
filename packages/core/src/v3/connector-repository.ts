@@ -1,0 +1,114 @@
+import { z } from 'zod';
+import {
+  connectorListSchema,
+  connectorSchema,
+  type Connector,
+  type ConnectorCreateInput,
+  type ConnectorValues,
+} from './connector-domain.js';
+import { McpRepository } from './mcp-repository.js';
+
+const connectorPath = (id: string) => `/v1/connectors/${encodeURIComponent(id)}`;
+
+/** Connectors: the list with each one's state, its logo, its values, and where it applies. */
+export class ConnectorRepository extends McpRepository {
+  public async connectors(signal?: AbortSignal): Promise<Connector[]> {
+    const result = await this.transport.request({
+      method: 'GET',
+      path: '/v1/connectors',
+      decode: (value) => connectorListSchema.parse(value),
+      signal,
+    });
+    return result.connectors;
+  }
+
+  /**
+   * One connector as a conversation sees it: its own values over the person's defaults,
+   * with each address or value row's `default_value` and `conversation`.
+   */
+  public sessionConnector(id: string, sessionId: string, signal?: AbortSignal): Promise<Connector> {
+    return this.transport.request({
+      method: 'GET',
+      path: `${connectorPath(id)}?session_id=${encodeURIComponent(sessionId)}`,
+      decode: (value) => connectorSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * The connector's SVG, as text. It is read through the transport (which carries the
+   * service's credentials) and shown as an image, never inserted into the page. `dark`
+   * reads the dark-theme variant a row names as `logo_dark_url`.
+   */
+  public connectorLogo(
+    id: string,
+    signal?: AbortSignal,
+    theme: 'light' | 'dark' = 'light',
+  ): Promise<string> {
+    return this.transport.request({
+      method: 'GET',
+      path: `${connectorPath(id)}/logo${theme === 'dark' ? '?theme=dark' : ''}`,
+      responseType: 'text',
+      decode: (value) => z.string().parse(value),
+      signal,
+    });
+  }
+
+  /** Saves the card's rows; the answer comes after CLIO reconnects with them. */
+  public setConnectorValues(
+    id: string,
+    values: ConnectorValues,
+    signal?: AbortSignal,
+  ): Promise<Connector> {
+    return this.transport.request({
+      method: 'PUT',
+      path: `${connectorPath(id)}/values`,
+      body: { values },
+      decode: (value) => connectorSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Installs and readies the connector; it joins no conversation by itself. */
+  public enableConnector(id: string, signal?: AbortSignal): Promise<Connector> {
+    return this.transport.request({
+      method: 'POST',
+      path: `${connectorPath(id)}/enable`,
+      decode: (value) => connectorSchema.parse(value),
+      signal,
+    });
+  }
+
+  public disableConnector(id: string, signal?: AbortSignal): Promise<Connector> {
+    return this.transport.request({
+      method: 'POST',
+      path: `${connectorPath(id)}/disable`,
+      decode: (value) => connectorSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Removes a connector added by URL or command; a catalog connector is turned off instead. */
+  public removeConnector(
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<{ id: string; removed: boolean }> {
+    return this.transport.request({
+      method: 'DELETE',
+      path: connectorPath(id),
+      decode: (value) => z.object({ id: z.string(), removed: z.boolean() }).parse(value),
+      signal,
+    });
+  }
+
+  /** A connector for a server that has no entry: an address or a command. */
+  public createConnector(input: ConnectorCreateInput, signal?: AbortSignal): Promise<Connector> {
+    return this.transport.request({
+      method: 'POST',
+      path: '/v1/connectors',
+      body: input,
+      decode: (value) => connectorSchema.parse(value),
+      signal,
+    });
+  }
+}

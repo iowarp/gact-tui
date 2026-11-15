@@ -7,6 +7,7 @@ import type {
   PendingInteractionResponse,
 } from '@clio/core/v3';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { ConnectorSetupResponse } from './connector-setup-response';
 import { PermissionResponse } from './permission-response';
 import { permissionTitle } from './permission-operation-labels';
 import { AskPagerContext } from './ask-card-keys';
@@ -317,6 +318,17 @@ export function ClioPendingInteractions({
                       />
                     );
                   }
+                  if (interaction.kind === 'connector_setup') {
+                    return (
+                      <ConnectorSetupResponse
+                        disabled={interactionDisabled}
+                        interaction={interaction}
+                        key={interaction.id}
+                        onResponse={handleResponse}
+                        responseError={responseError}
+                      />
+                    );
+                  }
                   if (interaction.kind === 'a2ui') {
                     const surfaceId = interaction.source.surface_id;
                     // Looked up by id alone, WITHOUT the owner-session filter: the
@@ -398,6 +410,7 @@ const KIND_NAMES: Record<string, string> = {
   question: t`Question`,
   a2ui: t`Question`,
   mcp_task_input: t`Input`,
+  connector_setup: t`Setup`,
 };
 
 /** The dock as the workspace mounts it: it renders again only when its props change. */

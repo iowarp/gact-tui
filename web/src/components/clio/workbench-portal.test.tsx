@@ -13,7 +13,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 
-// This regression concerns the portal and tab identity; payload rendering is
+// This regression concerns maximizing in place and tab identity; payload rendering is
 // covered by the real viewers' tests and the browser review.
 vi.mock('./resource-viewers', () => ({
   ArtifactView: ({ artifact }: { artifact: { name: string } }) => (
@@ -82,6 +82,10 @@ it.each(['desktop', 'sheet', 'workspace'] as const)(
     );
     await screen.findByRole('article', { name: 'Artifact view: Growth curves.png' });
 
+    // Maximize restyles the canvas where it is: the same element, never moved
+    // (moving would reload every App view's iframe in it).
+    const placed = screen.getByRole('complementary', { name: 'Workspace canvas' });
+    const viewer = screen.getByRole('article', { name: 'Artifact view: Growth curves.png' });
     await user.click(screen.getByRole('button', { name: 'Maximize canvas' }));
     expect(screen.getByRole('tab', { name: 'Growth curves.png' })).toHaveAttribute(
       'aria-selected',
@@ -90,9 +94,9 @@ it.each(['desktop', 'sheet', 'workspace'] as const)(
     expect(
       screen.getByRole('button', { name: 'Restore canvas beside conversation' }),
     ).toBeVisible();
-    expect(screen.getByRole('complementary', { name: 'Workspace canvas' }).parentElement).toBe(
-      host === 'desktop' ? document.body : screen.getByTestId('canvas-host'),
-    );
+    expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBe(placed);
+    expect(screen.getByRole('article', { name: 'Artifact view: Growth curves.png' })).toBe(viewer);
+    expect(screen.getByTestId('canvas-host')).toContainElement(placed);
 
     const restoreEvent = new KeyboardEvent('keydown', {
       key: 'Escape',
@@ -104,6 +108,7 @@ it.each(['desktop', 'sheet', 'workspace'] as const)(
     );
     expect(restoreEvent.defaultPrevented).toBe(true);
     expect(screen.getByRole('button', { name: 'Maximize canvas' })).toBeVisible();
+    expect(screen.getByRole('article', { name: 'Artifact view: Growth curves.png' })).toBe(viewer);
     expect(screen.getByRole('tab', { name: 'Growth curves.png' })).toHaveAttribute(
       'aria-selected',
       'true',

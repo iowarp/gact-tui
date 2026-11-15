@@ -10,6 +10,7 @@ export type { CaptureSurface } from './a2ui-region-evidence';
 import { attachCommentSession } from './comments/comment-model';
 import { a2uiAttachment } from './comments/a2ui-attachment';
 import { getFontEmbedCSS, toCanvas } from 'html-to-image';
+import { isAppFrame, paintAppFrames } from './a2ui-app-capture';
 import { CommentControls } from './comments/comment-controls';
 import { CommentEditor, type ScreenBox } from './comments/comment-editor';
 import {
@@ -34,7 +35,7 @@ import { mapPngBlob } from './map-export';
 import type { MapDebugSurface } from './scientific-map-view';
 import { readThemeColor, readThemeFont } from '@/theme/runtime';
 import { isTransparentColor } from './surface-export';
-import { plural, t, ph } from '@lingui/core/macro';
+import { ph, plural, t } from '@lingui/core/macro';
 
 interface CaptureContext {
   allowed: boolean;
@@ -102,11 +103,15 @@ async function labelledPng(
     fetchRequestInit: { cache: 'no-store' },
     backgroundColor,
     fontEmbedCSS,
+    // Canvases and app frames are painted below from their live pixels; a cloned copy
+    // would sit beside the live one (a chart drawn twice) or stay blank (an app frame).
     filter: (node) =>
       node.nodeType !== Node.ELEMENT_NODE ||
       !(
         (node as Element).getAttribute('data-slot') === 'surface-toolbar' ||
-        (node as Element).getAttribute('data-capture-ui') === 'true'
+        (node as Element).getAttribute('data-capture-ui') === 'true' ||
+        node instanceof HTMLCanvasElement ||
+        isAppFrame(node as Element)
       ),
     pixelRatio,
   });
@@ -185,6 +190,7 @@ async function labelledPng(
       );
     }
   }
+  await paintAppFrames(context, target, scaleX, scaleY);
   context.lineWidth = Math.max(2, 2 * scaleX);
   context.font = `bold ${Math.round(14 * scaleX)}px ${readThemeFont('typeface-ui')}`;
   const accent = readThemeColor('primary');
@@ -272,7 +278,8 @@ export function A2uiRegionCaptureProvider({
       // ordinary popovers, so the controls must also stack above that dialog.
       setControlPosition({
         x: clamp(rect.right - 265, 8, window.innerWidth - 260),
-        y: clamp(rect.top + 56, 8, window.innerHeight - 90),
+        // Room for the controls with their whole-dashboard choice (FP-D6).
+        y: clamp(rect.top + 56, 8, window.innerHeight - (next.wider ? 150 : 90)),
       });
     },
     [allowed, target?.element],
@@ -542,6 +549,18 @@ export function A2uiRegionCaptureProvider({
               }
               title={target.title}
             >
+              {target.wider && !regions.length ? (
+                <Button
+                  className="mt-2 w-full"
+                  data-capture-wider="true"
+                  onClick={() => target.wider && start(target.wider)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {t`Mark across the whole dashboard`}
+                </Button>
+              ) : null}
               {attention && regions.length ? (
                 <div className="mt-2 flex items-center gap-2">
                   <Button

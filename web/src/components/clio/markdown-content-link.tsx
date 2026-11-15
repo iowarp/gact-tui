@@ -156,7 +156,11 @@ export function MarkdownContentLink({
   if (
     reference?.kind === 'file' &&
     (navigation?.onOpenFileReference ||
-      (!reference.workspaceId && !reference.line && !reference.find && navigation?.onOpenFile))
+      (!reference.workspaceId &&
+        !reference.line &&
+        !reference.find &&
+        !reference.locator &&
+        navigation?.onOpenFile))
   ) {
     open = () =>
       navigation.onOpenFileReference
@@ -164,10 +168,11 @@ export function MarkdownContentLink({
             workspaceId: reference.workspaceId,
             line: reference.line,
             find: reference.find,
+            locator: reference.locator,
           })
         : navigation.onOpenFile?.(reference.path);
     title = label ?? reference.path.split(/[\\/]/u).at(-1) ?? t`Workspace file`;
-    detail = reference.path;
+    detail = reference.locator ? `${reference.path} › ${reference.locator}` : reference.path;
   } else if (reference?.kind === 'artifact' && navigation?.onOpenArtifact) {
     const artifacts = Object.values(navigation.artifacts);
     const exact = artifacts.find(

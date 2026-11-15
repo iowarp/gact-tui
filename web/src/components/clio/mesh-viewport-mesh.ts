@@ -22,6 +22,22 @@ export interface MeshField {
   data: Float32Array;
 }
 
+/**
+ * One named body of a multi-part model (a STEP assembly's parts, a 3MF's objects): its
+ * contiguous triangles and vertices, and the colour the file declares for it, if any.
+ */
+export interface MeshPart {
+  name: string;
+  /** First triangle (not index) and how many, in `triangles`. */
+  triangleStart: number;
+  triangleCount: number;
+  /** First vertex and how many, in `positions` / `baseColors`. */
+  vertexStart: number;
+  vertexCount: number;
+  /** Linear RGB the file declares for the part; undefined lets the viewer choose. */
+  color?: [number, number, number];
+}
+
 export interface ParsedFeaMesh {
   positions: Float32Array;
   triangles: Uint32Array;
@@ -38,6 +54,8 @@ export interface ParsedFeaMesh {
   baseColors?: Float32Array;
   sourceFormat?: string;
   warnings?: string[];
+  /** The model's bodies, in triangle order, when the file names them. */
+  parts?: MeshPart[];
 }
 
 interface ClioExtras {
@@ -139,6 +157,8 @@ export interface MeshViewState {
   /** Keep only cells (or triangles, on a surface) whose value lies in [min, max]. */
   threshold?: { field: MeshField; min: number; max: number };
   frame: number;
+  /** Parts (indices into `parts`) left out of the view. */
+  hiddenParts?: ReadonlySet<number>;
 }
 
 export interface MeshSelection {
@@ -203,7 +223,9 @@ export function selectTriangles(mesh: ParsedFeaMesh, view: MeshViewState): MeshS
     };
   }
   const nodeField = threshold?.field.location === 'node' ? threshold : undefined;
+  const hidden = hiddenTriangles(mesh, view.hiddenParts);
   for (let t = 0; t < count; t += 1) {
+    if (hidden?.[t]) continue;
     if (nodeField) {
       let inside = true;
       for (let k = 0; k < 3; k += 1) {
@@ -222,6 +244,20 @@ export function selectTriangles(mesh: ParsedFeaMesh, view: MeshViewState): MeshS
     triangleCell: triangleCell.slice(0, kept),
     visibleCells: 0,
   };
+}
+
+/** A flag per triangle of the hidden parts, or undefined when every part shows. */
+function hiddenTriangles(
+  mesh: ParsedFeaMesh,
+  hiddenParts: ReadonlySet<number> | undefined,
+): Uint8Array | undefined {
+  if (!hiddenParts?.size || !mesh.parts?.length) return undefined;
+  const flags = new Uint8Array(mesh.triangles.length / 3);
+  mesh.parts.forEach((part, index) => {
+    if (hiddenParts.has(index))
+      flags.fill(1, part.triangleStart, part.triangleStart + part.triangleCount);
+  });
+  return flags;
 }
 
 /** Field value shown by one vertex of a visible triangle. */

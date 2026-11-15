@@ -196,6 +196,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
     'surface_id',
   ),
   capture_a2ui_surface: define(t`Inspect rendered widget`, 'declared', 'surface_id'),
+  look_at_view: { ...define(t`Look at view`, 'declared', 'view'), presentedAction: true },
   delete_a2ui_surface: define(t`Remove widget`, 'ack', 'surface_id'),
   publish_dashboard_report: define(t`Save dashboard`, 'declared', 'report_id'),
   create_artifact: define(t({ message: 'Keep', context: 'verb: tool action' }), 'declared', 'name'),

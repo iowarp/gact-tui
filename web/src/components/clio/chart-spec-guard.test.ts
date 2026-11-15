@@ -30,9 +30,9 @@ const CLIO_SCHEMAS_CHART_HASHES: Record<string, string> = {
   'guard_rules.json': '5dfdf33ce061c686d0e74586751cc622098759513f3450b572d400b56479abe7',
   'presets/boxplot.json': '97d9abfe03358a121400f5f063de9c46891962da7a388a718fd2c9231915c6d0',
   'presets/heatmap.json': 'd39995019b3b8269841dd74abe458fb71d14377b4f1335c6370045364dc498ed',
-  'presets/scatter.json': '8212912d8324c53ec725fc3c277ef6c471aea245ad5b32043d336bef7c0c870f',
+  'presets/scatter.json': 'ef511ff93e63472acc30559b7e0d8b37a259a66860f827dc6e357f2f080f5744',
   'presets/spectra.json': '1723d96636ed662137ed58e760cf2c494e71711eba701cd83d7d9fea8d176b90',
-  'presets/trajectories.json': 'acb91b6fcdc592a87e049ef5ed3edcd7bc3866abe28e136a0a466f55c926eb4b',
+  'presets/trajectories.json': '85c197f52b05bfa497cf8850e09e82b183df1ad33430faf97c4644132ec533f5',
 };
 
 /**
@@ -45,7 +45,7 @@ const CLIO_SCHEMAS_CHART_HASHES: Record<string, string> = {
  */
 const CLIO_SCHEMAS_CHART_FIXTURE_HASHES: Record<string, string> = {
   'guard_cases.json': 'c21856e8a09f41654a588057a41a54150e8664be70442b7e4d09e02cda8bd069',
-  'preset_cases.json': '53e4f1641862455853685bf9a578171bf7c0c9504e552636a266c3da2a9e597f',
+  'preset_cases.json': '45bcf99c3d0f8ad2da6f8cec6726154ef14d0948d3890271028d0d10ef0623fc',
   'selection_state_cases.json': '485f2f529f9695eb7957b421267596b86b8895a487b509c9ce3462cba662d3da',
   'component_cases.json': '25d44e61df49064a7242289fec27569b526a8666295be4ea87ae127a327f88d1',
 };

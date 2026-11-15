@@ -8,7 +8,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { VTKLoader } from 'three/examples/jsm/loaders/VTKLoader.js';
-import { parseFeaMesh, type ParsedFeaMesh } from './mesh-viewport-mesh';
+import { parseFeaMesh, type MeshPart, type ParsedFeaMesh } from './mesh-viewport-mesh';
 import { resolveThemeColor } from '@/theme/runtime';
 import { ph, t } from '@lingui/core/macro';
 
@@ -22,7 +22,8 @@ export type MeshFormat =
   | '3mf'
   | 'vtk'
   | 'vtp'
-  | 'drc';
+  | 'drc'
+  | 'step';
 
 export class MeshFormatError extends Error {
   public constructor(
@@ -53,6 +54,12 @@ function detectedFormat(bytes: Uint8Array): MeshFormat | undefined {
   if (/^(?:#.*\n|mtllib .*\n|o .*\n|g .*\n|v [-\d])/u.test(head) && /^v\s+[-\d]/mu.test(head))
     return 'obj';
   if (head.startsWith('solid ') && head.includes('facet')) return 'stl';
+  if (head.startsWith('ISO-10303-21;')) return 'step';
+  // Binary STL has no magic: an 80-byte header, a triangle count, 50 bytes per triangle.
+  if (bytes.length >= 84) {
+    const count = new DataView(bytes.buffer, bytes.byteOffset + 80, 4).getUint32(0, true);
+    if (bytes.length === 84 + count * 50) return 'stl';
+  }
   return undefined;
 }
 
@@ -159,6 +166,7 @@ function flattenGeometry(root: THREE.Object3D, format: MeshFormat): ParsedFeaMes
   const colors: number[] = [];
   const nodeIds: number[] = [];
   const nodesByPosition = new Map<string, number>();
+  const parts: MeshPart[] = [];
   let textured = false;
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;
@@ -204,6 +212,18 @@ function flattenGeometry(root: THREE.Object3D, format: MeshFormat): ParsedFeaMes
       );
     }
     for (let i = 0; i < count; i += 1) triangles.push(offset + (index?.getX(i) ?? i));
+    // A named body, or the file's colour for it, makes it a part the viewer can list.
+    const declared =
+      (mesh.userData as { declaredColor?: boolean }).declaredColor ??
+      Boolean(material?.name || vertexColor);
+    parts.push({
+      name: mesh.name || mesh.parent?.name || '',
+      triangleStart: (triangles.length - count) / 3,
+      triangleCount: count / 3,
+      vertexStart: offset,
+      vertexCount: position.count,
+      color: declared && material?.color && !vertexColor ? [tint.r, tint.g, tint.b] : undefined,
+    });
   });
   if (!triangles.length)
     throw new MeshFormatError(
@@ -231,6 +251,7 @@ function flattenGeometry(root: THREE.Object3D, format: MeshFormat): ParsedFeaMes
     bounds: { min: box.min.toArray(), max: box.max.toArray() },
     baseColors: Float32Array.from(colors),
     sourceFormat: format,
+    parts,
     warnings: textured
       ? [t`Texture images are not shown; the viewport uses the model’s material colours.`]
       : [],
@@ -312,6 +333,9 @@ export async function parseMeshArtifact(
       }
       case 'vtp':
         root = new THREE.Mesh(parseVtp(bytes));
+        break;
+      case 'step':
+        root = await import('./cad-step').then((module) => module.readStepModel(bytes));
         break;
       case 'drc': {
         const loader = new DRACOLoader().setDecoderPath('/draco/');

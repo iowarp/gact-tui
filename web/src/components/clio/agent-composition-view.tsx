@@ -14,7 +14,8 @@ import { useRepository } from '@/hooks/use-repository';
 import { useDraftAgentChange, type DraftAgent } from '@/hooks/use-draft-agent-change';
 import { usePluginChange, type PluginChange } from '@/hooks/use-plugin-change';
 import { useInstalledAgents, usePluginCatalog } from '@/hooks/use-session-agent';
-import { agentDisplayName } from '@/lib/plugin-presentation';
+import { offeredPlugins } from '@/lib/connector-presentation';
+import { agentDisplayName, resolvedPluginName } from '@/lib/plugin-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
@@ -183,21 +184,32 @@ function AgentComposition({
   });
   const change = (next: AgentDelta, rest: Omit<PluginChange, 'delta'>) =>
     propose({ delta: next, ...rest });
-  const add = (plugin: string) => {
+  // A connector's plugin is named by its connector, as the plugin rows name it (CS-D5).
+  const pluginName = (plugin: string) => {
     const id = pluginReferenceId(plugin);
+    const resolved = resolution?.plugins.find((row) => row.id === id);
+    if (resolved) return resolvedPluginName(resolved);
+    const entry = catalog.data?.plugins.find((row) => row.ref === plugin || row.id === id);
+    return entry?.connector?.name || id;
+  };
+  const add = (plugin: string) => {
+    const name = pluginName(plugin);
     change(deltaWith(delta, { add: plugin }), {
-      summary: t`Adds ${id} to this conversation.`,
-      success: t`Added ${id}`,
-      failure: t`${id} was not added`,
+      summary: t`Adds ${name} to this conversation.`,
+      success: t`Added ${name}`,
+      failure: t`${name} was not added`,
     });
   };
-  const remove = (plugin: string) =>
+  const remove = (plugin: string) => {
+    const name = pluginName(plugin);
     change(deltaWith(delta, { remove: plugin }), {
       removing: plugin,
-      summary: t`Removes ${plugin} from this conversation.`,
-      success: t`Removed ${plugin}`,
-      failure: t`${plugin} was not removed`,
+      removingName: name,
+      summary: t`Removes ${name} from this conversation.`,
+      success: t`Removed ${name}`,
+      failure: t`${name} was not removed`,
     });
+  };
 
   if (supported === false) {
     return (
@@ -226,7 +238,7 @@ function AgentComposition({
   const parentName = agentDisplayName(resolution.agent.ref, agents.data);
   const setupName = resolution.agent.name || resolution.agent.id;
   const values = agentUseValues(resolution, changed ? setup.data : resolution);
-  const summary = deltaSummary(delta, draft, library, parentName);
+  const summary = deltaSummary(delta, draft, library, parentName, pluginName);
   const setupFacts = [
     resolution.agent.version
       ? t`${ph({ ref: resolution.agent.ref })}, version ${ph({ version: resolution.agent.version })}`
@@ -306,7 +318,7 @@ function AgentComposition({
       onRemove={remove}
       onViewChange={setPackagesView}
       pending={update.isPending}
-      plugins={catalog.data?.plugins}
+      plugins={offeredPlugins(catalog.data?.plugins)}
       pluginsError={catalog.error?.message}
       readOnly={readOnly}
       resolution={resolution}
@@ -398,19 +410,21 @@ function AgentComposition({
             delta={delta}
             kind={view}
             onAdd={add}
-            onAddBack={(plugin) =>
+            onAddBack={(plugin) => {
+              // Named as the rows name it: a connector by its name, never by its carrier id.
+              const name = pluginName(plugin);
               change(deltaWith(delta, { add: plugin }), {
-                summary: t`Adds ${plugin} back to this conversation.`,
-                success: t`Added ${plugin} back`,
-                failure: t`${plugin} was not added back`,
-              })
-            }
+                summary: t`Adds ${name} back to this conversation.`,
+                success: t`Added ${name} back`,
+                failure: t`${name} was not added back`,
+              });
+            }}
             onBack={back}
             onCompact={onCompact}
             onOpenItem={setItem}
             onRemove={remove}
             pending={update.isPending}
-            plugins={catalog.data?.plugins}
+            plugins={offeredPlugins(catalog.data?.plugins)}
             pluginsError={catalog.error?.message}
             readOnly={readOnly}
             resolution={resolution}
@@ -484,10 +498,11 @@ function deltaSummary(
   draft: boolean,
   library: boolean,
   parentName: string,
+  name: (plugin: string) => string,
 ): string {
   const subject = library ? 'library' : draft ? 'draft' : 'conversation';
-  const adds = delta.add.join(', ');
-  const removes = delta.remove.join(', ');
+  const adds = delta.add.map(name).join(', ');
+  const removes = delta.remove.map(name).join(', ');
   if (delta.add.length && delta.remove.length) {
     return select(subject, {
       library: `This local variation changes ${parentName}: adds ${adds}; removes ${removes}.`,

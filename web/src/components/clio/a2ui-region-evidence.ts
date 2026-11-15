@@ -15,6 +15,8 @@ export interface CaptureTarget {
   componentId?: string;
   title: string;
   reference?: () => { summary: string; query?: unknown };
+  /** The whole surface this part sits in (a dashboard around a chart), offered instead. */
+  wider?: CaptureTarget;
 }
 
 export interface CaptureSurface {

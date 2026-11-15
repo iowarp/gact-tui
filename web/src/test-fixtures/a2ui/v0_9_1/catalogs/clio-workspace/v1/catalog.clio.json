@@ -186,6 +186,9 @@
     "clio.map.v1": {
       "kernel": "clio.map.v1"
     },
+    "clio.mcp-app.v1": {
+      "kernel": "clio.mcp-app.v1"
+    },
     "clio.mermaid.v1": {
       "kernel": "clio.mermaid.v1"
     },

@@ -33,7 +33,7 @@ const context = {
 
 describe('semantic operation contract', () => {
   it('covers every supported operation without retaining obsolete aliases', () => {
-    expect(Object.keys(TOOL_OPERATIONS)).toHaveLength(87);
+    expect(Object.keys(TOOL_OPERATIONS)).toHaveLength(88);
     for (const name of [
       'wait_agent_tasks',
       'observe_agent_tasks',

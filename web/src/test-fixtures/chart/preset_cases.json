@@ -51,6 +51,9 @@
           },
           "y": {
             "field": "loss",
+            "scale": {
+              "zero": false
+            },
             "type": "quantitative"
           }
         },
@@ -139,6 +142,9 @@
           },
           "y": {
             "field": "disp_mm",
+            "scale": {
+              "zero": false
+            },
             "type": "quantitative"
           }
         },
@@ -506,6 +512,9 @@
           },
           "y": {
             "field": "permeability",
+            "scale": {
+              "zero": false
+            },
             "type": "quantitative"
           }
         },

@@ -19,7 +19,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { createPortal } from 'react-dom';
 import { Root as DismissableLayer } from '@radix-ui/react-dismissable-layer';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -35,7 +34,7 @@ import {
 import { WorkbenchTabContent } from './workbench-tab-content';
 import { WorkbenchTabFrame } from './workbench-tab-frame';
 import { PendingStripDispatcher, WorkbenchRequestDispatcher } from './workbench-dispatchers';
-import { useWorkbenchMaximize } from './use-workbench-maximize';
+import { useMaximizedSectionBounds, useWorkbenchMaximize } from './use-workbench-maximize';
 import { useWorkbenchStrip } from './use-workbench-strip';
 import {
   tabForOpenRequest,
@@ -84,6 +83,8 @@ import {
 } from './workbench-list-column';
 import { useWorkbenchTabListSlot } from './use-workbench-tab-list-slot';
 import { WorkbenchTabListProvider } from './workbench-tab-list';
+import { useMcpAppTabSync } from './mcp-app-tab-sync';
+import { usePublishWorkbenchAppTabs } from './phone-app-dock';
 import { t } from '@lingui/core/macro';
 
 export interface ClioWorkbenchProps {
@@ -221,8 +222,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       toggleMaximized,
       restore,
       maximizeButtonRef,
-      portalHost,
-      inSection,
+      scope: maximizeScope,
     } = useWorkbenchMaximize();
     // Tab bodies wait until the latest open request is delivered: revealing
     // the canvas must not mount the previous tab only to replace it.
@@ -232,6 +232,10 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const requestsSettled =
       deliveredKey !== undefined && (!pendingRequest || pendingRequest.key === deliveredKey);
     const asideRef = useRef<HTMLElement>(null);
+    const sectionBounds = useMaximizedSectionBounds(
+      asideRef,
+      maximized && maximizeScope === 'section',
+    );
     const activeTabRef = useRef<HTMLDivElement>(null);
     const tabStripRef = useRef<HTMLDivElement>(null);
 
@@ -303,6 +307,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       canvasControl?.hide?.();
     };
     const closeTabOrCanvas = (tabId: string) => closeTabsOrCanvas([tabId]);
+    useMcpAppTabSync(orderedTabs, closeTabsOrCanvas, canvasControl?.hide);
+    usePublishWorkbenchAppTabs(orderedTabs, activeTab);
 
     const openCanvasResource = useCallback(
       (kind: CanvasResourceKind) => {
@@ -585,10 +591,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         className={cn(
           'relative z-30 flex h-full min-w-0 flex-row bg-background',
           maximized &&
-            (inSection
-              ? 'absolute inset-0 z-[80] bg-background'
+            (maximizeScope === 'section'
+              ? 'fixed z-[80] bg-background'
               : 'fixed inset-0 z-[80] bg-background shadow-2xl'),
         )}
+        style={sectionBounds}
       >
         <WorkbenchTabListProvider slot={tabList.slot}>
           <TooltipProvider delayDuration={450}>
@@ -657,14 +664,17 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 // `isolate`: a tab's own stacking (charts, sticky headers) stays under the list sheet.
                 // Every tab holds its own controls, so the panel itself is not a stop.
                 <TabsContent
-                  className="isolate m-0 min-h-0 overflow-hidden"
+                  className="isolate m-0 min-h-0 overflow-hidden data-[state=inactive]:hidden"
+                  // An App's tab stays mounted while hidden: its view must not reload.
+                  forceMount={tab.kind === 'mcp-app' || undefined}
                   key={tab.id}
                   tabIndex={-1}
                   value={tab.id}
                 >
                   {/* Only the active tab: Radix Presence renders an outgoing panel once more
                     before unmounting it, which would mount a tab that is being left. */}
-                  {canvasVisible && requestsSettled && tab.id === activeTab?.id ? (
+                  {(canvasVisible && requestsSettled && tab.id === activeTab?.id) ||
+                  tab.kind === 'mcp-app' ? (
                     <WorkbenchTabFrame
                       artifacts={artifacts}
                       back={backFor(tab)}
@@ -724,32 +734,32 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     return (
       <>
-        {/* Keep request delivery outside the portal: maximizing remounts its
-            contents and must not replay a previously handled open request. */}
+        {/* Request delivery sits beside the canvas, never inside a tab's content. */}
         <WorkbenchRequestDispatcher
           active={pendingRequest}
           onDelivered={setDeliveredKey}
           onOpen={openRequest}
         />
         <PendingStripDispatcher onTake={takePendingStripPosition} position={pendingStripPosition} />
-        {maximized
-          ? createPortal(
-              <DismissableLayer
-                asChild
-                onEscapeKeyDown={(event) => {
-                  // Closing a child can expose this layer during the same key
-                  // event. A handled Escape must never dismiss its parent too.
-                  if (event.defaultPrevented) return;
-                  event.preventDefault();
-                  restore();
-                }}
-                onInteractOutside={(event) => event.preventDefault()}
-              >
-                {canvas}
-              </DismissableLayer>,
-              portalHost,
-            )
-          : canvas}
+        {/* Maximizing restyles the canvas in place (useWorkbenchMaximize): a move
+            into another host would reload every App view in it. Escape restores
+            through a layer of its own, so a menu opened above it closes first. */}
+        {maximized ? (
+          <DismissableLayer
+            asChild
+            onEscapeKeyDown={(event) => {
+              // Closing a child can expose this layer during the same key
+              // event. A handled Escape must never dismiss its parent too.
+              if (event.defaultPrevented) return;
+              event.preventDefault();
+              restore();
+            }}
+            onInteractOutside={(event) => event.preventDefault()}
+          >
+            <span data-slot="canvas-maximized-layer" hidden />
+          </DismissableLayer>
+        ) : null}
+        {canvas}
       </>
     );
   },

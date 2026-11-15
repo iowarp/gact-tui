@@ -1,40 +1,64 @@
-import {
-  TransportError,
-  type ClioRepository,
-  type McpAppDescriptor,
-  type McpAppIdentity,
-} from '@clio/core/v3';
+import { TransportError, type McpAppDescriptor, type McpAppIdentity } from '@clio/core/v3';
 import { AlertTriangleIcon, CornerDownRightIcon, PanelsTopLeftIcon } from 'lucide-react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
+import { useHasConnection } from '@/providers/connection-provider';
+import {
+  bridgeRequest,
+  hostContext,
+  initializeResult,
+  isJsonRpcMessage,
+  isRecord,
+  MCP_APPS_PROTOCOL_VERSION,
+  resolveDisplayMode,
+  rpcError,
+  rpcFailure,
+  validateDescriptor,
+  displayModeFor,
+  type BridgeHooks,
+  type JsonRpcMessage,
+  type McpAppClient,
+  type McpAppPlacementKind,
+  type McpAppViewDisplayMode,
+} from './mcp-app-bridge';
+import { mcpAppLabel } from './mcp-app-live-set';
+import { onScreen, revealView, trackViewLook } from './mcp-app-look-waiting';
+import { ViewLookCardNotice } from './mcp-app-look-waiting-notice';
+import { mcpAppServiceHostContext } from './mcp-app-service';
+import { McpAppViewTools } from './mcp-app-view-tools';
+import {
+  McpAppLooks,
+  registerViewSnapshot,
+  snapshotAnswer,
+  VIEW_SNAPSHOT_METHOD,
+  type TakeSnapshot,
+} from './mcp-app-look';
+import {
+  McpAppCommentSession,
+  McpAppCommentsIcon,
+  McpAppRegionLayer,
+} from './comments/mcp-app-comments';
 import { ClioStatus } from './status';
-import { humanizeToolName } from './tool-presentation';
+import { McpAppBlankNotice, McpAppFrameMenu, McpAppPaintStatus } from './mcp-app-frame-menu';
+import { watchFirstPaint, type PaintVerdict } from './mcp-app-first-paint';
 import { t } from '@lingui/core/macro';
 import { formatClockTime } from '@/lib/locale-format';
 
-export const MCP_APPS_PROTOCOL_VERSION = '2026-01-26';
+export { MCP_APPS_PROTOCOL_VERSION } from './mcp-app-bridge';
 
-type McpAppClient = Pick<
-  ClioRepository,
-  | 'mcpAppDescriptor'
-  | 'callMcpAppTool'
-  | 'readMcpAppResource'
-  | 'updateMcpAppModelContext'
-  | 'postMcpAppMessage'
->;
-
-interface JsonRpcMessage {
-  jsonrpc: '2.0';
-  id?: string | number | null;
-  method?: string;
-  params?: Record<string, unknown>;
-  result?: unknown;
-  error?: { code: number; message: string };
-}
-
-export interface McpAppSurfaceProps {
+export interface McpAppSurfaceProps extends BridgeHooks {
   appInstanceId: string;
   dataRef: string;
   height?: number;
@@ -43,6 +67,39 @@ export interface McpAppSurfaceProps {
   sessionId: string;
   sourceServer: string;
   toolName: string;
+  /** The App's name in the header and frame title; the tool's name when absent. */
+  label?: string;
+  /** Where the frame is: the card, a workbench tab or an A2UI surface (MA1, MA20). */
+  placement?: McpAppPlacementKind;
+  /** Header controls beside the title ("Open in tab", "Return to conversation"). */
+  actions?: ReactNode;
+  /** The view asked for another mode and the host granted it (MA2). */
+  onDisplayModeChange?: (mode: McpAppViewDisplayMode) => void;
+  /**
+   * The descriptor reports a mode this placement does not hold (a reload, another
+   * window). Return true when the frame belongs elsewhere and must not mount here.
+   */
+  onRecordedDisplayMode?: (mode: McpAppViewDisplayMode) => boolean;
+  /** The record is gone on the server (404). */
+  onEnded?: () => void;
+  /** The view finished `ui/initialize`; its declared `appCapabilities`. */
+  onAppInitialized?: (appCapabilities: Record<string, unknown>) => void;
+  /** A notification the host does not consume itself (`notifications/tools/list_changed`). */
+  onViewNotification?: (method: string, params: Record<string, unknown>) => void;
+  /** The frame offers the one Comments icon: regions and points on the view (CM3). */
+  comments?: boolean;
+}
+
+/** Drive the view directly: app tools (MA13) and channel inputs (MA21). */
+export interface McpAppSurfaceHandle {
+  /** `tools/call` to the view's own tools; waits for the view without a timeout (rule 6). */
+  callAppTool: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+  /** Send `ui/notifications/tool-input` with new arguments. */
+  sendToolInput: (args: Record<string, unknown>) => void;
+  /** Send `ui/notifications/tool-result` for a call the host made for the view (MA21). */
+  sendToolResult: (result: unknown) => void;
+  /** Send any request to the view (`tools/list`, …) and wait for its answer. */
+  request: (method: string, params?: Record<string, unknown>) => Promise<unknown>;
 }
 
 export interface McpAppResponseActivityData {
@@ -55,13 +112,47 @@ export interface McpAppResponseActivityData {
   toolName: string;
 }
 
-/** Host one MCP App at the tool result that produced it. */
-export function McpAppSurface(props: McpAppSurfaceProps) {
-  const identityKey = `${props.sessionId}:${props.appInstanceId}:${props.dataRef}`;
-  return <McpAppSurfaceInstance key={identityKey} {...props} />;
+interface ViewChannel {
+  ready: Promise<void>;
+  markReady: () => void;
+  post?: (message: JsonRpcMessage) => void;
+  pending: Map<string, { resolve: (value: unknown) => void; reject: (error: Error) => void }>;
+  next: number;
 }
 
-function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
+function newChannel(): ViewChannel {
+  let markReady = () => undefined as void;
+  const ready = new Promise<void>((resolve) => {
+    markReady = resolve;
+  });
+  return { ready, markReady, pending: new Map(), next: 0 };
+}
+
+/** Host one MCP App: one frame, wherever its placement puts it (MA3). */
+export const McpAppSurface = forwardRef<McpAppSurfaceHandle, McpAppSurfaceProps>(
+  function McpAppSurface(props, ref) {
+    const placement = props.placement ?? 'inline';
+    // A move between placements reloads the frame and replays initialize, input and result.
+    const identityKey = `${props.sessionId}:${props.appInstanceId}:${props.dataRef}:${placement}`;
+    // "Reload view" (FP-D9) mounts the frame afresh the same way.
+    const [reloads, setReloads] = useState(0);
+    return (
+      <McpAppSurfaceInstance
+        key={`${identityKey}:${reloads}`}
+        {...props}
+        onReload={() => setReloads((count) => count + 1)}
+        placement={placement}
+        ref={ref}
+      />
+    );
+  },
+);
+
+const McpAppSurfaceInstance = forwardRef<
+  McpAppSurfaceHandle,
+  McpAppSurfaceProps & { placement: McpAppPlacementKind; onReload: () => void }
+>(function McpAppSurfaceInstance(props, ref) {
+  const { placement } = props;
   const identity = useMemo<McpAppIdentity>(
     () => ({
       sessionId: props.sessionId,
@@ -71,42 +162,89 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
     [props.appInstanceId, props.dataRef, props.sessionId],
   );
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const hasConnection = useHasConnection();
   const [descriptor, setDescriptor] = useState<McpAppDescriptor>();
   const [error, setError] = useState('');
   const [ended, setEnded] = useState(false);
   const [ready, setReady] = useState(false);
+  const [paint, setPaint] = useState<PaintVerdict>('pending');
   const [requestedHeight, setRequestedHeight] = useState(props.height ?? 420);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
-  const frameHeight = Math.min(
-    720,
-    Math.max(180, viewportHeight - 180),
-    Math.max(180, requestedHeight),
-  );
+  const channel = useRef<ViewChannel>(newChannel());
+  // The view's snapshot (CM1), once it is ready, and the context it last reported (CM3).
+  const snapshotRef = useRef<TakeSnapshot | undefined>(undefined);
+  const contextRef = useRef<unknown>(undefined);
+  // Callbacks read at call time, so a parent re-render never rebuilds the bridge.
+  const latest = useRef(props);
+  useLayoutEffect(() => {
+    latest.current = props;
+  });
+  const frameHeight =
+    placement === 'surface' && props.height
+      ? props.height
+      : Math.min(720, Math.max(180, viewportHeight - 180), Math.max(180, requestedHeight));
+
+  useImperativeHandle(ref, () => {
+    const request = async (method: string, params: Record<string, unknown> = {}) => {
+      await channel.current.ready;
+      const post = channel.current.post;
+      if (!post) throw new Error('The interactive view is not open.');
+      const id = `host:${(channel.current.next += 1)}`;
+      return new Promise<unknown>((resolve, reject) => {
+        channel.current.pending.set(id, { resolve, reject });
+        post({ jsonrpc: '2.0', id, method, params });
+      });
+    };
+    return {
+      request,
+      callAppTool: (name, args) => request('tools/call', { name, arguments: args }),
+      sendToolInput: (args) => {
+        channel.current.post?.({
+          jsonrpc: '2.0',
+          method: 'ui/notifications/tool-input',
+          params: { arguments: args },
+        });
+      },
+      sendToolResult: (result) => {
+        channel.current.post?.({
+          jsonrpc: '2.0',
+          method: 'ui/notifications/tool-result',
+          params: isRecord(result) ? result : {},
+        });
+      },
+    };
+  }, []);
 
   useEffect(() => {
+    if (placement === 'tab') return;
     const onResize = () => setViewportHeight(window.innerHeight);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, []);
+  }, [placement]);
 
   useEffect(() => {
     const controller = new AbortController();
     void loadDescriptor(props.repository, identity, controller.signal)
       .then((next) => {
         validateDescriptor(next, props.resourceUri, identity);
+        const recorded = next.display_mode ?? 'inline';
+        if (placement !== 'surface' && recorded !== displayModeFor(placement)) {
+          // The record's frame is elsewhere: never mount a second one (MA3).
+          if (latest.current.onRecordedDisplayMode?.(recorded)) return;
+        }
         setDescriptor(next);
       })
       .catch((thrown) => {
-        if (!controller.signal.aborted) {
-          if (isEndedAppError(thrown)) {
-            setEnded(true);
-          } else {
-            setError(thrown instanceof Error ? thrown.message : String(thrown));
-          }
+        if (controller.signal.aborted) return;
+        if (isEndedAppError(thrown)) {
+          setEnded(true);
+          latest.current.onEnded?.();
+        } else {
+          setError(thrown instanceof Error ? thrown.message : String(thrown));
         }
       });
     return () => controller.abort();
-  }, [identity, props.repository, props.resourceUri]);
+  }, [identity, placement, props.repository, props.resourceUri]);
 
   useLayoutEffect(() => {
     if (!descriptor) return;
@@ -115,13 +253,73 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
     const targetWindow = iframe.contentWindow;
     if (!targetWindow) return;
     const sandboxOrigin = new URL(descriptor.sandbox_url).origin;
+    const view = channel.current;
     let active = true;
     let initialized = false;
+    let appCapabilities: Record<string, unknown> | undefined;
     const post = (message: JsonRpcMessage) => targetWindow.postMessage(message, sandboxOrigin);
+    view.post = post;
+    // The view's own tools (MA11, MA13): listed when it declares them, called for the agent.
+    const viewTools = new McpAppViewTools(
+      latest.current.repository,
+      identity,
+      (method, params) =>
+        new Promise<unknown>((resolve, reject) => {
+          const id = `host:${(view.next += 1)}`;
+          view.pending.set(id, { resolve, reject });
+          post({ jsonrpc: '2.0', id, method, params });
+        }),
+    );
+    // CLIO's sandbox document answers a snapshot request itself; the view never sees it.
+    const snapshot: TakeSnapshot = (options) =>
+      new Promise<unknown>((resolve, reject) => {
+        const id = `host:${(view.next += 1)}`;
+        view.pending.set(id, { resolve, reject });
+        post({
+          jsonrpc: '2.0',
+          id,
+          method: VIEW_SNAPSHOT_METHOD,
+          params: {
+            scale: options.scale ?? 1,
+            max_side: options.maxSide ?? 4096,
+            background: getComputedStyle(iframe).backgroundColor,
+          },
+        });
+      }).then(snapshotAnswer);
+    // A look waits while the frame is off screen; the row and the card say so (DOCS-F2).
+    const looks = new McpAppLooks(
+      latest.current.repository,
+      identity,
+      snapshot,
+      (callId) =>
+        trackViewLook(
+          {
+            callId,
+            sessionId: identity.sessionId,
+            appInstanceId: identity.appInstanceId,
+            reveal: () => revealView(placement, iframe, { ...latest.current, ...identity }),
+          },
+          iframe,
+        ),
+      () => onScreen(iframe),
+    );
+    let withdrawSnapshot = () => undefined as void;
+    let firstPaint: ReturnType<typeof watchFirstPaint> | undefined;
+    const answer = (message: JsonRpcMessage) => {
+      const pending = view.pending.get(String(message.id));
+      if (!pending) return;
+      view.pending.delete(String(message.id));
+      if (message.error) pending.reject(new Error(message.error.message));
+      else pending.resolve(message.result);
+    };
     const onMessage = (event: MessageEvent<unknown>) => {
       if (!active || event.source !== targetWindow || event.origin !== sandboxOrigin) return;
       if (!isJsonRpcMessage(event.data)) return;
       const message = event.data;
+      if (!message.method) {
+        answer(message);
+        return;
+      }
       if (message.method === 'ui/notifications/sandbox-proxy-ready') {
         post({
           jsonrpc: '2.0',
@@ -145,10 +343,17 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
           post(rpcError(message.id, -32602, 'Unsupported MCP Apps protocol version'));
           return;
         }
+        appCapabilities = message.params.appCapabilities;
+        viewTools.declare(appCapabilities);
         post({
           jsonrpc: '2.0',
           id: message.id,
-          result: initializeResult(descriptor, iframe),
+          result: initializeResult(
+            descriptor,
+            iframe,
+            placement,
+            mcpAppServiceHostContext(descriptor, identity),
+          ),
         });
         return;
       }
@@ -169,6 +374,13 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
           method: 'ui/notifications/tool-result',
           params: descriptor.tool_result,
         });
+        view.markReady();
+        viewTools.start();
+        snapshotRef.current = snapshot;
+        withdrawSnapshot = registerViewSnapshot(iframe, snapshot);
+        looks.start();
+        firstPaint = watchFirstPaint(snapshot, setPaint);
+        latest.current.onAppInitialized?.(appCapabilities ?? {});
         return;
       }
       if (message.method === 'ui/notifications/size-changed') {
@@ -179,42 +391,72 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
         return;
       }
       if (message.method === 'notifications/message') return;
-      if (!message.method || message.id === undefined) return;
-      void bridgeRequest(props.repository, identity, message)
+      if (message.id === undefined) {
+        if (message.method === 'notifications/tools/list_changed') void viewTools.refresh();
+        latest.current.onViewNotification?.(message.method, message.params ?? {});
+        return;
+      }
+      if (message.method === 'ui/request-display-mode') {
+        const mode = resolveDisplayMode(message.params?.mode, placement, appCapabilities);
+        post({ jsonrpc: '2.0', id: message.id, result: { mode } });
+        // The answer reaches this frame before the move unmounts it.
+        if (mode !== displayModeFor(placement)) {
+          window.setTimeout(() => latest.current.onDisplayModeChange?.(mode), 0);
+        }
+        return;
+      }
+      void bridgeRequest(latest.current.repository, identity, message, {
+        onModelContext: (context) => {
+          contextRef.current = context;
+          // A view that reports a new state may have drawn since it read blank (FP-D9).
+          firstPaint?.recheck();
+          latest.current.onModelContext?.(context);
+        },
+        onBrowserPage: (page) => latest.current.onBrowserPage?.(page),
+        onDownloaded: (files) => latest.current.onDownloaded?.(files),
+      })
         .then((result) => {
           if (active) post({ jsonrpc: '2.0', id: message.id, result });
         })
         .catch((thrown) => {
-          if (active) {
-            post(
-              rpcError(
-                message.id,
-                -32000,
-                // i18n-ignore: JSON-RPC error returned to the MCP App
-                thrown instanceof Error ? thrown.message : 'MCP App request failed',
-              ),
-            );
-          }
+          if (active) post(rpcFailure(message.id, thrown));
         });
     };
     const notifyContext = () => {
       if (!initialized) return;
+      firstPaint?.recheck();
       post({
         jsonrpc: '2.0',
         method: 'ui/notifications/host-context-changed',
-        params: hostContext(iframe),
+        params: hostContext(iframe, placement, mcpAppServiceHostContext(descriptor, identity)),
       });
     };
     const themeObserver = new MutationObserver(notifyContext);
+    // A theme switch changes the class (dark) or data-theme (the family): resend
+    // theme and styles so the view follows.
     themeObserver.observe(document.documentElement, {
-      attributeFilter: ['class'],
+      attributeFilter: ['class', 'data-theme'],
       attributes: true,
     });
+    // A tab's size is the view's container: report every change of it.
+    const sizeObserver = new ResizeObserver(notifyContext);
+    if (placement === 'tab') sizeObserver.observe(iframe);
     window.addEventListener('resize', notifyContext);
     window.addEventListener('message', onMessage);
     return () => {
       active = false;
+      viewTools.stop();
+      looks.stop();
+      firstPaint?.stop();
+      snapshotRef.current = undefined;
+      withdrawSnapshot();
+      view.post = undefined;
+      for (const pending of view.pending.values())
+        pending.reject(new Error('The interactive view closed.'));
+      view.pending.clear();
+      channel.current = newChannel();
       themeObserver.disconnect();
+      sizeObserver.disconnect();
       window.removeEventListener('resize', notifyContext);
       window.removeEventListener('message', onMessage);
       post({
@@ -224,21 +466,47 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
         params: {},
       });
     };
-  }, [descriptor, identity, props.appInstanceId, props.repository]);
+  }, [descriptor, identity, placement, props.appInstanceId]);
 
   if (ended) {
     return <McpAppHistoryLine sourceServer={props.sourceServer} toolName={props.toolName} />;
   }
 
-  const displayName = mcpAppDisplayName(props.toolName, props.sourceServer);
-  return (
-    <Frame className="min-w-0 overflow-hidden" data-mcp-app={props.appInstanceId} spacing={null}>
-      <FrameHeader className="flex-row items-center gap-2 border-b px-3 py-2">
+  const displayName = props.label || mcpAppLabel(props.toolName, props.sourceServer);
+  const fill = placement === 'tab';
+  // Comments need the conversation's connection (a bare surface, as in a test, has none).
+  const comments = Boolean(props.comments) && hasConnection;
+  const frame = (
+    <Frame
+      className={cn(
+        'min-w-0 overflow-hidden',
+        fill && 'flex h-full flex-col rounded-none border-0',
+      )}
+      data-mcp-app={props.appInstanceId}
+      data-mcp-app-placement={placement}
+      spacing={null}
+    >
+      <FrameHeader className="flex-row flex-wrap items-center gap-2 border-b px-3 py-2">
         <PanelsTopLeftIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-        <FrameTitle className="min-w-0 flex-1 truncate">{displayName}</FrameTitle>
-        <ClioStatus label={ready ? t`Ready` : t`Loading`} value={ready ? 'succeeded' : 'running'} />
+        <FrameTitle className="min-w-[7rem] flex-1 truncate">{displayName}</FrameTitle>
+        {error ? (
+          <ClioStatus label={t`Unavailable`} value="unavailable" />
+        ) : descriptor?.service_refusal ? (
+          <ClioStatus label={t`Service unavailable`} value="unavailable" />
+        ) : (
+          <McpAppPaintStatus paint={paint} ready={ready} />
+        )}
+        {comments ? (
+          <McpAppCommentsIcon disabledReason={ready ? undefined : t`The view is still loading.`} />
+        ) : null}
+        <ViewLookCardNotice appInstanceId={props.appInstanceId} sessionId={props.sessionId} />
+        {props.actions}
+        <McpAppFrameMenu label={displayName} onReload={props.onReload} />
       </FrameHeader>
-      <FramePanel className="relative min-w-0 p-0" style={{ minHeight: frameHeight }}>
+      <FramePanel
+        className={cn('relative min-w-0 p-0', fill && 'min-h-0 flex-1')}
+        style={fill ? undefined : { minHeight: frameHeight }}
+      >
         {error ? (
           <div className="grid min-h-[15rem] place-items-center p-4">
             <Alert className="max-w-lg" variant="destructive">
@@ -248,18 +516,37 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
             </Alert>
           </div>
         ) : descriptor ? (
-          <iframe
-            className="block w-full border-0 bg-background"
-            data-mcp-app-iframe={props.appInstanceId}
-            ref={iframeRef}
-            referrerPolicy="origin"
-            sandbox="allow-scripts allow-same-origin"
-            src={descriptor.sandbox_url}
-            style={{ height: frameHeight }}
-            title={t`${displayName} interactive view`}
-          />
+          <>
+            {descriptor.service_refusal ? (
+              <p
+                className="relative z-10 border-b bg-background px-3 py-2 text-xs text-muted-foreground"
+                data-mcp-app-service-refusal={descriptor.service_refusal.reason}
+                role="status"
+              >
+                {descriptor.service_refusal.message}
+              </p>
+            ) : null}
+            {ready && paint === 'blank' ? <McpAppBlankNotice onReload={props.onReload} /> : null}
+            <iframe
+              className={cn(
+                'block w-full border-0 bg-background',
+                fill && 'absolute inset-0 h-full',
+              )}
+              data-mcp-app-iframe={props.appInstanceId}
+              ref={iframeRef}
+              referrerPolicy="origin"
+              sandbox="allow-scripts allow-same-origin"
+              src={descriptor.sandbox_url}
+              style={fill ? undefined : { height: frameHeight }}
+              title={t`${displayName}, interactive view`}
+            />
+            {comments ? <McpAppRegionLayer /> : null}
+          </>
         ) : (
-          <div className="grid gap-3 p-4" style={{ minHeight: frameHeight }}>
+          <div
+            className={cn('grid gap-3 p-4', fill && 'h-full')}
+            style={fill ? undefined : { minHeight: frameHeight }}
+          >
             <Skeleton className="h-8 w-2/5" />
             <Skeleton className="h-full min-h-40 w-full" />
           </div>
@@ -267,7 +554,23 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
       </FramePanel>
     </Frame>
   );
-}
+  if (!comments) return frame;
+  return (
+    <McpAppCommentSession
+      context={() => contextRef.current}
+      snapshot={() => snapshotRef.current}
+      target={{
+        appInstanceId: props.appInstanceId,
+        server: props.sourceServer,
+        tool: props.toolName,
+        title: displayName,
+        resourceUri: props.resourceUri,
+      }}
+    >
+      {frame}
+    </McpAppCommentSession>
+  );
+});
 
 async function loadDescriptor(
   repository: McpAppClient,
@@ -298,7 +601,7 @@ export function McpAppHistoryLine({
   sourceServer: string;
   toolName: string;
 }) {
-  const displayName = mcpAppDisplayName(toolName, sourceServer);
+  const displayName = mcpAppLabel(toolName, sourceServer);
   const serverOnly = !toolName.trim();
   return (
     <div className="flex min-h-10 items-center gap-2 rounded-lg border bg-muted/20 px-3 text-sm">
@@ -319,7 +622,7 @@ export function McpAppHistoryLine({
 
 /** Render a message emitted by an App as causal ledger activity, not composer chat. */
 export function McpAppResponseActivity({ response }: { response: McpAppResponseActivityData }) {
-  const displayName = mcpAppDisplayName(response.toolName, response.sourceServer);
+  const displayName = mcpAppLabel(response.toolName, response.sourceServer);
   return (
     <div
       className="flex min-w-0 items-start gap-3 border-l-2 border-primary/35 py-1 pl-3 text-sm"
@@ -351,117 +654,6 @@ export function McpAppResponseActivity({ response }: { response: McpAppResponseA
   );
 }
 
-function mcpAppDisplayName(toolName: string, sourceServer: string): string {
-  return humanizeToolName(toolName || sourceServer || 'interactive_tool');
-}
-
 function isEndedAppError(error: unknown): boolean {
   return error instanceof TransportError && error.status === 404 && error.code === 'not_found';
-}
-
-function isJsonRpcMessage(value: unknown): value is JsonRpcMessage {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const row = value as Record<string, unknown>;
-  if (row.jsonrpc !== '2.0') return false;
-  return typeof row.method === 'string' || 'id' in row;
-}
-
-function validateDescriptor(
-  descriptor: McpAppDescriptor,
-  resourceUri: string,
-  identity: McpAppIdentity,
-): void {
-  if (descriptor.protocol_version !== MCP_APPS_PROTOCOL_VERSION) {
-    throw new Error(t`This interactive tool uses an unsupported protocol version.`);
-  }
-  if (descriptor.resource.uri !== resourceUri || !resourceUri.startsWith('ui://')) {
-    throw new Error(t`The interactive tool resource did not match its message.`);
-  }
-  if (!/^text\/html\s*;\s*profile=mcp-app(?:\s*;|$)/iu.test(descriptor.resource.mime_type)) {
-    throw new Error(t`The interactive tool resource is not MCP App HTML.`);
-  }
-  const sandbox = new URL(descriptor.sandbox_url);
-  if (sandbox.origin === window.location.origin) {
-    throw new Error(t`The interactive tool sandbox is not isolated from the workspace.`);
-  }
-  const expectedPath = `/v1/sessions/${encodeURIComponent(identity.sessionId)}/mcp-apps/${encodeURIComponent(identity.appInstanceId)}/sandbox`;
-  if (
-    sandbox.pathname !== expectedPath ||
-    sandbox.searchParams.get('data_ref') !== identity.dataRef
-  ) {
-    throw new Error(t`The interactive tool sandbox did not match its capability identity.`);
-  }
-}
-
-function initializeResult(descriptor: McpAppDescriptor, iframe: HTMLIFrameElement) {
-  return {
-    protocolVersion: MCP_APPS_PROTOCOL_VERSION,
-    hostCapabilities: {
-      serverTools: {},
-      serverResources: {},
-      logging: {},
-      sandbox: { csp: descriptor.resource.csp, permissions: descriptor.resource.permissions },
-    },
-    // i18n-ignore: host identity sent to the MCP App
-    hostInfo: { name: 'Agent Workspace', version: '0.11.0' },
-    hostContext: hostContext(iframe),
-  };
-}
-
-function hostContext(iframe: HTMLIFrameElement) {
-  const touch = navigator.maxTouchPoints > 0;
-  return {
-    theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
-    displayMode: 'inline',
-    availableDisplayModes: ['inline'],
-    containerDimensions: {
-      width: Math.max(1, iframe.clientWidth),
-      height: Math.max(1, iframe.clientHeight),
-    },
-    locale: navigator.language || 'en',
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    userAgent: navigator.userAgent,
-    platform: 'web',
-    deviceCapabilities: {
-      touch,
-      hover: window.matchMedia?.('(hover: hover)').matches ?? false,
-    },
-    safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 },
-  };
-}
-
-async function bridgeRequest(
-  repository: McpAppClient,
-  identity: McpAppIdentity,
-  message: JsonRpcMessage,
-): Promise<unknown> {
-  const params = message.params ?? {};
-  if (message.method === 'tools/call') {
-    const name = typeof params.name === 'string' ? params.name : '';
-    const argumentsValue = isRecord(params.arguments) ? params.arguments : {};
-    if (!name) throw new Error('MCP App tool request has no name.');
-    return repository.callMcpAppTool(identity, { name, arguments: argumentsValue });
-  }
-  if (message.method === 'resources/read') {
-    if (typeof params.uri !== 'string') throw new Error('MCP App resource request has no URI.');
-    return repository.readMcpAppResource(identity, params.uri);
-  }
-  if (message.method === 'ui/update-model-context') {
-    return repository.updateMcpAppModelContext(identity, params);
-  }
-  if (message.method === 'ui/request-display-mode') {
-    return { mode: 'inline' };
-  }
-  if (message.method === 'ui/message') {
-    return repository.postMcpAppMessage(identity, params);
-  }
-  throw new Error(`Unsupported MCP App method: ${message.method}`);
-}
-
-function rpcError(id: JsonRpcMessage['id'], code: number, message: string): JsonRpcMessage {
-  return { jsonrpc: '2.0', id, error: { code, message } };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }

@@ -2824,6 +2824,8 @@ message.canvas implemented
 message.cancelled implemented
 message.completed implemented
 message.upserted implemented
+mcp_app_closed implemented
+mcp_app_tool_call implemented
 pending_steer.cancelled implemented
 provider_catalog.refreshed implemented
 question.upserted implemented

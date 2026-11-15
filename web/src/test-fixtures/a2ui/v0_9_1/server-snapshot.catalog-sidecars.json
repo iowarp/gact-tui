@@ -136,6 +136,28 @@
         "destination": "client",
         "narration": "Open private google_drive sign-in on this CLIO."
       },
+      "data_source/login/ndp": {
+        "context_schema": {
+          "additionalProperties": false,
+          "properties": {
+            "clio_id": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "workspace_id": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "clio_id",
+            "workspace_id"
+          ],
+          "type": "object"
+        },
+        "destination": "client",
+        "narration": "Open private ndp sign-in on this CLIO."
+      },
       "run.cancel": {
         "destination": "run",
         "operation": "cancel"
@@ -229,6 +251,9 @@
       },
       "clio.map.v1": {
         "kernel": "clio.map.v1"
+      },
+      "clio.mcp-app.v1": {
+        "kernel": "clio.mcp-app.v1"
       },
       "clio.mermaid.v1": {
         "kernel": "clio.mermaid.v1"

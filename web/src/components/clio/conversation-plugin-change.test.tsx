@@ -4,7 +4,11 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { HarnessInjection } from './conversation-harness-injection';
 import { conversationTurnPresentation } from './conversation-turn-model';
-import { pluginChangeLabel } from '@/lib/plugin-presentation';
+import {
+  pluginChangeLabel,
+  pluginKindResolver,
+  pluginNameResolver,
+} from '@/lib/plugin-presentation';
 
 type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
 
@@ -24,8 +28,61 @@ function block(text: string): InjectionBlock {
 afterEach(cleanup);
 
 describe('plugin_change injection', () => {
+  it('names connector plugins after their connector (FP-D5)', () => {
+    const nameOf = pluginNameResolver(
+      [
+        { id: 'viewer', follows: 'viewer' },
+        { id: 'tools', follows: '' },
+      ],
+      [
+        { id: 'viewer', name: 'Viewer Pro', plugin: 'viewer' },
+        { id: 'molecules', name: 'Molecule Lab', plugin: '' },
+      ],
+    );
+    const note = 'Added: connector-molecules.\nAdded: viewer.\nAdded: tools.';
+    expect(pluginChangeLabel(note, nameOf)).toBe(
+      'Plugins changed: +Molecule Lab, +Viewer Pro, +Tools',
+    );
+  });
+
+  it('says connectors changed when only connectors did, never naming a carrier (PL-D1)', () => {
+    const plugins = [
+      {
+        id: 'viewer',
+        follows: 'viewer',
+        skills: ['viewer-scenes'],
+        mcp_servers: ['viewer'],
+        tools: [],
+      },
+      { id: 'tools', follows: '', skills: [], mcp_servers: [], tools: ['t'] },
+    ];
+    const connectors = [
+      { id: 'viewer', name: 'Viewer Pro', plugin: 'viewer' },
+      { id: 'molecules', name: 'Molecule Lab', plugin: '' },
+    ];
+    const nameOf = pluginNameResolver(plugins, connectors);
+    const kindOf = pluginKindResolver(plugins, connectors);
+    expect(kindOf('connector-molecules')).toBe('connector');
+    expect(kindOf('viewer')).toBe('plugin');
+    expect(kindOf('tools')).toBe('plugin');
+    const tools = '\nNew tools you can call now:\n- molecules_open(x: string): Open.';
+    expect(pluginChangeLabel(`Added: connector-molecules.${tools}`, nameOf, kindOf)).toBe(
+      'Connectors changed: +Molecule Lab (1 new tool)',
+    );
+    expect(pluginChangeLabel('Added: viewer.', nameOf, kindOf)).toBe(
+      'Plugins changed: +Viewer Pro',
+    );
+    expect(
+      pluginChangeLabel(
+        'Added: connector-molecules.\nRemoved: tools. Do not use their tools.',
+        nameOf,
+        kindOf,
+      ),
+    ).toBe('Plugins and connectors changed: +Molecule Lab, −Tools');
+  });
+
   it('labels the change from the note itself', () => {
-    expect(pluginChangeLabel(NOTE)).toBe('Plugins changed: +shell, −document-runtime, −pdf');
+    expect(pluginChangeLabel(NOTE)).toBe('Plugins changed: +Shell, −Document runtime, −Pdf');
     expect(pluginChangeLabel('Something else entirely.')).toBe('Plugins changed');
   });
 
@@ -37,7 +94,7 @@ describe('plugin_change injection', () => {
       '- shell_which(name: string): Find an executable.',
     ].join('\n');
     expect(pluginChangeLabel(withTools)).toBe(
-      'Plugins changed: +shell, −document-runtime, −pdf (2 new tools)',
+      'Plugins changed: +Shell, −Document runtime, −Pdf (2 new tools)',
     );
     const user = userEvent.setup();
     render(<HarnessInjection block={block(withTools)} />);
@@ -49,7 +106,7 @@ describe('plugin_change injection', () => {
     const user = userEvent.setup();
     render(<HarnessInjection block={block(NOTE)} />);
     const chip = screen.getByRole('button', {
-      name: 'Plugins changed: +shell, −document-runtime, −pdf',
+      name: 'Plugins changed: +Shell, −Document runtime, −Pdf',
     });
     expect(chip).toHaveAttribute('aria-expanded', 'false');
     await user.hover(chip);
@@ -68,7 +125,7 @@ describe('plugin_change injection', () => {
     const user = userEvent.setup();
     render(<HarnessInjection block={block('Added: shell.')} />);
     await user.tab();
-    expect(screen.getByRole('button', { name: 'Plugins changed: +shell' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Plugins changed: +Shell' })).toHaveFocus();
     await waitFor(() =>
       expect(
         screen.getByText(

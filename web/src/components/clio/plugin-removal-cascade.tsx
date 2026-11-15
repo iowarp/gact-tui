@@ -6,6 +6,8 @@ import { plural, t } from '@lingui/core/macro';
 export interface PluginRemovalCascadeProps {
   /** The plugin the person asked to remove. */
   plugin: string;
+  /** Its name in words (a connector's plugin: the connector's name); the id otherwise. */
+  name?: string;
   preview?: RemovalPreview;
   previewPending: boolean;
   previewError?: string;
@@ -18,15 +20,17 @@ export interface PluginRemovalCascadeProps {
  */
 export function PluginRemovalCascade({
   plugin,
+  name,
   preview,
   previewPending,
   previewError,
 }: PluginRemovalCascadeProps) {
   const dependents = (preview?.removes ?? []).filter((row) => row.id !== plugin);
+  const named = name || plugin;
   const tools = preview?.tools_removed ?? [];
   return (
     <div className="space-y-3" aria-live="polite">
-      {previewPending ? <p role="status">{t`Checking what depends on ${plugin}…`}</p> : null}
+      {previewPending ? <p role="status">{t`Checking what depends on ${named}…`}</p> : null}
       {previewError ? (
         <p role="alert" className="text-destructive">
           {t`The removal could not be previewed: ${previewError}`}
@@ -36,8 +40,8 @@ export function PluginRemovalCascade({
         <section aria-label={t`Plugins that leave too`} className="space-y-2">
           <p className="font-medium">
             {plural(dependents.length, {
-              one: `One more plugin leaves with ${plugin}:`,
-              other: `# more plugins leave with ${plugin}:`,
+              one: `One more plugin leaves with ${named}:`,
+              other: `# more plugins leave with ${named}:`,
             })}
           </p>
           <ul className="grid gap-1.5">
@@ -52,7 +56,7 @@ export function PluginRemovalCascade({
           </ul>
         </section>
       ) : null}
-      {preview && !dependents.length ? <p>{t`No other plugin depends on ${plugin}.`}</p> : null}
+      {preview && !dependents.length ? <p>{t`No other plugin depends on ${named}.`}</p> : null}
       {preview && tools.length ? (
         <section aria-label={t`Tools that leave`} className="space-y-1.5">
           <p className="text-muted-foreground">

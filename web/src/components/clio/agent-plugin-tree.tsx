@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { usePluginNames } from '@/hooks/use-plugin-names';
 import { RemoveIcon } from '@/lib/icon-vocabulary';
 import {
   capabilitySummary,
@@ -18,10 +19,12 @@ import {
   pluginContributions,
   promptSectionLabel,
   provenanceDetail,
-  provenanceLabel,
+  resolvedPluginName,
+  resolvedPluginOrigin,
   removedPluginReason,
   type PluginContributions,
 } from '@/lib/plugin-presentation';
+import { ConnectorLogo } from './connector-need-rows';
 import { PluginExplorer } from './plugin-explorer';
 import { PluginChangePendingNotice } from './plugin-change-pending-notice';
 import { StateView } from './primitives/state-view';
@@ -29,6 +32,9 @@ import { plural, t, ph } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 
 const STILL_IN_PROMPT = t`Still in the agent’s prompt until compaction`;
+
+/** The tree's rows show a plugin by its id; only a connector is read by its name. */
+const keepId = (id: string) => id;
 
 export interface AgentPluginTreeProps {
   resolution: AgentResolution;
@@ -104,6 +110,8 @@ export function AgentPluginTree({
   filterKind,
 }: AgentPluginTreeProps) {
   const [showAll, setShowAll] = useState(false);
+  // Removed rows name what they were as the person knows it (PL-D1), never `connector-<id>`.
+  const { nameOf } = usePluginNames(keepId);
   const pendingChange = basis?.pending ? basis : undefined;
   const announced = new Set(pendingChange?.added);
   const inPrompt = new Set(pendingChange?.removed);
@@ -164,6 +172,7 @@ export function AgentPluginTree({
       ) : null}
       {pendingChange ? (
         <PluginChangePendingNotice
+          nameOf={nameOf}
           basis={pendingChange}
           compacting={compacting}
           onCompact={readOnly ? undefined : onCompact}
@@ -249,7 +258,7 @@ export function AgentPluginTree({
                 className="flex min-w-0 flex-wrap items-center gap-x-2 rounded-md border px-2.5 py-1.5 text-sm"
                 key={id}
               >
-                <span className="font-medium">{id}</span>
+                <span className="font-medium">{nameOf(pluginReferenceId(id))}</span>
                 <span className="text-xs text-muted-foreground">{t`Removed by you`}</span>
                 {inPrompt.has(pluginReferenceId(id)) ? <StillInPrompt /> : null}
                 {readOnly ? null : (
@@ -270,7 +279,7 @@ export function AgentPluginTree({
                 className="flex min-w-0 flex-wrap items-center gap-x-2 rounded-md border px-2.5 py-1.5 text-sm"
                 key={row.id}
               >
-                <span className="font-medium">{row.id}</span>
+                <span className="font-medium">{nameOf(row.id)}</span>
                 <span className="text-xs text-muted-foreground">{removedPluginReason(row)}</span>
                 {inPrompt.has(row.id) ? <StillInPrompt /> : null}
               </li>
@@ -327,15 +336,22 @@ function PluginNode({
           aria-hidden="true"
           className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/plugin:rotate-90 motion-reduce:transition-none"
         />
-        <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        {plugin.connector ? (
+          <ConnectorLogo
+            className="mt-0.5 size-4 text-[8px]"
+            connector={{ ...plugin.connector, name: resolvedPluginName(plugin) }}
+          />
+        ) : (
+          <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        )}
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
           <CollapsibleTrigger className="min-w-0 truncate text-left text-sm font-medium outline-none after:absolute after:inset-0 after:rounded-md">
-            {plugin.id}
+            {resolvedPluginName(plugin)}
           </CollapsibleTrigger>
           <Tooltip>
             <TooltipTrigger asChild>
               <Badge className="relative z-10" tabIndex={0} variant="outline">
-                {provenanceLabel(plugin.provenance)}
+                {resolvedPluginOrigin(plugin)}
               </Badge>
             </TooltipTrigger>
             <TooltipContent>{provenanceDetail(plugin.provenance)}</TooltipContent>
@@ -361,12 +377,12 @@ function PluginNode({
         </div>
         {onRemove && plugin.removable ? (
           <Button
-            aria-label={t`Remove ${ph({ id: plugin.id })}`}
+            aria-label={t`Remove ${ph({ id: resolvedPluginName(plugin) })}`}
             className="relative z-10 -my-0.5"
             disabled={pending}
             onClick={() => onRemove(plugin.id)}
             size="icon-xs"
-            title={t`Remove ${ph({ id: plugin.id })}`}
+            title={t`Remove ${ph({ id: resolvedPluginName(plugin) })}`}
             variant="ghost"
           >
             <RemoveIcon aria-hidden="true" />

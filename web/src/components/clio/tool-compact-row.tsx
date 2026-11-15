@@ -235,7 +235,8 @@ export function ToolCompactRow({
         </CollapsibleTrigger>
       }
       link={delegateLink}
-      argument={delegate ? delegate.assignment : argument}
+      // A denied call with no target still names what was refused: "Denied · <tool> · …".
+      argument={delegate ? delegate.assignment : (argument ?? (denied ? action : undefined))}
       argumentTitle={(delegate ? delegate.assignment : argumentTitle) || undefined}
       recap={operation.metadata}
       recapTitle={

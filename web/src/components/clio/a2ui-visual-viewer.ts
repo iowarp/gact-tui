@@ -6,6 +6,7 @@ import type { View } from 'vega';
 import type { MapLibreMap } from 'maplibre-gl';
 import { useRepository } from '@/hooks/use-repository';
 import { captureRenderedSurfacePng } from './a2ui-region-capture';
+import { VIEWER_DEFERRED_ATTRIBUTE, withGatedViewersMounted } from './viewer-capture-mount';
 
 interface VisualNode extends HTMLElement {
   __clioMap?: MapLibreMap;
@@ -187,6 +188,13 @@ function assertReady(target: HTMLElement): void {
     ].some(displayed)
   )
     throw new Error('Required data or rendering is still loading.');
+  if (
+    [
+      ...(target.hasAttribute(VIEWER_DEFERRED_ATTRIBUTE) ? [target] : []),
+      ...target.querySelectorAll<HTMLElement>(`[${VIEWER_DEFERRED_ATTRIBUTE}]`),
+    ].some(displayed)
+  )
+    throw new Error('A view is still mounting for the capture.');
   for (const node of target.querySelectorAll<VisualNode>('[data-slot="a2ui-map-surface"]')) {
     if (!displayed(node)) continue;
     if (node.__clioMapFailure) throw new Error(node.__clioMapFailure);
@@ -232,6 +240,11 @@ export async function captureVisualRequest(
       throw new Error('The requested component has no capturable displayed content.');
     target = content;
   }
+  const shown = target;
+  return withGatedViewersMounted(shown, () => captureMounted(shown, matches));
+}
+
+async function captureMounted(target: HTMLElement, matches: () => boolean): Promise<string> {
   await document.fonts.ready;
   await nextFrame();
   // Required data and tiles have a bounded chance to finish. An unavailable

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { McpRepository } from './mcp-repository.js';
+import { ConnectorRepository } from './connector-repository.js';
 
 const accountUsageWindowSchema = z.object({
   name: z.string(),
@@ -108,7 +108,7 @@ export type FleetEntry = z.infer<typeof fleetEntrySchema>;
 export type Fleet = z.infer<typeof fleetSchema>;
 
 /** The fleet: connected accounts, their usage and spend, and the models they serve. */
-export class FleetRepository extends McpRepository {
+export class FleetRepository extends ConnectorRepository {
   /** `sessionId` marks each entry with whether it meets that conversation agent's needs. */
   public fleet(
     options: { refresh?: boolean; sessionId?: string } = {},

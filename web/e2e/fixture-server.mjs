@@ -128,7 +128,7 @@ const mcpAppHtml = `<!doctype html>
         params: {
           protocolVersion: '2026-01-26',
           appInfo: { name: 'V2 exerciser', version: '1.0.0' },
-          appCapabilities: { availableDisplayModes: ['inline'] }
+          appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] }
         }
       });
     </script>
@@ -3209,6 +3209,10 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && url.pathname === '/v1/mcp/servers') {
     sendJson(response, { servers: [] });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/connectors') {
+    sendJson(response, { connectors: [] });
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/mcp/configuration') {
