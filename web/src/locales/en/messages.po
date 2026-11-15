@@ -29167,6 +29167,10 @@ msgstr "Report a problem"
 msgid "Report a problem…"
 msgstr "Report a problem…"
 
+#: src/tauri/native-copy.ts
+msgid "Report a Problem…"
+msgstr "Report a Problem…"
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Report instructions"
 msgstr "Report instructions"

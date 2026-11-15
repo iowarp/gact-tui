@@ -29168,6 +29168,10 @@ msgstr "Αναφορά προβλήματος"
 msgid "Report a problem…"
 msgstr "Αναφορά προβλήματος…"
 
+#: src/tauri/native-copy.ts
+msgid "Report a Problem…"
+msgstr "Αναφορά προβλήματος…"
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Report instructions"
 msgstr "Οδηγίες αναφοράς"

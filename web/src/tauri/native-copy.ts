@@ -46,6 +46,7 @@ export function nativeCopy(): Record<string, string> {
     'menu.item.open-infrastructure': t({ message: 'Infrastructure', context: 'menu bar' }),
     'menu.item.help-docs': t`Documentation`,
     'menu.item.keyboard-shortcuts': t`Keyboard Shortcuts`,
+    'menu.item.report-problem': t`Report a Problem…`,
     'menu.predefined.undo': t({ message: 'Undo', context: 'menu bar' }),
     'menu.predefined.redo': t({ message: 'Redo', context: 'menu bar' }),
     'menu.predefined.cut': t({ message: 'Cut', context: 'menu bar' }),

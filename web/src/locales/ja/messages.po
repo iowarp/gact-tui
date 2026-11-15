@@ -29168,6 +29168,10 @@ msgstr "問題を報告"
 msgid "Report a problem…"
 msgstr "問題を報告…"
 
+#: src/tauri/native-copy.ts
+msgid "Report a Problem…"
+msgstr "問題を報告…"
+
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Report instructions"
 msgstr "レポートの指示"
