@@ -216,8 +216,13 @@ function flattenGeometry(root: THREE.Object3D, format: MeshFormat): ParsedFeaMes
     const declared =
       (mesh.userData as { declaredColor?: boolean }).declaredColor ??
       Boolean(material?.name || vertexColor);
+    const ancestors: string[] = [];
+    for (let node = mesh.parent; node && node !== root; node = node.parent) {
+      if (node.name) ancestors.push(node.name);
+    }
     parts.push({
       name: mesh.name || mesh.parent?.name || '',
+      ancestors,
       triangleStart: (triangles.length - count) / 3,
       triangleCount: count / 3,
       vertexStart: offset,

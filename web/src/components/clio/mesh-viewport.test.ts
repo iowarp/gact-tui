@@ -218,6 +218,20 @@ describe('see-through parts (nodeOpacity)', () => {
     expect([...partOpacityByName(parts, { lid: 4 }).opacity]).toEqual([]);
   });
 
+  it('matches a node name on the body or any node above it', () => {
+    const named = [
+      { ...parts[0]!, name: 'pcb' },
+      { ...parts[1]!, name: 'lid-mesh-0', ancestors: ['lid', 'enclosure'] },
+      { ...parts[2]!, name: 'mesh-7', ancestors: ['base'] },
+    ];
+    const { opacity, unmatched } = partOpacityByName(named, { lid: 0.3, base: 0.3 });
+    expect([...opacity]).toEqual([
+      [1, 0.3],
+      [2, 0.3],
+    ]);
+    expect(unmatched).toEqual([]);
+  });
+
   it('draws opaque triangles first, then each faded part by its opacity', () => {
     const { levels, runs } = partOpacityGroups(
       { positions, parts },

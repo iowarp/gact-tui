@@ -28,6 +28,9 @@ export interface MeshField {
  */
 export interface MeshPart {
   name: string;
+  /** The names of the nodes that hold this body, nearest first (a CAD scene names the
+   * group, e.g. ``lid``, and its mesh something else). */
+  ancestors?: string[];
   /** First triangle (not index) and how many, in `triangles`. */
   triangleStart: number;
   triangleCount: number;
@@ -175,9 +178,11 @@ export function partOpacityByName(
   if (!nodeOpacity) return { opacity, unmatched: [] };
   const matched = new Set<string>();
   (parts ?? []).forEach((part, index) => {
-    const value = nodeOpacity[part.name];
-    if (value === undefined || !Number.isFinite(value)) return;
-    matched.add(part.name);
+    // The body's own name, else the nearest node above it that the producer named.
+    const name = [part.name, ...(part.ancestors ?? [])].find((n) => n in nodeOpacity);
+    const value = name === undefined ? undefined : nodeOpacity[name];
+    if (name === undefined || value === undefined || !Number.isFinite(value)) return;
+    matched.add(name);
     const clamped = Math.min(1, Math.max(0, value));
     if (clamped < 1) opacity.set(index, clamped);
   });
