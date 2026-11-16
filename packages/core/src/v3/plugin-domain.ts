@@ -464,6 +464,23 @@ export const removalPreviewSchema = z.object({
 export type RemovalPreview = z.infer<typeof removalPreviewSchema>;
 
 /** The agent a session runs, from the pin carried in its metadata. */
+/**
+ * The flow a session runs as its own work (a session a script created with `flow`):
+ * its id and options, or `null`. A flow started from another conversation (`run_flow`,
+ * a workflow step) carries its input and depth, and shows on the starter's card instead.
+ */
+export function sessionOwnFlow(
+  session: { metadata?: Record<string, unknown> } | undefined,
+): { id: string; options: Record<string, unknown> } | null {
+  const flow = session?.metadata?.agent_flow;
+  if (!flow || typeof flow !== 'object') return null;
+  const record = flow as Record<string, unknown>;
+  if (typeof record.id !== 'string' || !record.id || 'input' in record || 'depth' in record)
+    return null;
+  const options = record.options && typeof record.options === 'object' ? record.options : {};
+  return { id: record.id, options: options as Record<string, unknown> };
+}
+
 export function sessionAgentRef(session: { metadata?: Record<string, unknown> } | undefined) {
   const value = session?.metadata?.agent_ref;
   return typeof value === 'string' ? value : '';

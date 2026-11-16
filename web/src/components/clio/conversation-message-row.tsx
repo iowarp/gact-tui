@@ -36,6 +36,7 @@ import { canGroupUserMessages, feedbackMessage } from './conversation-user-group
 import { ParentDelegationMessage } from './parent-delegation-message';
 import { isParentDelegation } from './parent-delegation';
 import { ConversationSummonedWork } from './conversation-summoned-work';
+import { SessionOwnFlowRun } from './session-own-flow-run';
 import { DiffusionCanvas } from './diffusion-canvas';
 import { ConversationModelDivider } from './transcript-divider';
 import type { ConversationModelBoundary } from './conversation-model-boundaries';
@@ -463,6 +464,9 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                       {...entities}
                     />
                     <ConversationSummonedWork metadata={message.metadata} />
+                    {message.role === 'user' ? (
+                      <SessionOwnFlowRun messageId={message.id} sessionId={message.session_id} />
+                    ) : null}
                   </>
                 )}
                 {message.role === 'assistant' && message.canvas ? (
