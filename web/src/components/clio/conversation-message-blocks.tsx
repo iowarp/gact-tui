@@ -170,6 +170,7 @@ export function ReplyErrorLine({
   reportSessionId,
   technical,
   children,
+  action,
 }: {
   title: string;
   reason?: string;
@@ -183,10 +184,12 @@ export function ReplyErrorLine({
   /** The service's error record, shown only inside Technical details. */
   technical?: Record<string, unknown>;
   children?: ReactNode;
+  /** Shown instead of Retry, such as where a resumed reply continued. */
+  action?: StateAction;
 }) {
   const retry: StateAction | undefined = onRetry
     ? { label: retrying ? t`Retrying` : t`Retry`, disabled: retrying, onClick: onRetry }
-    : undefined;
+    : action;
   const report: StateAction | undefined =
     reportSessionId && kind === 'error'
       ? { label: t`Report this`, onClick: () => requestReportProblem(reportSessionId) }

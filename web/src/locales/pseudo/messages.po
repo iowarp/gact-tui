@@ -33195,6 +33195,10 @@ msgstr ""
 msgid "Show what packages bring"
 msgstr ""
 
+#: src/components/clio/conversation-message-row.tsx
+msgid "Show where it continued"
+msgstr ""
+
 #: src/components/clio/a2ui-map-data-source.tsx
 msgid "Showing {returned} of {matched} points."
 msgstr ""
@@ -35715,6 +35719,10 @@ msgstr ""
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "The agent places it"
+msgstr ""
+
+#: src/components/clio/conversation-message-row.tsx
+msgid "The agent service stopped before this reply finished. Your request was kept."
 msgstr ""
 
 #: src/components/clio/agent-composition-view.tsx

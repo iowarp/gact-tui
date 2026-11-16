@@ -143,6 +143,8 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   responseContinued?: boolean;
   /** A resumed segment of the same response, without a repeated sender header. */
   responseContinuation?: boolean;
+  /** The reply that continued this interrupted one after a restart (no Retry then). */
+  resumedBy?: string;
   /** Adjacent human bubbles share their sender header, retaining separate identities. */
   userContinuation?: boolean;
   userContinued?: boolean;

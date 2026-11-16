@@ -33212,6 +33212,10 @@ msgstr "Show unavailable or excluded files"
 msgid "Show what packages bring"
 msgstr "Show what packages bring"
 
+#: src/components/clio/conversation-message-row.tsx
+msgid "Show where it continued"
+msgstr "Show where it continued"
+
 #: src/components/clio/a2ui-map-data-source.tsx
 msgid "Showing {returned} of {matched} points."
 msgstr "Showing {returned} of {matched} points."
@@ -35734,6 +35738,10 @@ msgstr "The agent new sessions run. Its plugins bring tools, skills and guidance
 #: src/components/clio/settings-access-rule-model.ts
 msgid "The agent places it"
 msgstr "The agent places it"
+
+#: src/components/clio/conversation-message-row.tsx
+msgid "The agent service stopped before this reply finished. Your request was kept."
+msgstr "The agent service stopped before this reply finished. Your request was kept."
 
 #: src/components/clio/agent-composition-view.tsx
 msgid "The agent was not changed"

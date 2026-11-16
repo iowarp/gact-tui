@@ -66,6 +66,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   liveActivityId,
   responseContinued = false,
   responseContinuation = false,
+  resumedBy,
   userContinuation = false,
   userContinued = false,
   turnPresentation,
@@ -80,26 +81,52 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     typeof message.error_info?.error === 'string' ? message.error_info.error : undefined;
   const emptyResponseErrorMessage =
     typeof message.error_info?.message === 'string' ? message.error_info.message : undefined;
+  // The service stopping cancels a turn too (`reason: server_shutdown`); that is an
+  // interruption the person did not ask for, so it is said, not shown as their cancel.
+  const errorDetails = message.error_info?.details;
+  const stoppedByService =
+    emptyResponseErrorCode === 'cancelled' &&
+    typeof errorDetails === 'object' &&
+    errorDetails !== null &&
+    (errorDetails as Record<string, unknown>).reason === 'server_shutdown';
+  const interruptedByService =
+    stoppedByService || emptyResponseErrorCode === 'server_restart_interrupted';
+  const interruptionReason = stoppedByService
+    ? t`The agent service stopped before this reply finished. Your request was kept.`
+    : emptyResponseErrorMessage;
   const emptyResponseWasClientCancelled =
-    emptyResponseErrorCode === 'cancelled' ||
-    emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client';
-  const failureReason = replyFailureReason(
-    replyFailureCode(message.error_info),
-    emptyResponseErrorMessage,
-  );
+    !stoppedByService &&
+    (emptyResponseErrorCode === 'cancelled' ||
+      emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client');
+  // An interruption by the service says so; any other failure says why it failed.
+  const failureReason = interruptedByService
+    ? interruptionReason
+    : replyFailureReason(replyFailureCode(message.error_info), emptyResponseErrorMessage);
   const signInProvider = turnSignInProvider(message.error_info);
   const modelExhausted = turnModelExhausted(message.error_info);
   // A reply the service failed as recoverable (a timed-out model call: error_info
   // recoverable, recovery "retry") can be retried even when it streamed something
-  // first; only the person's own cancellation is not offered again.
+  // first; only the person's own cancellation is not offered again, and a reply the
+  // restart already resumed is not retried, which would ask again (CC-O1).
   const canRetry =
     message.role === 'assistant' &&
+    !resumedBy &&
     (message.blocks.length === 0 ||
       message.blocks.some((block) => block.type === 'error' && block.recoverable) ||
       (message.error_info?.recoverable === true && !emptyResponseWasClientCancelled));
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
   const onRetryMessage = entities.onRetryMessage;
   const retryReply = canRetry && onRetryMessage ? () => void onRetryMessage(message.id) : undefined;
+  const continuedAt = resumedBy
+    ? {
+        label: t`Show where it continued`,
+        icon: null, // not Retry's arrow: this moves to the continuation, it repeats nothing
+        onClick: () =>
+          document
+            .querySelector(`[data-message-id="${CSS.escape(resumedBy)}"]`)
+            ?.scrollIntoView({ block: 'start' }),
+      }
+    : undefined;
   // An inline reply line (didn’t load, didn’t finish, cancelled) already names the outcome.
   const replyLineShown =
     message.role === 'assistant' &&
@@ -294,11 +321,12 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                       technical={emptyResponseWasClientCancelled ? undefined : message.error_info}
                       onRetry={retryReply}
                       reportSessionId={message.session_id}
+                      action={continuedAt}
                       retrying={entities.retryingMessageId === message.id}
                       title={
                         emptyResponseWasClientCancelled
                           ? t`Reply cancelled`
-                          : emptyResponseErrorCode === 'server_restart_interrupted'
+                          : interruptedByService
                             ? t`This reply was interrupted`
                             : t`This reply didn’t load`
                       }
@@ -453,8 +481,13 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     technical={message.error_info}
                     onRetry={retryReply}
                     reportSessionId={message.session_id}
+                    action={continuedAt}
                     retrying={entities.retryingMessageId === message.id}
-                    title={t`This reply didn’t finish`}
+                    title={
+                      interruptedByService
+                        ? t`This reply was interrupted`
+                        : t`This reply didn’t finish`
+                    }
                   />
                 ) : null}
               </MessageContent>
@@ -648,6 +681,7 @@ export function conversationMessageRowPropsEqual(
     left.liveActivityId !== right.liveActivityId ||
     left.responseContinued !== right.responseContinued ||
     left.responseContinuation !== right.responseContinuation ||
+    left.resumedBy !== right.resumedBy ||
     left.userContinuation !== right.userContinuation ||
     left.userContinued !== right.userContinued ||
     left.turnPresentation !== right.turnPresentation ||

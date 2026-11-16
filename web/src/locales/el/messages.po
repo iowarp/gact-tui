@@ -33213,6 +33213,10 @@ msgstr "Εμφάνιση μη διαθέσιμων ή εξαιρεμένων α�
 msgid "Show what packages bring"
 msgstr "Εμφάνιση του τι φέρνουν τα πακέτα"
 
+#: src/components/clio/conversation-message-row.tsx
+msgid "Show where it continued"
+msgstr "Εμφάνιση του σημείου όπου συνεχίστηκε"
+
 #: src/components/clio/a2ui-map-data-source.tsx
 msgid "Showing {returned} of {matched} points."
 msgstr "Εμφανίζονται {returned} από {matched} σημεία."
@@ -35735,6 +35739,10 @@ msgstr "Ο πράκτορας που εκτελούν οι νέες συνεδρ
 #: src/components/clio/settings-access-rule-model.ts
 msgid "The agent places it"
 msgstr "Ο πράκτορας τον τοποθετεί"
+
+#: src/components/clio/conversation-message-row.tsx
+msgid "The agent service stopped before this reply finished. Your request was kept."
+msgstr "Η υπηρεσία του πράκτορα σταμάτησε πριν ολοκληρωθεί αυτή η απάντηση. Το αίτημά σας διατηρήθηκε."
 
 #: src/components/clio/agent-composition-view.tsx
 msgid "The agent was not changed"
