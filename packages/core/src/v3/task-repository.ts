@@ -64,6 +64,14 @@ export const taskSnapshotSchema = z.object({
     .nullable(),
 });
 
+const messageAssignmentSchema = z.object({
+  metadata: z
+    .object({
+      recipient_input: z.object({ assignment_id: z.string() }).nullable().optional(),
+    })
+    .optional(),
+});
+
 const taskPageSchema = z.object({
   tasks: z.array(taskSnapshotSchema),
   total: z.number().int().nullable(),
@@ -267,6 +275,25 @@ export class TaskRepository extends MemoryRepository {
       if (error instanceof TransportError && error.status === 404) return null;
       throw error;
     }
+  }
+
+  /**
+   * The assignment a person's message was delivered into (its `recipient_input`), or
+   * `null` before it is confirmed. A session whose own work is a flow runs one flow run
+   * per message under that assignment.
+   */
+  public async messageAssignment(
+    sessionId: string,
+    messageId: string,
+    signal?: AbortSignal,
+  ): Promise<string | null> {
+    const message = await this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}`,
+      decode: (value) => messageAssignmentSchema.parse(value),
+      signal,
+    });
+    return message.metadata?.recipient_input?.assignment_id || null;
   }
 
   public async cancelTasks(

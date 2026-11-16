@@ -48,7 +48,7 @@ pub(crate) fn boot_sidecar(
                 "cannot authenticate to the attached backend: {reason}"
             ));
         }
-        state.set_handle(handle);
+        state.set_attached_handle(handle);
         return;
     }
 
@@ -203,7 +203,7 @@ pub(crate) fn boot_attach_only(state: SupervisorState) {
                 "cannot authenticate to the attached backend: {reason}"
             ));
         }
-        state.set_handle(handle);
+        state.set_attached_handle(handle);
         return;
     }
     let msg = connect_mode_error();

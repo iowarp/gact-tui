@@ -71,6 +71,7 @@ export type ClioQueryNamespace =
   | 'flow-task-answer'
   | 'flow-task-input'
   | 'flow-task-record'
+  | 'message-assignment'
   | 'flow-questions'
   | 'task-child-session'
   | 'transform-record'

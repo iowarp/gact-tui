@@ -68,7 +68,7 @@ export const pendingInteractionSchema = z.object({
     'agent_elicitation_fallback_to_human',
   ]).optional(),
   fallback_detail: z.string().optional(),
-  answered_by: forwardCompatibleEnum(['human', 'agent']).optional(),
+  answered_by: forwardCompatibleEnum(['human', 'agent', 'unattended']).optional(),
   source: z.object({
     protocol: forwardCompatibleEnum(['native', 'mcp']),
     tool_name: z.string().optional(),
