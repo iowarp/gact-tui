@@ -72,7 +72,10 @@ describe('ClioConversation reply interruptions', () => {
     );
 
     expect(screen.getByText('This reply was interrupted')).toBeInTheDocument();
-    expect(screen.getByText(/agent service restarted/)).toBeInTheDocument();
+    // The reason is the visible line under the title (screen readers also hear it in the alert).
+    expect(document.querySelector('[data-slot="reply-error-reason"]')).toHaveTextContent(
+      /agent service restarted/,
+    );
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
 
@@ -109,9 +112,9 @@ describe('ClioConversation reply interruptions', () => {
 
     // CC-F2: not "Reply cancelled" (the person did not cancel it), and a reason.
     expect(screen.getByText('This reply was interrupted')).toBeInTheDocument();
-    expect(
-      screen.getByText(/agent service stopped before this reply finished/),
-    ).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="reply-error-reason"]')).toHaveTextContent(
+      /agent service stopped before this reply finished/,
+    );
     expect(screen.queryByText('Reply cancelled')).not.toBeInTheDocument();
     expect(screen.queryByText(/turn cancelled by server shutdown/)).not.toBeInTheDocument();
   });
