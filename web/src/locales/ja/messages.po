@@ -33058,6 +33058,10 @@ msgstr "利用できない、または除外されたファイルを表示"
 msgid "Show what packages bring"
 msgstr "パッケージが提供する内容を表示"
 
+#: src/components/clio/conversation-message-row.tsx
+msgid "Show where it continued"
+msgstr "続きの場所を表示"
+
 #: src/components/clio/a2ui-map-data-source.tsx
 msgid "Showing {returned} of {matched} points."
 msgstr "{matched}ポイント中{returned}ポイントを表示しています。"

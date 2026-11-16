@@ -33058,6 +33058,10 @@ msgstr "Mostrar los archivos no disponibles o excluidos"
 msgid "Show what packages bring"
 msgstr "Mostrar lo que aportan los paquetes"
 
+#: src/components/clio/conversation-message-row.tsx
+msgid "Show where it continued"
+msgstr "Mostrar dónde continuó"
+
 #: src/components/clio/a2ui-map-data-source.tsx
 msgid "Showing {returned} of {matched} points."
 msgstr "Mostrando {returned} de {matched} puntos."

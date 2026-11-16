@@ -164,6 +164,7 @@ export function ReplyErrorLine({
   retrying = false,
   kind = 'error',
   icon,
+  action,
 }: {
   title: string;
   reason?: string;
@@ -172,10 +173,12 @@ export function ReplyErrorLine({
   retrying?: boolean;
   kind?: 'error' | 'marker';
   icon?: StateViewProps['icon'];
+  /** Shown instead of Retry, such as where a resumed reply continued. */
+  action?: StateAction;
 }) {
   const retry: StateAction | undefined = onRetry
     ? { label: retrying ? t`Retrying` : t`Retry`, disabled: retrying, onClick: onRetry }
-    : undefined;
+    : action;
   return (
     <div className="my-px w-fit min-w-0 max-w-full" data-slot="reply-error" title={reason}>
       <StateView

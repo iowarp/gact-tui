@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { domAnimation, LazyMotion } from 'motion/react';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -109,9 +109,93 @@ describe('ClioConversation reply interruptions', () => {
 
     // CC-F2: not "Reply cancelled" (the person did not cancel it), and a reason.
     expect(screen.getByText('This reply was interrupted')).toBeInTheDocument();
-    expect(screen.getByText(/agent service stopped before this reply finished/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/agent service stopped before this reply finished/),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Reply cancelled')).not.toBeInTheDocument();
     expect(screen.queryByText(/turn cancelled by server shutdown/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['a restart', 'server_restart_interrupted', {}],
+    ['a stop', 'cancelled', { reason: 'server_shutdown' }],
+  ])(
+    'offers no Retry on a reply %s already resumed, and says where it continued',
+    (_l, error, details) => {
+      const onRetryMessage = vi.fn();
+      renderConversation(
+        <ClioConversation
+          artifacts={{}}
+          messages={[
+            {
+              id: 'message_cut',
+              session_id: 'session_1',
+              role: 'assistant',
+              run_id: 'msg_user_cut',
+              created_at: '2026-11-16T00:27:44Z',
+              blocks: [],
+              stop_reason: 'error',
+              error_info: { error, message: 'interrupted', details, recoverable: true },
+            },
+            {
+              id: 'message_resumed',
+              session_id: 'session_1',
+              role: 'assistant',
+              run_id: 'turn_recovery',
+              created_at: '2026-11-16T00:28:12Z',
+              blocks: [{ id: 'answer', type: 'text', text: 'Running it again.' }] as never,
+              stop_reason: 'end_turn',
+              metadata: { resumes_turn: 'msg_user_cut' },
+            },
+          ]}
+          onRetryMessage={onRetryMessage}
+          subagents={{}}
+          surfaces={{}}
+          tasks={{}}
+          tools={{}}
+        />,
+      );
+
+      // CC-O1: the restart already resumed this work; Retry would ask again.
+      expect(screen.getByText('This reply was interrupted')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Retry/ })).not.toBeInTheDocument();
+      const where = screen.getByRole('button', { name: 'Show where it continued' });
+      const continued = document.querySelector<HTMLElement>('[data-message-id="message_resumed"]');
+      expect(continued).not.toBeNull();
+      const scrolled = vi.fn();
+      continued!.scrollIntoView = scrolled;
+      fireEvent.click(where);
+      expect(scrolled).toHaveBeenCalled();
+      expect(onRetryMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps Retry on an interrupted reply nothing resumed', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_cut',
+            session_id: 'session_1',
+            role: 'assistant',
+            run_id: 'msg_user_cut',
+            created_at: '2026-11-16T00:27:44Z',
+            blocks: [],
+            stop_reason: 'error',
+            error_info: { error: 'server_restart_interrupted', message: 'x', recoverable: true },
+          },
+        ]}
+        onRetryMessage={() => undefined}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Show where it continued' })).toBeNull();
   });
 
   it('renders a client-cancelled response as one compact line', () => {

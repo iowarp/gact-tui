@@ -63,6 +63,7 @@ import { ConversationMessageRow } from './conversation-message-row';
 import { placeDeliveredFeedback } from './conversation-feedback';
 import { canGroupUserMessages } from './conversation-user-group';
 import { placeHarnessInjections } from './conversation-injection-placement';
+import { resumedReplies } from './conversation-resumed-replies';
 import {
   foldSubagentReturns,
   placeContinuedActivity,
@@ -158,6 +159,7 @@ function ConversationBody({
     [messages, entities.tools, entities.processes],
   );
   const injectionPlacement = useMemo(() => placeHarnessInjections(messages), [messages]);
+  const resumed = useMemo(() => resumedReplies(messages), [messages]);
   const compactionPlacement = useMemo(
     () => placeCompactions(compactions ?? [], messages),
     [compactions, messages],
@@ -607,6 +609,7 @@ function ConversationBody({
                     injectionsGrouped={injectionPlacement.grouped.has(message.id)}
                     responseContinued={responseContinuity.continued.has(message.id)}
                     responseContinuation={responseContinuity.continuations.has(message.id)}
+                    resumedBy={resumed.get(message.id)}
                     userContinuation={
                       canGroupUserMessages(messages[index - 1], message) &&
                       !modelBoundaries.has(message.id)
