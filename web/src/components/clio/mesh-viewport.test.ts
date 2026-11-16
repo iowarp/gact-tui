@@ -38,6 +38,15 @@ function field(mesh: ParsedFeaMesh, name: string) {
 }
 
 describe('clio.mesh-viewport.v1 adapter schema', () => {
+  it('accepts a literal camera an agent aims at a part (the case\'s USB opening)', () => {
+    expect(
+      meshViewportSchema.safeParse({
+        meshUri: 'artifact://artifact_abc123',
+        camera: { position: [30, 90, -170], target: [30, 1.4, 32.5], up: [0, 1, 0], fov: 35 },
+      }).success,
+    ).toBe(true);
+  });
+
   it('accepts bound field, threshold, frame, and camera', () => {
     expect(
       meshViewportSchema.safeParse({
@@ -60,6 +69,9 @@ describe('clio.mesh-viewport.v1 adapter schema', () => {
     [{ meshUri: 'artifact://artifact_abc123', vertices: [] }],
     [{ meshUri: 'artifact://artifact_abc123', syncGroup: 'two words' }],
     [{ meshUri: 'artifact://artifact_abc123', thresholdMin: 'low' }],
+    [{ meshUri: 'artifact://artifact_abc123', camera: { position: [0, 0], target: [0, 0, 0] } }],
+    [{ meshUri: 'artifact://artifact_abc123', camera: { position: [0, 0, 1], target: [0, 0, 0], fov: 0 } }],
+    [{ meshUri: 'artifact://artifact_abc123', camera: 'front' }],
   ])('rejects %j', (payload) => {
     expect(meshViewportSchema.safeParse(payload).success).toBe(false);
   });

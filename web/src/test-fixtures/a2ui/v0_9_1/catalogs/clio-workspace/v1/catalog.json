@@ -553,6 +553,53 @@
       ],
       "type": "object"
     },
+    "MeshCamera": {
+      "additionalProperties": false,
+      "properties": {
+        "fov": {
+          "description": "Vertical field of view in degrees.",
+          "exclusiveMaximum": 179,
+          "exclusiveMinimum": 1,
+          "type": "number"
+        },
+        "position": {
+          "description": "The eye, in the model's units and axes.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "target": {
+          "description": "The point the view looks at and orbits around.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "up": {
+          "description": "Which way is up; default +Y.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "zoom": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "position",
+        "target"
+      ],
+      "type": "object"
+    },
     "MessageDraftVersion": {
       "additionalProperties": false,
       "properties": {
@@ -3292,6 +3339,11 @@
               "minimum": 160,
               "type": "integer"
             },
+            "recordingUri": {
+              "description": "A video of the view (a workspace path or artifact:// reference), played when the live view cannot run.",
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
             "server": {
               "description": "The MCP server whose tool opens the view, as CLIO names it.",
               "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
@@ -3753,7 +3805,15 @@
         {
           "properties": {
             "camera": {
-              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue"
+              "description": "Where the view looks from: a literal {position, target, up?, fov?, zoom?} in the model's units, or a data-model binding. Turn the view to a part (an opening, a standoff) by setting it, then capture the view to see it there.",
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/MeshCamera"
+                },
+                {
+                  "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+                }
+              ]
             },
             "component": {
               "const": "clio.mesh-viewport.v1"
@@ -3833,6 +3893,19 @@
                   ]
                 }
               ]
+            },
+            "nodeOpacity": {
+              "additionalProperties": {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              "maxProperties": 256,
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "type": "object"
             },
             "showField": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicBoolean"
