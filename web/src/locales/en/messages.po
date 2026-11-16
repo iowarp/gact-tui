@@ -20038,6 +20038,10 @@ msgstr "Loading pages"
 msgid "Loading PDF preview…"
 msgstr "Loading PDF preview…"
 
+#: src/components/clio/plugin-asset-markdown-image.tsx
+msgid "Loading picture…"
+msgstr "Loading picture…"
+
 #: src/components/clio/settings-tool-permissions.tsx
 msgid "Loading plugin tools…"
 msgstr "Loading plugin tools…"
@@ -26045,6 +26049,10 @@ msgstr "Pick a try"
 #: src/components/clio/flow-diagram-source.ts
 msgid "picked entry {winner}"
 msgstr "picked entry {winner}"
+
+#: src/components/clio/plugin-asset-markdown-image.tsx
+msgid "Picture unavailable: {alt}"
+msgstr "Picture unavailable: {alt}"
 
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx

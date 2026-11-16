@@ -20039,6 +20039,10 @@ msgstr "Φόρτωση σελίδων"
 msgid "Loading PDF preview…"
 msgstr "Φόρτωση προεπισκόπησης PDF…"
 
+#: src/components/clio/plugin-asset-markdown-image.tsx
+msgid "Loading picture…"
+msgstr "Φόρτωση εικόνας…"
+
 #: src/components/clio/settings-tool-permissions.tsx
 msgid "Loading plugin tools…"
 msgstr "Φόρτωση εργαλείων πρόσθετων…"
@@ -26046,6 +26050,10 @@ msgstr "Επιλέξτε απόπειρα"
 #: src/components/clio/flow-diagram-source.ts
 msgid "picked entry {winner}"
 msgstr "επέλεξε την καταχώριση {winner}"
+
+#: src/components/clio/plugin-asset-markdown-image.tsx
+msgid "Picture unavailable: {alt}"
+msgstr "Η εικόνα δεν είναι διαθέσιμη: {alt}"
 
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx

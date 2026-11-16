@@ -6,11 +6,14 @@ interface MarkdownNode {
   children?: MarkdownNode[];
 }
 
-/** Route artifact images to a local component before generic URL sanitization. */
+/** Route artifact and plugin-asset images to a local component before URL sanitization. */
 export function remarkArtifactImages() {
   return (tree: MarkdownNode) => {
     const visit = (node: MarkdownNode) => {
-      if (node.type === 'image' && node.url?.startsWith('artifact://')) {
+      if (
+        node.type === 'image' &&
+        (node.url?.startsWith('artifact://') || node.url?.startsWith('plugin-asset://'))
+      ) {
         node.url = `${ARTIFACT_IMAGE_PATH}${encodeURIComponent(node.url)}`;
       }
       node.children?.forEach(visit);

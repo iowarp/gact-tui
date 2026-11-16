@@ -20039,6 +20039,10 @@ msgstr "Cargando páginas"
 msgid "Loading PDF preview…"
 msgstr "Cargando la vista previa del PDF…"
 
+#: src/components/clio/plugin-asset-markdown-image.tsx
+msgid "Loading picture…"
+msgstr "Cargando la imagen…"
+
 #: src/components/clio/settings-tool-permissions.tsx
 msgid "Loading plugin tools…"
 msgstr "Cargando herramientas de complementos…"
@@ -26046,6 +26050,10 @@ msgstr "Elige un intento"
 #: src/components/clio/flow-diagram-source.ts
 msgid "picked entry {winner}"
 msgstr "eligió la entrada {winner}"
+
+#: src/components/clio/plugin-asset-markdown-image.tsx
+msgid "Picture unavailable: {alt}"
+msgstr "Imagen no disponible: {alt}"
 
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx
