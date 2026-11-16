@@ -80,9 +80,16 @@ export function projectedMeshNodeIds(
   return [...nodes].sort((a, b) => a - b);
 }
 
-/** A named part's label: its own name, then the nodes that hold it ("J1 in board"). */
+/**
+ * A named part's label: its own name, then the nodes that hold it ("J1 in board"). A mesh a
+ * CAD exporter named after its node with a running number (``lid_65`` under ``lid``) is that
+ * node, so its sub-meshes read as the one part a person sees.
+ */
 export function meshPartLabel(part: Pick<MeshPart, 'name' | 'ancestors'>): string {
-  return [part.name, ...(part.ancestors ?? [])].filter(Boolean).join(' in ');
+  const ancestors = part.ancestors ?? [];
+  const numbered = ancestors[0] !== undefined && part.name.startsWith(`${ancestors[0]}_`)
+    && /^\d+$/.test(part.name.slice(ancestors[0].length + 1));
+  return [numbered ? '' : part.name, ...ancestors].filter(Boolean).join(' in ');
 }
 
 /**

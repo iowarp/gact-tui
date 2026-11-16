@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { projectedMeshNodeIds, projectedMeshParts } from './mesh-viewport-scene';
+import { meshPartLabel, projectedMeshNodeIds, projectedMeshParts } from './mesh-viewport-scene';
 
 describe('mesh viewport box selection', () => {
   const camera = new THREE.PerspectiveCamera(90, 1, 0.1, 100);
@@ -53,5 +53,12 @@ describe('mesh viewport box selection', () => {
     expect(projectedMeshParts({ positions: scene.positions }, visible, camera, { width: 100, height: 100 }, {
       left: 0, top: 0, right: 100, bottom: 100,
     })).toEqual([]);
+  });
+
+  it('reads a CAD sub-mesh named after its node as that node (lid_65 under lid is the lid)', () => {
+    expect(meshPartLabel({ name: 'lid_65', ancestors: ['lid', 'enclosure'] })).toBe('lid in enclosure');
+    expect(meshPartLabel({ name: 'cutout_J1_3', ancestors: ['cutout_J1', 'enclosure'] })).toBe('cutout_J1 in enclosure');
+    expect(meshPartLabel({ name: 'cutout_J1_lid', ancestors: ['cutout_J1', 'enclosure'] })).toBe('cutout_J1_lid in cutout_J1 in enclosure');
+    expect(meshPartLabel({ name: 'J1', ancestors: ['board'] })).toBe('J1 in board');
   });
 });
