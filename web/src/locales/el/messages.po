@@ -4283,6 +4283,10 @@ msgstr "Το <0>{tool}</0> περιμένει αυτό και μετά συνε�
 msgid "<0>Add an email in Profile</0> to use it here."
 msgstr "<0>Προσθέστε ένα email στο Προφίλ</0> για να το χρησιμοποιήσετε εδώ."
 
+#: src/components/clio/github-source-auth.tsx
+msgid "<0>Choose the repositories to publish to on GitHub</0> and return here to sign in."
+msgstr "<0>Επιλέξτε στο GitHub τα αποθετήρια για δημοσίευση</0> και επιστρέψτε εδώ για να συνδεθείτε."
+
 #. placeholder {0}: setting.effect
 #: src/components/clio/settings-runtime.tsx
 msgid "<0>Effect:</0> {0}"
@@ -33524,6 +33528,10 @@ msgstr "Συνδεθείτε με την υπηρεσία. Τα διαπιστε
 #: src/components/clio/github-source-auth.tsx
 msgid "Sign in with your GitHub account"
 msgstr "Συνδεθείτε με τον λογαριασμό σας στο GitHub"
+
+#: src/components/clio/github-source-auth.tsx
+msgid "Sign in with your own account. Commits are made as you, only to repositories you give the app."
+msgstr "Συνδεθείτε με τον δικό σας λογαριασμό. Τα commits γίνονται εκ μέρους σας, μόνο σε αποθετήρια στα οποία δίνετε πρόσβαση στην εφαρμογή."
 
 #: src/components/clio/github-source-auth.tsx
 msgid "Sign in with your own account. Public repositories do not need sign-in."

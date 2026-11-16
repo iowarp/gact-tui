@@ -4283,6 +4283,10 @@ msgstr "<0>{tool}</0> espera esto y después continúa."
 msgid "<0>Add an email in Profile</0> to use it here."
 msgstr "<0>Añade un correo en Perfil</0> para usarlo aquí."
 
+#: src/components/clio/github-source-auth.tsx
+msgid "<0>Choose the repositories to publish to on GitHub</0> and return here to sign in."
+msgstr "<0>Elige en GitHub los repositorios donde publicar</0> y vuelve aquí para iniciar sesión."
+
 #. placeholder {0}: setting.effect
 #: src/components/clio/settings-runtime.tsx
 msgid "<0>Effect:</0> {0}"
@@ -33524,6 +33528,10 @@ msgstr "Inicia sesión con el servicio. Tus credenciales se quedan en esta conex
 #: src/components/clio/github-source-auth.tsx
 msgid "Sign in with your GitHub account"
 msgstr "Inicia sesión con tu cuenta de GitHub"
+
+#: src/components/clio/github-source-auth.tsx
+msgid "Sign in with your own account. Commits are made as you, only to repositories you give the app."
+msgstr "Inicia sesión con tu propia cuenta. Los commits se hacen en tu nombre, solo en los repositorios a los que des acceso a la app."
 
 #: src/components/clio/github-source-auth.tsx
 msgid "Sign in with your own account. Public repositories do not need sign-in."

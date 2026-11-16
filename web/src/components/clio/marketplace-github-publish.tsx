@@ -91,6 +91,7 @@ export function GitHubPublish({ hasLocalItems }: { hasLocalItems: boolean }) {
         <ConnectedAccountSignIn
           appUrl={github.account_url}
           provider="github"
+          purpose="publish"
           onComplete={() => {
             setSigningIn(false);
             publish.reset();

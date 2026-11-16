@@ -4283,6 +4283,10 @@ msgstr "<0>{tool}</0>はこれを待ってから続行します。"
 msgid "<0>Add an email in Profile</0> to use it here."
 msgstr "ここで使うには<0>プロフィールでメールアドレスを追加</0>してください。"
 
+#: src/components/clio/github-source-auth.tsx
+msgid "<0>Choose the repositories to publish to on GitHub</0> and return here to sign in."
+msgstr "<0>GitHub で公開先のリポジトリを選び</0>、ここに戻ってサインインしてください。"
+
 #. placeholder {0}: setting.effect
 #: src/components/clio/settings-runtime.tsx
 msgid "<0>Effect:</0> {0}"
@@ -33524,6 +33528,10 @@ msgstr "サービスでサインインしてください。認証情報はこの
 #: src/components/clio/github-source-auth.tsx
 msgid "Sign in with your GitHub account"
 msgstr "GitHubアカウントでサインイン"
+
+#: src/components/clio/github-source-auth.tsx
+msgid "Sign in with your own account. Commits are made as you, only to repositories you give the app."
+msgstr "自分のアカウントでサインインしてください。コミットはあなたとして、アプリに許可したリポジトリにだけ行われます。"
 
 #: src/components/clio/github-source-auth.tsx
 msgid "Sign in with your own account. Public repositories do not need sign-in."
