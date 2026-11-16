@@ -289,6 +289,11 @@ msgstr ""
 msgid "{0, plural, one {# field} other {# fields}}"
 msgstr ""
 
+#. placeholder {0}: request.changed.length
+#: src/components/clio/flow-trust-details.tsx
+msgid "{0, plural, one {# file changed since you trusted it} other {# files changed since you trusted it}}"
+msgstr ""
+
 #. placeholder {0}: files.length
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "{0, plural, one {# file, {sizeMb} MB, copied to {hostLabel}} other {# files, {sizeMb} MB, copied to {hostLabel}}}"
@@ -8652,6 +8657,7 @@ msgid "Change URL"
 msgstr ""
 
 #: src/components/clio/diff-canvas-view.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/source-review-panel.tsx
 msgid "Changed"
 msgstr ""
@@ -8695,6 +8701,10 @@ msgstr ""
 
 #: src/components/clio/document-working-copy.tsx
 msgid "Changed since you opened it"
+msgstr ""
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Changed since you trusted it"
 msgstr ""
 
 #: src/components/clio/file-text-view.tsx
@@ -16152,6 +16162,7 @@ msgstr ""
 msgid "Font substitution"
 msgstr ""
 
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "For"
 msgstr ""
@@ -16175,6 +16186,10 @@ msgstr ""
 
 #: src/components/clio/github-source-auth.tsx
 msgid "For private repositories or saving changes, <0>choose repositories on GitHub</0> and return here to sign in."
+msgstr ""
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "for tools matching {tools}"
 msgstr ""
 
 #: src/lib/model-capability-tags.ts
@@ -16895,6 +16910,10 @@ msgstr ""
 msgid "Grey: no value"
 msgstr ""
 
+#: src/components/clio/settings-fleet.tsx
+msgid "Guide"
+msgstr ""
+
 #: src/components/reui/date-selector.tsx
 msgid "H1"
 msgstr ""
@@ -17224,6 +17243,7 @@ msgid "Homelab"
 msgstr ""
 
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Hook"
 msgstr ""
@@ -18757,6 +18777,10 @@ msgstr ""
 
 #: src/lib/search-source-text.ts
 msgid "Its own web index; filters by date, site and kind (papers, news, PDF)."
+msgstr ""
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Its parts"
 msgstr ""
 
 #: src/components/clio/marketplace-manager.tsx
@@ -25200,6 +25224,10 @@ msgstr ""
 msgid "Operating guidelines"
 msgstr ""
 
+#: src/components/clio/settings-fleet.tsx
+msgid "Optimize"
+msgstr ""
+
 #: src/components/clio/connect-frame.tsx
 #: src/components/clio/ssh-host-dialog.tsx
 #: src/components/clio/tool-schema-section.tsx
@@ -26198,6 +26226,7 @@ msgstr ""
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/agent-needs.ts
@@ -27784,6 +27813,10 @@ msgid "Reads before the suggestion"
 msgstr ""
 
 #: src/components/clio/settings-fleet.tsx
+msgid "Reads each conversation when /optimize looks across your recent work."
+msgstr ""
+
+#: src/components/clio/settings-fleet.tsx
 msgid "Reads finished conversations for facts worth keeping."
 msgstr ""
 
@@ -27793,6 +27826,10 @@ msgstr ""
 
 #: src/lib/model-capability-tags.ts
 msgid "Reads text."
+msgstr ""
+
+#: src/components/clio/settings-fleet.tsx
+msgid "Reads the documentation to answer broad questions about using the app."
 msgstr ""
 
 #: src/lib/model-capability-tags.ts
@@ -30558,6 +30595,10 @@ msgstr ""
 msgid "Runs on"
 msgstr ""
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Runs on {event}"
+msgstr ""
+
 #: src/components/clio/subagent-model.tsx
 msgid "Runs on {ref}, {effort} effort."
 msgstr ""
@@ -31280,6 +31321,10 @@ msgstr ""
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Script asks you"
+msgstr ""
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Script binding"
 msgstr ""
 
 #: src/components/clio/plugin-tool-settings-text.ts
@@ -34930,6 +34975,7 @@ msgstr ""
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-relationships.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/task-activity-row.tsx
 msgid "Subagent"
 msgstr ""
@@ -38709,6 +38755,7 @@ msgstr ""
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/tool-technical-details.tsx
@@ -38841,6 +38888,10 @@ msgstr ""
 msgid "Tool scope"
 msgstr ""
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool server"
+msgstr ""
+
 #: src/components/clio/plugin-explorer.tsx
 msgid "Tool settings are available once this plugin is installed and trusted."
 msgstr ""
@@ -38853,6 +38904,10 @@ msgstr ""
 
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
+msgstr ""
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool, reads only"
 msgstr ""
 
 #: src/lib/composer-reference-domain.ts
@@ -39097,6 +39152,10 @@ msgstr ""
 
 #: src/components/clio/permission-response.tsx
 msgid "Trust and run"
+msgstr ""
+
+#: src/components/clio/permission-response.tsx
+msgid "Trust and use"
 msgstr ""
 
 #: src/components/clio/marketplace-manager.tsx
@@ -40506,6 +40565,10 @@ msgstr ""
 
 #: src/components/clio/pending-interaction-notices.tsx
 msgid "Using compatibility response routes"
+msgstr ""
+
+#: src/components/clio/permission-response.tsx
+msgid "Using plugin {plugin}"
 msgstr ""
 
 #: src/components/clio/transcript-activity-summary.ts

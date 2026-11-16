@@ -290,6 +290,11 @@ msgstr "{0, plural, one {# función} other {# funciones}}"
 msgid "{0, plural, one {# field} other {# fields}}"
 msgstr "{0, plural, one {# campo} other {# campos}}"
 
+#. placeholder {0}: request.changed.length
+#: src/components/clio/flow-trust-details.tsx
+msgid "{0, plural, one {# file changed since you trusted it} other {# files changed since you trusted it}}"
+msgstr "{0, plural, one {# archivo cambió desde que confiaste en él} other {# archivos cambiaron desde que confiaste en él}}"
+
 #. placeholder {0}: files.length
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "{0, plural, one {# file, {sizeMb} MB, copied to {hostLabel}} other {# files, {sizeMb} MB, copied to {hostLabel}}}"
@@ -8661,6 +8666,7 @@ msgid "Change URL"
 msgstr "Cambiar URL"
 
 #: src/components/clio/diff-canvas-view.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/source-review-panel.tsx
 msgid "Changed"
 msgstr "Modificado"
@@ -8705,6 +8711,10 @@ msgstr "Cambió desde que el agente lo vio"
 #: src/components/clio/document-working-copy.tsx
 msgid "Changed since you opened it"
 msgstr "Cambió desde que lo abriste"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Changed since you trusted it"
+msgstr "Cambios desde que confiaste en él"
 
 #: src/components/clio/file-text-view.tsx
 #: src/components/clio/session-rail-layout.ts
@@ -16161,6 +16171,7 @@ msgstr "Archivo de fuente"
 msgid "Font substitution"
 msgstr "Sustitución de fuente"
 
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "For"
 msgstr "Durante"
@@ -16185,6 +16196,10 @@ msgstr "Por ejemplo, sensores de campo"
 #: src/components/clio/github-source-auth.tsx
 msgid "For private repositories or saving changes, <0>choose repositories on GitHub</0> and return here to sign in."
 msgstr "Para repositorios privados o para guardar cambios, <0>elige repositorios en GitHub</0> y vuelve aquí para iniciar sesión."
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "for tools matching {tools}"
+msgstr "para las herramientas que coinciden con {tools}"
 
 #: src/lib/model-capability-tags.ts
 msgid "Forecaster"
@@ -16904,6 +16919,10 @@ msgstr "Verde"
 msgid "Grey: no value"
 msgstr "Gris: sin valor"
 
+#: src/components/clio/settings-fleet.tsx
+msgid "Guide"
+msgstr "Guía"
+
 #: src/components/reui/date-selector.tsx
 msgid "H1"
 msgstr "S1"
@@ -17242,6 +17261,7 @@ msgid "Homelab"
 msgstr "Homelab"
 
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Hook"
 msgstr "Hook"
@@ -18776,6 +18796,10 @@ msgstr "Su propio índice web; filtra por fecha, sitio y sitios excluidos."
 #: src/lib/search-source-text.ts
 msgid "Its own web index; filters by date, site and kind (papers, news, PDF)."
 msgstr "Su propio índice web; filtra por fecha, sitio y tipo (artículos, noticias, PDF)."
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Its parts"
+msgstr "Sus partes"
 
 #: src/components/clio/marketplace-manager.tsx
 msgid "Its plugins and agents leave the + menu. Conversations already running keep their pinned plugins until they end."
@@ -25218,6 +25242,10 @@ msgstr "OpenSSH se desconectó de {host}."
 msgid "Operating guidelines"
 msgstr "Pautas de funcionamiento"
 
+#: src/components/clio/settings-fleet.tsx
+msgid "Optimize"
+msgstr "Optimizar"
+
 #: src/components/clio/connect-frame.tsx
 #: src/components/clio/ssh-host-dialog.tsx
 #: src/components/clio/tool-schema-section.tsx
@@ -26216,6 +26244,7 @@ msgstr "Los gráficos, tablas e informes aparecen como tarjetas de archivo en la
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/agent-needs.ts
@@ -27802,6 +27831,10 @@ msgid "Reads before the suggestion"
 msgstr "Lecturas antes de la sugerencia"
 
 #: src/components/clio/settings-fleet.tsx
+msgid "Reads each conversation when /optimize looks across your recent work."
+msgstr "Lee cada conversación cuando /optimize revisa tu trabajo reciente."
+
+#: src/components/clio/settings-fleet.tsx
 msgid "Reads finished conversations for facts worth keeping."
 msgstr "Lee las conversaciones terminadas en busca de datos que valga la pena conservar."
 
@@ -27812,6 +27845,10 @@ msgstr "Lee o escribe archivos directamente"
 #: src/lib/model-capability-tags.ts
 msgid "Reads text."
 msgstr "Lee texto."
+
+#: src/components/clio/settings-fleet.tsx
+msgid "Reads the documentation to answer broad questions about using the app."
+msgstr "Lee la documentación para responder preguntas amplias sobre el uso de la aplicación."
 
 #: src/lib/model-capability-tags.ts
 msgid "Reads up to {tokens} tokens at once."
@@ -30576,6 +30613,10 @@ msgstr "Ejecuciones en esta conversación"
 msgid "Runs on"
 msgstr "Se ejecuta en"
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Runs on {event}"
+msgstr "Se ejecuta en {event}"
+
 #: src/components/clio/subagent-model.tsx
 msgid "Runs on {ref}, {effort} effort."
 msgstr "Se ejecuta en {ref}, con esfuerzo {effort}."
@@ -31299,6 +31340,10 @@ msgstr "Script"
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Script asks you"
 msgstr "El script te pregunta"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Script binding"
+msgstr "Enlace de script"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Script blocked"
@@ -34949,6 +34994,7 @@ msgstr "subagente"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-relationships.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/task-activity-row.tsx
 msgid "Subagent"
 msgstr "Subagente"
@@ -38728,6 +38774,7 @@ msgstr "Duración"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/tool-technical-details.tsx
@@ -38860,6 +38907,10 @@ msgstr "Los resultados de herramientas encabezan el contenido capturado"
 msgid "Tool scope"
 msgstr "Alcance de la herramienta"
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool server"
+msgstr "Servidor de herramientas"
+
 #: src/components/clio/plugin-explorer.tsx
 msgid "Tool settings are available once this plugin is installed and trusted."
 msgstr "Los ajustes de herramientas estarán disponibles cuando este complemento esté instalado y sea de confianza."
@@ -38873,6 +38924,10 @@ msgstr "No se pudieron cargar los ajustes de herramientas."
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
 msgstr "Origen de la herramienta"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool, reads only"
+msgstr "Herramienta, solo lectura"
 
 #: src/lib/composer-reference-domain.ts
 msgid "tools"
@@ -39117,6 +39172,10 @@ msgstr "Confiar en {name}…"
 #: src/components/clio/permission-response.tsx
 msgid "Trust and run"
 msgstr "Confiar y ejecutar"
+
+#: src/components/clio/permission-response.tsx
+msgid "Trust and use"
+msgstr "Confiar y usar"
 
 #: src/components/clio/marketplace-manager.tsx
 msgid "Trust marketplace"
@@ -40526,6 +40585,10 @@ msgstr "Usa tus modelos de memoria en segundo plano y sigue la política de revi
 #: src/components/clio/pending-interaction-notices.tsx
 msgid "Using compatibility response routes"
 msgstr "Usando rutas de respuesta de compatibilidad"
+
+#: src/components/clio/permission-response.tsx
+msgid "Using plugin {plugin}"
+msgstr "Usar el complemento {plugin}"
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "using tools"

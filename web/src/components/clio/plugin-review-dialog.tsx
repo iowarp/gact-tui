@@ -130,8 +130,12 @@ export function PluginReviewContent({
       <p className="break-words text-sm">
         {plugin.description || t`This plugin does not describe itself.`}
       </p>
+      <PluginChanged plugin={plugin} />
+      <PluginParts plugin={plugin} />
       {flows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t`This plugin adds no flows.`}</p>
+        hasOtherParts(plugin) ? null : (
+          <p className="text-sm text-muted-foreground">{t`This plugin adds no flows.`}</p>
+        )
       ) : (
         <section aria-label={t`Its flows`} className="grid min-w-0 gap-4">
           {flows.map((flow) => (
@@ -150,6 +154,97 @@ export function PluginReviewContent({
       <PluginReach plugin={plugin} />
       <PluginCode focusFile={focusFile} plugin={plugin} />
     </div>
+  );
+}
+
+function hasOtherParts(plugin: PluginReview): boolean {
+  return Boolean(
+    plugin.tools.length ||
+      plugin.hooks.length ||
+      plugin.subagents.length ||
+      plugin.bindings.length ||
+      plugin.servers.length,
+  );
+}
+
+/** Each executable part other than flows, with what its code says it does. */
+function PluginParts({ plugin }: { plugin: PluginReview }) {
+  const rows: Array<{ key: string; kind: string; name: string; detail: string }> = [
+    ...plugin.tools.map((tool) => ({
+      key: `tool:${tool.name}`,
+      kind: tool.read_only ? t`Tool, reads only` : t`Tool`,
+      name: tool.name,
+      detail: tool.description,
+    })),
+    ...plugin.hooks.map((hook) => ({
+      key: `hook:${hook.id}`,
+      kind: t`Hook`,
+      name: hook.id,
+      detail: [
+        hook.event ? t`Runs on ${ph({ event: hook.event })}` : '',
+        hook.tools ? t`for tools matching ${ph({ tools: hook.tools })}` : '',
+        hook.description,
+      ]
+        .filter(Boolean)
+        .join('. '),
+    })),
+    ...plugin.subagents.map((sub) => ({
+      key: `subagent:${sub.id}`,
+      kind: t`Subagent`,
+      name: sub.id,
+      detail: sub.description,
+    })),
+    ...plugin.bindings.map((binding) => ({
+      key: `binding:${binding.name}`,
+      kind: t`Script binding`,
+      name: binding.name,
+      detail: binding.source,
+    })),
+    ...plugin.servers.map((server) => ({
+      key: `server:${server}`,
+      kind: t`Tool server`,
+      name: server,
+      detail: '',
+    })),
+  ];
+  if (rows.length === 0) return null;
+  return (
+    <section aria-label={t`Its parts`} className="grid min-w-0 gap-1.5">
+      <h3 className="text-sm font-medium">{t`Its parts`}</h3>
+      <ul className="grid gap-1.5">
+        {rows.map((row) => (
+          <li className="grid min-w-0 gap-0.5 text-sm" data-slot="plugin-review-part" key={row.key}>
+            <span className="min-w-0 break-words">
+              <span className="text-muted-foreground">{row.kind}</span>{' '}
+              <span className="font-mono">{row.name}</span>
+            </span>
+            {row.detail ? (
+              <span className="min-w-0 break-words text-xs text-muted-foreground">
+                {row.detail}
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** What changed in its code since the version the person trusted. */
+function PluginChanged({ plugin }: { plugin: PluginReview }) {
+  const changed = plugin.changed_since_trusted;
+  if (!changed || changed.length === 0) return null;
+  return (
+    <section aria-label={t`Changed since you trusted it`} className="grid min-w-0 gap-1.5">
+      <h3 className="text-sm font-medium">{t`Changed since you trusted it`}</h3>
+      <ul className="grid gap-1">
+        {changed.map((path) => (
+          <li className="break-all font-mono text-xs" key={path}>
+            {path}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

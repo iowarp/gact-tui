@@ -290,6 +290,11 @@ msgstr "{0, plural, one {# λειτουργία} other {# λειτουργίες
 msgid "{0, plural, one {# field} other {# fields}}"
 msgstr "{0, plural, one {# πεδίο} other {# πεδία}}"
 
+#. placeholder {0}: request.changed.length
+#: src/components/clio/flow-trust-details.tsx
+msgid "{0, plural, one {# file changed since you trusted it} other {# files changed since you trusted it}}"
+msgstr "{0, plural, one {# αρχείο άλλαξε από τότε που το εμπιστευτήκατε} other {# αρχεία άλλαξαν από τότε που το εμπιστευτήκατε}}"
+
 #. placeholder {0}: files.length
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "{0, plural, one {# file, {sizeMb} MB, copied to {hostLabel}} other {# files, {sizeMb} MB, copied to {hostLabel}}}"
@@ -8661,6 +8666,7 @@ msgid "Change URL"
 msgstr "Αλλαγή URL"
 
 #: src/components/clio/diff-canvas-view.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/source-review-panel.tsx
 msgid "Changed"
 msgstr "Τροποποιήθηκε"
@@ -8705,6 +8711,10 @@ msgstr "Άλλαξε αφότου το είδε ο πράκτορας"
 #: src/components/clio/document-working-copy.tsx
 msgid "Changed since you opened it"
 msgstr "Άλλαξε από τότε που το ανοίξατε"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Changed since you trusted it"
+msgstr "Αλλαγές από τότε που το εμπιστευτήκατε"
 
 #: src/components/clio/file-text-view.tsx
 #: src/components/clio/session-rail-layout.ts
@@ -16161,6 +16171,7 @@ msgstr "Αρχείο γραμματοσειράς"
 msgid "Font substitution"
 msgstr "Αντικατάσταση γραμματοσειράς"
 
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "For"
 msgstr "Για"
@@ -16185,6 +16196,10 @@ msgstr "Για παράδειγμα, αισθητήρες πεδίου"
 #: src/components/clio/github-source-auth.tsx
 msgid "For private repositories or saving changes, <0>choose repositories on GitHub</0> and return here to sign in."
 msgstr "Για ιδιωτικά αποθετήρια ή για αποθήκευση αλλαγών, <0>επιλέξτε αποθετήρια στο GitHub</0> και επιστρέψτε εδώ για σύνδεση."
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "for tools matching {tools}"
+msgstr "για τα εργαλεία που ταιριάζουν με {tools}"
 
 #: src/lib/model-capability-tags.ts
 msgid "Forecaster"
@@ -16904,6 +16919,10 @@ msgstr "Πράσινο"
 msgid "Grey: no value"
 msgstr "Γκρι: χωρίς τιμή"
 
+#: src/components/clio/settings-fleet.tsx
+msgid "Guide"
+msgstr "Οδηγός"
+
 #: src/components/reui/date-selector.tsx
 msgid "H1"
 msgstr "Ε1"
@@ -17242,6 +17261,7 @@ msgid "Homelab"
 msgstr "Homelab"
 
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Hook"
 msgstr "Άγκιστρο"
@@ -18776,6 +18796,10 @@ msgstr "Δικό του ευρετήριο ιστού· φίλτρα κατά η
 #: src/lib/search-source-text.ts
 msgid "Its own web index; filters by date, site and kind (papers, news, PDF)."
 msgstr "Δικό του ευρετήριο ιστού· φίλτρα κατά ημερομηνία, ιστότοπο και είδος (άρθρα, ειδήσεις, PDF)."
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Its parts"
+msgstr "Τα μέρη του"
 
 #: src/components/clio/marketplace-manager.tsx
 msgid "Its plugins and agents leave the + menu. Conversations already running keep their pinned plugins until they end."
@@ -25218,6 +25242,10 @@ msgstr "Το OpenSSH αποσυνδέθηκε από το {host}."
 msgid "Operating guidelines"
 msgstr "Οδηγίες λειτουργίας"
 
+#: src/components/clio/settings-fleet.tsx
+msgid "Optimize"
+msgstr "Βελτιστοποίηση"
+
 #: src/components/clio/connect-frame.tsx
 #: src/components/clio/ssh-host-dialog.tsx
 #: src/components/clio/tool-schema-section.tsx
@@ -26216,6 +26244,7 @@ msgstr "Τα γραφήματα, οι πίνακες και οι αναφορέ�
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/agent-needs.ts
@@ -27802,6 +27831,10 @@ msgid "Reads before the suggestion"
 msgstr "Αναγνώσεις πριν από την πρόταση"
 
 #: src/components/clio/settings-fleet.tsx
+msgid "Reads each conversation when /optimize looks across your recent work."
+msgstr "Διαβάζει κάθε συνομιλία όταν το /optimize εξετάζει την πρόσφατη δουλειά σας."
+
+#: src/components/clio/settings-fleet.tsx
 msgid "Reads finished conversations for facts worth keeping."
 msgstr "Διαβάζει ολοκληρωμένες συνομιλίες για στοιχεία που αξίζει να διατηρηθούν."
 
@@ -27812,6 +27845,10 @@ msgstr "Διαβάζει ή γράφει αρχεία απευθείας"
 #: src/lib/model-capability-tags.ts
 msgid "Reads text."
 msgstr "Διαβάζει κείμενο."
+
+#: src/components/clio/settings-fleet.tsx
+msgid "Reads the documentation to answer broad questions about using the app."
+msgstr "Διαβάζει την τεκμηρίωση για να απαντά σε γενικές ερωτήσεις σχετικά με τη χρήση της εφαρμογής."
 
 #: src/lib/model-capability-tags.ts
 msgid "Reads up to {tokens} tokens at once."
@@ -30576,6 +30613,10 @@ msgstr "Εκτελέσεις σε αυτή τη συνομιλία"
 msgid "Runs on"
 msgstr "Εκτελείται σε"
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Runs on {event}"
+msgstr "Εκτελείται στο {event}"
+
 #: src/components/clio/subagent-model.tsx
 msgid "Runs on {ref}, {effort} effort."
 msgstr "Εκτελείται σε {ref}, με ένταση {effort}."
@@ -31299,6 +31340,10 @@ msgstr "Script"
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Script asks you"
 msgstr "Το σενάριο σας ρωτά"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Script binding"
+msgstr "Σύνδεση script"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Script blocked"
@@ -34949,6 +34994,7 @@ msgstr "υποπράκτορας"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-relationships.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/task-activity-row.tsx
 msgid "Subagent"
 msgstr "Υποπράκτορας"
@@ -38728,6 +38774,7 @@ msgstr "Διάρκεια"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/tool-technical-details.tsx
@@ -38860,6 +38907,10 @@ msgstr "Τα αποτελέσματα εργαλείων προηγούνται 
 msgid "Tool scope"
 msgstr "Εμβέλεια εργαλείου"
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool server"
+msgstr "Διακομιστής εργαλείων"
+
 #: src/components/clio/plugin-explorer.tsx
 msgid "Tool settings are available once this plugin is installed and trusted."
 msgstr "Οι ρυθμίσεις εργαλείων είναι διαθέσιμες μόλις αυτό το πρόσθετο εγκατασταθεί και γίνει αξιόπιστο."
@@ -38873,6 +38924,10 @@ msgstr "Δεν ήταν δυνατή η φόρτωση των ρυθμίσεων
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
 msgstr "Προέλευση εργαλείου"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool, reads only"
+msgstr "Εργαλείο, μόνο ανάγνωση"
 
 #: src/lib/composer-reference-domain.ts
 msgid "tools"
@@ -39117,6 +39172,10 @@ msgstr "Εμπιστοσύνη στο {name}…"
 #: src/components/clio/permission-response.tsx
 msgid "Trust and run"
 msgstr "Εμπιστοσύνη και εκτέλεση"
+
+#: src/components/clio/permission-response.tsx
+msgid "Trust and use"
+msgstr "Εμπιστοσύνη και χρήση"
 
 #: src/components/clio/marketplace-manager.tsx
 msgid "Trust marketplace"
@@ -40526,6 +40585,10 @@ msgstr "Χρησιμοποιεί τα μοντέλα μνήμης παρασκη
 #: src/components/clio/pending-interaction-notices.tsx
 msgid "Using compatibility response routes"
 msgstr "Χρήση διαδρομών απόκρισης συμβατότητας"
+
+#: src/components/clio/permission-response.tsx
+msgid "Using plugin {plugin}"
+msgstr "Χρήση του πρόσθετου {plugin}"
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "using tools"

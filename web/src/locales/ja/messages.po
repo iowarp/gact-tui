@@ -290,6 +290,11 @@ msgstr "{0, plural, one {#個の機能} other {#個の機能}}"
 msgid "{0, plural, one {# field} other {# fields}}"
 msgstr "{0, plural, one {#個のフィールド} other {#個のフィールド}}"
 
+#. placeholder {0}: request.changed.length
+#: src/components/clio/flow-trust-details.tsx
+msgid "{0, plural, one {# file changed since you trusted it} other {# files changed since you trusted it}}"
+msgstr "{0, plural, other {信頼してから # 個のファイルが変更されました}}"
+
 #. placeholder {0}: files.length
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "{0, plural, one {# file, {sizeMb} MB, copied to {hostLabel}} other {# files, {sizeMb} MB, copied to {hostLabel}}}"
@@ -8661,6 +8666,7 @@ msgid "Change URL"
 msgstr "URLを変更"
 
 #: src/components/clio/diff-canvas-view.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/source-review-panel.tsx
 msgid "Changed"
 msgstr "変更済み"
@@ -8705,6 +8711,10 @@ msgstr "エージェントが表示した後に変更されました"
 #: src/components/clio/document-working-copy.tsx
 msgid "Changed since you opened it"
 msgstr "開いた後に変更されました"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Changed since you trusted it"
+msgstr "信頼してからの変更"
 
 #: src/components/clio/file-text-view.tsx
 #: src/components/clio/session-rail-layout.ts
@@ -16161,6 +16171,7 @@ msgstr "フォントファイル"
 msgid "Font substitution"
 msgstr "フォントの置換"
 
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "For"
 msgstr "期間"
@@ -16185,6 +16196,10 @@ msgstr "例: フィールドセンサー"
 #: src/components/clio/github-source-auth.tsx
 msgid "For private repositories or saving changes, <0>choose repositories on GitHub</0> and return here to sign in."
 msgstr "プライベートリポジトリや変更の保存には、<0>GitHubでリポジトリを選択</0>し、ここに戻ってサインインしてください。"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "for tools matching {tools}"
+msgstr "{tools} に一致するツールに対して"
 
 #: src/lib/model-capability-tags.ts
 msgid "Forecaster"
@@ -16904,6 +16919,10 @@ msgstr "緑"
 msgid "Grey: no value"
 msgstr "グレー: 値なし"
 
+#: src/components/clio/settings-fleet.tsx
+msgid "Guide"
+msgstr "ガイド"
+
 #: src/components/reui/date-selector.tsx
 msgid "H1"
 msgstr "上期"
@@ -17242,6 +17261,7 @@ msgid "Homelab"
 msgstr "Homelab"
 
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Hook"
 msgstr "フック"
@@ -18776,6 +18796,10 @@ msgstr "独自のウェブインデックス。日付、サイト、除外サイ
 #: src/lib/search-source-text.ts
 msgid "Its own web index; filters by date, site and kind (papers, news, PDF)."
 msgstr "独自のウェブインデックス。日付、サイト、種類 (論文、ニュース、PDF) で絞り込めます。"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Its parts"
+msgstr "構成要素"
 
 #: src/components/clio/marketplace-manager.tsx
 msgid "Its plugins and agents leave the + menu. Conversations already running keep their pinned plugins until they end."
@@ -25218,6 +25242,10 @@ msgstr "OpenSSHが{host}から切断されました。"
 msgid "Operating guidelines"
 msgstr "運用ガイドライン"
 
+#: src/components/clio/settings-fleet.tsx
+msgid "Optimize"
+msgstr "最適化"
+
 #: src/components/clio/connect-frame.tsx
 #: src/components/clio/ssh-host-dialog.tsx
 #: src/components/clio/tool-schema-section.tsx
@@ -26216,6 +26244,7 @@ msgstr "グラフ、表、レポートは会話内にファイルカードとし
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/agent-needs.ts
@@ -27802,6 +27831,10 @@ msgid "Reads before the suggestion"
 msgstr "提案するまでの読み取り回数"
 
 #: src/components/clio/settings-fleet.tsx
+msgid "Reads each conversation when /optimize looks across your recent work."
+msgstr "/optimize が最近の作業を見渡すときに、各会話を読みます。"
+
+#: src/components/clio/settings-fleet.tsx
 msgid "Reads finished conversations for facts worth keeping."
 msgstr "完了した会話を読み、残しておく価値のある事実を探します。"
 
@@ -27812,6 +27845,10 @@ msgstr "ファイルを直接読み書きします"
 #: src/lib/model-capability-tags.ts
 msgid "Reads text."
 msgstr "テキストを読み取ります。"
+
+#: src/components/clio/settings-fleet.tsx
+msgid "Reads the documentation to answer broad questions about using the app."
+msgstr "ドキュメントを読み、アプリの使い方に関する幅広い質問に答えます。"
 
 #: src/lib/model-capability-tags.ts
 msgid "Reads up to {tokens} tokens at once."
@@ -30576,6 +30613,10 @@ msgstr "この会話の実行"
 msgid "Runs on"
 msgstr "実行場所"
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Runs on {event}"
+msgstr "{event} で実行"
+
 #: src/components/clio/subagent-model.tsx
 msgid "Runs on {ref}, {effort} effort."
 msgstr "{ref}で実行、強度{effort}。"
@@ -31299,6 +31340,10 @@ msgstr "スクリプト"
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Script asks you"
 msgstr "スクリプトが確認"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Script binding"
+msgstr "スクリプトバインディング"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Script blocked"
@@ -34949,6 +34994,7 @@ msgstr "サブエージェント"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-relationships.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/task-activity-row.tsx
 msgid "Subagent"
 msgstr "サブエージェント"
@@ -38728,6 +38774,7 @@ msgstr "所要時間"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/tool-technical-details.tsx
@@ -38860,6 +38907,10 @@ msgstr "キャプチャされた内容の先頭はツール結果です"
 msgid "Tool scope"
 msgstr "ツールの範囲"
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool server"
+msgstr "ツールサーバー"
+
 #: src/components/clio/plugin-explorer.tsx
 msgid "Tool settings are available once this plugin is installed and trusted."
 msgstr "ツールの設定は、このプラグインがインストールされて信頼されると利用できます。"
@@ -38873,6 +38924,10 @@ msgstr "ツール設定を読み込めませんでした。"
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
 msgstr "ツールのソース"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool, reads only"
+msgstr "ツール (読み取りのみ)"
 
 #: src/lib/composer-reference-domain.ts
 msgid "tools"
@@ -39117,6 +39172,10 @@ msgstr "{name}を信頼…"
 #: src/components/clio/permission-response.tsx
 msgid "Trust and run"
 msgstr "信頼して実行"
+
+#: src/components/clio/permission-response.tsx
+msgid "Trust and use"
+msgstr "信頼して使用"
 
 #: src/components/clio/marketplace-manager.tsx
 msgid "Trust marketplace"
@@ -40526,6 +40585,10 @@ msgstr "バックグラウンドメモリーのモデルを使用し、「メモ
 #: src/components/clio/pending-interaction-notices.tsx
 msgid "Using compatibility response routes"
 msgstr "互換性のある応答ルートを使用しています"
+
+#: src/components/clio/permission-response.tsx
+msgid "Using plugin {plugin}"
+msgstr "プラグイン {plugin} を使用"
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "using tools"

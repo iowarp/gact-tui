@@ -1,6 +1,6 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { BotIcon, FileCode2Icon, ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
-import { flowTrustRequest } from '@/lib/plugin-review';
+import { flowTrustRequest, type FlowTrustRequest } from '@/lib/plugin-review';
 import { cn } from '@/lib/utils';
 import {
   AskBody,
@@ -143,7 +143,10 @@ function spokenToolCall(
     if (values.length) {
       const list = formatList(values);
       return clip(
-        t({ message: `${toolName}: ${list}`, comment: 'Spoken tool call: tool name, then its arguments' }),
+        t({
+          message: `${toolName}: ${list}`,
+          comment: 'Spoken tool call: tool name, then its arguments',
+        }),
       );
     }
   }
@@ -182,7 +185,9 @@ export function PermissionResponse({
   // The script block carries the lines run_code's own title summarises ("Run a Python script
   // (48 lines): readings = …"), so the title is the spec's plain "Run script".
   const title = flowTrust
-    ? t`Running flow ${ph({ flow: flowTrust.flow })}`
+    ? flowTrust.kind === 'plugin'
+      ? t`Using plugin ${ph({ plugin: flowTrust.plugin })}`
+      : t`Running flow ${ph({ flow: flowTrust.flow })}`
     : script && !interaction.payload?.script
       ? t`Run script`
       : permissionTitle(interaction, toolName);
@@ -267,7 +272,7 @@ export function PermissionResponse({
       <AskOptions aria-label={t`Decision`}>
         {scopes.map((scope, index) => (
           <AskButton
-            aria-label={flowTrust ? t`Trust and run` : scope.name}
+            aria-label={flowTrust ? trustLabel(flowTrust) : scope.name}
             disabled={disabled}
             // i18n-ignore: key name
             hint={index === 0 ? 'Enter' : undefined}
@@ -276,7 +281,7 @@ export function PermissionResponse({
             onClick={() => respond(scope.action)}
             primary={index === 0}
           >
-            {flowTrust ? t`Trust and run` : scope.label}
+            {flowTrust ? trustLabel(flowTrust) : scope.label}
           </AskButton>
         ))}
         {(interaction.actions ?? [])
@@ -349,4 +354,9 @@ export function PermissionResponse({
       ) : null}
     </AskCard>
   );
+}
+
+/** The one decision a trust ask offers: trusting lasts, so it has no duration. */
+function trustLabel(request: FlowTrustRequest): string {
+  return request.kind === 'plugin' ? t`Trust and use` : t`Trust and run`;
 }
