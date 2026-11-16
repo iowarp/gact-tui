@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 /**
  * CLIO content references an A2UI media/artifact component may carry
- * (`artifact:` / `resource:` URIs, or a bare `artifact_…` / `res_…` id).
+ * (`artifact:` / `resource:` URIs, a bare `artifact_…` / `res_…` id, or a
+ * `plugin-asset://<plugin>/<path>` file a plugin of the conversation bundles).
  *
  * A reference is not a URL the browser can load: the viewer may be connected
  * to a remote CLIO, the scheme means nothing to `<img src>`, and the bytes sit
@@ -18,7 +19,7 @@ export function isClioReference(value: string): boolean {
   const trimmed = value.trim();
   if (BARE_REFERENCE_ID.test(trimmed)) return true;
   const scheme = trimmed.slice(0, trimmed.indexOf(':') + 1).toLowerCase();
-  return scheme === 'artifact:' || scheme === 'resource:';
+  return scheme === 'artifact:' || scheme === 'resource:' || scheme === 'plugin-asset:';
 }
 
 /** Whether `value` is a bare `artifact_…` / `res_…` id (no scheme). */
@@ -29,7 +30,7 @@ export function isBareClioReferenceId(value: string): boolean {
 export const a2uiReferenceResolutionSchema = z
   .object({
     uri: z.string(),
-    kind: z.enum(['artifact', 'resource']),
+    kind: z.enum(['artifact', 'resource', 'plugin_asset']),
     workspace_id: z.string(),
     name: z.string(),
     media_type: z.string(),
