@@ -33,7 +33,7 @@ function OwnFlowRun({
   const assignment = useMessageAssignment(sessionId, messageId, true);
   if (!assignment.data) return null;
   return (
-    <div className="mt-3 min-w-0" data-slot="session-own-flow-run">
+    <div className="mt-1 mb-3 w-full max-w-[95%] min-w-0" data-slot="session-own-flow-run">
       <FlowRunCard
         flow={{
           flow: flow.id,

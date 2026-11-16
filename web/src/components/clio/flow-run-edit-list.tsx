@@ -19,6 +19,10 @@ function questionAnswer(question: FlowQuestion): string {
       return answer
         ? t`An agent answered: ${answer}`
         : t`An agent answered without a recorded choice`;
+    if (question.answeredBy === 'unattended')
+      return answer
+        ? t`Answered automatically with the default, as nobody was watching this run: ${answer}`
+        : t`Answered automatically: nobody was watching this run, so the agent went ahead on its own judgment`;
     return answer ? t`You answered: ${answer}` : t`You answered without a recorded choice`;
   }
   if (question.status === 'pending') return t`Waiting for your answer`;

@@ -464,9 +464,6 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                       {...entities}
                     />
                     <ConversationSummonedWork metadata={message.metadata} />
-                    {message.role === 'user' ? (
-                      <SessionOwnFlowRun messageId={message.id} sessionId={message.session_id} />
-                    ) : null}
                   </>
                 )}
                 {message.role === 'assistant' && message.canvas ? (
@@ -595,6 +592,11 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               </div>
             ) : null}
           </Message>
+          {message.role === 'user' ? (
+            // The run the prompt started is the conversation's work, not part of the
+            // right-aligned prompt: it lines up with the replies, at their width.
+            <SessionOwnFlowRun messageId={message.id} sessionId={message.session_id} />
+          ) : null}
         </m.div>
       )}
       {entities.forkOrigin?.message_id === message.id ? (

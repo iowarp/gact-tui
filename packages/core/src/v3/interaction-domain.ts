@@ -111,7 +111,7 @@ export interface PendingInteraction {
   audience?: WireValue<'human' | 'agent'>;
   routing_state?: WireValue<'elicitation_routed_to_agent' | 'agent_elicitation_fallback_to_human'>;
   fallback_detail?: string;
-  answered_by?: WireValue<'human' | 'agent'>;
+  answered_by?: WireValue<'human' | 'agent' | 'unattended'>;
   source: PendingInteractionSource;
   created_at: string;
   payload?: PendingInteractionPayload;
