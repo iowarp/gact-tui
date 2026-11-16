@@ -607,6 +607,11 @@ export function ClioAppShell({
             onInteractOutside={(event) => {
               if (appDock) event.preventDefault();
             }}
+            // Non-modal, the sheet would close whenever focus leaves it, including when
+            // the conversation moves focus itself (a #message- link refocusing its turn
+            // after a resize). Only a click outside or Close dismisses it, as when it
+            // was modal.
+            onFocusOutside={(event) => event.preventDefault()}
             style={appDock}
             data-app-dock={appDock ? '' : undefined}
             // A list search field closes itself on Escape; that press must not close the sheet.
