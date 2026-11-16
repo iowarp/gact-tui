@@ -33,7 +33,7 @@ import { composeSnapshot } from './mesh-viewport-snapshot';
 import { parsedMeshCache } from './mesh-viewport-cache';
 import { partOpacityByName, type MeshField } from './mesh-viewport-mesh';
 import { parseMeshArtifact, type MeshFormat } from './mesh-viewport-formats';
-import { MeshViewportScene, type MeshUpAxis } from './mesh-viewport-scene';
+import { meshPartCenters, MeshViewportScene, type MeshUpAxis } from './mesh-viewport-scene';
 import {
   joinMeshSyncGroup,
   meshGroupBounds,
@@ -264,6 +264,11 @@ export function ClioMeshViewport({
       };
       return {
         camera: scene.cameraState(),
+        // The camera's frame: Y up, the model's units. A CAD model exported Z-up is turned
+        // to glTF's Y-up, so the file's (x, y, z) shows at (x, z, -y); aim from these.
+        axes: 'y-up',
+        bounds: parsed.bounds,
+        parts: meshPartCenters(parsed),
         meshUri,
         frame: current.frame,
         color: fieldMetadata(current.color),

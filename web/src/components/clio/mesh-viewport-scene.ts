@@ -93,6 +93,39 @@ export function meshPartLabel(part: Pick<MeshPart, 'name' | 'ancestors'>): strin
 }
 
 /**
+ * Where each named part is, in the view's own frame (Y up, the model's units): the centre of
+ * its bounding box, at most ``limit`` parts. A camera aimed by a producer is in this frame,
+ * which is not always the file's (a CAD scene exported Z-up is turned to glTF's Y-up), so an
+ * agent aims at a part from these rather than from the file's coordinates.
+ */
+export function meshPartCenters(
+  data: Pick<ParsedFeaMesh, 'positions' | 'parts'>,
+  limit = 64,
+): Record<string, [number, number, number]> {
+  const boxes = new Map<string, { min: number[]; max: number[] }>();
+  for (const part of data.parts ?? []) {
+    const label = meshPartLabel(part);
+    if (!label) continue;
+    const box = boxes.get(label) ?? { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
+    for (let v = part.vertexStart; v < part.vertexStart + part.vertexCount; v += 1) {
+      for (let k = 0; k < 3; k += 1) {
+        const value = data.positions[v * 3 + k]!;
+        if (value < box.min[k]!) box.min[k] = value;
+        if (value > box.max[k]!) box.max[k] = value;
+      }
+    }
+    boxes.set(label, box);
+  }
+  const centers: Record<string, [number, number, number]> = {};
+  for (const [label, box] of [...boxes.entries()].slice(0, limit)) {
+    if (!Number.isFinite(box.min[0]!)) continue;
+    const round = (k: number) => Math.round(((box.min[k]! + box.max[k]!) / 2) * 1000) / 1000;
+    centers[label] = [round(0), round(1), round(2)];
+  }
+  return centers;
+}
+
+/**
  * The model's named parts with geometry inside a rectangle, most of it first, so a mark
  * over a CAD scene names what it covers (``cutout_J1``, ``lid``) and not only vertex ids.
  */

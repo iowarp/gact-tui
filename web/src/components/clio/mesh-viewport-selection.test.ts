@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { meshPartLabel, projectedMeshNodeIds, projectedMeshParts } from './mesh-viewport-scene';
+import { meshPartCenters, meshPartLabel, projectedMeshNodeIds, projectedMeshParts } from './mesh-viewport-scene';
 
 describe('mesh viewport box selection', () => {
   const camera = new THREE.PerspectiveCamera(90, 1, 0.1, 100);
@@ -60,5 +60,17 @@ describe('mesh viewport box selection', () => {
     expect(meshPartLabel({ name: 'cutout_J1_3', ancestors: ['cutout_J1', 'enclosure'] })).toBe('cutout_J1 in enclosure');
     expect(meshPartLabel({ name: 'cutout_J1_lid', ancestors: ['cutout_J1', 'enclosure'] })).toBe('cutout_J1_lid in cutout_J1 in enclosure');
     expect(meshPartLabel({ name: 'J1', ancestors: ['board'] })).toBe('J1 in board');
+  });
+
+  it('says where each named part is in the view\'s frame, so a camera can be aimed at it', () => {
+    const data = {
+      positions: Float32Array.from([0, 0, 0, 2, 4, 6, 10, 10, 10, 12, 10, 10, 20, 20, 20]),
+      parts: [
+        { name: 'cutout_J1_1', ancestors: ['cutout_J1', 'enclosure'], triangleStart: 0, triangleCount: 0, vertexStart: 0, vertexCount: 2 },
+        { name: 'cutout_J1_2', ancestors: ['cutout_J1', 'enclosure'], triangleStart: 0, triangleCount: 0, vertexStart: 2, vertexCount: 2 },
+        { name: '', triangleStart: 0, triangleCount: 0, vertexStart: 4, vertexCount: 1 },
+      ],
+    };
+    expect(meshPartCenters(data)).toEqual({ 'cutout_J1 in enclosure': [6, 5, 5] });
   });
 });
