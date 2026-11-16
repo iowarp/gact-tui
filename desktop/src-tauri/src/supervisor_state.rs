@@ -11,6 +11,7 @@ use std::{
 };
 
 use crate::supervisor_boot_log::boot_log_line;
+use crate::supervisor_client_lease::{self, ClientLease};
 use crate::supervisor_shutdown::reap_owned_child_tree;
 use crate::supervisor_types::{BackendHandle, BackendStartupStage, BackendStatus};
 
@@ -36,6 +37,8 @@ pub struct SupervisorState {
 struct SupervisorInner {
     handle: BackendHandle,
     child: Option<Child>,
+    /// This desktop's registration with an attached server's client count.
+    lease: Option<ClientLease>,
 }
 
 impl SupervisorState {
@@ -48,6 +51,7 @@ impl SupervisorState {
                     status: BackendStatus::Starting(BackendStartupStage::CheckingExisting),
                 },
                 child: None,
+                lease: None,
             })),
         }
     }
@@ -96,6 +100,22 @@ impl SupervisorState {
         lock_recover(&self.inner).handle = handle;
     }
 
+    /// Record a server this desktop attached to and register with its client count,
+    /// so a server a script started keeps running while the desktop uses it.
+    pub fn set_attached_handle(&self, handle: BackendHandle) {
+        let lease = matches!(handle.status, BackendStatus::Ready)
+            .then(|| supervisor_client_lease::register(&handle.url, &handle.bearer_token))
+            .flatten();
+        let displaced = {
+            let mut guard = lock_recover(&self.inner);
+            guard.handle = handle;
+            std::mem::replace(&mut guard.lease, lease)
+        };
+        if let Some(stale) = displaced {
+            supervisor_client_lease::release(&stale);
+        }
+    }
+
     /// Record the booted backend handle and its child, reaping any child the
     /// new one displaces.
     ///
@@ -126,13 +146,17 @@ impl SupervisorState {
     }
 
     pub fn shutdown(&self) {
-        let owned = {
+        let (owned, lease) = {
             let mut guard = lock_recover(&self.inner);
-            guard
+            let owned = guard
                 .child
                 .take()
-                .map(|child| (child, guard.handle.clone()))
+                .map(|child| (child, guard.handle.clone()));
+            (owned, guard.lease.take())
         };
+        if let Some(lease) = lease {
+            supervisor_client_lease::release(&lease);
+        }
         if let Some((child, handle)) = owned {
             reap_owned_child_tree(child, &handle);
         }

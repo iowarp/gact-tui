@@ -36,6 +36,7 @@ import { canGroupUserMessages, feedbackMessage } from './conversation-user-group
 import { ParentDelegationMessage } from './parent-delegation-message';
 import { isParentDelegation } from './parent-delegation';
 import { ConversationSummonedWork } from './conversation-summoned-work';
+import { SessionOwnFlowRun } from './session-own-flow-run';
 import { DiffusionCanvas } from './diffusion-canvas';
 import { ConversationModelDivider } from './transcript-divider';
 import type { ConversationModelBoundary } from './conversation-model-boundaries';
@@ -591,6 +592,11 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
               </div>
             ) : null}
           </Message>
+          {message.role === 'user' ? (
+            // The run the prompt started is the conversation's work, not part of the
+            // right-aligned prompt: it lines up with the replies, at their width.
+            <SessionOwnFlowRun messageId={message.id} sessionId={message.session_id} />
+          ) : null}
         </m.div>
       )}
       {entities.forkOrigin?.message_id === message.id ? (

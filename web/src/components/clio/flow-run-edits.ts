@@ -200,6 +200,11 @@ function askStep(invocation: string): string {
   return key.length >= 4 ? (key.at(-1) ?? '') : '';
 }
 
+/**
+ * The answer in words. An unattended run's own reply is the standing
+ * "nobody is watching" note to the agent, not an answer: only the options it
+ * took (a tool's declared defaults) are kept.
+ */
 function answerText(interaction: PendingInteraction): string {
   const payload = record(interaction.payload) ?? {};
   const options = Array.isArray(payload.options) ? payload.options.map(record) : [];
@@ -207,7 +212,8 @@ function answerText(interaction: PendingInteraction): string {
     const option = options.find((row) => row && (row.value ?? row.label) === value);
     return typeof option?.label === 'string' ? option.label : value;
   });
-  return [...chosen, text(payload.answer)].filter(Boolean).join(', ');
+  const written = interaction.answered_by === 'unattended' ? '' : text(payload.answer);
+  return [...chosen, written].filter(Boolean).join(', ');
 }
 
 /** The questions this run asked, among a session tree's questions, oldest first. */

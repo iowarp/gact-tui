@@ -6449,6 +6449,14 @@ msgstr "Respondido: {actionText}"
 msgid "Answered a permission request"
 msgstr "Se respondió a una solicitud de permiso"
 
+#: src/components/clio/flow-run-edit-list.tsx
+msgid "Answered automatically with the default, as nobody was watching this run: {answer}"
+msgstr ""
+
+#: src/components/clio/flow-run-edit-list.tsx
+msgid "Answered automatically: nobody was watching this run, so the agent went ahead on its own judgment"
+msgstr ""
+
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Answered by you"
 msgstr "Respondida por ti"

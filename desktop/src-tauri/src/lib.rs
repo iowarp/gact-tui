@@ -76,6 +76,7 @@ mod storage_oauth;
 mod supervisor;
 mod supervisor_attach;
 mod supervisor_attach_token;
+mod supervisor_client_lease;
 mod supervisor_boot;
 mod supervisor_boot_log;
 mod supervisor_boot_log_open;

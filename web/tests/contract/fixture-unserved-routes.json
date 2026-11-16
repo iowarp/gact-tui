@@ -61,6 +61,7 @@
   "GET /v1/sessions/:id/interactions",
   "GET /v1/sessions/:id/memory/events",
   "GET /v1/sessions/:id/memory/events/:id",
+  "GET /v1/sessions/:id/messages/:id",
   "GET /v1/sessions/:id/messages/:id/attention/content",
   "GET /v1/sessions/:id/messages/search",
   "GET /v1/sessions/:id/response-feedback",
