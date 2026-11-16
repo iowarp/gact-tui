@@ -113,6 +113,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const continuedAt = resumedBy
     ? {
         label: t`Show where it continued`,
+        icon: null, // not Retry's arrow: this moves to the continuation, it repeats nothing
         onClick: () =>
           document
             .querySelector(`[data-message-id="${CSS.escape(resumedBy)}"]`)
