@@ -227,6 +227,39 @@ export const localLibrarySchema = z.object({
 });
 export type LocalLibrary = z.infer<typeof localLibrarySchema>;
 
+/** The last publication of the private collection to GitHub. */
+export const localPublicationSchema = z.object({
+  repository: z.string(),
+  url: z.string(),
+  branch: z.string(),
+  commit: z.string(),
+  published_at: z.string(),
+  private: z.boolean(),
+});
+export type LocalPublication = z.infer<typeof localPublicationSchema>;
+
+/** Whether this host can publish to GitHub, and what it published last. */
+export const localPublishStatusSchema = z.object({
+  github: z.object({
+    signed_in: z.boolean(),
+    account_name: z.string(),
+    account_url: z.string(),
+  }),
+  last: localPublicationSchema.passthrough().nullable(),
+  empty: z.boolean(),
+  changed_since: z.boolean(),
+});
+export type LocalPublishStatus = z.infer<typeof localPublishStatusSchema>;
+
+/** One publication: the commit made, or that the repository already matched. */
+export const localPublishResultSchema = localPublicationSchema.extend({
+  up_to_date: z.boolean(),
+  written: z.array(z.string()),
+  removed: z.array(z.string()),
+  commit_url: z.string(),
+});
+export type LocalPublishResult = z.infer<typeof localPublishResultSchema>;
+
 /**
  * Where an active plugin came from: `core` (every agent), `agent` (an agent
  * layer such as standard or science, named by `via`), `pack` (a member of the

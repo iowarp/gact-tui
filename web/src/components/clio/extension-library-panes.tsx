@@ -17,6 +17,7 @@ import { DialogFrame } from './primitives/dialog-frame';
 import { IconButton } from './primitives/icon-button';
 import { KeyValueGrid } from './primitives/key-value-grid';
 import { SettingsGroupLabel } from './settings-row';
+import { GitHubPublish } from './marketplace-github-publish';
 import { t, ph } from '@lingui/core/macro';
 
 /** One of your MCP connections: where it connects, its state, and what you can do with it. */
@@ -170,7 +171,7 @@ export function BackupDialog({
 }) {
   return (
     <DialogFrame
-      description={t`Export your saved agents, skills and plugins to a repository you control.`}
+      description={t`Publish your saved agents, skills and plugins to a GitHub repository you control.`}
       onOpenChange={(open) => (open ? undefined : onClose())}
       open
       title={t`Back up to GitHub`}
@@ -181,26 +182,10 @@ export function BackupDialog({
         keyboard: false,
         onConfirm: onExport,
       }}
-      secondary={
-        <ExternalLink
-          className="mr-auto text-xs underline underline-offset-4"
-          href="https://github.com/new"
-        >
-          {t`Create GitHub repository`}
-        </ExternalLink>
-      }
     >
-      <ol className="list-decimal space-y-2 pl-5 leading-5">
-        <li>{t`Download the marketplace ZIP and unpack it.`}</li>
-        <li>
-          {t`Create a private GitHub repository and upload the unpacked files, preserving the folders.`}
-        </li>
-        <li>
-          {t`To use the backup on another host, add its repository URL from Marketplaces. That host needs access to your private repository.`}
-        </li>
-      </ol>
-      <p className="mt-3 leading-5 text-muted-foreground">
-        {t`This is a manual backup. Future edits remain local until you upload them again. Saved MCP credentials are not included; configure those connections on each host.`}
+      <GitHubPublish hasLocalItems={hasLocalItems} />
+      <p className="mt-4 leading-5 text-muted-foreground">
+        {t`Or download the marketplace ZIP and upload it yourself. Saved MCP credentials are never included; configure those connections on each host.`}
       </p>
       {!hasLocalItems ? (
         <p className="mt-2 text-muted-foreground">{t`Save an agent, skill or plugin first.`}</p>

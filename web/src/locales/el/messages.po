@@ -1481,6 +1481,10 @@ msgstr "{changed, plural, one {Άλλαξε # κανόνας} other {Άλλαξ�
 msgid "{changes, plural, one {# change} other {# changes}}"
 msgstr "{changes, plural, one {# αλλαγή} other {# αλλαγές}}"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "{changes, plural, one {Published # change to {repository}.} other {Published # changes to {repository}.}}"
+msgstr "{changes, plural, one {Δημοσιεύτηκε # αλλαγή στο {repository}.} other {Δημοσιεύτηκαν # αλλαγές στο {repository}.}}"
+
 #: src/components/clio/attention-center.tsx
 msgid "{code} on {computer}"
 msgstr "{code} στο {computer}"
@@ -3384,6 +3388,10 @@ msgstr "{repeat} {time}"
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "{repeatCaption} at {time}"
 msgstr "{repeatCaption} στις {time}"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "{repository} already matches this host."
+msgstr "Το {repository} ταιριάζει ήδη με αυτόν τον υπολογιστή."
 
 #: src/components/clio/attention-center.tsx
 msgid "{responseCount, plural, one {{firstTitle} needs your response; # response pending} other {{firstTitle} needs your response; # responses pending}}"
@@ -6293,6 +6301,10 @@ msgstr "Ένα συνημμένο δεν έχει Markdown"
 msgid "An empty knowledge vault managed by {agent}"
 msgstr "Ένα κενό θησαυροφυλάκιο γνώσης που διαχειρίζεται ο {agent}"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "An existing repository, ideally private. Its other files are left as they are."
+msgstr "Ένα υπάρχον αποθετήριο, κατά προτίμηση ιδιωτικό. Τα υπόλοιπα αρχεία του μένουν ως έχουν."
+
 #: src/components/clio/memory-import-dialog.tsx
 msgid "An export keeps each memory where it was saved."
 msgstr "Μια εξαγωγή διατηρεί κάθε μνήμη εκεί όπου αποθηκεύτηκε."
@@ -8708,6 +8720,10 @@ msgstr "Οι αλλαγμένες ρυθμίσεις εμφανίζονται μ
 msgid "Changed since the agent viewed it"
 msgstr "Άλλαξε αφότου το είδε ο πράκτορας"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Changed since you last published to {repository}."
+msgstr "Υπάρχουν αλλαγές από την τελευταία δημοσίευση στο {repository}."
+
 #: src/components/clio/document-working-copy.tsx
 msgid "Changed since you opened it"
 msgstr "Άλλαξε από τότε που το ανοίξατε"
@@ -9063,6 +9079,10 @@ msgstr "Έλεγχος εκδόσεων"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Checking what depends on {named}…"
 msgstr "Έλεγχος εξαρτήσεων: {named}…"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Checking your GitHub sign-in…"
+msgstr "Έλεγχος της σύνδεσής σας στο GitHub…"
 
 #: src/components/clio/provider-action-flows.ts
 msgid "Checking your key"
@@ -12328,10 +12348,6 @@ msgstr "Δημιουργία μνήμης"
 msgid "Create a new vault"
 msgstr "Δημιουργία νέου θησαυροφυλακίου"
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "Create a private GitHub repository and upload the unpacked files, preserving the folders."
-msgstr "Δημιουργήστε ιδιωτικό αποθετήριο GitHub και μεταφορτώστε τα αποσυμπιεσμένα αρχεία, διατηρώντας τους φακέλους."
-
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library-toolbar.tsx
 msgid "Create a skill"
@@ -12353,7 +12369,7 @@ msgstr "Δημιουργία άλλου χώρου εργασίας"
 msgid "Create dataset"
 msgstr "Δημιουργία συνόλου δεδομένων"
 
-#: src/components/clio/extension-library-panes.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 msgid "Create GitHub repository"
 msgstr "Δημιουργία αποθετηρίου GitHub"
 
@@ -13835,10 +13851,6 @@ msgstr "Λήψη επιλεγμένων αρχείων"
 msgid "Download source"
 msgstr "Λήψη πηγής"
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "Download the marketplace ZIP and unpack it."
-msgstr "Κάντε λήψη του ZIP της αγοράς πρόσθετων και αποσυμπιέστε το."
-
 #: src/components/clio/model-acquisition.tsx
 msgid "Download the repository's files into a dedicated folder on this host. {agent} resolves an immutable revision, checks free space, and verifies the files. This does not load model code or start inference."
 msgstr "Λήψη των αρχείων του αποθετηρίου σε αποκλειστικό φάκελο σε αυτόν τον κεντρικό υπολογιστή. Ο {agent} επιλύει μια αμετάβλητη αναθεώρηση, ελέγχει τον ελεύθερο χώρο και επαληθεύει τα αρχεία. Αυτό δεν φορτώνει κώδικα του μοντέλου ούτε ξεκινά συμπερασμό."
@@ -15211,10 +15223,6 @@ msgstr "Εξαγάγετε τη συνομιλία όταν χρειάζεστε
 #: src/components/clio/file-viewer-take-hooks.tsx
 msgid "Export to {label}"
 msgstr "Εξαγωγή σε {label}"
-
-#: src/components/clio/extension-library-panes.tsx
-msgid "Export your saved agents, skills and plugins to a repository you control."
-msgstr "Εξαγάγετε τους αποθηκευμένους πράκτορες, τις δεξιότητες και τα πρόσθετά σας σε αποθετήριο που ελέγχετε."
 
 #: src/offline-review.tsx
 msgid "Exported {exportedAt}"
@@ -16723,6 +16731,10 @@ msgstr "Το όριο του GitHub για ελέγχους ενημερώσεω
 #: src/components/clio/connector-offer-response.tsx
 msgid "Give {name} {asked}?"
 msgstr ""
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Give the {agent} GitHub app access to the repository"
+msgstr "Δώστε στην εφαρμογή GitHub του {agent} πρόσβαση στο αποθετήριο"
 
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
@@ -25310,6 +25322,10 @@ msgstr "Επιλογές:"
 msgid "or"
 msgstr "ή"
 
+#: src/components/clio/extension-library-panes.tsx
+msgid "Or download the marketplace ZIP and upload it yourself. Saved MCP credentials are never included; configure those connections on each host."
+msgstr "Ή κατεβάστε το ZIP του marketplace και ανεβάστε το μόνοι σας. Τα αποθηκευμένα διαπιστευτήρια MCP δεν περιλαμβάνονται ποτέ· ρυθμίστε αυτές τις συνδέσεις σε κάθε υπολογιστή."
+
 #: src/components/clio/pending-interaction-question-response.tsx
 msgid "Or type your own answer"
 msgstr "Ή πληκτρολογήστε τη δική σας απάντηση"
@@ -27183,6 +27199,7 @@ msgstr "Δημόσια μεταδεδομένα διακομιστών. Η πε�
 msgid "Publication {state}. {count, plural, one {# file was published.} other {# files were published.}} {error}"
 msgstr "Δημοσίευση: {state}. {count, plural, one {Δημοσιεύτηκε # αρχείο.} other {Δημοσιεύτηκαν # αρχεία.}} {error}"
 
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/widget-gallery-demos.ts
 msgid "Publish"
 msgstr "Δημοσίευση"
@@ -27196,13 +27213,33 @@ msgstr "Δημοσίευση επιλεγμένων επεξεργασιών"
 msgid "Publish the report?"
 msgstr "Να δημοσιευτεί η αναφορά;"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publish to GitHub"
+msgstr "Δημοσίευση στο GitHub"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publish to the public repository"
+msgstr "Δημοσίευση στο δημόσιο αποθετήριο"
+
+#: src/components/clio/extension-library-panes.tsx
+msgid "Publish your saved agents, skills and plugins to a GitHub repository you control."
+msgstr "Δημοσιεύστε τους αποθηκευμένους πράκτορες, τις δεξιότητες και τα πρόσθετά σας σε ένα αποθετήριο GitHub που ελέγχετε."
+
 #: src/components/clio/mcp-sign-in.tsx
 msgid "Published client metadata URL"
 msgstr "Δημοσιευμένο URL μεταδεδομένων πελάτη"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publishing isn’t available from this host."
+msgstr "Η δημοσίευση δεν είναι διαθέσιμη από αυτόν τον υπολογιστή."
+
 #: src/components/clio/source-review-panel.tsx
 msgid "Publishing selected edits…"
 msgstr "Δημοσίευση επιλεγμένων επεξεργασιών…"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publishing…"
+msgstr "Δημοσίευση…"
 
 #: src/components/clio/cad-tool-panels.tsx
 msgid "Put the parts back together"
@@ -29283,6 +29320,7 @@ msgstr "Αναφερθείσα κατάσταση"
 msgid "Reports"
 msgstr "Αναφορές"
 
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/model-acquisition.tsx
 msgid "Repository"
 msgstr "Αποθετήριο"
@@ -29936,6 +29974,7 @@ msgstr "Ανάκτηση"
 #: src/components/clio/knowledge-vault-files.tsx
 #: src/components/clio/latex-workspace.tsx
 #: src/components/clio/loading-feedback.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/mcp-app-reopen.tsx
 #: src/components/clio/memory-error-line.tsx
 #: src/components/clio/memory-scope-picker.tsx
@@ -33441,6 +33480,10 @@ msgstr "Συνδεθείτε στο ALCF για να χρησιμοποιήσε�
 msgid "Sign in to data source"
 msgstr "Σύνδεση στην πηγή δεδομένων"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Sign in to GitHub to publish your plugins and agents to a repository with one click."
+msgstr "Συνδεθείτε στο GitHub για να δημοσιεύετε τα πρόσθετα και τους πράκτορές σας σε ένα αποθετήριο με ένα κλικ."
+
 #: src/components/clio/connected-source-form.tsx
 msgid "Sign in to Globus to reach your collections."
 msgstr "Συνδεθείτε στο Globus για να έχετε πρόσβαση στις συλλογές σας."
@@ -33577,6 +33620,14 @@ msgstr "Συνδεδεμένος ως {account}"
 #: src/components/clio/provider-connect-state.tsx
 msgid "Signed in to {name}."
 msgstr "Συνδεθήκατε στο {name}."
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Signed in to GitHub as {account}."
+msgstr "Συνδεδεμένοι στο GitHub ως {account}."
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Signed in to GitHub."
+msgstr "Συνδεδεμένοι στο GitHub."
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Signed in to Obsidian, client {version}"
@@ -38111,10 +38162,6 @@ msgstr "Αυτή η κλήση ολοκληρώθηκε χωρίς να ξεκι
 msgid "This is a classic NetCDF file; the array viewer reads NetCDF-4, which is HDF5."
 msgstr "Αυτό είναι κλασικό αρχείο NetCDF· το πρόγραμμα προβολής πινάκων διαβάζει NetCDF-4, που είναι HDF5."
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "This is a manual backup. Future edits remain local until you upload them again. Saved MCP credentials are not included; configure those connections on each host."
-msgstr "Αυτό είναι χειροκίνητο αντίγραφο ασφαλείας. Οι μελλοντικές επεξεργασίες παραμένουν τοπικές μέχρι να τις μεταφορτώσετε ξανά. Τα αποθηκευμένα διαπιστευτήρια MCP δεν περιλαμβάνονται· ρυθμίστε αυτές τις συνδέσεις σε κάθε κεντρικό υπολογιστή."
-
 #: src/components/clio/settings-folders-model.ts
 msgid "This is the primary folder."
 msgstr "Αυτός είναι ο κύριος φάκελος."
@@ -38674,9 +38721,9 @@ msgstr "Προς"
 msgid "To date for {label}"
 msgstr "Ημερομηνία λήξης για {label}"
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "To use the backup on another host, add its repository URL from Marketplaces. That host needs access to your private repository."
-msgstr "Για να χρησιμοποιήσετε το αντίγραφο ασφαλείας σε άλλον κεντρικό υπολογιστή, προσθέστε την URL του αποθετηρίου του από τις Αγορές πρόσθετων. Αυτός ο κεντρικός υπολογιστής χρειάζεται πρόσβαση στο ιδιωτικό σας αποθετήριο."
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "To use these on another host, add {url} from Marketplaces there."
+msgstr "Για να τα χρησιμοποιήσετε σε άλλον υπολογιστή, προσθέστε το {url} από τα Marketplaces εκεί."
 
 #: src/components/clio/data-filter-popover.tsx
 msgid "To year"
@@ -39259,6 +39306,7 @@ msgstr "Επιλέχθηκε η προσπάθεια {number}"
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/managed-services.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/workbench-tab-error-boundary.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
@@ -39905,6 +39953,10 @@ msgstr "Έως 128 αρχεία UTF-8, 2 MiB χωρίς συμπίεση."
 msgid "Up to date"
 msgstr "Ενημερωμένο"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Up to date with {repository}."
+msgstr "Ενημερωμένο με το {repository}."
+
 #: src/components/clio/settings-schedules.tsx
 msgid "Upcoming"
 msgstr "Επερχόμενα"
@@ -40340,6 +40392,10 @@ msgstr "Χρησιμοποιήστε ZIP μικρότερο από 2 MiB ή πρ
 #: src/lib/settings-search-rows.ts
 msgid "Use account memory"
 msgstr "Χρήση μνήμης λογαριασμού"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Use another account"
+msgstr "Χρήση άλλου λογαριασμού"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Use conversation history"
@@ -40989,6 +41045,10 @@ msgstr "Προβολή κατάστασης"
 #: src/components/clio/subagent-card.tsx
 msgid "View the agent, model, assignment, and timing"
 msgstr "Προβολή πράκτορα, μοντέλου, ανάθεσης και χρόνων"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "View the commit on GitHub"
+msgstr "Προβολή του commit στο GitHub"
 
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "View the exact text added to the agent's context"

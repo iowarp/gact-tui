@@ -1481,6 +1481,10 @@ msgstr "{changed, plural, one {# regla cambiada} other {# reglas cambiadas}}"
 msgid "{changes, plural, one {# change} other {# changes}}"
 msgstr "{changes, plural, one {# cambio} other {# cambios}}"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "{changes, plural, one {Published # change to {repository}.} other {Published # changes to {repository}.}}"
+msgstr "{changes, plural, one {Se publicó # cambio en {repository}.} other {Se publicaron # cambios en {repository}.}}"
+
 #: src/components/clio/attention-center.tsx
 msgid "{code} on {computer}"
 msgstr "{code} en {computer}"
@@ -3384,6 +3388,10 @@ msgstr "{repeat} {time}"
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "{repeatCaption} at {time}"
 msgstr "{repeatCaption} a las {time}"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "{repository} already matches this host."
+msgstr "{repository} ya coincide con este equipo."
 
 #: src/components/clio/attention-center.tsx
 msgid "{responseCount, plural, one {{firstTitle} needs your response; # response pending} other {{firstTitle} needs your response; # responses pending}}"
@@ -6293,6 +6301,10 @@ msgstr "Un adjunto no tiene Markdown"
 msgid "An empty knowledge vault managed by {agent}"
 msgstr "Una bóveda de conocimiento vacía administrada por {agent}"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "An existing repository, ideally private. Its other files are left as they are."
+msgstr "Un repositorio existente, preferiblemente privado. Sus demás archivos se quedan como están."
+
 #: src/components/clio/memory-import-dialog.tsx
 msgid "An export keeps each memory where it was saved."
 msgstr "Una exportación mantiene cada memoria donde se guardó."
@@ -8708,6 +8720,10 @@ msgstr "Los ajustes cambiados aparecen en verde azulado"
 msgid "Changed since the agent viewed it"
 msgstr "Cambió desde que el agente lo vio"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Changed since you last published to {repository}."
+msgstr "Ha cambiado desde la última vez que publicaste en {repository}."
+
 #: src/components/clio/document-working-copy.tsx
 msgid "Changed since you opened it"
 msgstr "Cambió desde que lo abriste"
@@ -9063,6 +9079,10 @@ msgstr "Comprobando versiones"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Checking what depends on {named}…"
 msgstr "Comprobando qué depende de {named}…"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Checking your GitHub sign-in…"
+msgstr "Comprobando tu inicio de sesión en GitHub…"
 
 #: src/components/clio/provider-action-flows.ts
 msgid "Checking your key"
@@ -12328,10 +12348,6 @@ msgstr "Crear una memoria"
 msgid "Create a new vault"
 msgstr "Crear una bóveda nueva"
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "Create a private GitHub repository and upload the unpacked files, preserving the folders."
-msgstr "Crea un repositorio privado de GitHub y sube los archivos descomprimidos, conservando las carpetas."
-
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library-toolbar.tsx
 msgid "Create a skill"
@@ -12353,7 +12369,7 @@ msgstr "Crear otro espacio de trabajo"
 msgid "Create dataset"
 msgstr "Crear conjunto de datos"
 
-#: src/components/clio/extension-library-panes.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 msgid "Create GitHub repository"
 msgstr "Crear repositorio de GitHub"
 
@@ -13835,10 +13851,6 @@ msgstr "Descargar los archivos seleccionados"
 msgid "Download source"
 msgstr "Descargar fuente"
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "Download the marketplace ZIP and unpack it."
-msgstr "Descarga el ZIP del catálogo de complementos y descomprímelo."
-
 #: src/components/clio/model-acquisition.tsx
 msgid "Download the repository's files into a dedicated folder on this host. {agent} resolves an immutable revision, checks free space, and verifies the files. This does not load model code or start inference."
 msgstr "Descarga los archivos del repositorio en una carpeta dedicada de este host. {agent} resuelve una revisión inmutable, comprueba el espacio libre y verifica los archivos. Esto no carga código del modelo ni inicia la inferencia."
@@ -15211,10 +15223,6 @@ msgstr "Exporta la conversación cuando necesites una revisión guardada para co
 #: src/components/clio/file-viewer-take-hooks.tsx
 msgid "Export to {label}"
 msgstr "Exportar a {label}"
-
-#: src/components/clio/extension-library-panes.tsx
-msgid "Export your saved agents, skills and plugins to a repository you control."
-msgstr "Exporta tus agentes, habilidades y complementos guardados a un repositorio que controles."
 
 #: src/offline-review.tsx
 msgid "Exported {exportedAt}"
@@ -16723,6 +16731,10 @@ msgstr "El límite de GitHub para buscar actualizaciones desde esta red está ag
 #: src/components/clio/connector-offer-response.tsx
 msgid "Give {name} {asked}?"
 msgstr ""
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Give the {agent} GitHub app access to the repository"
+msgstr "Da acceso al repositorio a la app de GitHub de {agent}"
 
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
@@ -25310,6 +25322,10 @@ msgstr "Opciones:"
 msgid "or"
 msgstr "o"
 
+#: src/components/clio/extension-library-panes.tsx
+msgid "Or download the marketplace ZIP and upload it yourself. Saved MCP credentials are never included; configure those connections on each host."
+msgstr "O descarga el ZIP del marketplace y súbelo tú mismo. Las credenciales MCP guardadas nunca se incluyen; configura esas conexiones en cada equipo."
+
 #: src/components/clio/pending-interaction-question-response.tsx
 msgid "Or type your own answer"
 msgstr "O escribe tu propia respuesta"
@@ -27183,6 +27199,7 @@ msgstr "Metadatos públicos de servidores. Explorar no inicia ningún servidor."
 msgid "Publication {state}. {count, plural, one {# file was published.} other {# files were published.}} {error}"
 msgstr "Publicación {state}. {count, plural, one {Se publicó # archivo.} other {Se publicaron # archivos.}} {error}"
 
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/widget-gallery-demos.ts
 msgid "Publish"
 msgstr "Publicar"
@@ -27196,13 +27213,33 @@ msgstr "Publicar las ediciones seleccionadas"
 msgid "Publish the report?"
 msgstr "¿Publicar el informe?"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publish to GitHub"
+msgstr "Publicar en GitHub"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publish to the public repository"
+msgstr "Publicar en el repositorio público"
+
+#: src/components/clio/extension-library-panes.tsx
+msgid "Publish your saved agents, skills and plugins to a GitHub repository you control."
+msgstr "Publica tus agentes, habilidades y plugins guardados en un repositorio de GitHub que controlas."
+
 #: src/components/clio/mcp-sign-in.tsx
 msgid "Published client metadata URL"
 msgstr "URL de metadatos de cliente publicada"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publishing isn’t available from this host."
+msgstr "La publicación no está disponible en este equipo."
+
 #: src/components/clio/source-review-panel.tsx
 msgid "Publishing selected edits…"
 msgstr "Publicando las ediciones seleccionadas…"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publishing…"
+msgstr "Publicando…"
 
 #: src/components/clio/cad-tool-panels.tsx
 msgid "Put the parts back together"
@@ -29283,6 +29320,7 @@ msgstr "Estado notificado"
 msgid "Reports"
 msgstr "Informes"
 
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/model-acquisition.tsx
 msgid "Repository"
 msgstr "Repositorio"
@@ -29936,6 +29974,7 @@ msgstr "Recuperación"
 #: src/components/clio/knowledge-vault-files.tsx
 #: src/components/clio/latex-workspace.tsx
 #: src/components/clio/loading-feedback.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/mcp-app-reopen.tsx
 #: src/components/clio/memory-error-line.tsx
 #: src/components/clio/memory-scope-picker.tsx
@@ -33441,6 +33480,10 @@ msgstr "Inicia sesión en ALCF para usar sus modelos."
 msgid "Sign in to data source"
 msgstr "Iniciar sesión en la fuente de datos"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Sign in to GitHub to publish your plugins and agents to a repository with one click."
+msgstr "Inicia sesión en GitHub para publicar tus plugins y agentes en un repositorio con un clic."
+
 #: src/components/clio/connected-source-form.tsx
 msgid "Sign in to Globus to reach your collections."
 msgstr "Inicia sesión en Globus para acceder a tus colecciones."
@@ -33577,6 +33620,14 @@ msgstr "Sesión iniciada como {account}"
 #: src/components/clio/provider-connect-state.tsx
 msgid "Signed in to {name}."
 msgstr "Sesión iniciada en {name}."
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Signed in to GitHub as {account}."
+msgstr "Sesión iniciada en GitHub como {account}."
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Signed in to GitHub."
+msgstr "Sesión iniciada en GitHub."
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Signed in to Obsidian, client {version}"
@@ -38111,10 +38162,6 @@ msgstr "Esta invocación se completó sin iniciar otro flujo. El intento anterio
 msgid "This is a classic NetCDF file; the array viewer reads NetCDF-4, which is HDF5."
 msgstr "Este es un archivo NetCDF clásico; el visor de matrices lee NetCDF-4, que es HDF5."
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "This is a manual backup. Future edits remain local until you upload them again. Saved MCP credentials are not included; configure those connections on each host."
-msgstr "Esta es una copia de seguridad manual. Las ediciones futuras quedan en local hasta que las vuelvas a subir. Las credenciales MCP guardadas no se incluyen; configura esas conexiones en cada host."
-
 #: src/components/clio/settings-folders-model.ts
 msgid "This is the primary folder."
 msgstr "Esta es la carpeta principal."
@@ -38674,9 +38721,9 @@ msgstr "Para"
 msgid "To date for {label}"
 msgstr "Fecha final de {label}"
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "To use the backup on another host, add its repository URL from Marketplaces. That host needs access to your private repository."
-msgstr "Para usar la copia de seguridad en otro host, añade la URL de su repositorio desde Catálogos de complementos. Ese host necesita acceso a tu repositorio privado."
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "To use these on another host, add {url} from Marketplaces there."
+msgstr "Para usarlos en otro equipo, añade {url} desde Marketplaces en ese equipo."
 
 #: src/components/clio/data-filter-popover.tsx
 msgid "To year"
@@ -39259,6 +39306,7 @@ msgstr "Intento {number} seleccionado"
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/managed-services.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/workbench-tab-error-boundary.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
@@ -39905,6 +39953,10 @@ msgstr "Hasta 128 archivos UTF-8, 2 MiB sin comprimir."
 msgid "Up to date"
 msgstr "Actualizado"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Up to date with {repository}."
+msgstr "Al día con {repository}."
+
 #: src/components/clio/settings-schedules.tsx
 msgid "Upcoming"
 msgstr "Próximos"
@@ -40340,6 +40392,10 @@ msgstr "Usa un ZIP de menos de 2 MiB o añade su repositorio"
 #: src/lib/settings-search-rows.ts
 msgid "Use account memory"
 msgstr "Usar la memoria de la cuenta"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Use another account"
+msgstr "Usar otra cuenta"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Use conversation history"
@@ -40989,6 +41045,10 @@ msgstr "Ver estado"
 #: src/components/clio/subagent-card.tsx
 msgid "View the agent, model, assignment, and timing"
 msgstr "Ver el agente, el modelo, la asignación y los tiempos"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "View the commit on GitHub"
+msgstr "Ver el commit en GitHub"
 
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "View the exact text added to the agent's context"
