@@ -248,6 +248,7 @@ export function ClioMeshViewport({
       __clioMeshCapture?: () => HTMLCanvasElement;
       __clioMeshState?: () => unknown;
       __clioMeshInspect?: (box: { left: number; top: number; right: number; bottom: number }) => {
+        parts?: string[];
         count: number;
         nodeIds: number[];
         nodesTruncated: boolean;
@@ -276,7 +277,10 @@ export function ClioMeshViewport({
     };
     captureNode.__clioMeshInspect = (box) => {
       const nodeIds = scene.nodesInScreenBox(box);
+      // The named parts first (a CAD scene's ``cutout_J1``, ``lid``): what a mark is about.
+      const parts = scene.partsInScreenBox(box).slice(0, 20);
       return {
+        ...(parts.length ? { parts } : {}),
         count: nodeIds.length,
         nodeIds: nodeIds.slice(0, 100),
         nodesTruncated: nodeIds.length > 100,

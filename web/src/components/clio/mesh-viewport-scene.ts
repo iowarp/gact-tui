@@ -6,6 +6,7 @@ import {
   selectTriangles,
   vertexValue,
   partOpacityGroups,
+  type MeshPart,
   type MeshSelection,
   type MeshViewState,
   type ParsedFeaMesh,
@@ -41,9 +42,9 @@ export interface NormalizedMeshScreenBox {
   bottom: number;
 }
 
-/** Return stable node ids enclosed by a rectangle in the current camera projection. */
-export function projectedMeshNodeIds(
-  data: Pick<ParsedFeaMesh, 'positions' | 'nodeIndex'>,
+/** The vertices of visible triangles that project inside a rectangle of the viewport. */
+function projectedVertices(
+  positions: ArrayLike<number>,
   visibleTriangleIndex: Uint32Array,
   camera: THREE.Camera,
   size: { width: number; height: number },
@@ -52,20 +53,71 @@ export function projectedMeshNodeIds(
   if (size.width <= 0 || size.height <= 0) return [];
   camera.updateMatrixWorld();
   const point = new THREE.Vector3();
-  const nodes = new Set<number>();
+  const inside: number[] = [];
   for (const vertex of visibleTriangleIndex) {
     const offset = vertex * 3;
-    point
-      .set(data.positions[offset]!, data.positions[offset + 1]!, data.positions[offset + 2]!)
-      .project(camera);
+    point.set(positions[offset]!, positions[offset + 1]!, positions[offset + 2]!).project(camera);
     if (point.z < -1 || point.z > 1) continue;
     const x = ((point.x + 1) * size.width) / 2;
     const y = ((1 - point.y) * size.height) / 2;
-    if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) {
-      nodes.add(Math.round(data.nodeIndex[vertex] ?? vertex));
-    }
+    if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) inside.push(vertex);
+  }
+  return inside;
+}
+
+/** Return stable node ids enclosed by a rectangle in the current camera projection. */
+export function projectedMeshNodeIds(
+  data: Pick<ParsedFeaMesh, 'positions' | 'nodeIndex'>,
+  visibleTriangleIndex: Uint32Array,
+  camera: THREE.Camera,
+  size: { width: number; height: number },
+  box: MeshScreenBox,
+): number[] {
+  const nodes = new Set<number>();
+  for (const vertex of projectedVertices(data.positions, visibleTriangleIndex, camera, size, box)) {
+    nodes.add(Math.round(data.nodeIndex[vertex] ?? vertex));
   }
   return [...nodes].sort((a, b) => a - b);
+}
+
+/** A named part's label: its own name, then the nodes that hold it ("J1 in board"). */
+export function meshPartLabel(part: Pick<MeshPart, 'name' | 'ancestors'>): string {
+  return [part.name, ...(part.ancestors ?? [])].filter(Boolean).join(' in ');
+}
+
+/**
+ * The model's named parts with geometry inside a rectangle, most of it first, so a mark
+ * over a CAD scene names what it covers (``cutout_J1``, ``lid``) and not only vertex ids.
+ */
+export function projectedMeshParts(
+  data: Pick<ParsedFeaMesh, 'positions' | 'parts'>,
+  visibleTriangleIndex: Uint32Array,
+  camera: THREE.Camera,
+  size: { width: number; height: number },
+  box: MeshScreenBox,
+): string[] {
+  const parts = (data.parts ?? []).filter((part) => meshPartLabel(part));
+  if (!parts.length) return [];
+  const starts = parts.map((part) => part.vertexStart);
+  const covered = new Map<string, Set<number>>();
+  for (const vertex of projectedVertices(data.positions, visibleTriangleIndex, camera, size, box)) {
+    let low = 0;
+    let high = parts.length - 1;
+    while (low < high) {
+      const mid = (low + high + 1) >> 1;
+      if (starts[mid]! <= vertex) low = mid;
+      else high = mid - 1;
+    }
+    const part = parts[low]!;
+    if (vertex < part.vertexStart || vertex >= part.vertexStart + part.vertexCount) continue;
+    const label = meshPartLabel(part);
+    const seen = covered.get(label) ?? new Set<number>();
+    seen.add(vertex);
+    covered.set(label, seen);
+  }
+  return [...covered.entries()]
+    .sort((a, b) => b[1].size - a[1].size || a[0].localeCompare(b[0]))
+    .map(([label]) => label);
 }
 
 /** The WebGL half of the viewport: renders on demand, never on a loop. */
@@ -419,6 +471,20 @@ export class MeshViewportScene {
         width: this.container.clientWidth,
         height: this.container.clientHeight,
       },
+      box,
+    );
+  }
+
+  /** The named parts with geometry inside a rectangle of the viewport, most of it first. */
+  public partsInScreenBox(box: MeshScreenBox): string[] {
+    const data = this.data;
+    const selection = this.selection;
+    if (!data || !selection) return [];
+    return projectedMeshParts(
+      data,
+      selection.index,
+      this.camera,
+      { width: this.container.clientWidth, height: this.container.clientHeight },
       box,
     );
   }
