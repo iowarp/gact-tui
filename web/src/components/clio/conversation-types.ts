@@ -1,4 +1,5 @@
 import type { QueryKey } from '@tanstack/react-query';
+import type { ReplyRecoveryPoint } from './reply-failure';
 import type { AttentionHeatView } from '@/lib/attention-segment-heat';
 import type {
   ActionCardAction,
@@ -142,6 +143,8 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   responseContinued?: boolean;
   /** A resumed segment of the same response, without a repeated sender header. */
   responseContinuation?: boolean;
+  /** The reply that continued this interrupted one after a restart (no Retry then). */
+  resumedBy?: string;
   /** Adjacent human bubbles share their sender header, retaining separate identities. */
   userContinuation?: boolean;
   userContinued?: boolean;
@@ -160,4 +163,6 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   messageCompactions?: readonly PendingCompaction[];
   /** The model changed at this prompt. */
   modelBoundary?: ConversationModelBoundary;
+  /** Where to go back to, or copy from, when this reply failed on the saved history. */
+  replyRecovery?: ReplyRecoveryPoint;
 }

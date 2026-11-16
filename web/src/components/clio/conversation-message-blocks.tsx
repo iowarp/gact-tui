@@ -27,6 +27,8 @@ import { inlinedReferenceIds, type InlineReferenceBlock } from '@/lib/sent-inlin
 import { SummonChip } from './summon-chip';
 import { sentDataReferences } from '@/lib/sent-data-references';
 import { humanizeProtocolValue } from './presentation-labels';
+import { replyFailureReason } from './reply-failure';
+import { TechnicalDetails } from './technical-details';
 import { ClioStatus } from './status';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { TranscriptTextBlock } from './transcript-text-block';
@@ -41,6 +43,7 @@ import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { useQuestionAnswer } from './question-answer-context';
 import { StateView, type StateAction, type StateViewProps } from './primitives/state-view';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
+import { requestReportProblem } from '@/hooks/use-open-report-problem';
 import { t, ph } from '@lingui/core/macro';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
@@ -154,8 +157,8 @@ type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
 
 /**
  * A reply that failed, as one 28px error line: what happened in product words
- * and Retry beside it. The service's reason is its hover name and accessible
- * text, so the line stays short at any width.
+ * and Retry beside it. The reason follows as a short visible sentence; ways to
+ * recover (`children`) and the service's own record (Technical details) go under it.
  */
 export function ReplyErrorLine({
   title,
@@ -164,6 +167,10 @@ export function ReplyErrorLine({
   retrying = false,
   kind = 'error',
   icon,
+  reportSessionId,
+  technical,
+  children,
+  action,
 }: {
   title: string;
   reason?: string;
@@ -172,24 +179,59 @@ export function ReplyErrorLine({
   retrying?: boolean;
   kind?: 'error' | 'marker';
   icon?: StateViewProps['icon'];
+  /** A failed reply's conversation: Report this opens Report a problem about it. */
+  reportSessionId?: string;
+  /** The service's error record, shown only inside Technical details. */
+  technical?: Record<string, unknown>;
+  children?: ReactNode;
+  /** Shown instead of Retry, such as where a resumed reply continued. */
+  action?: StateAction;
 }) {
   const retry: StateAction | undefined = onRetry
     ? { label: retrying ? t`Retrying` : t`Retry`, disabled: retrying, onClick: onRetry }
-    : undefined;
+    : action;
+  const report: StateAction | undefined =
+    reportSessionId && kind === 'error'
+      ? { label: t`Report this`, onClick: () => requestReportProblem(reportSessionId) }
+      : undefined;
   return (
-    <div className="my-px w-fit min-w-0 max-w-full" data-slot="reply-error" title={reason}>
+    <div className="my-px w-fit min-w-0 max-w-full" data-slot="reply-error">
       <StateView
         action={retry}
         icon={icon}
         kind={kind}
+        secondaryAction={report}
         size="row"
         title={
           <>
             {title}
+            {/* The alert announces the reason; the visible line below repeats it. */}
             {reason ? <span className="sr-only">: {reason}</span> : null}
           </>
         }
       />
+      {reason || children || technical ? (
+        // Aligned under the line's text, past its icon.
+        <div className="flex min-w-0 flex-col gap-1.5 pb-1 pl-[30px] pr-2 text-menu">
+          {reason ? (
+            <p
+              aria-hidden="true"
+              className="text-muted-foreground [overflow-wrap:anywhere]"
+              data-slot="reply-error-reason"
+            >
+              {reason}
+            </p>
+          ) : null}
+          {children}
+          {technical ? (
+            <TechnicalDetails className="text-caption" title={t`Technical details`}>
+              <pre className="mt-1 max-h-48 overflow-auto rounded-md bg-muted p-2 font-mono text-caption whitespace-pre-wrap [overflow-wrap:anywhere]">
+                {JSON.stringify(technical, null, 2)}
+              </pre>
+            </TechnicalDetails>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -200,22 +242,25 @@ function ReplyError({
   onRetryMessage,
   replyStarted,
   retrying,
+  sessionId,
 }: {
   block: Extract<MessageBlock, { type: 'error' }>;
   messageId?: string;
+  sessionId?: string;
   onRetryMessage?: (messageId: string) => void | Promise<unknown>;
   replyStarted?: boolean;
   retrying: boolean;
 }) {
-  const code = humanizeProtocolValue(block.code);
   return (
     <ReplyErrorLine
-      reason={block.message && block.message !== code ? `${block.message} (${code})` : code}
+      reason={replyFailureReason(block.code, block.message)}
+      technical={{ code: block.code, message: block.message, recoverable: block.recoverable }}
       onRetry={
         block.recoverable && messageId && onRetryMessage
           ? () => void onRetryMessage(messageId)
           : undefined
       }
+      reportSessionId={sessionId}
       retrying={retrying}
       title={replyStarted ? t`This reply didn’t finish` : t`This reply didn’t load`}
     />
@@ -345,7 +390,11 @@ function MessageBlockView({
     }
     case 'mcp_app':
       return (
-        <McpAppReopenableCard block={block} repository={mcpAppRepository} sessionId={messageSessionId} />
+        <McpAppReopenableCard
+          block={block}
+          repository={mcpAppRepository}
+          sessionId={messageSessionId}
+        />
       );
     case 'citation':
       return (
@@ -367,6 +416,7 @@ function MessageBlockView({
           onRetryMessage={onRetryMessage}
           replyStarted={replyStarted}
           retrying={retryingMessageId !== undefined && retryingMessageId === messageId}
+          sessionId={messageSessionId}
         />
       );
     case 'routing':

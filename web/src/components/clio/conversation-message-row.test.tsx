@@ -117,7 +117,9 @@ it('offers Retry for a recoverable failure after partial output', () => {
     />,
   );
   const line = view.container.querySelector('[data-slot="reply-error"]') as HTMLElement;
-  expect(line).toHaveAttribute('title', expect.stringContaining('timed out'));
+  expect(line.querySelector('[data-slot="reply-error-reason"]')).toHaveTextContent(
+    /The model request timed out/,
+  );
   fireEvent.click(within(line).getByRole('button', { name: 'Retry' }));
   expect(onRetryMessage).toHaveBeenCalledWith('partial-timeout');
   view.unmount();
