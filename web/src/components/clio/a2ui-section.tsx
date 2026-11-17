@@ -12,6 +12,7 @@ import {
   type Colormap,
 } from '@/theme/data-scales';
 import { readThemeColor } from '@/theme/runtime';
+import { useCanvasSize } from './use-canvas-size';
 import { axisTicks, contourLevels, contourSegments } from './field-contours';
 import { LoadingFailure, LoadingFeedback } from './loading-feedback';
 import { parseSelectionState, type SelectionWriter } from './selection-state';
@@ -156,8 +157,9 @@ export function ClioSection(props: SectionProps) {
     const state = parseSelectionState(props.selection);
     return new Set(state ? state.values.map(String) : []);
   }, [props.selection]);
+  const size = useCanvasSize(canvasRef, Boolean(data));
   useEffect(() => {
-    if (canvasRef.current && data)
+    if (canvasRef.current && data && size.width > 0)
       draw(canvasRef.current, data, {
         map: colormap,
         range,
@@ -165,7 +167,7 @@ export function ClioSection(props: SectionProps) {
         down,
         selected,
       });
-  }, [colormap, data, down, props.contourInterval, range, selected]);
+  }, [colormap, data, down, props.contourInterval, range, selected, size]);
 
   const locate = (event: MouseEvent<HTMLCanvasElement>) => {
     if (!data) return undefined;

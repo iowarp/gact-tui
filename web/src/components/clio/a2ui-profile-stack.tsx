@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { readThemeColor } from '@/theme/runtime';
 import { categoryColor } from './category-colors';
 import { axisTicks } from './field-contours';
+import { useCanvasSize } from './use-canvas-size';
 import { LoadingFailure, LoadingFeedback } from './loading-feedback';
 import {
   excludedList,
@@ -188,15 +189,16 @@ export function ClioProfileStack(props: ProfileStackProps) {
       profileExtents(profiles),
     [excluded, profiles],
   );
+  const size = useCanvasSize(canvasRef, Boolean(extents && profiles.length));
   useEffect(() => {
-    if (canvasRef.current && extents)
+    if (canvasRef.current && extents && size.width > 0)
       drawProfiles(canvasRef.current, profiles, {
         selected,
         excluded,
         down: props.invertVertical,
         extents,
       });
-  }, [excluded, extents, profiles, props.invertVertical, selected]);
+  }, [excluded, extents, profiles, props.invertVertical, selected, size]);
 
   const setExcluded = (next: string[]) =>
     props.writeExcluded ? props.writeExcluded(next) : setLocalExcluded(next);
