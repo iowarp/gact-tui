@@ -52,6 +52,7 @@ export * from './provider-components.js';
 export * from './provider-install-jobs.js';
 export * from './saved-server-domain.js';
 export * from './artifact-preview-repository.js';
+export * from './artifact-grid-schemas.js';
 export * from './composer-conflicts.js';
 export * from './composer-decoding.js';
 export * from './composer-domain.js';

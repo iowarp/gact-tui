@@ -482,6 +482,347 @@
       ],
       "type": "object"
     },
+    "MapDraw": {
+      "additionalProperties": false,
+      "description": "What the person may draw; the GeoJSON geometry (Polygon box, LineString path or Point) is written at value.",
+      "properties": {
+        "mode": {
+          "enum": [
+            "box",
+            "path",
+            "point"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+        }
+      },
+      "required": [
+        "mode",
+        "value"
+      ],
+      "type": "object"
+    },
+    "MapLayer": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "grid"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "dataUri"
+                  ]
+                },
+                {
+                  "required": [
+                    "geojsonUri"
+                  ]
+                }
+              ]
+            },
+            "required": [
+              "gridUri",
+              "variable"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "points"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "gridUri"
+                  ]
+                },
+                {
+                  "required": [
+                    "geojsonUri"
+                  ]
+                }
+              ]
+            },
+            "required": [
+              "dataUri",
+              "latitudeField",
+              "longitudeField",
+              "idField"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "tracks"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "gridUri"
+                  ]
+                },
+                {
+                  "required": [
+                    "geojsonUri"
+                  ]
+                },
+                {
+                  "properties": {
+                    "editable": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "editable"
+                  ]
+                }
+              ]
+            },
+            "required": [
+              "dataUri",
+              "latitudeField",
+              "longitudeField",
+              "idField",
+              "trackField",
+              "timeField"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "shapes"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "gridUri"
+                  ]
+                },
+                {
+                  "required": [
+                    "dataUri"
+                  ]
+                },
+                {
+                  "properties": {
+                    "editable": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "editable"
+                  ]
+                }
+              ]
+            },
+            "required": [
+              "geojsonUri"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "grid"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "editable": {
+                  "const": true
+                }
+              },
+              "required": [
+                "editable"
+              ]
+            }
+          }
+        }
+      ],
+      "dependentRequired": {
+        "dataQuery": [
+          "dataUri"
+        ]
+      },
+      "description": "One map layer: a grid (raster tiles), points, tracks or shapes (GeoJSON).",
+      "properties": {
+        "categoryField": {
+          "$ref": "#/$defs/FieldName",
+          "description": "Column whose values colour features by category."
+        },
+        "colormap": {
+          "description": "Colour ramp; balance is diverging (anomalies, biases).",
+          "enum": [
+            "viridis",
+            "magma",
+            "plasma",
+            "cividis",
+            "turbo",
+            "grayscale",
+            "balance"
+          ],
+          "type": "string"
+        },
+        "dataQuery": {
+          "$ref": "#/$defs/DataQuery"
+        },
+        "dataUri": {
+          "description": "Registered table of points or track positions.",
+          "not": {
+            "pattern": "\\s"
+          },
+          "pattern": "^(artifact://artifact_[A-Za-z0-9_-]+|artifact://[A-Za-z0-9_-]+/[^@\\s?#]+@latest|study://[A-Za-z0-9_-]+/(measurements|entries|records/[A-Za-z0-9_.-]+))$",
+          "type": "string"
+        },
+        "editable": {
+          "default": false,
+          "description": "The person can move these points; moves are written to the map's edits path.",
+          "type": "boolean"
+        },
+        "fixed": {
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "description": "Other leading dimensions held at one value, e.g. {level: 500}.",
+          "maxProperties": 8,
+          "type": "object"
+        },
+        "geojsonUri": {
+          "description": "Registered GeoJSON FeatureCollection (shapes layers).",
+          "not": {
+            "pattern": "\\s"
+          },
+          "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "gridUri": {
+          "description": "Registered NetCDF or zipped Zarr grid with longitude and latitude (grid layers).",
+          "not": {
+            "pattern": "\\s"
+          },
+          "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "type": "string"
+        },
+        "idField": {
+          "$ref": "#/$defs/FieldName",
+          "description": "Column holding each feature's stable id (selection, edits)."
+        },
+        "kind": {
+          "enum": [
+            "grid",
+            "points",
+            "tracks",
+            "shapes"
+          ],
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        },
+        "labelField": {
+          "$ref": "#/$defs/FieldName",
+          "description": "Column holding each feature's label."
+        },
+        "latitudeField": {
+          "$ref": "#/$defs/FieldName",
+          "description": "Column holding latitude."
+        },
+        "longitudeField": {
+          "$ref": "#/$defs/FieldName",
+          "description": "Column holding longitude."
+        },
+        "opacity": {
+          "default": 1,
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "timeDimension": {
+          "$ref": "#/$defs/FieldName",
+          "description": "Grid dimension the shared time selects (default time)."
+        },
+        "timeField": {
+          "$ref": "#/$defs/FieldName",
+          "description": "Column holding each row's time; rows after the shared time are hidden."
+        },
+        "trackField": {
+          "$ref": "#/$defs/FieldName",
+          "description": "Column identifying each track (tracks layers)."
+        },
+        "unit": {
+          "description": "Unit shown on the layer's legend.",
+          "maxLength": 40,
+          "type": "string"
+        },
+        "valueField": {
+          "$ref": "#/$defs/FieldName",
+          "description": "Numeric column for a continuous colour scale."
+        },
+        "valueRange": {
+          "description": "[low, high] of the colour scale.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "variable": {
+          "$ref": "#/$defs/FieldName",
+          "description": "Grid variable to draw."
+        },
+        "visible": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "label"
+      ],
+      "type": "object"
+    },
     "MapPoint": {
       "additionalProperties": false,
       "properties": {
@@ -1301,6 +1642,9 @@
           "$ref": "#/components/clio.diff.v1"
         },
         {
+          "$ref": "#/components/clio.layered-map.v1"
+        },
+        {
           "$ref": "#/components/clio.map.v1"
         },
         {
@@ -1319,10 +1663,16 @@
           "$ref": "#/components/clio.metric.v1"
         },
         {
+          "$ref": "#/components/clio.profile-stack.v1"
+        },
+        {
           "$ref": "#/components/clio.progress.v1"
         },
         {
           "$ref": "#/components/clio.raster-viewport.v1"
+        },
+        {
+          "$ref": "#/components/clio.section.v1"
         },
         {
           "$ref": "#/components/clio.slider.v1"
@@ -3012,6 +3362,88 @@
       "type": "object",
       "unevaluatedProperties": false
     },
+    "clio.layered-map.v1": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "properties": {
+            "action": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/Action"
+            },
+            "actionLabel": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "camera": {
+              "description": "Camera literal or binding; navigation updates a bound camera.",
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/MapCamera"
+                },
+                {
+                  "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+                }
+              ]
+            },
+            "component": {
+              "const": "clio.layered-map.v1"
+            },
+            "draw": {
+              "$ref": "#/$defs/MapDraw"
+            },
+            "edits": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Where moved points are written: [{layer, id, longitude, latitude}]."
+            },
+            "height": {
+              "maximum": 2000,
+              "minimum": 160,
+              "type": "integer"
+            },
+            "layers": {
+              "description": "Layers, drawn bottom to top.",
+              "items": {
+                "$ref": "#/$defs/MapLayer"
+              },
+              "maxItems": 12,
+              "minItems": 1,
+              "type": "array"
+            },
+            "selection": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue",
+              "description": "Bind to /selection/<key>; the bound value is a SelectionState ({field, values[], source?}). Views bound to the same path share one selection."
+            },
+            "selectionField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Field the selected features' ids are written under (required when selection is bound)."
+            },
+            "time": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue",
+              "description": "The shared time: bind to /selection/<key>; the time scrubber writes it and grid layers draw the nearest frame."
+            },
+            "timeField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Field name the shared time's SelectionState uses (required when time is bound)."
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "layers"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Gridded fields, points, tracks and shapes on one flat map with a shared time axis; the person scrubs time, selects features, draws a box, path or point, and moves points.",
+      "type": "object",
+      "unevaluatedProperties": false
+    },
     "clio.map.v1": {
       "allOf": [
         {
@@ -3291,6 +3723,11 @@
               "maximum": 2000,
               "minimum": 160,
               "type": "integer"
+            },
+            "recordingUri": {
+              "description": "A video of the view (a workspace path or artifact:// reference), played when the live view cannot run.",
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
             },
             "server": {
               "description": "The MCP server whose tool opens the view, as CLIO names it.",
@@ -3834,6 +4271,19 @@
                 }
               ]
             },
+            "nodeOpacity": {
+              "additionalProperties": {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              "maxProperties": 256,
+              "propertyNames": {
+                "maxLength": 128,
+                "minLength": 1
+              },
+              "type": "object"
+            },
             "showField": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicBoolean"
             },
@@ -3959,6 +4409,165 @@
       "type": "object",
       "unevaluatedProperties": false
     },
+    "clio.profile-stack.v1": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "dependentRequired": {
+            "dataQuery": [
+              "dataUri"
+            ]
+          },
+          "properties": {
+            "action": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/Action"
+            },
+            "actionLabel": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "categoryField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Column colouring profiles by category."
+            },
+            "component": {
+              "const": "clio.profile-stack.v1"
+            },
+            "data": {
+              "description": "Inline rows (at most 5000); use dataUri for more.",
+              "items": {
+                "additionalProperties": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "type": "object"
+              },
+              "maxItems": 5000,
+              "minItems": 1,
+              "type": "array"
+            },
+            "dataQuery": {
+              "$ref": "#/$defs/DataQuery"
+            },
+            "dataUri": {
+              "description": "Registered profile table, one row per sample.",
+              "not": {
+                "pattern": "\\s"
+              },
+              "pattern": "^(artifact://artifact_[A-Za-z0-9_-]+|artifact://[A-Za-z0-9_-]+/[^@\\s?#]+@latest|study://[A-Za-z0-9_-]+/(measurements|entries|records/[A-Za-z0-9_.-]+))$",
+              "type": "string"
+            },
+            "excluded": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Where the ids of profiles the person excludes are written (a list)."
+            },
+            "height": {
+              "maximum": 2000,
+              "minimum": 160,
+              "type": "integer"
+            },
+            "invertVertical": {
+              "default": true,
+              "type": "boolean"
+            },
+            "labelField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Column holding a profile's label."
+            },
+            "overlayField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Second value column drawn dashed on the same profiles (model against observation)."
+            },
+            "profileField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Column identifying each profile."
+            },
+            "selection": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue",
+              "description": "Bind to /selection/<key>; the bound value is a SelectionState ({field, values[], source?}). Views bound to the same path share one selection."
+            },
+            "selectionField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Field the selected profiles' ids are written under."
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "unit": {
+              "description": "Unit of the value axis.",
+              "maxLength": 40,
+              "type": "string"
+            },
+            "valueField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Column drawn first."
+            },
+            "variables": {
+              "description": "Variables the person can switch between.",
+              "items": {
+                "$ref": "#/$defs/FieldName"
+              },
+              "maxItems": 12,
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "verticalField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Column holding depth, pressure or height."
+            },
+            "verticalUnit": {
+              "description": "Unit of the vertical axis (dbar, m, hPa).",
+              "maxLength": 40,
+              "type": "string"
+            }
+          },
+          "required": [
+            "component",
+            "profileField",
+            "verticalField",
+            "valueField"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Exactly one of data or dataUri is required.",
+          "oneOf": [
+            {
+              "not": {
+                "required": [
+                  "dataUri"
+                ]
+              },
+              "required": [
+                "data"
+              ]
+            },
+            {
+              "not": {
+                "required": [
+                  "data"
+                ]
+              },
+              "required": [
+                "dataUri"
+              ]
+            }
+          ]
+        }
+      ],
+      "description": "Many vertical profiles from a table against depth, pressure or height; the person toggles and excludes profiles, switches variable and compares an overlay column.",
+      "type": "object",
+      "unevaluatedProperties": false
+    },
     "clio.progress.v1": {
       "allOf": [
         {
@@ -4081,6 +4690,109 @@
         }
       ],
       "description": "An interactive viewport for a registered grid (one 2-D field, or one frame of a time series), with sampled values, colour scale, and region reference.",
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "clio.section.v1": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "properties": {
+            "colormap": {
+              "description": "Colour ramp; balance is diverging (anomalies, biases).",
+              "enum": [
+                "viridis",
+                "magma",
+                "plasma",
+                "cividis",
+                "turbo",
+                "grayscale",
+                "balance"
+              ],
+              "type": "string"
+            },
+            "component": {
+              "const": "clio.section.v1"
+            },
+            "contourInterval": {
+              "description": "Spacing of contour lines in the variable's units.",
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            "height": {
+              "maximum": 2000,
+              "minimum": 160,
+              "type": "integer"
+            },
+            "invertVertical": {
+              "description": "Draw the vertical increasing downward (default: from the data).",
+              "type": "boolean"
+            },
+            "pointer": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding",
+              "description": "Where the clicked point {distance, vertical, value} is written."
+            },
+            "sectionUri": {
+              "description": "Registered section NetCDF (dimensions distance and a vertical).",
+              "not": {
+                "pattern": "\\s"
+              },
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            "selection": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue",
+              "description": "Bind to /selection/<key>; the bound value is a SelectionState ({field, values[], source?}). Views bound to the same path share one selection."
+            },
+            "selectionField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Field the selected station's profile id is written under."
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "unit": {
+              "description": "Unit shown on the colour legend.",
+              "maxLength": 40,
+              "type": "string"
+            },
+            "valueRange": {
+              "description": "[low, high] of the colour scale.",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            "variable": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Variable shown first."
+            },
+            "variables": {
+              "description": "Variables the person can switch between.",
+              "items": {
+                "$ref": "#/$defs/FieldName"
+              },
+              "maxItems": 12,
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "component",
+            "sectionUri"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "A field along a path against depth, pressure or height, with contours and the stations along it.",
       "type": "object",
       "unevaluatedProperties": false
     },

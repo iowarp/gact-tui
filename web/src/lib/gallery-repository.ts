@@ -12,6 +12,12 @@ import type {
 import type { createRepository } from '@/lib/connection';
 import { galleryStormTracks } from './gallery-storm-tracks';
 import galleryHurricaneTracks from './gallery-hurricane-tracks.json';
+import {
+  galleryFieldTables,
+  galleryGridInfo,
+  gallerySectionSample,
+  galleryTileBytes,
+} from './gallery-field-data';
 
 type Repository = ReturnType<typeof createRepository>;
 const BOUNDS = [0, 0, 100, 100] as const;
@@ -93,13 +99,15 @@ export function createGalleryRepository(
         ): Promise<ArtifactTableQueryResult> => {
           if (
             artifactId !== 'artifact_gallery_storm_tracks' &&
-            artifactId !== 'artifact_gallery_hurricane_tracks'
+            artifactId !== 'artifact_gallery_hurricane_tracks' &&
+            !galleryFieldTables[artifactId]
           )
             return target.artifactTableQuery(artifactId, query, signal);
           const rows =
-            artifactId === 'artifact_gallery_hurricane_tracks'
+            galleryFieldTables[artifactId] ??
+            (artifactId === 'artifact_gallery_hurricane_tracks'
               ? galleryHurricaneTracks
-              : galleryStormTracks;
+              : galleryStormTracks);
           const filtered = rows.filter((row) =>
             (query.filter ?? []).every((filter) => {
               const value = (row as Record<string, string | number>)[filter.column];
@@ -154,11 +162,13 @@ export function createGalleryRepository(
             artifact_id: artifactId,
             schema: Object.keys(rows[0]!).map((name) => ({
               name,
-              type: ['lat', 'lon', 'wind_kt', 'elapsed_hours', 'year'].includes(name)
-                ? 'double'
-                : name === 'time'
-                  ? 'timestamp[s, tz=UTC]'
-                  : 'string',
+              type:
+                ['lat', 'lon', 'wind_kt', 'elapsed_hours', 'year'].includes(name) ||
+                typeof (rows[0] as Record<string, unknown>)[name] === 'number'
+                  ? 'double'
+                  : name === 'time'
+                    ? 'timestamp[s, tz=UTC]'
+                    : 'string',
             })),
             columns,
             totalRows: rows.length,
@@ -169,6 +179,32 @@ export function createGalleryRepository(
             rowKey: { column: '__row', values: page.map((row) => rows.indexOf(row)) },
           });
         };
+      }
+      if (property === 'artifactGridInfo') {
+        return (artifactId: string, ...rest: unknown[]) =>
+          artifactId === 'artifact_gallery_sst_anomaly'
+            ? Promise.resolve(galleryGridInfo)
+            : (target.artifactGridInfo as (...args: unknown[]) => unknown)(artifactId, ...rest);
+      }
+      if (property === 'artifactTileBytes') {
+        return (
+          artifactId: string,
+          request: Parameters<Repository['artifactTileBytes']>[1],
+          signal?: AbortSignal,
+        ) =>
+          artifactId === 'artifact_gallery_sst_anomaly'
+            ? galleryTileBytes(request)
+            : target.artifactTileBytes(artifactId, request, signal);
+      }
+      if (property === 'artifactSectionQuery') {
+        return (
+          artifactId: string,
+          body: { variable?: string; width: number; height: number },
+          signal?: AbortSignal,
+        ) =>
+          artifactId === 'artifact_gallery_section'
+            ? Promise.resolve(gallerySectionSample(body.variable))
+            : target.artifactSectionQuery(artifactId, body, signal);
       }
       if (property === 'artifactRasterQuery') {
         return (artifactId: string, query: ArtifactRasterQueryRequest) =>
