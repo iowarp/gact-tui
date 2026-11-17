@@ -131,6 +131,8 @@ async function paintedPng(
   const fontEmbedCSS = `${await getFontEmbedCSS(target)}
     [data-slot="data-grid"] [role="region"],
     [data-slot="clio-data-grid-viewport"] { overflow: hidden !important; }
+    [data-slot="surface-toolbar"],
+    [data-capture-ui="true"] { visibility: hidden !important; }
   `;
   const canvas = await toCanvas(target, {
     // Reference images use immutable blob URLs. Appending a cache-busting query
@@ -142,14 +144,13 @@ async function paintedPng(
     fontEmbedCSS,
     // Canvases and app frames are painted below from their live pixels; a cloned copy
     // would sit beside the live one (a chart drawn twice) or stay blank (an app frame).
+    // Toolbars and comment controls are hidden by the style above, not removed: a
+    // removed toolbar shortens the copy's layout, and the live canvases painted at
+    // their live positions then land below their titles (the agents' captures in
+    // Q19 and Q13, about 40 px off).
     filter: (node) =>
       node.nodeType !== Node.ELEMENT_NODE ||
-      !(
-        (node as Element).getAttribute('data-slot') === 'surface-toolbar' ||
-        (node as Element).getAttribute('data-capture-ui') === 'true' ||
-        node instanceof HTMLCanvasElement ||
-        isAppFrame(node as Element)
-      ),
+      !(node instanceof HTMLCanvasElement || isAppFrame(node as Element)),
     pixelRatio,
   });
   const context = canvas.getContext('2d');

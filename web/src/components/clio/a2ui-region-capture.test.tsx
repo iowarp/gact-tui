@@ -69,6 +69,13 @@ describe('rendered surface PNG', () => {
       '[data-slot="clio-data-grid-viewport"] { overflow: hidden !important; }',
     );
     expect(target.innerHTML).toBe(original);
+    // Toolbars stay in the copy's layout, hidden, so nothing below them moves.
+    expect(options.fontEmbedCSS).toContain('[data-slot="surface-toolbar"]');
+    expect(options.fontEmbedCSS).toContain('visibility: hidden !important');
+    const toolbar = document.createElement('div');
+    toolbar.setAttribute('data-slot', 'surface-toolbar');
+    expect(options.filter(toolbar)).toBe(true);
+    expect(options.filter(document.createElement('canvas'))).toBe(false);
   });
 
   it('refuses a view whose map is still loading instead of capturing its placeholder', async () => {
