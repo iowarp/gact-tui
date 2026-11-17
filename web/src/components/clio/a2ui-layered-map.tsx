@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import type { GeoJSONSource, MapLayerMouseEvent, MapLibreMap } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import MapView, { NavigationControl } from 'react-map-gl/maplibre';
+import MapView, { NavigationControl, ScaleControl } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { t, ph } from '@lingui/core/macro';
 import { Button } from '@/components/ui/button';
@@ -34,11 +34,14 @@ import {
   selectedTime,
   timeSelection,
   unionBounds,
+  applyEdits,
   withEdit,
   type Bounds,
   type DrawMode,
   type MapLayer,
 } from './layered-map-model';
+import { LayeredMapContext, type PointLabel } from './layered-map-context';
+import { MAX_POINT_LABELS } from './layered-map-graticule';
 import { GridLayerSource, ShapesLayerSource, TableLayerSource } from './layered-map-layers';
 import { layerStyleIds, useGridInfo } from './layered-map-style';
 import { mapCameraSchema, useMapCamera, type MapCameraProps } from './map-camera';
@@ -161,12 +164,31 @@ export function ClioLayeredMap(props: LayeredMapProps) {
     setInfos((current) => (current[id] === info ? current : { ...current, [id]: info }));
     if (error) setFailures((current) => ({ ...current, [id]: error }));
   }, []);
+  const [labelRows, setLabelRows] = useState<Record<string, readonly QueryRow[]>>({});
+  // Names of a few points (a plan's stations), drawn beside them where they are now.
+  const pointLabels = useMemo<PointLabel[]>(
+    () =>
+      props.layers.flatMap((layer) => {
+        const rows = labelRows[layer.id];
+        if (layer.kind !== 'points' || !layer.labelField || !rows) return [];
+        if (rows.length > MAX_POINT_LABELS) return [];
+        return applyEdits(layer, rows, props.edits).flatMap((row, index) => {
+          const longitude = Number(row[layer.longitudeField ?? 'longitude']);
+          const latitude = Number(row[layer.latitudeField ?? 'latitude']);
+          const text = row[layer.labelField!];
+          if (!Number.isFinite(longitude) || !Number.isFinite(latitude) || text == null) return [];
+          return [{ key: `${layer.id}:${index}`, longitude, latitude, text: String(text) }];
+        });
+      }),
+    [labelRows, props.edits, props.layers],
+  );
   const onRows = useCallback(
     (id: string, rows: readonly QueryRow[], note: string) => {
       const layer = props.layers.find((entry) => entry.id === id);
       const field = layer?.timeField;
       setRowTimes((current) => ({ ...current, [id]: field ? rows.map((row) => row[field]) : [] }));
       if (layer) setRowBoxes((current) => ({ ...current, [id]: rowBounds(layer, rows) }));
+      if (layer) setLabelRows((current) => ({ ...current, [id]: rows }));
       setNotes((current) => (current[id] === note ? current : { ...current, [id]: note }));
     },
     [props.layers],
@@ -467,7 +489,17 @@ export function ClioLayeredMap(props: LayeredMapProps) {
           style={{ width: '100%', height: '100%' }}
         >
           <NavigationControl position="top-right" showCompass={false} />
+          <ScaleControl
+            position="bottom-left"
+            unit="metric"
+            style={{
+              background: 'color-mix(in srgb, var(--background) 85%, transparent)',
+              color: 'var(--foreground)',
+              borderColor: 'var(--muted-foreground)',
+            }}
+          />
         </MapView>
+        {map ? <LayeredMapContext map={map} labels={pointLabels} /> : null}
         {map
           ? props.layers.map((layer) =>
               layer.kind === 'grid' ? (
