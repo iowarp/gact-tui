@@ -286,16 +286,17 @@ export function ClioProfileStack(props: ProfileStackProps) {
       {profiles.length && extents ? (
         <div className="grid gap-3 md:grid-cols-[1fr_14rem]">
           <div className="flex flex-col gap-1">
-            <canvas
-              ref={canvasRef}
-              role="img"
-              aria-label={t`${ph({ count: profiles.length })} profiles of ${ph({ variable })} against ${ph({ vertical: props.verticalField })}, ${ph({ excluded: excluded.size })} excluded`}
-              className="w-full cursor-pointer"
-              style={{ height: props.height ?? 360 }}
-              onPointerMove={(event) => setHover(locate(event))}
-              onPointerLeave={() => setHover(undefined)}
-              onClick={(event) => select(locate(event))}
-            />
+            <div className="relative min-w-0" style={{ height: props.height ?? 360 }}>
+              <canvas
+                ref={canvasRef}
+                role="img"
+                aria-label={t`${ph({ count: profiles.length })} profiles of ${ph({ variable })} against ${ph({ vertical: props.verticalField })}, ${ph({ excluded: excluded.size })} excluded`}
+                className="absolute inset-0 size-full cursor-pointer"
+                onPointerMove={(event) => setHover(locate(event))}
+                onPointerLeave={() => setHover(undefined)}
+                onClick={(event) => select(locate(event))}
+              />
+            </div>
             <p className="text-xs text-muted-foreground">
               {t`${ph({ variable })} ${ph({ unit: props.unit ?? '' })} against ${ph({ vertical: props.verticalField })} ${ph({ verticalUnit: props.verticalUnit ?? '' })}`}
               {props.overlayField ? t`; dashed: ${ph({ overlay: props.overlayField })}` : ''}

@@ -211,7 +211,10 @@ export function ClioSection(props: SectionProps) {
       <LoadingFailure title={t`The section is not a registered file`} detail={props.sectionUri} />
     );
   return (
-    <section className="flex flex-col gap-2 rounded-lg border bg-card p-3" aria-label={heading}>
+    <section
+      className="flex min-w-0 flex-col gap-2 rounded-lg border bg-card p-3"
+      aria-label={heading}
+    >
       <header className="flex flex-wrap items-center gap-2">
         <h3 className="mr-auto text-sm font-medium">{heading}</h3>
         {(props.variables ?? data?.variables ?? []).length > 1 ? (
@@ -241,17 +244,18 @@ export function ClioSection(props: SectionProps) {
       ) : null}
       {data ? (
         <>
-          <canvas
-            ref={canvasRef}
-            role="img"
-            aria-label={t`${ph({ variable: data.variable })} along ${ph({ km: Math.round((data.distance.at(-1) ?? 0) - (data.distance[0] ?? 0)) })} km against ${ph({ vertical: data.vertical })}, ${ph({ stations: data.stations.length })} stations`}
-            className="w-full cursor-crosshair"
-            style={{ height: props.height ?? 320 }}
-            {...DATA_SCALE_EXEMPTION}
-            onPointerMove={(event) => setHover(locate(event))}
-            onPointerLeave={() => setHover(undefined)}
-            onClick={click}
-          />
+          <div className="relative min-w-0" style={{ height: props.height ?? 320 }}>
+            <canvas
+              ref={canvasRef}
+              role="img"
+              aria-label={t`${ph({ variable: data.variable })} along ${ph({ km: Math.round((data.distance.at(-1) ?? 0) - (data.distance[0] ?? 0)) })} km against ${ph({ vertical: data.vertical })}, ${ph({ stations: data.stations.length })} stations`}
+              className="absolute inset-0 size-full cursor-crosshair"
+              {...DATA_SCALE_EXEMPTION}
+              onPointerMove={(event) => setHover(locate(event))}
+              onPointerLeave={() => setHover(undefined)}
+              onClick={click}
+            />
+          </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             <span>{t`Distance (km) along the path; vertical: ${ph({ vertical: data.vertical })} ${ph({ units: data.verticalUnits })}`}</span>
             <span className="flex items-center gap-1" {...DATA_SCALE_EXEMPTION}>
