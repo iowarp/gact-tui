@@ -109,4 +109,42 @@ describe('rendered surface PNG', () => {
     expect(drawn).toEqual([frame, overlay]);
     vi.unstubAllGlobals();
   });
+
+  it('takes the capture again when the layout changed while it was painted', async () => {
+    const target = document.createElement('div');
+    const chart = document.createElement('canvas');
+    chart.width = 10;
+    chart.height = 10;
+    target.append(chart);
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 300, 200));
+    // The chart grows by its legend during the first capture, then holds.
+    const heights = [100, 140, 140, 140, 140, 140, 140, 140];
+    vi.spyOn(chart, 'getBoundingClientRect').mockImplementation(
+      () => new DOMRect(0, 20, 300, heights.length > 1 ? heights.shift()! : heights[0]!),
+    );
+    renderCanvas.mockReset();
+    renderCanvas.mockImplementation(async () => drawableCanvas().canvas);
+
+    const result = await captureRenderedSurfacePng(target, 1);
+
+    expect(result.type).toBe('image/png');
+    expect(renderCanvas).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails with the reason when the layout never holds', async () => {
+    const target = document.createElement('div');
+    const chart = document.createElement('canvas');
+    chart.width = 10;
+    chart.height = 10;
+    target.append(chart);
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 300, 200));
+    let height = 100;
+    vi.spyOn(chart, 'getBoundingClientRect').mockImplementation(
+      () => new DOMRect(0, 20, 300, (height += 7)),
+    );
+    renderCanvas.mockReset();
+    renderCanvas.mockImplementation(async () => drawableCanvas().canvas);
+
+    await expect(captureRenderedSurfacePng(target, 1)).rejects.toThrow('kept changing its layout');
+  });
 });

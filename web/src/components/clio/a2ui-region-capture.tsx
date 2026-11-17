@@ -69,10 +69,47 @@ function regionRect(region: Region, bounds: DOMRect): CSSProperties {
   };
 }
 
+/** Where the target and every painted canvas sit, so a capture can tell its layout held. */
+function layoutSignature(target: HTMLElement): string {
+  const origin = target.getBoundingClientRect();
+  const boxes = [target, ...target.querySelectorAll<HTMLElement>('canvas, iframe')].map((node) => {
+    const rect = node.getBoundingClientRect();
+    return [rect.left - origin.left, rect.top - origin.top, rect.width, rect.height]
+      .map((value) => Math.round(value))
+      .join(',');
+  });
+  return boxes.join(';');
+}
+
+/** Most attempts when a view keeps changing its layout while it is captured. */
+const CAPTURE_LAYOUT_ATTEMPTS = 4;
+
+/**
+ * Capture ``target`` once its layout holds for the whole capture. The DOM is cloned
+ * first and live canvases are painted afterwards at their positions then; a chart that
+ * grows in between (a legend laid out late) would land below its title and push the
+ * last component out of the image. Such a capture is taken again, and after the last
+ * attempt it fails with the reason instead of returning a misaligned image.
+ */
 async function labelledPng(
   target: HTMLElement,
   regions: readonly Region[],
   pixelRatio = Math.min(window.devicePixelRatio || 1, 2),
+): Promise<Blob> {
+  for (let attempt = 1; ; attempt += 1) {
+    const before = layoutSignature(target);
+    const blob = await paintedPng(target, regions, pixelRatio);
+    if (layoutSignature(target) === before) return blob;
+    if (attempt >= CAPTURE_LAYOUT_ATTEMPTS)
+      throw new Error('The view kept changing its layout while it was captured. Try again.');
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+  }
+}
+
+async function paintedPng(
+  target: HTMLElement,
+  regions: readonly Region[],
+  pixelRatio: number,
 ): Promise<Blob> {
   // A part still loading shows a placeholder; a capture of it would show the agent nothing.
   if (target.querySelector('[aria-busy="true"]'))
