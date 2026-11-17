@@ -43,6 +43,7 @@ import { GridLayerSource, ShapesLayerSource, TableLayerSource } from './layered-
 import { layerStyleIds, useGridInfo } from './layered-map-style';
 import { mapCameraSchema, useMapCamera, type MapCameraProps } from './map-camera';
 import { offlineStyle } from './map-initial-view';
+import type { MapDebugSurface } from './scientific-map-pool';
 import { parseSelectionState, type SelectionWriter } from './selection-state';
 import type { QueryRow, TableDataQuery } from './table-query-rows';
 
@@ -130,6 +131,7 @@ function Legend({ layer, info }: { layer: MapLayer; info?: ArtifactGridInfo }) {
 export function ClioLayeredMap(props: LayeredMapProps) {
   const repository = useRepository();
   const [map, setMap] = useState<MapLibreMap>();
+  const surfaceRef = useRef<MapDebugSurface>(null);
   // One style object for the map's life: a new one each render would make the
   // map re-apply its style and drop the layers added below.
   const baseStyle = useMemo(() => offlineStyle(), []);
@@ -440,11 +442,25 @@ export function ClioLayeredMap(props: LayeredMapProps) {
           </Button>
         ) : null}
       </header>
-      <div className="relative overflow-hidden rounded-md" style={{ height: props.height ?? 420 }}>
+      <div
+        ref={surfaceRef}
+        data-slot="a2ui-map-surface"
+        className="relative overflow-hidden rounded-md"
+        style={{ height: props.height ?? 420 }}
+      >
         <MapView
           initialViewState={{ longitude: 0, latitude: 20, zoom: 1.2 }}
           mapStyle={baseStyle}
-          onLoad={(event) => setMap(event.target)}
+          renderWorldCopies={false}
+          onLoad={(event) => {
+            // A capture of this view waits for its tiles through the same hook as clio.map.v1.
+            if (surfaceRef.current) surfaceRef.current.__clioMap = event.target;
+            setMap(event.target);
+          }}
+          onError={(event) => {
+            if (surfaceRef.current)
+              surfaceRef.current.__clioMapFailure = String(event.error?.message ?? event.error);
+          }}
           onClick={onClick}
           cursor={drawing ? 'crosshair' : undefined}
           attributionControl={{ compact: true }}
