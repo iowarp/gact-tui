@@ -8,8 +8,10 @@ import {
   layerFeatures,
   mapLayerSchema,
   mergeTimes,
+  rowBounds,
   selectedTime,
   timeSelection,
+  unionBounds,
   withEdit,
   type MapLayer,
 } from './layered-map-model';
@@ -240,5 +242,25 @@ describe('profile stack', () => {
         .success,
     ).toBe(false);
     expect(profileStackSchema.safeParse(base).success).toBe(false);
+  });
+});
+
+describe('layered map extent', () => {
+  it('boxes the positioned rows of a layer and skips rows without a position', () => {
+    const rows = [
+      { lon: -64.8, lat: 18.2, time: '2020-09-08T00:00:00Z', event: 'a' },
+      { lon: -64.0, lat: 17.4, time: '2020-09-09T00:00:00Z', event: 'a' },
+      { lon: null, lat: 10, time: '2020-09-10T00:00:00Z', event: 'a' },
+    ];
+    expect(rowBounds(tracks, rows)).toEqual([-64.8, 17.4, -64.0, 18.2]);
+    expect(rowBounds(tracks, [])).toBeUndefined();
+  });
+
+  it('joins layer boxes and clamps them to the web map', () => {
+    expect(unionBounds([[-64.8, 17.4, -64, 18.2], undefined, [-70, 10, -60, 20]])).toEqual([
+      -70, 10, -60, 20,
+    ]);
+    expect(unionBounds([[-200, -90, 200, 90]])).toEqual([-180, -85, 180, 85]);
+    expect(unionBounds([undefined])).toBeUndefined();
   });
 });

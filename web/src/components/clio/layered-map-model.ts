@@ -310,3 +310,32 @@ export function applyEdits(layer: MapLayer, rows: readonly QueryRow[], edits: un
 }
 
 export { dataQuerySchema };
+
+/** A `[west, south, east, north]` box in degrees. */
+export type Bounds = [number, number, number, number];
+
+/** The box around a table layer's positioned rows, or undefined when none are positioned. */
+export function rowBounds(layer: MapLayer, rows: readonly QueryRow[]): Bounds | undefined {
+  let box: Bounds | undefined;
+  for (const row of rows) {
+    const lon = numberCell(row, layer.longitudeField);
+    const lat = numberCell(row, layer.latitudeField);
+    if (lon === undefined || lat === undefined) continue;
+    box = box
+      ? [Math.min(box[0], lon), Math.min(box[1], lat), Math.max(box[2], lon), Math.max(box[3], lat)]
+      : [lon, lat, lon, lat];
+  }
+  return box;
+}
+
+/** The box around every layer's box, clamped to what a web map can show. */
+export function unionBounds(boxes: readonly (Bounds | undefined)[]): Bounds | undefined {
+  const known = boxes.filter((box): box is Bounds => Boolean(box));
+  if (!known.length) return undefined;
+  return [
+    Math.max(-180, Math.min(...known.map((box) => box[0]))),
+    Math.max(-85, Math.min(...known.map((box) => box[1]))),
+    Math.min(180, Math.max(...known.map((box) => box[2]))),
+    Math.min(85, Math.max(...known.map((box) => box[3]))),
+  ];
+}

@@ -30,15 +30,18 @@ import {
   frameAt,
   isoTime,
   mergeTimes,
+  rowBounds,
   selectedTime,
   timeSelection,
+  unionBounds,
   withEdit,
+  type Bounds,
   type DrawMode,
   type MapLayer,
 } from './layered-map-model';
 import { GridLayerSource, ShapesLayerSource, TableLayerSource } from './layered-map-layers';
 import { layerStyleIds, useGridInfo } from './layered-map-style';
-import { useMapCamera, type MapCameraProps } from './map-camera';
+import { mapCameraSchema, useMapCamera, type MapCameraProps } from './map-camera';
 import { offlineStyle } from './map-initial-view';
 import { parseSelectionState, type SelectionWriter } from './selection-state';
 import type { QueryRow, TableDataQuery } from './table-query-rows';
@@ -137,6 +140,9 @@ export function ClioLayeredMap(props: LayeredMapProps) {
   const [failures, setFailures] = useState<Record<string, string>>({});
   const [rowTimes, setRowTimes] = useState<Record<string, unknown[]>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [rowBoxes, setRowBoxes] = useState<Record<string, Bounds | undefined>>({});
+  // Set once the person pans or zooms: the map then stays where they put it.
+  const moved = useRef(false);
   const [drawing, setDrawing] = useState(false);
   const [vertices, setVertices] = useState<[number, number][]>([]);
   const [localTime, setLocalTime] = useState<number>();
@@ -158,6 +164,7 @@ export function ClioLayeredMap(props: LayeredMapProps) {
       const layer = props.layers.find((entry) => entry.id === id);
       const field = layer?.timeField;
       setRowTimes((current) => ({ ...current, [id]: field ? rows.map((row) => row[field]) : [] }));
+      if (layer) setRowBoxes((current) => ({ ...current, [id]: rowBounds(layer, rows) }));
       setNotes((current) => (current[id] === note ? current : { ...current, [id]: note }));
     },
     [props.layers],
@@ -172,6 +179,38 @@ export function ClioLayeredMap(props: LayeredMapProps) {
     }
     return mergeTimes(lists);
   }, [infos, props.layers, rowTimes]);
+  // Open on the data: fit the layers' extent until the person moves the map or a
+  // producer binds the camera.
+  const extent = useMemo(
+    () =>
+      unionBounds([
+        ...Object.values(rowBoxes),
+        ...Object.values(infos).map((info) => info?.bounds as Bounds | undefined),
+      ]),
+    [infos, rowBoxes],
+  );
+  const cameraBound = mapCameraSchema.safeParse(props.camera).success;
+  useEffect(() => {
+    if (!map) return;
+    const mark = (event: { originalEvent?: unknown }) => {
+      if (event.originalEvent) moved.current = true;
+    };
+    map.on('movestart', mark);
+    return () => {
+      map.off('movestart', mark);
+    };
+  }, [map]);
+  useEffect(() => {
+    if (!map || !extent || cameraBound || moved.current) return;
+    const [west, south, east, north] = extent;
+    map.fitBounds(
+      [
+        [west, south],
+        [east, north],
+      ],
+      { padding: 32, maxZoom: 9, duration: 0 },
+    );
+  }, [cameraBound, extent, map]);
   const bound = selectedTime(props.time);
   const now = frameAt(times, bound ?? localTime);
   const index = now === undefined ? -1 : times.indexOf(now);
