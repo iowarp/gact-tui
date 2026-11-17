@@ -20,6 +20,7 @@ import {
   groupProfiles,
   nearestProfile,
   profileExtents,
+  profileRuns,
   toggleExcluded,
 } from './profile-stack-model';
 import { layeredMapSchema } from './a2ui-layered-map-catalog';
@@ -262,5 +263,32 @@ describe('layered map extent', () => {
     ]);
     expect(unionBounds([[-200, -90, 200, 90]])).toEqual([-180, -85, 180, 85]);
     expect(unionBounds([undefined])).toBeUndefined();
+  });
+});
+
+describe('profile runs', () => {
+  it('keeps a profile whose sampling coarsens with depth as one line', () => {
+    const vertical = [0, 2, 4, 6, 8, 58, 108, 158];
+    const values = [28, 27.9, 27.8, 27.6, 27.5, 24, 20, 17];
+    expect(profileRuns(vertical, values)).toHaveLength(1);
+  });
+  it('breaks a profile at a missing value and across a gap in its samples', () => {
+    const vertical = [0, 10, 20, 30, 40, 400, 410, 420];
+    const values = [20, 19, null, 17, 16, 8, 7.5, 7];
+    expect(profileRuns(vertical, values)).toEqual([
+      [
+        [0, 20],
+        [10, 19],
+      ],
+      [
+        [30, 17],
+        [40, 16],
+      ],
+      [
+        [400, 8],
+        [410, 7.5],
+        [420, 7],
+      ],
+    ]);
   });
 });

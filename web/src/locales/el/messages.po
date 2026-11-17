@@ -471,10 +471,10 @@ msgstr "{0, plural, one {# πρόσθετο} other {# πρόσθετα}}"
 msgid "{0, plural, one {# problem} other {# problems}}"
 msgstr "{0, plural, one {# πρόβλημα} other {# προβλήματα}}"
 
-#. placeholder {0}: profiles.length - excluded.size
+#. placeholder {0}: profiles.length
 #: src/components/clio/a2ui-profile-stack.tsx
-msgid "{0, plural, one {# profile kept} other {# profiles kept}}"
-msgstr "{0, plural, one {# προφίλ διατηρείται} other {# προφίλ διατηρούνται}}"
+msgid "{0, plural, one {# profile} other {# profiles}}"
+msgstr ""
 
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
@@ -801,6 +801,11 @@ msgstr "{0, plural, one {Εισαγάγετε τουλάχιστον # χαρα�
 #: src/components/clio/question-interaction-forms.tsx
 msgid "{0, plural, one {Enter no more than # character.} other {Enter no more than # characters.}}"
 msgstr "{0, plural, one {Εισαγάγετε έως # χαρακτήρα.} other {Εισαγάγετε έως # χαρακτήρες.}}"
+
+#. placeholder {0}: focus.length
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{0, plural, one {Exclude # picked profile} other {Exclude # picked profiles}}"
+msgstr ""
 
 #. placeholder {0}: result.added.length
 #: src/components/clio/provider-model-refresh.ts
@@ -1846,6 +1851,10 @@ msgstr "{count} από {total} συμπεριλαμβάνονται"
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{count} profiles of {variable} against {vertical}, {excluded} excluded"
 msgstr "{count} προφίλ του {variable} ως προς {vertical}, {excluded} εξαιρέθηκαν"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{count} profiles, {excluded} excluded"
+msgstr ""
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{count} rejected"
@@ -6355,6 +6364,10 @@ msgstr "Ανάλυση"
 msgid "Analysis: <0>{0}</0>"
 msgstr "Ανάλυση: <0>{0}</0>"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "and {more} more"
+msgstr ""
+
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Angle"
 msgstr "Γωνία"
@@ -9741,6 +9754,10 @@ msgstr "Εκκαθάριση τερματικού"
 #: src/components/clio/a2ui-steps.tsx
 msgid "Clear timer for {title}"
 msgstr "Εκκαθάριση χρονομέτρου για {title}"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Click a curve to pick it."
+msgstr ""
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Click a point to select it. {primary}-click selects its curve. Shift-click toggles a point; {primaryShift}-click merges or removes a curve. Drag selects points; {primary}-drag selects curves. {alt}-drag pans and {primary}-scroll zooms."
@@ -15007,8 +15024,12 @@ msgid "Excerpt {number}"
 msgstr "Απόσπασμα {number}"
 
 #: src/components/clio/a2ui-profile-stack.tsx
-msgid "Exclude selected"
-msgstr "Εξαίρεση επιλεγμένων"
+msgid "Exclude"
+msgstr ""
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Excluded profiles"
+msgstr ""
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -18980,6 +19001,7 @@ msgstr "Μετάβαση στα πιο πρόσφατα"
 msgid "Kafka topic"
 msgstr "Θέμα Kafka"
 
+#: src/components/clio/a2ui-profile-stack.tsx
 #: src/components/clio/primitives/row-confirm.tsx
 #: src/components/clio/settings-access-rule-row.tsx
 #: src/components/clio/settings-model-server-row.tsx
@@ -26144,6 +26166,10 @@ msgstr "Επιλέξτε απόπειρα"
 #: src/components/clio/flow-diagram-source.ts
 msgid "picked entry {winner}"
 msgstr "επέλεξε την καταχώριση {winner}"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Picked profile"
+msgstr ""
 
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx
@@ -33409,10 +33435,6 @@ msgstr "Εμφανίζονται {shown} από {total} γραμμές, με υ�
 #: src/components/clio/table-query-rows.ts
 msgid "Showing {shown} of {total} rows."
 msgstr "Εμφανίζονται {shown} από {total} γραμμές."
-
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "Showing 500 of {count}; search to narrow."
-msgstr "Εμφανίζονται 500 από {count}· αναζητήστε για περιορισμό."
 
 #: src/components/clio/workbench-resource-browser.tsx
 msgid "Showing part of this workspace; filter to find the rest."

@@ -470,9 +470,9 @@ msgstr ""
 msgid "{0, plural, one {# problem} other {# problems}}"
 msgstr ""
 
-#. placeholder {0}: profiles.length - excluded.size
+#. placeholder {0}: profiles.length
 #: src/components/clio/a2ui-profile-stack.tsx
-msgid "{0, plural, one {# profile kept} other {# profiles kept}}"
+msgid "{0, plural, one {# profile} other {# profiles}}"
 msgstr ""
 
 #. placeholder {0}: result.prompt_count
@@ -799,6 +799,11 @@ msgstr ""
 #. placeholder {0}: field.max_length
 #: src/components/clio/question-interaction-forms.tsx
 msgid "{0, plural, one {Enter no more than # character.} other {Enter no more than # characters.}}"
+msgstr ""
+
+#. placeholder {0}: focus.length
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{0, plural, one {Exclude # picked profile} other {Exclude # picked profiles}}"
 msgstr ""
 
 #. placeholder {0}: result.added.length
@@ -1844,6 +1849,10 @@ msgstr ""
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{count} profiles of {variable} against {vertical}, {excluded} excluded"
+msgstr ""
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{count} profiles, {excluded} excluded"
 msgstr ""
 
 #: src/components/clio/memory-creation-log.tsx
@@ -6346,6 +6355,10 @@ msgstr ""
 msgid "Analysis: <0>{0}</0>"
 msgstr ""
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "and {more} more"
+msgstr ""
+
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Angle"
 msgstr ""
@@ -9731,6 +9744,10 @@ msgstr ""
 
 #: src/components/clio/a2ui-steps.tsx
 msgid "Clear timer for {title}"
+msgstr ""
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Click a curve to pick it."
 msgstr ""
 
 #: src/components/clio/a2ui-chart.tsx
@@ -14998,7 +15015,11 @@ msgid "Excerpt {number}"
 msgstr ""
 
 #: src/components/clio/a2ui-profile-stack.tsx
-msgid "Exclude selected"
+msgid "Exclude"
+msgstr ""
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Excluded profiles"
 msgstr ""
 
 #: src/components/clio/context-canvas-panel.tsx
@@ -18962,6 +18983,7 @@ msgstr ""
 msgid "Kafka topic"
 msgstr ""
 
+#: src/components/clio/a2ui-profile-stack.tsx
 #: src/components/clio/primitives/row-confirm.tsx
 #: src/components/clio/settings-access-rule-row.tsx
 #: src/components/clio/settings-model-server-row.tsx
@@ -26125,6 +26147,10 @@ msgstr ""
 
 #: src/components/clio/flow-diagram-source.ts
 msgid "picked entry {winner}"
+msgstr ""
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Picked profile"
 msgstr ""
 
 #: src/components/clio/session-management-menu.tsx
@@ -33390,10 +33416,6 @@ msgstr ""
 
 #: src/components/clio/table-query-rows.ts
 msgid "Showing {shown} of {total} rows."
-msgstr ""
-
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "Showing 500 of {count}; search to narrow."
 msgstr ""
 
 #: src/components/clio/workbench-resource-browser.tsx

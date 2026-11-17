@@ -471,10 +471,10 @@ msgstr "{0, plural, one {# complemento} other {# complementos}}"
 msgid "{0, plural, one {# problem} other {# problems}}"
 msgstr "{0, plural, one {# problema} other {# problemas}}"
 
-#. placeholder {0}: profiles.length - excluded.size
+#. placeholder {0}: profiles.length
 #: src/components/clio/a2ui-profile-stack.tsx
-msgid "{0, plural, one {# profile kept} other {# profiles kept}}"
-msgstr "{0, plural, one {# perfil conservado} other {# perfiles conservados}}"
+msgid "{0, plural, one {# profile} other {# profiles}}"
+msgstr ""
 
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
@@ -801,6 +801,11 @@ msgstr "{0, plural, one {Introduce al menos # carácter.} other {Introduce al me
 #: src/components/clio/question-interaction-forms.tsx
 msgid "{0, plural, one {Enter no more than # character.} other {Enter no more than # characters.}}"
 msgstr "{0, plural, one {Introduce como máximo # carácter.} other {Introduce como máximo # caracteres.}}"
+
+#. placeholder {0}: focus.length
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{0, plural, one {Exclude # picked profile} other {Exclude # picked profiles}}"
+msgstr ""
 
 #. placeholder {0}: result.added.length
 #: src/components/clio/provider-model-refresh.ts
@@ -1846,6 +1851,10 @@ msgstr "{count} de {total} incluidos"
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{count} profiles of {variable} against {vertical}, {excluded} excluded"
 msgstr "{count} perfiles de {variable} frente a {vertical}, {excluded} excluidos"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{count} profiles, {excluded} excluded"
+msgstr ""
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{count} rejected"
@@ -6355,6 +6364,10 @@ msgstr "Análisis"
 msgid "Analysis: <0>{0}</0>"
 msgstr "Análisis: <0>{0}</0>"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "and {more} more"
+msgstr ""
+
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Angle"
 msgstr "Ángulo"
@@ -9741,6 +9754,10 @@ msgstr "Limpiar la terminal"
 #: src/components/clio/a2ui-steps.tsx
 msgid "Clear timer for {title}"
 msgstr "Borrar temporizador de {title}"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Click a curve to pick it."
+msgstr ""
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Click a point to select it. {primary}-click selects its curve. Shift-click toggles a point; {primaryShift}-click merges or removes a curve. Drag selects points; {primary}-drag selects curves. {alt}-drag pans and {primary}-scroll zooms."
@@ -15007,8 +15024,12 @@ msgid "Excerpt {number}"
 msgstr "Extracto {number}"
 
 #: src/components/clio/a2ui-profile-stack.tsx
-msgid "Exclude selected"
-msgstr "Excluir los seleccionados"
+msgid "Exclude"
+msgstr ""
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Excluded profiles"
+msgstr ""
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -18980,6 +19001,7 @@ msgstr "Ir a lo más reciente"
 msgid "Kafka topic"
 msgstr "Tema de Kafka"
 
+#: src/components/clio/a2ui-profile-stack.tsx
 #: src/components/clio/primitives/row-confirm.tsx
 #: src/components/clio/settings-access-rule-row.tsx
 #: src/components/clio/settings-model-server-row.tsx
@@ -26144,6 +26166,10 @@ msgstr "Elige un intento"
 #: src/components/clio/flow-diagram-source.ts
 msgid "picked entry {winner}"
 msgstr "eligió la entrada {winner}"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Picked profile"
+msgstr ""
 
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx
@@ -33409,10 +33435,6 @@ msgstr "Se muestran {shown} de {total} filas, submuestreadas ({method})."
 #: src/components/clio/table-query-rows.ts
 msgid "Showing {shown} of {total} rows."
 msgstr "Se muestran {shown} de {total} filas."
-
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "Showing 500 of {count}; search to narrow."
-msgstr "Se muestran 500 de {count}; busque para acotar."
 
 #: src/components/clio/workbench-resource-browser.tsx
 msgid "Showing part of this workspace; filter to find the rest."

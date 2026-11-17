@@ -122,3 +122,41 @@ export function nearestProfile(
   }
   return best;
 }
+
+/** How many times its neighbouring steps a vertical step may be before it is a gap. */
+export const GAP_FACTOR = 4;
+
+/**
+ * A profile as drawable runs of [vertical, value] points. A run ends at a missing value
+ * and at a vertical step more than {@link GAP_FACTOR} times both its neighbouring steps,
+ * so a line is never drawn across samples the profile does not have, while a profile
+ * whose sampling coarsens with depth (as Argo floats' does) stays one line.
+ */
+export function profileRuns(
+  vertical: readonly number[],
+  values: readonly (number | null | undefined)[],
+): [number, number][][] {
+  const steps = vertical.slice(1).map((z, index) => Math.abs(z - vertical[index]!));
+  const isGap = (index: number): boolean => {
+    // ``index`` is the step from point index - 1 to point index.
+    const step = steps[index - 1] ?? 0;
+    const before = steps[index - 2];
+    const after = steps[index];
+    const neighbours = [before, after].filter(
+      (value): value is number => value !== undefined && value > 0,
+    );
+    return neighbours.length > 0 && neighbours.every((value) => step > GAP_FACTOR * value);
+  };
+  const runs: [number, number][][] = [];
+  let run: [number, number][] = [];
+  vertical.forEach((z, index) => {
+    const value = values[index];
+    if (value === null || value === undefined || (index > 0 && isGap(index))) {
+      if (run.length) runs.push(run);
+      run = [];
+    }
+    if (value !== null && value !== undefined) run.push([z, value]);
+  });
+  if (run.length) runs.push(run);
+  return runs;
+}

@@ -11,7 +11,7 @@ import {
   groupProfiles,
   nearestProfile,
   profileExtents,
-  toggleExcluded,
+  profileRuns,
   type Profile,
 } from './profile-stack-model';
 import { parseSelectionState, type SelectionWriter } from './selection-state';
@@ -78,17 +78,13 @@ function drawProfiles(
   const line = (profile: Profile, values: (number | null)[], dashed: boolean) => {
     context.setLineDash(dashed ? [4, 3] : []);
     context.beginPath();
-    let open = false;
-    profile.vertical.forEach((z, index) => {
-      const value = values[index];
-      if (value === null || value === undefined) {
-        open = false;
-        return;
-      }
-      if (open) context.lineTo(x(value), y(z));
-      else context.moveTo(x(value), y(z));
-      open = true;
-    });
+    for (const run of profileRuns(profile.vertical, values)) {
+      run.forEach(([z, value], index) => {
+        if (index) context.lineTo(x(value), y(z));
+        else context.moveTo(x(value), y(z));
+      });
+      if (run.length === 1) context.lineTo(x(run[0]![1]) + 0.5, y(run[0]![0]));
+    }
     context.stroke();
   };
   const order = [...profiles].sort(
@@ -123,10 +119,18 @@ function drawProfiles(
     context.fillText(tick.label, MARGIN.left - 6, y(tick.value) + 4);
 }
 
-/** `clio.profile-stack.v1`: many vertical profiles; toggle, exclude, switch, compare. */
+/** How many excluded profiles are listed as chips before the rest are counted. */
+const EXCLUDED_CHIPS = 12;
+
+/**
+ * `clio.profile-stack.v1`: many vertical profiles. Work on the curves: point to name one,
+ * click to pick it, exclude or keep the picked one; find one by name; the excluded ones
+ * are listed as chips to restore.
+ */
 export function ClioProfileStack(props: ProfileStackProps) {
   const [variable, setVariable] = useState(props.valueField);
   const [filter, setFilter] = useState('');
+  const [picked, setPicked] = useState<string>();
   const [hover, setHover] = useState<Profile>();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const columns = useMemo(
@@ -179,10 +183,12 @@ export function ClioProfileStack(props: ProfileStackProps) {
     () => new Set(props.writeExcluded ? excludedList(props.excluded) : localExcluded),
     [localExcluded, props.excluded, props.writeExcluded],
   );
+  const bound = Boolean(props.setSelection && props.selectionField);
   const selected = useMemo(() => {
+    if (!bound) return new Set(picked ? [picked] : []);
     const state = parseSelectionState(props.selection);
     return new Set(state ? state.values.map(String) : []);
-  }, [props.selection]);
+  }, [bound, picked, props.selection]);
   const extents = useMemo(
     () =>
       profileExtents(profiles.filter((profile) => !excluded.has(profile.id))) ??
@@ -203,6 +209,7 @@ export function ClioProfileStack(props: ProfileStackProps) {
   const setExcluded = (next: string[]) =>
     props.writeExcluded ? props.writeExcluded(next) : setLocalExcluded(next);
   const select = (profile: Profile | undefined) => {
+    setPicked(profile?.id);
     if (props.setSelection && props.selectionField)
       props.setSelection({
         field: props.selectionField,
@@ -226,9 +233,18 @@ export function ClioProfileStack(props: ProfileStackProps) {
       (extents.value[1] - extents.value[0]) * 0.03,
     );
   };
-  const shown = profiles.filter(
-    (profile) => !filter || profile.label.toLowerCase().includes(filter.toLowerCase()),
-  );
+  const byId = new Map(profiles.map((profile) => [profile.id, profile]));
+  const focus = [...selected].map((id) => byId.get(id)).filter(Boolean) as Profile[];
+  const excludedProfiles = [...excluded].map((id) => byId.get(id)).filter(Boolean) as Profile[];
+  const find = (text: string) => {
+    setFilter(text);
+    const wanted = text.trim().toLowerCase();
+    const match = wanted
+      ? profiles.find((profile) => profile.label.toLowerCase() === wanted)
+      : undefined;
+    if (match) select(match);
+  };
+  const listId = `${props.componentId}-profiles`;
   const variables = props.variables ?? [];
   const heading = props.title ?? t`Profiles`;
 
@@ -252,20 +268,6 @@ export function ClioProfileStack(props: ProfileStackProps) {
             </select>
           </label>
         ) : null}
-        {selected.size ? (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setExcluded([...new Set([...excluded, ...selected])].sort())}
-          >
-            {t`Exclude selected`}
-          </Button>
-        ) : null}
-        {excluded.size ? (
-          <Button size="sm" variant="ghost" onClick={() => setExcluded([])}>
-            {t`Include all`}
-          </Button>
-        ) : null}
         {props.action ? (
           <Button size="sm" onClick={props.action}>
             {props.actionLabel ?? t`Send to agent`}
@@ -284,68 +286,116 @@ export function ClioProfileStack(props: ProfileStackProps) {
         <p className="text-xs text-muted-foreground">{t`No profiles in this table.`}</p>
       ) : null}
       {profiles.length && extents ? (
-        <div className="grid gap-3 md:grid-cols-[1fr_14rem]">
-          <div className="flex flex-col gap-1">
-            <div className="relative min-w-0" style={{ height: props.height ?? 360 }}>
-              <canvas
-                ref={canvasRef}
-                role="img"
-                aria-label={t`${ph({ count: profiles.length })} profiles of ${ph({ variable })} against ${ph({ vertical: props.verticalField })}, ${ph({ excluded: excluded.size })} excluded`}
-                className="absolute inset-0 size-full cursor-pointer"
-                onPointerMove={(event) => setHover(locate(event))}
-                onPointerLeave={() => setHover(undefined)}
-                onClick={(event) => select(locate(event))}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t`${ph({ variable })} ${ph({ unit: props.unit ?? '' })} against ${ph({ vertical: props.verticalField })} ${ph({ verticalUnit: props.verticalUnit ?? '' })}`}
-              {props.overlayField ? t`; dashed: ${ph({ overlay: props.overlayField })}` : ''}
-              {hover ? (
-                <span role="status" className="ml-2 text-foreground">
-                  {hover.label}
-                </span>
-              ) : null}
-            </p>
-            {loaded.note ? <p className="text-xs text-muted-foreground">{loaded.note}</p> : null}
+        <div className="flex flex-col gap-2">
+          <div className="relative min-w-0" style={{ height: props.height ?? 360 }}>
+            <canvas
+              ref={canvasRef}
+              role="img"
+              aria-label={t`${ph({ count: profiles.length })} profiles of ${ph({ variable })} against ${ph({ vertical: props.verticalField })}, ${ph({ excluded: excluded.size })} excluded`}
+              className="absolute inset-0 size-full cursor-pointer"
+              onPointerMove={(event) => setHover(locate(event))}
+              onPointerLeave={() => setHover(undefined)}
+              onClick={(event) => select(locate(event))}
+            />
           </div>
-          <div className="flex max-h-96 flex-col gap-1 text-xs">
+          <p className="text-xs text-muted-foreground">
+            {t`${ph({ variable })} ${ph({ unit: props.unit ?? '' })} against ${ph({ vertical: props.verticalField })} ${ph({ verticalUnit: props.verticalUnit ?? '' })}`}
+            {props.overlayField ? t`; dashed: ${ph({ overlay: props.overlayField })}` : ''}
+            {hover ? (
+              <span role="status" className="ml-2 text-foreground">
+                {hover.label}
+              </span>
+            ) : null}
+          </p>
+          {loaded.note ? <p className="text-xs text-muted-foreground">{loaded.note}</p> : null}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <input
               type="search"
-              className="rounded border bg-background px-2 py-1"
+              list={listId}
+              className="w-44 rounded border bg-background px-2 py-1"
               placeholder={t`Find a profile`}
               aria-label={t`Find a profile`}
               value={filter}
-              onChange={(event) => setFilter(event.target.value)}
+              onChange={(event) => find(event.target.value)}
             />
-            <span className="text-muted-foreground">
-              {plural(profiles.length - excluded.size, {
-                one: '# profile kept',
-                other: '# profiles kept',
-              })}
+            <datalist id={listId}>
+              {profiles.slice(0, 2000).map((profile) => (
+                <option key={profile.id} value={profile.label} />
+              ))}
+            </datalist>
+            {focus.length === 1 ? (
+              <span className="flex items-center gap-1" role="group" aria-label={t`Picked profile`}>
+                <span className="font-medium text-primary">{focus[0]!.label}</span>
+                {excluded.has(focus[0]!.id) ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setExcluded([...excluded].filter((id) => id !== focus[0]!.id))}
+                  >
+                    {t`Keep`}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setExcluded([...new Set([...excluded, focus[0]!.id])].sort());
+                      select(undefined);
+                    }}
+                  >
+                    {t`Exclude`}
+                  </Button>
+                )}
+              </span>
+            ) : focus.length > 1 ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setExcluded([...new Set([...excluded, ...selected])].sort())}
+              >
+                {plural(focus.length, {
+                  one: 'Exclude # picked profile',
+                  other: 'Exclude # picked profiles',
+                })}
+              </Button>
+            ) : (
+              <span className="text-muted-foreground">{t`Click a curve to pick it.`}</span>
+            )}
+            <span className="ml-auto text-muted-foreground">
+              {excluded.size
+                ? t`${ph({ count: profiles.length })} profiles, ${ph({ excluded: excluded.size })} excluded`
+                : plural(profiles.length, { one: '# profile', other: '# profiles' })}
             </span>
-            <ul className="overflow-y-auto" aria-label={t`Profiles`}>
-              {shown.slice(0, 500).map((profile) => (
-                <li key={profile.id} className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    aria-label={t`Keep ${ph({ profile: profile.label })}`}
-                    checked={!excluded.has(profile.id)}
-                    onChange={() => setExcluded(toggleExcluded([...excluded], profile.id))}
-                  />
+          </div>
+          {excludedProfiles.length ? (
+            <ul
+              className="flex flex-wrap items-center gap-1 text-xs"
+              aria-label={t`Excluded profiles`}
+            >
+              {excludedProfiles.slice(0, EXCLUDED_CHIPS).map((profile) => (
+                <li key={profile.id}>
                   <button
                     type="button"
-                    className={selected.has(profile.id) ? 'font-medium text-primary' : ''}
-                    onClick={() => select(profile)}
+                    className="rounded-full border px-2 py-0.5 text-muted-foreground line-through hover:text-foreground hover:no-underline"
+                    aria-label={t`Keep ${ph({ profile: profile.label })}`}
+                    onClick={() => setExcluded([...excluded].filter((id) => id !== profile.id))}
                   >
                     {profile.label}
                   </button>
                 </li>
               ))}
+              {excludedProfiles.length > EXCLUDED_CHIPS ? (
+                <li className="text-muted-foreground">
+                  {t`and ${ph({ more: excludedProfiles.length - EXCLUDED_CHIPS })} more`}
+                </li>
+              ) : null}
+              <li>
+                <Button size="sm" variant="ghost" onClick={() => setExcluded([])}>
+                  {t`Include all`}
+                </Button>
+              </li>
             </ul>
-            {shown.length > 500 ? (
-              <span className="text-muted-foreground">{t`Showing 500 of ${ph({ count: shown.length })}; search to narrow.`}</span>
-            ) : null}
-          </div>
+          ) : null}
         </div>
       ) : null}
     </section>

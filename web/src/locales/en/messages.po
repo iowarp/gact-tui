@@ -470,10 +470,10 @@ msgstr "{0, plural, one {# plugin} other {# plugins}}"
 msgid "{0, plural, one {# problem} other {# problems}}"
 msgstr "{0, plural, one {# problem} other {# problems}}"
 
-#. placeholder {0}: profiles.length - excluded.size
+#. placeholder {0}: profiles.length
 #: src/components/clio/a2ui-profile-stack.tsx
-msgid "{0, plural, one {# profile kept} other {# profiles kept}}"
-msgstr "{0, plural, one {# profile kept} other {# profiles kept}}"
+msgid "{0, plural, one {# profile} other {# profiles}}"
+msgstr "{0, plural, one {# profile} other {# profiles}}"
 
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
@@ -800,6 +800,11 @@ msgstr "{0, plural, one {Enter at least # character.} other {Enter at least # ch
 #: src/components/clio/question-interaction-forms.tsx
 msgid "{0, plural, one {Enter no more than # character.} other {Enter no more than # characters.}}"
 msgstr "{0, plural, one {Enter no more than # character.} other {Enter no more than # characters.}}"
+
+#. placeholder {0}: focus.length
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{0, plural, one {Exclude # picked profile} other {Exclude # picked profiles}}"
+msgstr "{0, plural, one {Exclude # picked profile} other {Exclude # picked profiles}}"
 
 #. placeholder {0}: result.added.length
 #: src/components/clio/provider-model-refresh.ts
@@ -1845,6 +1850,10 @@ msgstr "{count} of {total} brought in"
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{count} profiles of {variable} against {vertical}, {excluded} excluded"
 msgstr "{count} profiles of {variable} against {vertical}, {excluded} excluded"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{count} profiles, {excluded} excluded"
+msgstr "{count} profiles, {excluded} excluded"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{count} rejected"
@@ -6354,6 +6363,10 @@ msgstr "Analysis"
 msgid "Analysis: <0>{0}</0>"
 msgstr "Analysis: <0>{0}</0>"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "and {more} more"
+msgstr "and {more} more"
+
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Angle"
 msgstr "Angle"
@@ -9740,6 +9753,10 @@ msgstr "Clear the terminal"
 #: src/components/clio/a2ui-steps.tsx
 msgid "Clear timer for {title}"
 msgstr "Clear timer for {title}"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Click a curve to pick it."
+msgstr "Click a curve to pick it."
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Click a point to select it. {primary}-click selects its curve. Shift-click toggles a point; {primaryShift}-click merges or removes a curve. Drag selects points; {primary}-drag selects curves. {alt}-drag pans and {primary}-scroll zooms."
@@ -15006,8 +15023,12 @@ msgid "Excerpt {number}"
 msgstr "Excerpt {number}"
 
 #: src/components/clio/a2ui-profile-stack.tsx
-msgid "Exclude selected"
-msgstr "Exclude selected"
+msgid "Exclude"
+msgstr "Exclude"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Excluded profiles"
+msgstr "Excluded profiles"
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -18979,6 +19000,7 @@ msgstr "Jump to latest"
 msgid "Kafka topic"
 msgstr "Kafka topic"
 
+#: src/components/clio/a2ui-profile-stack.tsx
 #: src/components/clio/primitives/row-confirm.tsx
 #: src/components/clio/settings-access-rule-row.tsx
 #: src/components/clio/settings-model-server-row.tsx
@@ -26143,6 +26165,10 @@ msgstr "Pick a try"
 #: src/components/clio/flow-diagram-source.ts
 msgid "picked entry {winner}"
 msgstr "picked entry {winner}"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Picked profile"
+msgstr "Picked profile"
 
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx
@@ -33408,10 +33434,6 @@ msgstr "Showing {shown} of {total} rows, downsampled ({method})."
 #: src/components/clio/table-query-rows.ts
 msgid "Showing {shown} of {total} rows."
 msgstr "Showing {shown} of {total} rows."
-
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "Showing 500 of {count}; search to narrow."
-msgstr "Showing 500 of {count}; search to narrow."
 
 #: src/components/clio/workbench-resource-browser.tsx
 msgid "Showing part of this workspace; filter to find the rest."

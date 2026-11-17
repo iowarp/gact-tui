@@ -471,10 +471,10 @@ msgstr "{0, plural, one {#個のプラグイン} other {#個のプラグイン}}
 msgid "{0, plural, one {# problem} other {# problems}}"
 msgstr "{0, plural, one {#件の問題} other {#件の問題}}"
 
-#. placeholder {0}: profiles.length - excluded.size
+#. placeholder {0}: profiles.length
 #: src/components/clio/a2ui-profile-stack.tsx
-msgid "{0, plural, one {# profile kept} other {# profiles kept}}"
-msgstr "{0, plural, other {# 件のプロファイルを保持}}"
+msgid "{0, plural, one {# profile} other {# profiles}}"
+msgstr ""
 
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
@@ -801,6 +801,11 @@ msgstr "{0, plural, one {#文字以上入力してください。} other {#文�
 #: src/components/clio/question-interaction-forms.tsx
 msgid "{0, plural, one {Enter no more than # character.} other {Enter no more than # characters.}}"
 msgstr "{0, plural, one {#文字以内で入力してください。} other {#文字以内で入力してください。}}"
+
+#. placeholder {0}: focus.length
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{0, plural, one {Exclude # picked profile} other {Exclude # picked profiles}}"
+msgstr ""
 
 #. placeholder {0}: result.added.length
 #: src/components/clio/provider-model-refresh.ts
@@ -1846,6 +1851,10 @@ msgstr "{total}件中{count}件を含める"
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{count} profiles of {variable} against {vertical}, {excluded} excluded"
 msgstr "{vertical} に対する {variable} のプロファイル {count} 件、除外 {excluded} 件"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{count} profiles, {excluded} excluded"
+msgstr ""
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{count} rejected"
@@ -6355,6 +6364,10 @@ msgstr "解析"
 msgid "Analysis: <0>{0}</0>"
 msgstr "解析：<0>{0}</0>"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "and {more} more"
+msgstr ""
+
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Angle"
 msgstr "角度"
@@ -9741,6 +9754,10 @@ msgstr "ターミナルをクリア"
 #: src/components/clio/a2ui-steps.tsx
 msgid "Clear timer for {title}"
 msgstr "{title}のタイマーをクリア"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Click a curve to pick it."
+msgstr ""
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Click a point to select it. {primary}-click selects its curve. Shift-click toggles a point; {primaryShift}-click merges or removes a curve. Drag selects points; {primary}-drag selects curves. {alt}-drag pans and {primary}-scroll zooms."
@@ -15007,8 +15024,12 @@ msgid "Excerpt {number}"
 msgstr "抜粋{number}"
 
 #: src/components/clio/a2ui-profile-stack.tsx
-msgid "Exclude selected"
-msgstr "選択項目を除外"
+msgid "Exclude"
+msgstr ""
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Excluded profiles"
+msgstr ""
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -18980,6 +19001,7 @@ msgstr "最新に移動"
 msgid "Kafka topic"
 msgstr "Kafkaトピック"
 
+#: src/components/clio/a2ui-profile-stack.tsx
 #: src/components/clio/primitives/row-confirm.tsx
 #: src/components/clio/settings-access-rule-row.tsx
 #: src/components/clio/settings-model-server-row.tsx
@@ -26144,6 +26166,10 @@ msgstr "試行を選択"
 #: src/components/clio/flow-diagram-source.ts
 msgid "picked entry {winner}"
 msgstr "エントリー{winner}を選択"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Picked profile"
+msgstr ""
 
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx
@@ -33409,10 +33435,6 @@ msgstr "{total}行中{shown}行を表示しています（{method}でダウン�
 #: src/components/clio/table-query-rows.ts
 msgid "Showing {shown} of {total} rows."
 msgstr "{total}行中{shown}行を表示しています。"
-
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "Showing 500 of {count}; search to narrow."
-msgstr "{count} 件中 500 件を表示中。検索で絞り込めます。"
 
 #: src/components/clio/workbench-resource-browser.tsx
 msgid "Showing part of this workspace; filter to find the rest."
