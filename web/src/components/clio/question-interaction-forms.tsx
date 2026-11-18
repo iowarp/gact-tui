@@ -123,7 +123,11 @@ function urlOriginTrust(payload: PendingInteraction['payload']): string | undefi
   // The plugin's one display name ("Demo scheduler"); its ids stay out of the sentence.
   const name =
     payload?.plugin || payload?.server
-      ? serverOwnerName({ plugin: payload.plugin ?? '', server: payload.server ?? '' })
+      ? serverOwnerName({
+          plugin: payload.plugin ?? '',
+          plugin_title: payload.plugin_title,
+          server: payload.server ?? '',
+        })
       : '';
   switch (payload?.origin_trust) {
     case 'configured':

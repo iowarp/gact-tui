@@ -74,11 +74,14 @@ export type ServerActionResult =
   | { kind: 'quiet'; message: string };
 
 /**
- * The one name a plugin's server goes by for the person: its plugin, read as
- * words. The plugin and server ids stay under Technical details.
+ * The one name a plugin's server goes by for the person: the plugin's declared
+ * display name, else its id read as words. The plugin and server ids stay under
+ * Technical details.
  */
-export function serverOwnerName(owner: Pick<A2UISurfaceOwner, 'plugin' | 'server'>): string {
-  return humanizePluginId(owner.plugin || owner.server);
+export function serverOwnerName(
+  owner: Pick<A2UISurfaceOwner, 'plugin' | 'server' | 'plugin_title'>,
+): string {
+  return owner.plugin_title?.trim() || humanizePluginId(owner.plugin || owner.server);
 }
 
 /**

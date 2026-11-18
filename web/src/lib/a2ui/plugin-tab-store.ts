@@ -93,6 +93,7 @@ export async function openPluginTab(
     const owner: A2UISurfaceOwner = {
       kind: 'server',
       plugin: result.tab.plugin,
+      plugin_title: result.tab.plugin_title,
       server: result.tab.server,
       namespace: '',
     };

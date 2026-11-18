@@ -6,8 +6,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
 import { openPluginTab, usePluginTabState } from '@/lib/a2ui/plugin-tab-store';
-import { serverSurfaceReason } from '@/lib/a2ui/server-surface';
-import { humanizePluginId } from '@/lib/plugin-presentation';
+import { serverOwnerName, serverSurfaceReason } from '@/lib/a2ui/server-surface';
 import { ClioA2UISurface } from './a2ui-surface';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
@@ -139,7 +138,20 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
           />
         }
         label={t`${ph({ label })} actions`}
-        where={<FrameCrumbs parts={[{ label: humanizePluginId(tab.plugin) }, { label }]} />}
+        where={
+          <FrameCrumbs
+            parts={[
+              {
+                label: serverOwnerName({
+                  plugin: tab.plugin,
+                  plugin_title: state?.owner?.plugin_title || tab.pluginTitle,
+                  server: '',
+                }),
+              },
+              { label },
+            ]}
+          />
+        }
       />
       {body}
     </section>

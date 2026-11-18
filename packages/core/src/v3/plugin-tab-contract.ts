@@ -31,6 +31,8 @@ export const pluginTabSchema = z
     /** `<plugin>/<tab>`. */
     id: z.string(),
     plugin: z.string(),
+    /** The plugin's display name, when it declares one. */
+    plugin_title: z.string().default(''),
     title: z.string(),
     /** A Lucide icon name; an unknown name shows a generic icon. */
     icon: z.string().default(''),
@@ -141,6 +143,8 @@ export function decodePluginTabEvent(type: string, payload: unknown): PluginTabE
 /** HS1: a server's A2UI payload CLIO would not show. */
 export interface A2uiServerSurfaceRefusal {
   plugin: string;
+  /** The plugin's display name, when it declares one. */
+  plugin_title?: string;
   server: string;
   tool: string;
   uri: string;
@@ -156,6 +160,7 @@ export function decodeA2uiServerSurfaceRefusal(
   const parsed = z
     .object({
       plugin: z.string().default(''),
+      plugin_title: z.string().default(''),
       server: z.string().default(''),
       tool: z.string().default(''),
       uri: z.string().default(''),
@@ -167,6 +172,7 @@ export function decodeA2uiServerSurfaceRefusal(
   return parsed.success
     ? {
         plugin: parsed.data.plugin,
+        plugin_title: parsed.data.plugin_title,
         server: parsed.data.server,
         tool: parsed.data.tool,
         uri: parsed.data.uri,

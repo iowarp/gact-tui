@@ -36,8 +36,12 @@ import {
 } from './dashboard-report.js';
 import { A2UI_VERSION } from './protocol-versions.js';
 
-/** Both action routes refuse (406) a request that does not name its A2UI version. */
-const A2UI_ACTION_HEADERS = { 'x-a2ui-version': `v${A2UI_VERSION}` } as const;
+/**
+ * Both action routes refuse (406) a request that does not name its A2UI version. The
+ * header is the bare negotiation version ("0.9.1"); only the message envelope spells it
+ * "v0.9.1", and the server refuses the envelope spelling here.
+ */
+const A2UI_ACTION_HEADERS = { 'x-a2ui-version': A2UI_VERSION } as const;
 
 /** `<plugin>/<tab>` keeps its slash: the route has a segment for each. */
 function pluginTabPath(sessionId: string, tabId: string): string {

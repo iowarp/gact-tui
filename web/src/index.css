@@ -396,6 +396,7 @@
   --a2ui-card-padding: 0.75rem 1rem;
   --a2ui-color-on-surface: var(--card-foreground);
   --a2ui-text-caption-color: var(--muted-foreground);
+  --a2ui-checkbox-color-error: var(--destructive);
 }
 
 /* A caption is a Text whose markdown is one emphasis run (`<span><em>`): set
@@ -590,6 +591,25 @@
   padding-block: 0.5rem;
   resize: vertical;
   field-sizing: content;
+}
+
+/* A field whose `checks` fail: the upstream TextField renders its first
+   validation error as a classless `<span>` right after the input. Set it as
+   `components/ui/field.tsx`'s FieldError, and mark the input the way
+   `input.tsx` marks `aria-invalid`, so a server's form error is not read as
+   one more caption. */
+[data-slot='a2ui-surface-root'] :is(input[type], textarea):has(+ span) {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 20%, transparent);
+}
+
+[data-slot='a2ui-surface-root'] :is(input, textarea) + span {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+  color: var(--destructive);
 }
 
 [data-slot='a2ui-surface-root'] input[type='text']::placeholder,

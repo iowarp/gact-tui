@@ -707,6 +707,8 @@ export const a2uiSurfaceSchema = z.object({
     .object({
       kind: forwardCompatibleEnum(['server']),
       plugin: z.string(),
+      /** The plugin's display name, when it declares one. */
+      plugin_title: z.string().optional(),
       server: z.string(),
       namespace: z.string(),
     })

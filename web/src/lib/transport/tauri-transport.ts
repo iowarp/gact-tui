@@ -111,10 +111,7 @@ export class TauriClioTransport implements ClioTransport {
         req: {
           method: request.method,
           url: endpointUrl(this.endpoint, request.path),
-          headers: {
-            ...this.headers('application/json'),
-            ...request.headers,
-          },
+          headers: mergeHeaders(this.headers('application/json'), request.headers),
           timeout_ms: requestTimeoutMs(request),
           ...requestBody,
         },
@@ -253,6 +250,26 @@ export class TauriClioTransport implements ClioTransport {
     if (cursor) headers['Last-Event-ID'] = cursor;
     return headers;
   }
+}
+
+/**
+ * The request's own headers win over the defaults, matched without case: the
+ * native bridge holds headers in an unordered map and sets them by name, so
+ * `X-A2UI-Version` and `x-a2ui-version` side by side would send either one.
+ */
+function mergeHeaders(
+  defaults: Record<string, string>,
+  overrides: Record<string, string> | undefined,
+): Record<string, string> {
+  if (!overrides) return defaults;
+  const merged = { ...defaults };
+  for (const [name, value] of Object.entries(overrides)) {
+    for (const existing of Object.keys(merged)) {
+      if (existing.toLowerCase() === name.toLowerCase()) delete merged[existing];
+    }
+    merged[name] = value;
+  }
+  return merged;
 }
 
 /**

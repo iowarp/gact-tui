@@ -139,6 +139,8 @@ export interface PluginTabTarget {
   sessionId: string;
   tabId: string;
   plugin: string;
+  /** The plugin's display name from the tab list; empty when it declares none. */
+  pluginTitle?: string;
   /** A Lucide icon name from the plugin's manifest. */
   icon: string;
 }

@@ -58,6 +58,8 @@ export interface PendingInteractionPayload {
   origin?: string;
   origin_trust?: WireValue<'configured' | 'plugin_origin' | 'plugin_loopback'>;
   plugin?: string;
+  /** The plugin's display name, when it declares one. */
+  plugin_title?: string;
   server?: string;
   expires_at?: string;
   input_key?: string;

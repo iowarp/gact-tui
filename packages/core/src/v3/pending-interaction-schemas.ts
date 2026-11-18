@@ -134,6 +134,8 @@ export const pendingInteractionSchema = z.object({
         'plugin_loopback',
       ]).optional(),
       plugin: z.string().optional(),
+      /** The plugin's display name, when it declares one. */
+      plugin_title: z.string().optional(),
       server: z.string().optional(),
       expires_at: z.string().optional(),
       input_key: z.string().optional(),

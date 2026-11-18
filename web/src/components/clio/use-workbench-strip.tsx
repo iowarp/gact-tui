@@ -122,6 +122,7 @@ export function useWorkbenchStrip({
       sessionId,
       tabId: offered.id,
       plugin: offered.plugin,
+      pluginTitle: offered.plugin_title,
       icon: offered.icon,
     });
     const id = `plugin:${offered.id}` as const;

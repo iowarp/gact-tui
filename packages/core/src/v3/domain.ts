@@ -662,6 +662,8 @@ export interface A2UISurface {
 export interface A2UISurfaceOwner {
   kind: WireValue<'server'>;
   plugin: string;
+  /** The plugin's display name, when it declares one; else its id is read as words. */
+  plugin_title?: string;
   server: string;
   namespace: string;
 }
