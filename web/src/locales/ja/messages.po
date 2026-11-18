@@ -1486,7 +1486,7 @@ msgstr "{colormap}カラースケール"
 
 #: src/components/clio/a2ui-choice-table.tsx
 msgid "{column} for {name}"
-msgstr "{name} ?{column}"
+msgstr "{name} の{column}"
 
 #: src/components/clio/a2ui-choice-table.tsx
 msgid "{column}: {name}"
@@ -3969,7 +3969,7 @@ msgstr "{title}の詳細"
 
 #: src/components/clio/navigation-plugin-pages.tsx
 msgid "{title} is unavailable"
-msgstr "{title} ????????"
+msgstr "{title} は利用できません"
 
 #: src/components/clio/workbench-list-column.tsx
 msgid "{title} list"
@@ -36784,7 +36784,7 @@ msgstr "プラグインの変更はエージェントのシステムプロンプ
 
 #: src/routes/plugin-page.tsx
 msgid "The plugin that added this page may have been removed."
-msgstr "??????????????????????????????"
+msgstr "このページを追加したプラグインは削除された可能性があります。"
 
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
@@ -38322,7 +38322,7 @@ msgstr "このページはお使いのブラウザーで開いています。信
 
 #: src/routes/plugin-page.tsx
 msgid "This page is not available"
-msgstr "?????????????"
+msgstr "このページは利用できません"
 
 #: src/components/clio/service-management-confirm-dialog.tsx
 msgid "This permanently deletes this deployment’s databases, environment cache, logs and captured evidence. Separately downloaded models are retained."

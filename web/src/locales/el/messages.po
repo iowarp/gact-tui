@@ -1486,7 +1486,7 @@ msgstr "Χρωματική κλίμακα {colormap}"
 
 #: src/components/clio/a2ui-choice-table.tsx
 msgid "{column} for {name}"
-msgstr "{column} ??? {name}"
+msgstr "{column} για {name}"
 
 #: src/components/clio/a2ui-choice-table.tsx
 msgid "{column}: {name}"
@@ -3969,7 +3969,7 @@ msgstr "Λεπτομέρειες {title}"
 
 #: src/components/clio/navigation-plugin-pages.tsx
 msgid "{title} is unavailable"
-msgstr "?? {title} ??? ????? ?????????"
+msgstr "Το {title} δεν είναι διαθέσιμο"
 
 #: src/components/clio/workbench-list-column.tsx
 msgid "{title} list"
@@ -36784,7 +36784,7 @@ msgstr "Οι αλλαγές πρόσθετων βρίσκονται πλέον �
 
 #: src/routes/plugin-page.tsx
 msgid "The plugin that added this page may have been removed."
-msgstr "?? ???????? ??? ???????? ???? ?? ?????? ?????? ?? ???? ?????????."
+msgstr "Το πρόσθετο που πρόσθεσε αυτή τη σελίδα μπορεί να έχει αφαιρεθεί."
 
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
@@ -38322,7 +38322,7 @@ msgstr "Αυτή η σελίδα βρίσκεται στο δικό σας πρ�
 
 #: src/routes/plugin-page.tsx
 msgid "This page is not available"
-msgstr "???? ? ?????? ??? ????? ?????????"
+msgstr "Αυτή η σελίδα δεν είναι διαθέσιμη"
 
 #: src/components/clio/service-management-confirm-dialog.tsx
 msgid "This permanently deletes this deployment’s databases, environment cache, logs and captured evidence. Separately downloaded models are retained."
