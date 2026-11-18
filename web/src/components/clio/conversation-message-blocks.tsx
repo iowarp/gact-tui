@@ -127,6 +127,7 @@ export function DeferredA2UISurface({
   return (
     <div
       aria-label={renderSurface ? undefined : t`${ph({ a2ui: PROTOCOL.a2ui })} surface`}
+      className="min-w-0 max-w-full"
       data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
       {...tourAnchor('interactive-surface')}
       onFocusCapture={() => setHasInteracted(true)}

@@ -1,5 +1,6 @@
 import { t } from '@lingui/core/macro';
 import { TransportError, type A2UISurfaceOwner, type A2uiActionReply } from '@clio/core/v3';
+import { humanizePluginId } from '@/lib/plugin-presentation';
 
 /** The HS1 and HS3 reasons a plugin's server's view is refused or a tab is empty. */
 export function serverSurfaceReason(reason: string): string | undefined {
@@ -68,14 +69,42 @@ export function serverActionFailure(error: unknown, server: string): ServerActio
 }
 
 export type ServerActionResult =
-  | { kind: 'error'; message: string }
+  | { kind: 'error'; message: string; detail?: string }
   | { kind: 'running'; message: string }
   | { kind: 'quiet'; message: string };
+
+/**
+ * The one name a plugin's server goes by for the person: its plugin, read as
+ * words. The plugin and server ids stay under Technical details.
+ */
+export function serverOwnerName(owner: Pick<A2UISurfaceOwner, 'plugin' | 'server'>): string {
+  return humanizePluginId(owner.plugin || owner.server);
+}
+
+/**
+ * What an action did, for "Couldn't …": the control's own label ("Cancel")
+ * and, when the action names one target ("train-ensemble"), that target.
+ */
+export function serverActionSubject(
+  label: string | undefined,
+  action: { name: string; context?: Record<string, unknown> },
+): string {
+  const verb = (label?.trim() || action.name.replace(/[_/-]+/gu, ' ')).replace(
+    /^(\p{Lu})(?=\p{Ll})/u,
+    (letter) => letter.toLowerCase(),
+  );
+  const targets = Object.values(action.context ?? {}).filter(
+    (value): value is string => typeof value === 'string' && value.length > 0 && value.length <= 40,
+  );
+  const target = targets.length === 1 ? targets[0] : undefined;
+  return target && !verb.includes(target) ? `${verb} ${target}` : verb;
+}
 
 /** What an HS2 reply tells the person; an applied change shows in the view itself. */
 export function serverActionResult(
   reply: A2uiActionReply | void,
   server: string,
+  subject?: string,
 ): ServerActionResult | undefined {
   if (!reply || reply.destination !== 'server') return undefined;
   switch (reply.outcome) {
@@ -83,9 +112,8 @@ export function serverActionResult(
       const text = reply.error_text?.trim();
       return {
         kind: 'error',
-        message: text
-          ? t`${server} reported a problem: ${text}`
-          : t`${server} reported a problem with this action.`,
+        message: subject ? t`Couldn't ${subject}` : t`${server} couldn't complete this action`,
+        detail: text || undefined,
       };
     }
     case 'task_pending':

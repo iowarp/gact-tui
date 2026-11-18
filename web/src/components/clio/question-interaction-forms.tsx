@@ -170,7 +170,7 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
   };
 
   return (
-    <QuestionFrame {...props}>
+    <QuestionFrame {...props} escapeAnswers>
       {interaction.payload?.punycode_warning ? (
         <AskSection
           className="mt-1 flex min-w-0 items-center gap-1.5 text-meta text-warning"

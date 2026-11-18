@@ -6,6 +6,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { openPluginTab, usePluginTabState } from '@/lib/a2ui/plugin-tab-store';
 import { serverSurfaceReason } from '@/lib/a2ui/server-surface';
+import { humanizePluginId } from '@/lib/plugin-presentation';
 import { ClioA2UISurface } from './a2ui-surface';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
@@ -80,7 +81,7 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
     );
   else
     body = (
-      <div className="clio-scrollbar min-h-0 flex-1 overflow-y-auto">
+      <div className="clio-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         <div className="flex w-full min-w-0 flex-col gap-4 px-4 py-3">
           {unavailable ? (
             <p
@@ -127,7 +128,7 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
           />
         }
         label={t`${ph({ label })} actions`}
-        where={<FrameCrumbs parts={[{ label: tab.plugin }, { label }]} />}
+        where={<FrameCrumbs parts={[{ label: humanizePluginId(tab.plugin) }, { label }]} />}
       />
       {body}
     </section>

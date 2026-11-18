@@ -17,6 +17,7 @@ import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
 import { streamNoticeForFrame } from '@/lib/streaming/stream-notices';
+import { dispatchServerSurfaceRefusalFrame } from '@/lib/a2ui/server-surface-refusals';
 import { LiveSourceRefresher } from '@/lib/streaming/live-source-updates';
 import { ScienceEntryMerger } from '@/lib/streaming/science-log-updates';
 import { taskUpdateForFrame } from '@/lib/streaming/task-updates';
@@ -218,6 +219,7 @@ export function useSessionLiveStream({
             dispatchFileViewLookFrame(frame);
             dispatchMcpAppClosedFrame(frame);
             dispatchPluginTabFrame(frame, sessionId);
+            dispatchServerSurfaceRefusalFrame(frame, sessionId);
             if (frame.eventName === 'stream.gap') rereadPluginTabs(sessionId);
             if (frame.eventName === 'message.completed') {
               batcher.flush();

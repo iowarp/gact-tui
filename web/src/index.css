@@ -385,6 +385,43 @@
    CLIO treatment inside generated surfaces only. */
 [data-slot='a2ui-surface-root'] {
   container-type: inline-size;
+  /* The basic catalog's Card reads these; unset it is a cold grey slab with a
+     drop shadow and an 8px margin that pushes it off the column's edge. The
+     spec's card is the app's own: card surface, hairline border, no shadow. */
+  --a2ui-card-background: var(--card);
+  --a2ui-card-border: 1px solid var(--border);
+  --a2ui-card-border-radius: var(--radius-lg);
+  --a2ui-card-box-shadow: none;
+  --a2ui-card-margin: 0;
+  --a2ui-card-padding: 0.75rem 1rem;
+  --a2ui-color-on-surface: var(--card-foreground);
+  --a2ui-text-caption-color: var(--muted-foreground);
+}
+
+/* A caption is a Text whose markdown is one emphasis run (`<span><em>`): set
+   it as the spec's meta line, not 16px italic. */
+[data-slot='a2ui-surface-root'] span > em:only-child {
+  font-style: normal;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--muted-foreground);
+}
+
+/* A Row of buttons or facts wraps instead of pushing the surface wider than
+   its column. A horizontal List scrolls on purpose and keeps its single line. */
+[data-slot='a2ui-surface-root']
+  div:is([style*='flex-direction: row'], [style*='flex-direction:row']):not(
+    [style*='overflow-x']
+  ) {
+  flex-wrap: wrap;
+}
+
+/* A press the owning server is still working on, and every control of a
+   server view that can no longer send, stay visible but cannot be pressed. */
+[data-slot='a2ui-surface-root'] button[data-a2ui-pending],
+[data-slot='a2ui-surface-root'][data-a2ui-actions='off'] button {
+  pointer-events: none;
+  opacity: 0.5;
 }
 
 /* A generated Row can hold a map and table with equal weight, but two

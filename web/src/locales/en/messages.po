@@ -3549,6 +3549,10 @@ msgid "{sentence}; {source} says {left} left"
 msgstr "{sentence}; {source} says {left} left"
 
 #: src/lib/a2ui/server-surface.ts
+msgid "{server} couldn't complete this action"
+msgstr "{server} couldn't complete this action"
+
+#: src/lib/a2ui/server-surface.ts
 msgid "{server} does not let this view run that action."
 msgstr "{server} does not let this view run that action."
 
@@ -3567,14 +3571,6 @@ msgstr "{server} is still working on it"
 #: src/lib/command-table.ts
 msgid "{server} prompts"
 msgstr "{server} prompts"
-
-#: src/lib/a2ui/server-surface.ts
-msgid "{server} reported a problem with this action."
-msgstr "{server} reported a problem with this action."
-
-#: src/lib/a2ui/server-surface.ts
-msgid "{server} reported a problem: {text}"
-msgstr "{server} reported a problem: {text}"
 
 #: src/lib/a2ui/server-surface.ts
 msgid "{server} sent a view that was refused. {reason}"
@@ -4604,7 +4600,7 @@ msgstr "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
 msgid "A plugin with {kinds}. Adding it to a conversation brings both."
 msgstr "A plugin with {kinds}. Adding it to a conversation brings both."
 
-#: src/lib/streaming/stream-notices.ts
+#: src/components/clio/server-surface-refusal-row.tsx
 msgid "A plugin's view was not shown"
 msgstr "A plugin's view was not shown"
 
@@ -4709,9 +4705,9 @@ msgstr "A tool's read-only flag and its own I/O default are known once a convers
 msgid "A typed number of tokens"
 msgstr "A typed number of tokens"
 
-#: src/lib/streaming/stream-notices.ts
-msgid "A view from {server} was not shown"
-msgstr "A view from {server} was not shown"
+#: src/components/clio/server-surface-refusal-row.tsx
+msgid "A view from {name} was not shown"
+msgstr "A view from {name} was not shown"
 
 #: src/components/clio/document-workspace.tsx
 msgid "A working copy is open; stable saves become revisions."
@@ -5624,6 +5620,7 @@ msgstr "Additional folders"
 #: src/components/clio/mcp-connection-details.tsx
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/provenance-connections.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/service-management-facts.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
@@ -9982,6 +9979,7 @@ msgstr "Cloud and subscription providers are set up from the model picker."
 
 #: src/components/clio/a2ui-presentation.ts
 #: src/components/clio/plugin-tool-settings-text.ts
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-folders-model.ts
 #: src/widget-gallery-demos.ts
 msgid "Code"
@@ -12275,6 +12273,10 @@ msgstr "Could not trust source"
 #: src/components/clio/provider-model-refresh.ts
 msgid "Could not update the provider client."
 msgstr "Could not update the provider client."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Couldn't {subject}"
+msgstr "Couldn't {subject}"
 
 #: src/components/clio/attention-update-rows.tsx
 msgid "Couldn't check for updates"
@@ -16500,13 +16502,13 @@ msgstr "from {marketplace}"
 msgid "From {marketplace}"
 msgstr "From {marketplace}"
 
+#: src/components/clio/a2ui-surface.tsx
+msgid "From {name}"
+msgstr "From {name}"
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "from {profile}"
 msgstr "from {profile}"
-
-#: src/components/clio/a2ui-surface.tsx
-msgid "From {server} in the {plugin} plugin"
-msgstr "From {server} in the {plugin} plugin"
 
 #: src/lib/model-capability-tags.ts
 msgid "From {source}."
@@ -21953,6 +21955,10 @@ msgstr "named for this call"
 msgid "Named in the prompt; the agent loads their details with a tool search before using them."
 msgstr "Named in the prompt; the agent loads their details with a tool search before using them."
 
+#: src/components/clio/a2ui-surface.tsx
+msgid "Namespace"
+msgstr "Namespace"
+
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/permission-operation-details.tsx
 msgid "National Data Platform"
@@ -26345,11 +26351,13 @@ msgstr "Plot the vertical displacement at station BKL1."
 msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr "Plots, tables and reports show up as file cards in the conversation."
 
+#: src/components/clio/a2ui-surface.tsx
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
@@ -30008,6 +30016,7 @@ msgid "Retrieval"
 msgstr "Retrieval"
 
 #: src/components/clio/a2ui-mcp-app.tsx
+#: src/components/clio/a2ui-surface.tsx
 #: src/components/clio/agent-composition-view.tsx
 #: src/components/clio/agent-item-details.tsx
 #: src/components/clio/archived-sessions-dialog.tsx
@@ -32396,6 +32405,11 @@ msgstr "Separate browser"
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Separate values with commas"
 msgstr "Separate values with commas"
+
+#: src/components/clio/a2ui-surface.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
+msgid "Server"
+msgstr "Server"
 
 #: src/components/clio/settings-add-server-dialog.tsx
 msgid "Server address"
@@ -35537,6 +35551,7 @@ msgstr "Tasks and processes"
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/plugin-review-dialog.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-model-server-details.tsx
 #: src/components/clio/settings-operations.tsx
@@ -37555,7 +37570,7 @@ msgstr "The view could not be opened: {reason}"
 msgid "The view could not open"
 msgstr "The view could not open"
 
-#: src/lib/streaming/stream-notices.ts
+#: src/components/clio/server-surface-refusal-row.tsx
 msgid "The view did not meet the rules for plugin views."
 msgstr "The view did not meet the rules for plugin views."
 
@@ -38897,6 +38912,7 @@ msgstr "Took"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/tool-technical-details.tsx

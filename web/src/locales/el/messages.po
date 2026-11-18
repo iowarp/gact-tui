@@ -3550,6 +3550,10 @@ msgid "{sentence}; {source} says {left} left"
 msgstr "{sentence}· σύμφωνα με το {source} απομένουν {left}"
 
 #: src/lib/a2ui/server-surface.ts
+msgid "{server} couldn't complete this action"
+msgstr "Το {server} δεν μπόρεσε να ολοκληρώσει αυτή την ενέργεια"
+
+#: src/lib/a2ui/server-surface.ts
 msgid "{server} does not let this view run that action."
 msgstr "Ο {server} δεν επιτρέπει σε αυτή την προβολή να εκτελέσει αυτή την ενέργεια."
 
@@ -3568,14 +3572,6 @@ msgstr "Ο {server} εξακολουθεί να το επεξεργάζεται"
 #: src/lib/command-table.ts
 msgid "{server} prompts"
 msgstr "Προτροπές {server}"
-
-#: src/lib/a2ui/server-surface.ts
-msgid "{server} reported a problem with this action."
-msgstr "Ο {server} ανέφερε πρόβλημα με αυτή την ενέργεια."
-
-#: src/lib/a2ui/server-surface.ts
-msgid "{server} reported a problem: {text}"
-msgstr "Ο {server} ανέφερε πρόβλημα: {text}"
 
 #: src/lib/a2ui/server-surface.ts
 msgid "{server} sent a view that was refused. {reason}"
@@ -4605,7 +4601,7 @@ msgstr "Φάκελος πρόσθετου που περιέχει plugin.json ή
 msgid "A plugin with {kinds}. Adding it to a conversation brings both."
 msgstr "Ένα πρόσθετο με {kinds}. Η προσθήκη του σε μια συζήτηση φέρνει και τα δύο."
 
-#: src/lib/streaming/stream-notices.ts
+#: src/components/clio/server-surface-refusal-row.tsx
 msgid "A plugin's view was not shown"
 msgstr "Μια προβολή πρόσθετου δεν εμφανίστηκε"
 
@@ -4710,9 +4706,9 @@ msgstr "Η ένδειξη μόνο ανάγνωσης ενός εργαλείο�
 msgid "A typed number of tokens"
 msgstr "Ένας πληκτρολογημένος αριθμός token"
 
-#: src/lib/streaming/stream-notices.ts
-msgid "A view from {server} was not shown"
-msgstr "Μια προβολή από τον {server} δεν εμφανίστηκε"
+#: src/components/clio/server-surface-refusal-row.tsx
+msgid "A view from {name} was not shown"
+msgstr "Μια προβολή από το {name} δεν εμφανίστηκε"
 
 #: src/components/clio/document-workspace.tsx
 msgid "A working copy is open; stable saves become revisions."
@@ -5625,6 +5621,7 @@ msgstr "Πρόσθετοι φάκελοι"
 #: src/components/clio/mcp-connection-details.tsx
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/provenance-connections.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/service-management-facts.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
@@ -9983,6 +9980,7 @@ msgstr "Οι πάροχοι cloud και συνδρομής ρυθμίζοντα
 
 #: src/components/clio/a2ui-presentation.ts
 #: src/components/clio/plugin-tool-settings-text.ts
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-folders-model.ts
 #: src/widget-gallery-demos.ts
 msgid "Code"
@@ -12276,6 +12274,10 @@ msgstr "Δεν ήταν δυνατή η εμπιστοσύνη στην πηγή
 #: src/components/clio/provider-model-refresh.ts
 msgid "Could not update the provider client."
 msgstr "Δεν ήταν δυνατή η ενημέρωση του πελάτη του παρόχου."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Couldn't {subject}"
+msgstr "Δεν ήταν δυνατή η ενέργεια «{subject}»"
 
 #: src/components/clio/attention-update-rows.tsx
 msgid "Couldn't check for updates"
@@ -16501,13 +16503,13 @@ msgstr "από {marketplace}"
 msgid "From {marketplace}"
 msgstr "Από {marketplace}"
 
+#: src/components/clio/a2ui-surface.tsx
+msgid "From {name}"
+msgstr "Από το {name}"
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "from {profile}"
 msgstr "από {profile}"
-
-#: src/components/clio/a2ui-surface.tsx
-msgid "From {server} in the {plugin} plugin"
-msgstr "Από τον {server} στο πρόσθετο {plugin}"
 
 #: src/lib/model-capability-tags.ts
 msgid "From {source}."
@@ -21954,6 +21956,10 @@ msgstr "ορίστηκε για αυτή την κλήση"
 msgid "Named in the prompt; the agent loads their details with a tool search before using them."
 msgstr "Αναφέρονται ονομαστικά στην προτροπή· ο πράκτορας φορτώνει τις λεπτομέρειές τους με αναζήτηση εργαλείων πριν τα χρησιμοποιήσει."
 
+#: src/components/clio/a2ui-surface.tsx
+msgid "Namespace"
+msgstr "Χώρος ονομάτων"
+
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/permission-operation-details.tsx
 msgid "National Data Platform"
@@ -26346,11 +26352,13 @@ msgstr "Σχεδιάστε την κατακόρυφη μετατόπιση στ
 msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr "Τα γραφήματα, οι πίνακες και οι αναφορές εμφανίζονται ως κάρτες αρχείων στη συνομιλία."
 
+#: src/components/clio/a2ui-surface.tsx
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
@@ -30009,6 +30017,7 @@ msgid "Retrieval"
 msgstr "Ανάκτηση"
 
 #: src/components/clio/a2ui-mcp-app.tsx
+#: src/components/clio/a2ui-surface.tsx
 #: src/components/clio/agent-composition-view.tsx
 #: src/components/clio/agent-item-details.tsx
 #: src/components/clio/archived-sessions-dialog.tsx
@@ -32397,6 +32406,11 @@ msgstr "Ξεχωριστό πρόγραμμα περιήγησης"
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Separate values with commas"
 msgstr "Διαχωρίστε τις τιμές με κόμματα"
+
+#: src/components/clio/a2ui-surface.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
+msgid "Server"
+msgstr "Διακομιστής"
 
 #: src/components/clio/settings-add-server-dialog.tsx
 msgid "Server address"
@@ -35538,6 +35552,7 @@ msgstr "Εργασίες και διεργασίες"
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/plugin-review-dialog.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-model-server-details.tsx
 #: src/components/clio/settings-operations.tsx
@@ -37556,7 +37571,7 @@ msgstr "Δεν ήταν δυνατό το άνοιγμα της προβολής
 msgid "The view could not open"
 msgstr "Δεν ήταν δυνατό το άνοιγμα της προβολής"
 
-#: src/lib/streaming/stream-notices.ts
+#: src/components/clio/server-surface-refusal-row.tsx
 msgid "The view did not meet the rules for plugin views."
 msgstr "Η προβολή δεν πληρούσε τους κανόνες για προβολές πρόσθετων."
 
@@ -38898,6 +38913,7 @@ msgstr "Διάρκεια"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/tool-technical-details.tsx
@@ -39330,7 +39346,7 @@ msgstr "Αξιόπιστο"
 
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Trusted because"
-msgstr "Αξιόπιστο επειδή"
+msgstr "Γιατί είναι αξιόπιστο"
 
 #: src/components/clio/settings-plugins.tsx
 msgid "Trusted by you"

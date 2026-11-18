@@ -14,6 +14,7 @@ import {
   Component,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -35,8 +36,11 @@ import {
   isServerOwned,
   serverActionFailure,
   serverActionResult,
+  serverActionSubject,
+  serverOwnerName,
   type ServerActionResult,
 } from '@/lib/a2ui/server-surface';
+import { StateView } from './primitives/state-view';
 import { vocab } from '@/lib/brand-vocabulary';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { TechnicalDetails } from './technical-details';
@@ -140,6 +144,15 @@ export type A2UILocalActionHandler = (
 
 const LEGACY_LOCAL_ACTIONS = new Set(['artifact.open', 'data.select', 'workflow.focus']);
 
+/** One press sent to a surface's owner, kept so its result can name it and Retry resend it. */
+interface ServerSend {
+  action: A2uiClientAction;
+  /** The button that was pressed, held disabled while the server works on it. */
+  control?: HTMLButtonElement;
+  /** What the press does, for "Couldn't …" ("cancel train-ensemble"). */
+  subject?: string;
+}
+
 function ClioA2UISurfaceContent({
   actionLifecycle,
   onLocalAction,
@@ -174,12 +187,18 @@ function ClioA2UISurfaceContent({
   const repository = useRepository();
   const queryClient = useQueryClient();
   const serverOwner = isServerOwned(surface.owner) ? surface.owner : undefined;
+  const ownerName = serverOwner ? serverOwnerName(serverOwner) : '';
   // HS2: once the owning server is gone the view stays, read-only.
   const [serverGone, setServerGone] = useState(false);
   const readOnly = archived || serverGone;
+  // A read-only server view sends nothing: its controls are drawn disabled.
+  const actionsOff = Boolean(serverOwner) && readOnly;
   const [serverResult, setServerResult] = useState<
-    ServerActionResult & { revision: number }
+    ServerActionResult & { revision: number; send: ServerSend }
   >();
+  // The control the person last pressed, so a result can name it and a
+  // pending one can be held disabled until the server answers.
+  const pressedControl = useRef<HTMLButtonElement | null>(null);
   const signInWorkspace = useSourceSignInWorkspace();
   const sessionRegistry = useA2uiCatalogRegistry(surface.session_id);
   const { registry, catalogs, isLoading: catalogsLoading } = catalogRegistry ?? sessionRegistry;
@@ -195,8 +214,9 @@ function ClioA2UISurfaceContent({
   const [localActionPending, setLocalActionPending] = useState(false);
   const [localActionStatus, setLocalActionStatus] = useState<string>();
   const openSourceSignIn = useSourceSignIn();
-  const { error, isPending, mutateAsync } = useMutation({
-    mutationFn: async (clientAction: A2uiClientAction): Promise<A2uiActionReply | void> => {
+  const { error, isPending, mutateAsync, variables: lastSend } = useMutation({
+    mutationFn: async (send: ServerSend): Promise<A2uiActionReply | void> => {
+      const clientAction = send.action;
       const message = { version: `v${A2UI_VERSION}`, action: clientAction };
       setServerResult(undefined);
       try {
@@ -208,13 +228,13 @@ function ClioA2UISurfaceContent({
               part_id: surface.part_id,
             });
         if (serverOwner) {
-          const result = serverActionResult(reply, serverOwner.server);
-          if (result) setServerResult({ ...result, revision: surface.revision });
+          const result = serverActionResult(reply, ownerName, send.subject);
+          if (result) setServerResult({ ...result, revision: surface.revision, send });
         }
         return reply;
       } catch (actionError) {
         if (!serverOwner) throw actionError;
-        const failure = serverActionFailure(actionError, serverOwner.server);
+        const failure = serverActionFailure(actionError, ownerName);
         if (failure.serverGone) setServerGone(true);
         throw new Error(failure.message, { cause: actionError });
       }
@@ -250,7 +270,7 @@ function ClioA2UISurfaceContent({
         } catch (sourceError) {
           setLocalNotice(
             sourceError instanceof TransportError && serverOwner
-              ? serverActionFailure(sourceError, serverOwner.server).message
+              ? serverActionFailure(sourceError, ownerName).message
               : sourceError instanceof Error
                 ? sourceError.message
                 : t`Sign-in is unavailable.`,
@@ -314,21 +334,65 @@ function ClioA2UISurfaceContent({
         }
         return;
       }
-      await mutateAsync(clientAction);
+      if (!serverOwner) {
+        await mutateAsync({ action: clientAction });
+        return;
+      }
+      if (actionsOff) return;
+      // The server is still working on this control's last press: a second
+      // press would submit it twice.
+      if (
+        serverResult?.kind === 'running' &&
+        serverResult.revision === surface.revision &&
+        serverResult.send.action.sourceComponentId === clientAction.sourceComponentId
+      )
+        return;
+      const control = pressedControl.current;
+      await mutateAsync({
+        action: clientAction,
+        control: control ?? undefined,
+        subject: serverActionSubject(control?.textContent ?? undefined, clientAction),
+      });
     },
     [
+      actionsOff,
       mutateAsync,
       onLocalAction,
       onRemoteAction,
+      ownerName,
       readOnly,
       registry,
       repository,
       surface,
       openSourceSignIn,
       serverOwner,
+      serverResult,
       signInWorkspace,
     ],
   );
+  const pendingControl =
+    serverResult?.kind === 'running' && serverResult.revision === surface.revision
+      ? serverResult.send.control
+      : undefined;
+  // The processor keeps the handler it was built with; this one always runs
+  // the current handler, so a pending press or a read-only state is seen.
+  const handleActionRef = useRef(handleAction);
+  useLayoutEffect(() => {
+    handleActionRef.current = handleAction;
+  }, [handleAction]);
+  const latestHandleAction = useCallback(
+    (clientAction: A2uiClientAction) => handleActionRef.current(clientAction),
+    [],
+  );
+  useEffect(() => {
+    if (!pendingControl) return;
+    pendingControl.setAttribute('data-a2ui-pending', 'true');
+    pendingControl.setAttribute('aria-disabled', 'true');
+    return () => {
+      pendingControl.removeAttribute('data-a2ui-pending');
+      pendingControl.removeAttribute('aria-disabled');
+    };
+  }, [pendingControl]);
   const handleValidationFailed = useCallback(
     async (validationError: { code: string; path?: string; message: string }) => {
       // Only a real VALIDATION_FAILED belongs on the wire (owner decision
@@ -384,7 +448,7 @@ function ClioA2UISurfaceContent({
     surface,
     catalogs,
     catalogsLoading,
-    handleAction,
+    latestHandleAction,
     handleValidationFailed,
     !readOnly,
   );
@@ -464,6 +528,15 @@ function ClioA2UISurfaceContent({
       // div is the thing being moved in every case, so index.css scopes its
       // catalog-wide patches (ChoicePicker, TextField/Label) here instead.
       data-slot="a2ui-surface-root"
+      data-a2ui-actions={actionsOff ? 'off' : undefined}
+      onClickCapture={
+        serverOwner
+          ? (event) => {
+              pressedControl.current =
+                event.target instanceof Element ? event.target.closest('button') : null;
+            }
+          : undefined
+      }
       ref={visualRoot}
     >
       <MarkdownContext.Provider value={renderMarkdown}>
@@ -505,10 +578,41 @@ function ClioA2UISurfaceContent({
           {t`The service could not record the rendering problem: ${ph({ message: validationPostFailure.message })}`}
         </p>
       ) : null}
-      {error ? <p className="py-2 text-xs text-destructive">{error.message}</p> : null}
+      {error ? (
+        serverOwner ? (
+          <StateView
+            action={
+              lastSend && !actionsOff
+                ? { label: t`Retry`, onClick: () => void mutateAsync(lastSend).catch(() => {}) }
+                : undefined
+            }
+            className="py-1"
+            kind="error"
+            size="row"
+            title={error.message}
+          />
+        ) : (
+          <p className="py-2 text-xs text-destructive">{error.message}</p>
+        )
+      ) : null}
       {serverResult?.revision === surface.revision ? (
         serverResult.kind === 'error' ? (
-          <p className="py-2 text-xs text-destructive">{serverResult.message}</p>
+          <StateView
+            action={
+              actionsOff
+                ? undefined
+                : {
+                    label: t`Retry`,
+                    onClick: () => void mutateAsync(serverResult.send).catch(() => {}),
+                  }
+            }
+            className="py-1"
+            detail={serverResult.detail}
+            kind="error"
+            size="row"
+            title={serverResult.message}
+            wrapDetail
+          />
         ) : (
           <div aria-live="polite" className="py-2 text-xs">
             <ClioStatus
@@ -518,7 +622,7 @@ function ClioA2UISurfaceContent({
           </div>
         )
       ) : null}
-      {protocolNotice ? (
+      {protocolNotice && !serverOwner ? (
         <TechnicalDetails
           className="py-1 text-xs text-muted-foreground"
           hint={t`Updates reset unsent input`}
@@ -547,15 +651,32 @@ function ClioA2UISurfaceContent({
     >
       {statusNotice}
       {serverOwner && ownerAttribution ? (
-        <p
-          className="mb-1.5 flex min-w-0 items-center gap-1.5 text-meta text-muted-foreground"
-          data-slot="a2ui-surface-owner"
+        <TechnicalDetails
+          beside={
+            <span className="flex min-w-0 items-center gap-1.5">
+              <PlugIcon aria-hidden="true" className="size-3 shrink-0" />
+              <span className="truncate">{t`From ${ph({ name: ownerName })}`}</span>
+            </span>
+          }
+          className="mb-1.5 min-w-0 text-meta text-muted-foreground"
+          title={t`Technical details`}
         >
-          <PlugIcon aria-hidden="true" className="size-3 shrink-0" />
-          <span className="truncate">
-            {t`From ${ph({ server: serverOwner.server })} in the ${ph({ plugin: serverOwner.plugin })} plugin`}
-          </span>
-        </p>
+          <dl
+            className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5"
+            data-slot="a2ui-surface-owner"
+          >
+            <dt>{t`Plugin`}</dt>
+            <dd className="truncate font-mono">{serverOwner.plugin}</dd>
+            <dt>{t`Server`}</dt>
+            <dd className="truncate font-mono">{serverOwner.server}</dd>
+            {serverOwner.namespace ? (
+              <>
+                <dt>{t`Namespace`}</dt>
+                <dd className="truncate font-mono">{serverOwner.namespace}</dd>
+              </>
+            ) : null}
+          </dl>
+        </TechnicalDetails>
       ) : null}
       {renderedSurface}
       {surfaceFeedback}

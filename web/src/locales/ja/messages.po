@@ -3550,6 +3550,10 @@ msgid "{sentence}; {source} says {left} left"
 msgstr "{sentence}。{source}によると残りは{left}"
 
 #: src/lib/a2ui/server-surface.ts
+msgid "{server} couldn't complete this action"
+msgstr "{server} はこの操作を完了できませんでした"
+
+#: src/lib/a2ui/server-surface.ts
 msgid "{server} does not let this view run that action."
 msgstr "{server} はこのビューからその操作を実行することを許可していません。"
 
@@ -3568,14 +3572,6 @@ msgstr "{server} はまだ処理中です"
 #: src/lib/command-table.ts
 msgid "{server} prompts"
 msgstr "{server}のプロンプト"
-
-#: src/lib/a2ui/server-surface.ts
-msgid "{server} reported a problem with this action."
-msgstr "{server} がこの操作で問題を報告しました。"
-
-#: src/lib/a2ui/server-surface.ts
-msgid "{server} reported a problem: {text}"
-msgstr "{server} が問題を報告しました: {text}"
 
 #: src/lib/a2ui/server-surface.ts
 msgid "{server} sent a view that was refused. {reason}"
@@ -4605,7 +4601,7 @@ msgstr "plugin.jsonまたは .claude-plugin/plugin.jsonを含むプラグイン�
 msgid "A plugin with {kinds}. Adding it to a conversation brings both."
 msgstr "{kinds}を含むプラグインです。会話に追加すると両方が使えます。"
 
-#: src/lib/streaming/stream-notices.ts
+#: src/components/clio/server-surface-refusal-row.tsx
 msgid "A plugin's view was not shown"
 msgstr "プラグインのビューは表示されませんでした"
 
@@ -4710,9 +4706,9 @@ msgstr "ツールの読み取り専用フラグと独自のI/O既定値は、会
 msgid "A typed number of tokens"
 msgstr "入力したトークン数"
 
-#: src/lib/streaming/stream-notices.ts
-msgid "A view from {server} was not shown"
-msgstr "{server} からのビューは表示されませんでした"
+#: src/components/clio/server-surface-refusal-row.tsx
+msgid "A view from {name} was not shown"
+msgstr "{name} のビューは表示されませんでした"
 
 #: src/components/clio/document-workspace.tsx
 msgid "A working copy is open; stable saves become revisions."
@@ -5625,6 +5621,7 @@ msgstr "追加のフォルダー"
 #: src/components/clio/mcp-connection-details.tsx
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/provenance-connections.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/service-management-facts.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
@@ -9983,6 +9980,7 @@ msgstr "クラウドおよびサブスクリプションのプロバイダーは
 
 #: src/components/clio/a2ui-presentation.ts
 #: src/components/clio/plugin-tool-settings-text.ts
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-folders-model.ts
 #: src/widget-gallery-demos.ts
 msgid "Code"
@@ -12276,6 +12274,10 @@ msgstr "ソースを信頼できませんでした"
 #: src/components/clio/provider-model-refresh.ts
 msgid "Could not update the provider client."
 msgstr "プロバイダーのクライアントをアップデートできませんでした。"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Couldn't {subject}"
+msgstr "「{subject}」を実行できませんでした"
 
 #: src/components/clio/attention-update-rows.tsx
 msgid "Couldn't check for updates"
@@ -16501,13 +16503,13 @@ msgstr "{marketplace}から"
 msgid "From {marketplace}"
 msgstr "{marketplace} から"
 
+#: src/components/clio/a2ui-surface.tsx
+msgid "From {name}"
+msgstr "{name} から"
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "from {profile}"
 msgstr "{profile}から"
-
-#: src/components/clio/a2ui-surface.tsx
-msgid "From {server} in the {plugin} plugin"
-msgstr "{plugin} プラグインの {server} から"
 
 #: src/lib/model-capability-tags.ts
 msgid "From {source}."
@@ -21954,6 +21956,10 @@ msgstr "この呼び出しで指定"
 msgid "Named in the prompt; the agent loads their details with a tool search before using them."
 msgstr "プロンプトで名前のみ示されます。エージェントは使用前にツール検索で詳細を読み込みます。"
 
+#: src/components/clio/a2ui-surface.tsx
+msgid "Namespace"
+msgstr "名前空間"
+
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/permission-operation-details.tsx
 msgid "National Data Platform"
@@ -26346,11 +26352,13 @@ msgstr "観測点BKL1の鉛直変位をグラフにしてください。"
 msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr "グラフ、表、レポートは会話内にファイルカードとして表示されます。"
 
+#: src/components/clio/a2ui-surface.tsx
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
@@ -30009,6 +30017,7 @@ msgid "Retrieval"
 msgstr "検索取得"
 
 #: src/components/clio/a2ui-mcp-app.tsx
+#: src/components/clio/a2ui-surface.tsx
 #: src/components/clio/agent-composition-view.tsx
 #: src/components/clio/agent-item-details.tsx
 #: src/components/clio/archived-sessions-dialog.tsx
@@ -32397,6 +32406,11 @@ msgstr "別のブラウザー"
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Separate values with commas"
 msgstr "値をカンマで区切ってください"
+
+#: src/components/clio/a2ui-surface.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
+msgid "Server"
+msgstr "サーバー"
 
 #: src/components/clio/settings-add-server-dialog.tsx
 msgid "Server address"
@@ -35538,6 +35552,7 @@ msgstr "タスクとプロセス"
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/plugin-review-dialog.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-model-server-details.tsx
 #: src/components/clio/settings-operations.tsx
@@ -37556,7 +37571,7 @@ msgstr "ビューを開けませんでした: {reason}"
 msgid "The view could not open"
 msgstr "ビューを開けませんでした"
 
-#: src/lib/streaming/stream-notices.ts
+#: src/components/clio/server-surface-refusal-row.tsx
 msgid "The view did not meet the rules for plugin views."
 msgstr "このビューはプラグインビューの規則を満たしていませんでした。"
 
@@ -38898,6 +38913,7 @@ msgstr "所要時間"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/tool-technical-details.tsx

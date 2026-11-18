@@ -18,6 +18,8 @@ import {
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
+import { ServerSurfaceRefusalRow } from './server-surface-refusal-row';
+import { useServerSurfaceRefusals } from '@/lib/a2ui/server-surface-refusals';
 import { ClioCompactionProgress } from './conversation-summarization';
 import { ClioTurnPreparation } from './turn-preparation';
 import { ClioTurnWaitFeedback } from './turn-wait-feedback';
@@ -267,6 +269,7 @@ function ConversationBody({
         .sort((left, right) => left.revision - right.revision),
     [entities.interactions, entities.surfaces, referencedSurfaceIds],
   );
+  const surfaceRefusals = useServerSurfaceRefusals(entities.sessionId);
   const activeStreamingIndex = messages.findLastIndex((message) =>
     message.blocks.some(
       (block) => (block.type === 'text' || block.type === 'reasoning') && block.streaming,
@@ -645,6 +648,27 @@ function ConversationBody({
             </div>
           </>
         )}
+        {detachedSurfaces.length > 0 || surfaceRefusals.length > 0 ? (
+          <div
+            ref={autoscroll.observeContent}
+            className={`mx-auto w-full px-(--conversation-gutter) pb-4 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            data-slot="trailing-surfaces"
+          >
+            {/* The message column: a view lines up with the turn's file cards. */}
+            <div className="grid w-full min-w-0 max-w-[95%] gap-4">
+              {detachedSurfaces.map((surface) => (
+                <DeferredA2UISurface
+                  actionLifecycle={entities.actionLifecycles?.[surface.id]}
+                  key={surface.id}
+                  surface={surface}
+                />
+              ))}
+              {surfaceRefusals.map((refusal) => (
+                <ServerSurfaceRefusalRow key={refusal.id} refusal={refusal} />
+              ))}
+            </div>
+          </div>
+        ) : null}
         {preparation && emptyTranscript !== 'error' && emptyTranscript !== 'loading' ? (
           <div
             className={`mx-auto w-full px-(--conversation-gutter) ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
@@ -673,20 +697,6 @@ function ConversationBody({
           >
             {compactionPlacement.trailing.map((compaction) => (
               <ClioCompactionProgress compaction={compaction} key={compaction.compaction_id} />
-            ))}
-          </div>
-        ) : null}
-        {detachedSurfaces.length > 0 ? (
-          <div
-            ref={autoscroll.observeContent}
-            className={`mx-auto grid w-full gap-4 px-(--conversation-gutter) pb-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
-          >
-            {detachedSurfaces.map((surface) => (
-              <DeferredA2UISurface
-                actionLifecycle={entities.actionLifecycles?.[surface.id]}
-                key={surface.id}
-                surface={surface}
-              />
             ))}
           </div>
         ) : null}

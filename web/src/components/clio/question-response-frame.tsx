@@ -36,6 +36,7 @@ export function QuestionResponseFrame({
   composerOnly,
   pager,
   hints,
+  escapeAnswers,
   card,
 }: {
   children: ReactNode;
@@ -59,6 +60,11 @@ export function QuestionResponseFrame({
   pager?: AskPager;
   /** Footer hints before the composer and dismiss hints. */
   hints?: ReactNode;
+  /**
+   * The form's own answer takes Esc (a link's Decline), so the footer does not
+   * offer Esc to dismiss as well; the header's close still dismisses.
+   */
+  escapeAnswers?: boolean;
   /** Frame attributes for a card shown outside the tray (the transcript's inline question). */
   card?: QuestionFrameCard;
 }) {
@@ -118,7 +124,7 @@ export function QuestionResponseFrame({
         composerOnly={composerOnly}
         disabled={disabled}
         interaction={interaction}
-        onDismiss={dismiss}
+        onDismiss={escapeAnswers ? undefined : dismiss}
       >
         {hints}
       </QuestionFooter>
