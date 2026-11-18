@@ -10,7 +10,13 @@ import {
   PaperclipIcon,
   TerminalSquareIcon,
 } from 'lucide-react';
-import { useEffect, useEffectEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useEffectEvent,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { PluginTabIcon } from '@/lib/a2ui/plugin-tab-icons';
 import { connectionScope } from '@/lib/connection-scope';
@@ -46,6 +52,7 @@ export function useWorkbenchStrip({
   previousTab,
   sessionId,
   setActiveTabId,
+  setTabs,
   subagents,
   tabList,
 }: {
@@ -58,6 +65,7 @@ export function useWorkbenchStrip({
   previousTab?: WorkbenchTab;
   sessionId: string;
   setActiveTabId: (tabId: string) => void;
+  setTabs: Dispatch<SetStateAction<WorkbenchTab[]>>;
   subagents: readonly SubagentRun[];
   tabList: ReturnType<typeof useWorkbenchTabListSlot>;
 }) {
@@ -74,6 +82,37 @@ export function useWorkbenchStrip({
     retry: false,
     staleTime: 30_000,
   }).data;
+  // An open plugin tab follows the list: a plugin updated in place may rename
+  // its tab, its plugin or its icon.
+  useEffect(() => {
+    if (!pluginTabs) return;
+    const offeredById = new Map(pluginTabs.map((offered) => [offered.id, offered]));
+    setTabs((current) => {
+      let changed = false;
+      const next = current.map((tab) => {
+        if (tab.kind !== 'plugin' || tab.sessionId !== sessionId) return tab;
+        const offered = offeredById.get(tab.tabId);
+        if (!offered) return tab;
+        const pluginTitle = offered.plugin_title || undefined;
+        if (
+          tab.label === offered.title &&
+          (tab.pluginTitle || undefined) === pluginTitle &&
+          tab.icon === offered.icon &&
+          tab.plugin === offered.plugin
+        )
+          return tab;
+        changed = true;
+        return {
+          ...tab,
+          label: offered.title,
+          pluginTitle,
+          icon: offered.icon,
+          plugin: offered.plugin,
+        };
+      });
+      return changed ? next : current;
+    });
+  }, [pluginTabs, sessionId, setTabs]);
 
   const runningSubagents = subagents.filter((run) => RUNNING_STATES.has(run.state)).length;
   const listIsPressed = (id: WorkbenchListView) => {

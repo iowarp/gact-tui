@@ -144,7 +144,7 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
               {
                 label: serverOwnerName({
                   plugin: tab.plugin,
-                  plugin_title: state?.owner?.plugin_title || tab.pluginTitle,
+                  plugin_title: tab.pluginTitle || state?.owner?.plugin_title,
                   server: '',
                 }),
               },

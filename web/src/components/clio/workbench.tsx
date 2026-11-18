@@ -454,6 +454,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         previousTab,
         sessionId,
         setActiveTabId,
+        setTabs,
         subagents,
         tabList,
       });

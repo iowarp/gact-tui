@@ -39,10 +39,7 @@ interface PluginTabStore {
 const usePluginTabStore = create<PluginTabStore>(() => ({ tabs: {} }));
 
 /** Who to tell when a tab closes, and the read in flight, per open tab. */
-const opened = new Map<
-  string,
-  { repository: PluginTabRepository; controller?: AbortController }
->();
+const opened = new Map<string, { repository: PluginTabRepository; controller?: AbortController }>();
 
 function key(sessionId: string, tabId: string): string {
   return `${sessionId}\u0000${tabId}`;
@@ -159,6 +156,22 @@ export function rereadPluginTabs(sessionId: string): void {
   }
 }
 
+/**
+ * Whether a frame says the conversation's plugins were updated in place
+ * (`session.updated` with `reason: "plugin_updated"`): its tab list, titles
+ * and plugin names may have changed, so read them again. The open tabs'
+ * surfaces re-stream on their own.
+ */
+export function pluginsUpdatedByFrame(frame: { eventName?: string; data: unknown }): boolean {
+  if (frame.eventName !== 'session.updated') return false;
+  try {
+    const payload = decodeEventEnvelope(frame.data).payload as { reason?: unknown } | undefined;
+    return payload?.reason === 'plugin_updated';
+  } catch {
+    return false;
+  }
+}
+
 /** Applies a live `plugin_tab.*` frame to the conversation's open tab. */
 export function dispatchPluginTabFrame(
   frame: { eventName?: string; data: unknown },
@@ -215,7 +228,8 @@ export function dispatchPluginTabFrame(
         index < 0
           ? [...state.surfaces, surface]
           : state.surfaces.map((candidate, at) => (at === index ? surface : candidate));
-      return { ...state, surfaces, revision };
+      // A plugin updated in place re-streams with its new owner (and plugin_title).
+      return { ...state, surfaces, revision, owner: surface.owner ?? state.owner };
     }
     return {
       ...state,
