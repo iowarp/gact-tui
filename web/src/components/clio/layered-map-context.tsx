@@ -1,7 +1,12 @@
 import type { GeoJSONSource, MapLibreMap } from 'maplibre-gl';
 import { useEffect, useState } from 'react';
 import { readThemeColor } from '@/theme/runtime';
-import { degreesLabel, graticuleLines, MAX_POINT_LABELS } from './layered-map-graticule';
+import {
+  degreesLabel,
+  graticuleLines,
+  MAX_POINT_LABELS,
+  withoutOverlaps,
+} from './layered-map-graticule';
 
 /**
  * Geographic context for the layered map: latitude and longitude lines with their
@@ -100,10 +105,12 @@ export function LayeredMapContext({
           .map(({ lat, y }) => ({ key: `lat${lat}`, text: degreesLabel(lat, 'lat'), x: 4, y })),
       ]);
       setPlaced(
-        labels.slice(0, MAX_POINT_LABELS).map((label) => {
-          const point = map.project([label.longitude, label.latitude]);
-          return { key: label.key, text: label.text, x: point.x, y: point.y };
-        }),
+        withoutOverlaps(
+          labels.slice(0, MAX_POINT_LABELS).map((label) => {
+            const point = map.project([label.longitude, label.latitude]);
+            return { key: label.key, text: label.text, x: point.x, y: point.y };
+          }),
+        ),
       );
     };
     // The style may still be loading at first, or be replaced (a theme change): the

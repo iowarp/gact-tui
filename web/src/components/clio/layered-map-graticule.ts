@@ -44,3 +44,34 @@ export function graticuleLines(
   }));
   return { collection: { type: 'FeatureCollection', features }, lons, lats };
 }
+
+/** A name as drawn beside its point: 7 px right of it, about 6 px per character, and
+ * 4 px of clear space after it so neighbouring names do not read as one. */
+interface PlacedName {
+  key: string;
+  text: string;
+  x: number;
+  y: number;
+}
+
+function box(name: PlacedName): [number, number, number, number] {
+  const left = name.x + 7;
+  return [left, name.y - 8, left + name.text.length * 6 + 12, name.y + 8];
+}
+
+/**
+ * The names that can be drawn without covering one another, in order: a name whose
+ * box overlaps one already kept is left out (it stays in the table and on hover), so
+ * the names that are drawn can be read.
+ */
+export function withoutOverlaps<T extends PlacedName>(names: readonly T[]): T[] {
+  const kept: T[] = [];
+  const boxes: [number, number, number, number][] = [];
+  for (const name of names) {
+    const [l, t, r, b] = box(name);
+    if (boxes.some(([l2, t2, r2, b2]) => l < r2 && l2 < r && t < b2 && t2 < b)) continue;
+    kept.push(name);
+    boxes.push([l, t, r, b]);
+  }
+  return kept;
+}
