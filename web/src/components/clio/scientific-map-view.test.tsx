@@ -1,4 +1,4 @@
-import { act, fireEvent, render, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -122,6 +122,8 @@ function stubContainerRect(element: Element) {
 }
 
 afterEach(() => {
+  // Unmount every view so its draw timers cannot fire after the environment is torn down.
+  cleanup();
   archiveMode.current = false;
   vi.clearAllMocks();
   fakeMap.__sources.clear();
