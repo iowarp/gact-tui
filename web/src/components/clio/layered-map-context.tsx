@@ -40,6 +40,10 @@ export function LayeredMapContext({
   const [edges, setEdges] = useState<EdgeLabel[]>([]);
   const [placed, setPlaced] = useState<{ key: string; text: string; x: number; y: number }[]>([]);
   useEffect(() => {
+    // The lines last written: a write repaints the map, so it happens only when they
+    // change, never on the map's own repaint events (that would never let it settle,
+    // and a capture of the view would wait for it forever).
+    let drawn = '';
     const update = () => {
       const bounds = map.getBounds();
       const { collection, lons, lats } = graticuleLines(
@@ -48,9 +52,13 @@ export function LayeredMapContext({
         bounds.getEast(),
         bounds.getNorth(),
       );
+      const key = `${lons.join(',')}|${lats.join(',')}`;
       const source = map.getSource(GRATICULE_SOURCE) as GeoJSONSource | undefined;
-      if (source) source.setData(collection);
-      else if (map.getStyle()?.layers) {
+      if (source) {
+        if (key !== drawn) source.setData(collection);
+        drawn = key;
+      } else if (map.getStyle()?.layers) {
+        drawn = key;
         map.addSource(GRATICULE_SOURCE, { type: 'geojson', data: collection });
         // First in the stack, so every data layer draws above the lines.
         const below = map
@@ -98,17 +106,21 @@ export function LayeredMapContext({
         }),
       );
     };
+    // The style may still be loading at first, or be replaced (a theme change): the
+    // lines are added once it is ready, and only when they are missing.
+    const ensure = () => {
+      if (!map.getSource(GRATICULE_SOURCE)) update();
+    };
     update();
     map.on('move', update);
-    map.on('styledata', update);
     map.on('resize', update);
-    // The style may still be loading at first; the lines are added once it is idle.
-    map.on('idle', update);
+    map.on('styledata', ensure);
+    map.on('idle', ensure);
     return () => {
-      map.off('idle', update);
       map.off('move', update);
-      map.off('styledata', update);
       map.off('resize', update);
+      map.off('styledata', ensure);
+      map.off('idle', ensure);
     };
   }, [labels, map]);
   useEffect(
