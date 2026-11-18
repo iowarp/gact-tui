@@ -1,4 +1,8 @@
-import { connectorSetupPayload, type PendingInteraction } from '@clio/core/v3';
+import {
+  connectorSetupPayload,
+  type PendingInteraction,
+  type PluginChangeApply,
+} from '@clio/core/v3';
 import { ChevronRightIcon, PlugIcon, PuzzleIcon } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { useConnector, useSessionConnector } from '@/hooks/use-connectors';
@@ -8,6 +12,13 @@ import { bringsMoreThanItsServer } from '@/lib/connector-plugin';
 import { humanizePluginId } from '@/lib/plugin-presentation';
 import { offerContentsLine } from '@/lib/plugin-offer-contents';
 import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { AskBody, AskButton, AskCard, AskError, AskOptions, AskSection } from './ask-card';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
@@ -37,6 +48,28 @@ const ConnectorViewDialog = lazy(() =>
  * puts it in this conversation only, turning a connector on first when it is off, and
  * the agent's request continues; Not now refuses.
  */
+/**
+ * How an added plugin joins the turn that asked for it: the plugin picker's three
+ * modes. Injection is the default, so the cached prompt is kept unless chosen.
+ */
+const JOIN_CHOICES: readonly { apply: PluginChangeApply; label: string; hint: string }[] = [
+  {
+    apply: 'note',
+    label: t`Add as an injection`,
+    hint: t`The agent is told about its tools and can call them now; the prompt cache is kept until the next compaction.`,
+  },
+  {
+    apply: 'now',
+    label: t`Add to the tool list`,
+    hint: t`Its tools join the tool list now; the prompt cache is rebuilt on the next call.`,
+  },
+  {
+    apply: 'compact',
+    label: t`Compact, then add`,
+    hint: t`Compacts the conversation before the agent's next step; its tools go in with it.`,
+  },
+];
+
 export function ConnectorOfferResponse({
   disabled,
   interaction,
@@ -68,6 +101,7 @@ export function ConnectorOfferResponse({
   const [saveAsDefault, setSaveAsDefault] = useState<Record<string, boolean>>({});
   const [draft, setDraft] = useState<ConnectorDraft>({});
   const [showSettings, setShowSettings] = useState(false);
+  const [joinMode, setJoinMode] = useState<PluginChangeApply>('note');
   const rows = (payload?.missing ?? []).map(
     (need) => connector?.needs.find((row) => row.key === need.key) ?? need,
   );
@@ -107,7 +141,11 @@ export function ConnectorOfferResponse({
     if (disabled || unfilled.length) return;
     const { values, save_as_default } = conversationAnswer(rows, draft, saveAsDefault);
     respondFromControl(
-      onResponse(interaction, { action: 'submit', values, metadata: { save_as_default } }),
+      onResponse(interaction, {
+        action: 'submit',
+        values,
+        metadata: asking ? { save_as_default } : { save_as_default, apply: joinMode },
+      }),
     );
   };
   const needProps = {
@@ -236,6 +274,29 @@ export function ConnectorOfferResponse({
             >
               {t`Not now`}
             </AskButton>
+          ) : null}
+          {offered('submit') && !asking ? (
+            <Select
+              disabled={disabled}
+              onValueChange={(value) => setJoinMode(value as PluginChangeApply)}
+              value={joinMode}
+            >
+              <SelectTrigger
+                aria-label={t`How it joins this turn`}
+                className="h-8 w-auto max-w-56 text-xs"
+                data-slot="connector-offer-join"
+                title={JOIN_CHOICES.find((choice) => choice.apply === joinMode)?.hint}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="start">
+                {JOIN_CHOICES.map((choice) => (
+                  <SelectItem key={choice.apply} title={choice.hint} value={choice.apply}>
+                    {choice.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : null}
           <div
             className="flex min-w-0 flex-1 basis-48 items-center gap-1.5 @max-[420px]/ask:flex-none @max-[420px]/ask:basis-auto"
