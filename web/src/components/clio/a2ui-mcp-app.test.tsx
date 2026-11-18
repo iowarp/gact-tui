@@ -101,6 +101,8 @@ function renderApp(context = dataContext(), surfaceId = 's1') {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  surface.props = undefined;
+  surface.onModelContext = undefined;
 });
 
 describe('ClioMcpApp', () => {
@@ -118,14 +120,16 @@ describe('ClioMcpApp', () => {
     });
     renderApp(undefined, 'titled');
     await screen.findByTestId('frame');
-    expect(surface.props?.label).toBe('Open a timeline');
+    // The fake surface records its props in an effect that can still be pending
+    // when the frame first appears.
+    await waitFor(() => expect(surface.props?.label).toBe('Open a timeline'));
   });
 
   it('falls back to the tool name when the answer has no title', async () => {
     repository.openMcpAppFromCall.mockResolvedValue(OPENED);
     renderApp(undefined, 'untitled');
     await screen.findByTestId('frame');
-    expect(surface.props?.label).toBe('timeline_open_timeline');
+    await waitFor(() => expect(surface.props?.label).toBe('timeline_open_timeline'));
   });
 
   it('opens its call, pins the view and links the time channel both ways', async () => {
@@ -140,7 +144,7 @@ describe('ClioMcpApp', () => {
       tool: 'open_timeline',
       arguments: { steps: 24 },
     });
-    expect(surface.props?.placement).toBe('surface');
+    await waitFor(() => expect(surface.props?.placement).toBe('surface'));
     expect(repository.pinMcpApp).toHaveBeenCalledWith(
       { sessionId: 'sess_1', appInstanceId: 'app_1', dataRef: 'ref_1' },
       true,
