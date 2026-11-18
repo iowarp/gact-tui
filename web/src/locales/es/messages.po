@@ -2443,6 +2443,14 @@ msgstr "{label} está fuera de las carpetas que esta conversación puede leer, a
 msgid "{label} is unavailable"
 msgstr "{label} no está disponible"
 
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} is unavailable, so this is its last view."
+msgstr "{label} no está disponible, así que esta es su última vista."
+
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} is unavailable, so this is its last view. {reason}"
+msgstr "{label} no está disponible, así que esta es su última vista. {reason}"
+
 #: src/components/clio/service-management-panel.tsx
 msgid "{label} management"
 msgstr "Gestión de {label}"
@@ -33606,6 +33614,10 @@ msgstr "Falló el inicio de sesión."
 msgid "Sign-in for this provider is unavailable on this {agent}."
 msgstr "El inicio de sesión para este proveedor no está disponible en este {agent}."
 
+#: src/lib/a2ui/server-surface.ts
+msgid "Sign-in is not available here."
+msgstr "El inicio de sesión no está disponible aquí."
+
 #: src/components/clio/infrastructure-foundation-row.tsx
 msgid "Sign-in is stored locally. Check the provider connection and its available models."
 msgstr "El inicio de sesión se guarda localmente. Comprueba la conexión del proveedor y sus modelos disponibles."
@@ -38070,6 +38082,10 @@ msgstr "Cuenta de esta conversación"
 msgid "This conversation's menu"
 msgstr "Menú de esta conversación"
 
+#: src/lib/a2ui/server-surface.ts
+msgid "This conversation's plugins do not offer this tab."
+msgstr "Los complementos de esta conversación no ofrecen esta pestaña."
+
 #: src/components/clio/reply-failure.ts
 msgid "This conversation’s progress couldn’t be saved."
 msgstr "No se pudo guardar el progreso de esta conversación."
@@ -38557,6 +38573,10 @@ msgstr "Este servicio de soporte requiere atención."
 #: src/lib/a2ui/processor-store.ts
 msgid "This surface's data is missing what incremental updates need (a per-message revision stamp or a lifecycle id), so it rebuilds fully on every change -- any input you have not submitted yet is lost each time."
 msgstr "A los datos de esta superficie les falta lo que necesitan las actualizaciones incrementales (una marca de revisión por mensaje o un id de ciclo de vida), así que se reconstruye por completo con cada cambio: cualquier entrada que aún no hayas enviado se pierde cada vez."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "This tab was out of date and has been read again. Try once more."
+msgstr "Esta pestaña estaba desactualizada y se ha vuelto a leer. Inténtalo otra vez."
 
 #: src/components/clio/date-time-field.tsx
 msgid "This time does not exist in the local time zone. Choose another time."

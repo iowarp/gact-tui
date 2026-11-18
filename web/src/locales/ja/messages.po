@@ -2443,6 +2443,14 @@ msgstr "{label}はこの会話が読み取れるフォルダーの外にある�
 msgid "{label} is unavailable"
 msgstr "{label} は利用できません"
 
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} is unavailable, so this is its last view."
+msgstr "{label} は利用できないため、これは最後に表示された内容です。"
+
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} is unavailable, so this is its last view. {reason}"
+msgstr "{label} は利用できないため、これは最後に表示された内容です。{reason}"
+
 #: src/components/clio/service-management-panel.tsx
 msgid "{label} management"
 msgstr "{label}の管理"
@@ -33606,6 +33614,10 @@ msgstr "サインインに失敗しました。"
 msgid "Sign-in for this provider is unavailable on this {agent}."
 msgstr "この{agent}では、このプロバイダーへのサインインは利用できません。"
 
+#: src/lib/a2ui/server-surface.ts
+msgid "Sign-in is not available here."
+msgstr "ここではサインインできません。"
+
 #: src/components/clio/infrastructure-foundation-row.tsx
 msgid "Sign-in is stored locally. Check the provider connection and its available models."
 msgstr "サインイン情報はローカルに保存されています。プロバイダーの接続と利用可能なモデルを確認してください。"
@@ -38070,6 +38082,10 @@ msgstr "この会話のアカウント"
 msgid "This conversation's menu"
 msgstr "この会話のメニュー"
 
+#: src/lib/a2ui/server-surface.ts
+msgid "This conversation's plugins do not offer this tab."
+msgstr "この会話のプラグインはこのタブを提供していません。"
+
 #: src/components/clio/reply-failure.ts
 msgid "This conversation’s progress couldn’t be saved."
 msgstr "この会話の進行状況を保存できませんでした。"
@@ -38557,6 +38573,10 @@ msgstr "このサポートサービスに対応が必要です。"
 #: src/lib/a2ui/processor-store.ts
 msgid "This surface's data is missing what incremental updates need (a per-message revision stamp or a lifecycle id), so it rebuilds fully on every change -- any input you have not submitted yet is lost each time."
 msgstr "このサーフェスのデータには、増分更新に必要な情報（メッセージごとのリビジョンスタンプまたはライフサイクルID）がないため、変更のたびに完全に再構築されます。まだ送信していない入力はその都度失われます。"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "This tab was out of date and has been read again. Try once more."
+msgstr "このタブは古くなっていたため、読み込み直しました。もう一度お試しください。"
 
 #: src/components/clio/date-time-field.tsx
 msgid "This time does not exist in the local time zone. Choose another time."

@@ -27,7 +27,7 @@ import { dispatchMcpAppClosedFrame } from '@/components/clio/mcp-app-live-set';
 import { dispatchMcpAppLookFrame } from '@/components/clio/mcp-app-look';
 import { dispatchFileViewLookFrame } from '@/components/clio/file-view-look';
 import { dispatchMcpAppToolCallFrame } from '@/components/clio/mcp-app-view-tools';
-import { dispatchPluginTabFrame } from '@/lib/a2ui/plugin-tab-store';
+import { dispatchPluginTabFrame, rereadPluginTabs } from '@/lib/a2ui/plugin-tab-store';
 import { useRepository } from './use-repository';
 import { ph, t } from '@lingui/core/macro';
 
@@ -164,6 +164,8 @@ export function useSessionLiveStream({
         revisions: {},
       });
       resumeCursor = transcript.cursor ?? resumeCursor;
+      // Open plugin tabs may have missed updates while the stream was down.
+      rereadPluginTabs(sessionId);
       void Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: queryKeys.capabilities(settings.endpoint) }),
         queryClient.invalidateQueries({
@@ -216,6 +218,7 @@ export function useSessionLiveStream({
             dispatchFileViewLookFrame(frame);
             dispatchMcpAppClosedFrame(frame);
             dispatchPluginTabFrame(frame, sessionId);
+            if (frame.eventName === 'stream.gap') rereadPluginTabs(sessionId);
             if (frame.eventName === 'message.completed') {
               batcher.flush();
             }

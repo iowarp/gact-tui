@@ -145,6 +145,19 @@ export function releasePluginTab(sessionId: string, tabId: string): void {
   void handle?.repository.closePluginTab(sessionId, tabId).catch(() => undefined);
 }
 
+/**
+ * Reads every open tab of the conversation again. The event stream's replay is
+ * bounded, so after it reconnects or reports a gap the tabs may have missed
+ * updates; `open` on an open tab re-reads it and keeps its watch.
+ */
+export function rereadPluginTabs(sessionId: string): void {
+  const prefix = key(sessionId, '');
+  for (const [entry, handle] of opened) {
+    if (entry.startsWith(prefix))
+      void openPluginTab(handle.repository, sessionId, entry.slice(prefix.length));
+  }
+}
+
 /** Applies a live `plugin_tab.*` frame to the conversation's open tab. */
 export function dispatchPluginTabFrame(
   frame: { eventName?: string; data: unknown },
@@ -161,50 +174,53 @@ export function dispatchPluginTabFrame(
   if (!event) return;
   const entry = key(sessionId, event.tab_id);
   if (event.type === 'plugin_tab.unavailable') {
-    update(entry, (state) => ({
-      ...state,
-      status: 'unavailable',
-      reason: event.reason || undefined,
-      detail: event.detail || undefined,
-    }));
+    // No revision, and the surfaces stay: the next `refreshed` brings the tab back.
+    update(entry, (state) =>
+      state.status === 'loading'
+        ? state
+        : {
+            ...state,
+            status: 'unavailable',
+            reason: event.reason || undefined,
+            detail: event.detail || undefined,
+          },
+    );
     return;
   }
   update(entry, (state) => {
-    if (state.status === 'loading' || event.revision <= state.revision) return state;
+    if (state.status === 'loading') return state;
+    if (event.type === 'plugin_tab.refreshed') {
+      // A re-read's closing frame: it carries the last surface event's
+      // revision and the whole live set. Any mismatch means missed events.
+      const known = new Set(state.surfaces.map((surface) => surface.id));
+      if (event.revision !== state.revision || event.surface_ids.some((id) => !known.has(id)))
+        return { ...state, stale: true };
+      const kept = new Set(event.surface_ids);
+      return {
+        ...state,
+        status: 'ready',
+        reason: undefined,
+        detail: undefined,
+        surfaces: state.surfaces.filter((surface) => kept.has(surface.id)),
+      };
+    }
+    if (event.revision <= state.revision) return state;
     if (event.revision > state.revision + 1) return { ...state, stale: true };
     const revision = event.revision;
-    switch (event.type) {
-      case 'plugin_tab.surface.upserted': {
-        const surface = owned(event.surface, state.owner);
-        const index = state.surfaces.findIndex((candidate) => candidate.id === surface.id);
-        const surfaces =
-          index < 0
-            ? [...state.surfaces, surface]
-            : state.surfaces.map((candidate, at) => (at === index ? surface : candidate));
-        return { ...state, status: 'ready', reason: undefined, detail: undefined, surfaces, revision };
-      }
-      case 'plugin_tab.surface.deleted':
-        return {
-          ...state,
-          surfaces: state.surfaces.filter((surface) => surface.id !== event.surface_id),
-          revision,
-        };
-      case 'plugin_tab.refreshed': {
-        const known = new Set(state.surfaces.map((surface) => surface.id));
-        if (event.surface_ids.some((id) => !known.has(id))) return { ...state, stale: true };
-        const kept = new Set(event.surface_ids);
-        return {
-          ...state,
-          status: 'ready',
-          reason: undefined,
-          detail: undefined,
-          surfaces: state.surfaces.filter((surface) => kept.has(surface.id)),
-          revision,
-        };
-      }
-      default:
-        return state;
+    if (event.type === 'plugin_tab.surface.upserted') {
+      const surface = owned(event.surface, state.owner);
+      const index = state.surfaces.findIndex((candidate) => candidate.id === surface.id);
+      const surfaces =
+        index < 0
+          ? [...state.surfaces, surface]
+          : state.surfaces.map((candidate, at) => (at === index ? surface : candidate));
+      return { ...state, surfaces, revision };
     }
+    return {
+      ...state,
+      surfaces: state.surfaces.filter((surface) => surface.id !== event.surface_id),
+      revision,
+    };
   });
   const handle = opened.get(entry);
   if (handle && !handle.controller && usePluginTabStore.getState().tabs[entry]?.stale)

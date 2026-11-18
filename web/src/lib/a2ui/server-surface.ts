@@ -20,6 +20,8 @@ export function serverSurfaceReason(reason: string): string | undefined {
       return t`Its server is not running in this conversation.`;
     case 'plugin_tab_resource_failed':
       return t`Its server could not provide the tab's content.`;
+    case 'plugin_tab_not_found':
+      return t`This conversation's plugins do not offer this tab.`;
     default:
       return undefined;
   }
@@ -45,6 +47,13 @@ export function serverActionFailure(error: unknown, server: string): ServerActio
     case 'a2ui_surface_not_owned':
       return {
         message: t`This view no longer belongs to ${server}, so the action was not sent.`,
+        serverGone: false,
+      };
+    case 'a2ui_source_login_out_of_scope':
+      return { message: t`Sign-in is not available here.`, serverGone: false };
+    case 'plugin_tab_not_open':
+      return {
+        message: t`This tab was out of date and has been read again. Try once more.`,
         serverGone: false,
       };
     default: {

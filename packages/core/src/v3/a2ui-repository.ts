@@ -34,6 +34,10 @@ import {
   type DashboardReport,
   type SavedDashboard,
 } from './dashboard-report.js';
+import { A2UI_VERSION } from './protocol-versions.js';
+
+/** Both action routes refuse (406) a request that does not name its A2UI version. */
+const A2UI_ACTION_HEADERS = { 'x-a2ui-version': `v${A2UI_VERSION}` } as const;
 
 /** `<plugin>/<tab>` keeps its slash: the route has a segment for each. */
 function pluginTabPath(sessionId: string, tabId: string): string {
@@ -151,6 +155,7 @@ export class A2uiRepository extends PresentationRepository {
     return this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/actions`,
+      headers: A2UI_ACTION_HEADERS,
       body: {
         message,
         correlation,
@@ -205,6 +210,7 @@ export class A2uiRepository extends PresentationRepository {
     return this.transport.request({
       method: 'POST',
       path: `${pluginTabPath(sessionId, tabId)}/actions`,
+      headers: A2UI_ACTION_HEADERS,
       body: {
         message,
         metadata: mergeA2uiClientMetadata(sessionId, undefined, { includeDataModel: true }),

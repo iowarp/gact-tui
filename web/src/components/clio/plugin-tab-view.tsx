@@ -1,5 +1,7 @@
 import { useCallback, useEffect } from 'react';
+import { TransportError } from '@clio/core/v3';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
+import { AlertTriangleIcon } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { openPluginTab, usePluginTabState } from '@/lib/a2ui/plugin-tab-store';
@@ -30,16 +32,24 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
     if (needsRead) reopen();
   }, [needsRead, reopen]);
   const onRemoteAction = useCallback(
-    (message: { version: string; action: A2uiClientAction }) =>
-      repository.pluginTabAction(tab.sessionId, tab.tabId, message),
-    [repository, tab.sessionId, tab.tabId],
+    async (message: { version: string; action: A2uiClientAction }) => {
+      try {
+        return await repository.pluginTabAction(tab.sessionId, tab.tabId, message);
+      } catch (error) {
+        // The service forgot the tab (it restarted): read it again.
+        if (error instanceof TransportError && error.code === 'plugin_tab_not_open') reopen();
+        throw error;
+      }
+    },
+    [repository, reopen, tab.sessionId, tab.tabId],
   );
   const label = tab.label;
   const reason = state?.reason ? serverSurfaceReason(state.reason) : undefined;
+  const unavailable = state?.status === 'unavailable';
   let body;
   if (!state || (state.status === 'loading' && state.surfaces.length === 0))
     body = <StateView kind="loading" size="viewer" title={t`Opening ${ph({ label })}`} />;
-  else if (state.status === 'unavailable')
+  else if (unavailable && state.surfaces.length === 0)
     body = (
       <StateView
         action={{ label: t`Retry`, onClick: reopen }}
@@ -72,11 +82,26 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
     body = (
       <div className="clio-scrollbar min-h-0 flex-1 overflow-y-auto">
         <div className="flex w-full min-w-0 flex-col gap-4 px-4 py-3">
+          {unavailable ? (
+            <p
+              className="flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground"
+              data-slot="plugin-tab-unavailable"
+              role="status"
+            >
+              <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+              <span className="min-w-0">
+                {reason
+                  ? t`${ph({ label })} is unavailable, so this is its last view. ${reason}`
+                  : t`${ph({ label })} is unavailable, so this is its last view.`}
+              </span>
+            </p>
+          ) : null}
           {state.surfaces.map((surface) => (
             <ClioA2UISurface
               key={surface.id}
               onRemoteAction={onRemoteAction}
               ownerAttribution={false}
+              readOnly={unavailable}
               surface={surface}
             />
           ))}
