@@ -403,7 +403,9 @@ export function ClioLayeredMap(props: LayeredMapProps) {
         ) : (
           <span className="mr-auto" />
         )}
-        <fieldset className="flex flex-wrap gap-2 text-xs">
+        {/* min-w-0: a fieldset will not shrink below its content by default, so the
+            toggles overflowed and were clipped instead of wrapping. */}
+        <fieldset className="flex min-w-0 flex-wrap gap-2 text-xs">
           <legend className="sr-only">{t`Layers`}</legend>
           {props.layers.map((layer) => (
             <label key={layer.id} className="flex items-center gap-1">
