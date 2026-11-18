@@ -519,9 +519,14 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await settleConversationAtLatest(page);
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_1"]')).toHaveCount(0);
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
-  // The replaced App is history in the settled run; the live App stays mounted beside it.
+  // The replaced App is a closed view in the settled run that can be reopened; the live
+  // App stays mounted beside it.
   await page.getByRole('button', { name: 'Expand Received 1 update', exact: true }).click();
-  await expect(page.getByText('MCP v2 exerciser view closed')).toBeVisible();
+  const closedApp = page.locator('[data-mcp-app-reopen="app_fixture_1"]');
+  await expect(closedApp).toBeVisible();
+  await expect(closedApp).toContainText('MCP v2 exerciser');
+  await expect(closedApp).toContainText('View closed');
+  await expect(closedApp.getByRole('button', { name: 'Reopen', exact: true })).toBeEnabled();
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_1"]')).toHaveCount(0);
   await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
 });

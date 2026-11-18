@@ -48,11 +48,11 @@
   "catalogs": {
     "catalogs/basic/catalog.json": "8cc94d0a482e67048f9fc989964ca5da56fe42f531d919315a508989fb22e13e",
     "catalogs/basic/catalog.clio.json": "11a1e1312cf5b47239aa122f497b5f521ec78ff5503298eec21682a7368c3e20",
-    "catalogs/clio-workspace/v1/catalog.json": "baa0a772d8442c7e5ba98824e71440c8a902398f5bc9d67e01c3a390097ce33c",
-    "catalogs/clio-workspace/v1/catalog.clio.json": "4b4b4a4d9634cba4269971600aeeeb3f479624ac5e8c50d8cfe7a889bcd8e192"
+    "catalogs/clio-workspace/v1/catalog.json": "c5ad8a0d0e293a2d91243c3b996dc5c6d327132f099b8f48f35ddd435a4acf1f",
+    "catalogs/clio-workspace/v1/catalog.clio.json": "14225866b82095e14f6937d3f701d5d8130626bc03a6db1fa876c446a12467a4"
   },
   "catalog_source_commits": {
-    "catalogs/clio-workspace/v1/catalog.clio.json": "73d935db5ef83a87cac7c876ef78984cf683ae77",
-    "catalogs/clio-workspace/v1/catalog.json": "73d935db5ef83a87cac7c876ef78984cf683ae77"
+    "catalogs/clio-workspace/v1/catalog.clio.json": "474575ce88cd0a6222327a1f95d79214c3594471",
+    "catalogs/clio-workspace/v1/catalog.json": "474575ce88cd0a6222327a1f95d79214c3594471"
   }
 }
