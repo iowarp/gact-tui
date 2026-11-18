@@ -3,7 +3,13 @@ import type {
   PendingInteractionField,
   PendingInteractionResponse,
 } from '@clio/core/v3';
-import { AlertTriangleIcon, ExternalLinkIcon } from 'lucide-react';
+import {
+  AlertTriangleIcon,
+  ExternalLinkIcon,
+  GlobeIcon,
+  LinkIcon,
+  ShieldCheckIcon,
+} from 'lucide-react';
 import { useState, type ChangeEvent } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -179,11 +185,21 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
       ) : null}
       <AskFacts
         facts={[
-          { label: t`Full URL`, value: url, title: url, mono: true },
+          { label: t`Full URL`, icon: <LinkIcon />, value: url, title: url, mono: true },
           ...(interaction.payload?.origin
-            ? [{ label: t`Origin`, value: interaction.payload.origin, mono: true }]
+            ? [
+                {
+                  label: t`Origin`,
+                  icon: <GlobeIcon />,
+                  value: interaction.payload.origin,
+                  title: interaction.payload.origin,
+                  mono: true,
+                },
+              ]
             : []),
-          ...(originTrust ? [{ label: t`Trusted because`, value: originTrust }] : []),
+          ...(originTrust
+            ? [{ label: t`Trusted because`, icon: <ShieldCheckIcon />, value: originTrust, wrap: true }]
+            : []),
           ...(interaction.payload?.punycode_host
             ? [{ label: t`Decoded host`, value: interaction.payload.punycode_host, mono: true }]
             : []),
