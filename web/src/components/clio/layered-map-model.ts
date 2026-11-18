@@ -315,10 +315,16 @@ export { dataQuerySchema };
 export type Bounds = [number, number, number, number];
 
 /** The box around a table layer's positioned rows, or undefined when none are positioned. */
+/** A longitude on the -180..180 range a web map's extent uses (0..360 data is common). */
+export function wrapLongitude(lon: number): number {
+  return lon > 180 ? lon - 360 : lon < -180 ? lon + 360 : lon;
+}
+
 export function rowBounds(layer: MapLayer, rows: readonly QueryRow[]): Bounds | undefined {
   let box: Bounds | undefined;
   for (const row of rows) {
-    const lon = numberCell(row, layer.longitudeField);
+    const raw = numberCell(row, layer.longitudeField);
+    const lon = raw === undefined ? undefined : wrapLongitude(raw);
     const lat = numberCell(row, layer.latitudeField);
     if (lon === undefined || lat === undefined) continue;
     box = box
@@ -330,7 +336,10 @@ export function rowBounds(layer: MapLayer, rows: readonly QueryRow[]): Bounds | 
 
 /** The box around every layer's box, clamped to what a web map can show. */
 export function unionBounds(boxes: readonly (Bounds | undefined)[]): Bounds | undefined {
-  const known = boxes.filter((box): box is Bounds => Boolean(box));
+  // A box given on 0..360 (a grid's own coordinates) moves onto -180..180 whole.
+  const known = boxes
+    .filter((box): box is Bounds => Boolean(box))
+    .map((box): Bounds => (box[0] > 180 ? [box[0] - 360, box[1], box[2] - 360, box[3]] : box));
   if (!known.length) return undefined;
   return [
     Math.max(-180, Math.min(...known.map((box) => box[0]))),

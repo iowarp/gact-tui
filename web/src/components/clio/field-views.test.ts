@@ -264,6 +264,22 @@ describe('layered map extent', () => {
     expect(unionBounds([[-200, -90, 200, 90]])).toEqual([-180, -85, 180, 85]);
     expect(unionBounds([undefined])).toBeUndefined();
   });
+
+  it('fits data given on 0..360 longitudes where it is, not on the whole world', () => {
+    const rows = [
+      { lon: 293.35, lat: 31.45, time: '2026-09-17T00:00:00Z', event: 'p1' },
+      { lon: 301.95, lat: 36.23, time: '2026-11-16T00:00:00Z', event: 'p1' },
+    ];
+    const box = rowBounds(tracks, rows)!;
+    expect(box[0]).toBeCloseTo(-66.65, 2);
+    expect(box[2]).toBeCloseTo(-58.05, 2);
+    expect(unionBounds([[293.35, 31.45, 301.95, 36.23]])).toEqual([
+      expect.closeTo(-66.65, 2),
+      31.45,
+      expect.closeTo(-58.05, 2),
+      36.23,
+    ]);
+  });
 });
 
 describe('profile runs', () => {
