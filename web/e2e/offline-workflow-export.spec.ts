@@ -43,7 +43,7 @@ test('an exported workflow run draws its railroad offline, a fork beside its ste
   await step.click();
   const details = card.getByRole('region', { name: 'draft: Completed' });
   await expect(details).toContainText('Draft the summary.');
-  await details.getByRole('button', { name: 'Open draft' }).click();
+  await details.getByRole('button', { name: "See draft's conversation" }).click();
   await expect(page).toHaveURL(/#sess_draft$/u);
   const conversation = page.locator('[data-archive-session="sess_draft"]');
   await expect(conversation).toBeInViewport();
