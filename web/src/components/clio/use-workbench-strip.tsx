@@ -19,6 +19,7 @@ import {
 } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { PluginTabIcon } from '@/lib/a2ui/plugin-tab-icons';
+import { usePluginPages } from '@/lib/a2ui/plugin-pages';
 import { connectionScope } from '@/lib/connection-scope';
 import { useShortcut } from '@/lib/shortcuts/hooks';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -82,6 +83,7 @@ export function useWorkbenchStrip({
     retry: false,
     staleTime: 30_000,
   }).data;
+  const pluginPages = usePluginPages();
   // An open plugin tab follows the list: a plugin updated in place may rename
   // its tab, its plugin or its icon.
   useEffect(() => {
@@ -155,7 +157,10 @@ export function useWorkbenchStrip({
   listItem('terminal', t`Terminal`, <TerminalSquareIcon />);
   listItem('browser', t`Browser`, <GlobeIcon />);
   const pluginTabFor = new Map<string, WorkbenchTab>();
+  // A plugin's page in the left bar already opens this resource; no strip launcher repeats it.
+  const onPages = new Set(pluginPages.map((page) => `${page.plugin}\u0000${page.resource}`));
   for (const offered of pluginTabs ?? []) {
+    if (onPages.has(`${offered.plugin}\u0000${offered.resource}`)) continue;
     const tab = pluginTab({
       label: offered.title,
       sessionId,

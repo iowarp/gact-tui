@@ -16,6 +16,7 @@ import type { ConnectionAvailabilityMap } from '@/hooks/use-connection-availabil
 import type { ConnectionSettings } from '@/lib/connection';
 import { NewConversationIcon } from '@/lib/icon-vocabulary';
 import { NavigationAgentMenu } from './navigation-agent-menu';
+import { NavigationPluginPages } from './navigation-plugin-pages';
 import { t } from '@lingui/core/macro';
 
 interface NavigationHeaderProps {
@@ -33,7 +34,8 @@ interface NavigationHeaderProps {
 
 /**
  * The top of the left bar: the CLIO menu, the bell and the collapse button on
- * one line, then New conversation (with import beside it) and Search. Files
+ * one line, then New conversation (with import beside it), Search and the
+ * pages plugins add. Files
  * and Runs left the bar: the crumb and the workspace menu open files, and
  * Search or Ctrl . open runs. Collapsed to icons, the same rows stack.
  */
@@ -135,6 +137,7 @@ export function NavigationHeader({
             <HeldKeyBadge id="search" side={sidebarState === 'expanded' ? 'inside-end' : 'end'} />
           </SidebarMenuButton>
         </SidebarMenuItem>
+        <NavigationPluginPages />
       </SidebarMenu>
     </SidebarHeader>
   );

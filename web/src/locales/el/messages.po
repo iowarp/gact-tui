@@ -1484,6 +1484,14 @@ msgstr "{code} στο {computer}"
 msgid "{colormap} colour scale"
 msgstr "Χρωματική κλίμακα {colormap}"
 
+#: src/components/clio/a2ui-choice-table.tsx
+msgid "{column} for {name}"
+msgstr "{column} ??? {name}"
+
+#: src/components/clio/a2ui-choice-table.tsx
+msgid "{column}: {name}"
+msgstr "{column}: {name}"
+
 #: src/components/clio/composer.tsx
 msgid "{command} is unavailable"
 msgstr "Η εντολή {command} δεν είναι διαθέσιμη"
@@ -2360,6 +2368,7 @@ msgstr "Στήλες {label}"
 msgid "{label} connection"
 msgstr "Σύνδεση {label}"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} could not be opened"
 msgstr "Δεν ήταν δυνατό να ανοίξει το {label}"
@@ -2395,6 +2404,7 @@ msgstr "{label} για το πρόχειρο {draft}"
 msgid "{label} for {name}"
 msgstr "{label} για {name}"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} has nothing to show yet"
 msgstr "Το {label} δεν έχει ακόμη τίποτα να δείξει"
@@ -2439,14 +2449,17 @@ msgstr "Το {label} δεν είναι γνωστό σε αυτόν τον υπ�
 msgid "{label} is outside the folders this conversation may read, so the browser can't open it."
 msgstr "{label}: βρίσκεται εκτός των φακέλων που μπορεί να διαβάσει αυτή η συνομιλία, οπότε το πρόγραμμα περιήγησης δεν μπορεί να το ανοίξει."
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable"
 msgstr "Το {label} δεν είναι διαθέσιμο"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable, so this is its last view."
 msgstr "Το {label} δεν είναι διαθέσιμο, οπότε αυτή είναι η τελευταία του προβολή."
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable, so this is its last view. {reason}"
 msgstr "Το {label} δεν είναι διαθέσιμο, οπότε αυτή είναι η τελευταία του προβολή. {reason}"
@@ -3941,6 +3954,7 @@ msgid "{title}\n"
 msgstr "{title}\n"
 "Κλάδος {branch}"
 
+#: src/components/clio/navigation-plugin-pages.tsx
 #: src/components/clio/use-workbench-strip.tsx
 msgid "{title} (unavailable)"
 msgstr "{title} (μη διαθέσιμο)"
@@ -3952,6 +3966,10 @@ msgstr "Διαγράφηκε: {title}"
 #: src/components/clio/infrastructure-activity-row.tsx
 msgid "{title} details"
 msgstr "Λεπτομέρειες {title}"
+
+#: src/components/clio/navigation-plugin-pages.tsx
+msgid "{title} is unavailable"
+msgstr "?? {title} ??? ????? ?????????"
 
 #: src/components/clio/workbench-list-column.tsx
 msgid "{title} list"
@@ -9204,6 +9222,7 @@ msgstr "Η επιλογή στάλθηκε"
 msgid "Choices for {group}"
 msgstr "Επιλογές για {group}"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "Choices for {name}"
 msgstr "Επιλογές για {name}"
@@ -21737,6 +21756,7 @@ msgstr "Περισσότερα για {group}"
 msgid "More for {label}"
 msgstr "Περισσότερα για {label}"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "More for {name}"
@@ -23955,6 +23975,7 @@ msgstr "δεν στάλθηκε"
 msgid "Not sent"
 msgstr "Δεν στάλθηκε"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-runtime-control.tsx
 msgid "Not set"
@@ -24112,6 +24133,7 @@ msgstr "Δεν σχεδιάστηκε τίποτα"
 msgid "Nothing has run yet"
 msgstr "Δεν έχει εκτελεστεί τίποτα ακόμη"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/command-menu.tsx
 msgid "Nothing here yet."
 msgstr "Δεν υπάρχει τίποτα ακόμη."
@@ -25248,6 +25270,7 @@ msgstr "Ανοίχτηκε ένα τοπικό αντίγραφο του αρχ�
 msgid "Opening"
 msgstr "Άνοιγμα"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Opening {label}"
 msgstr "Άνοιγμα {label}"
@@ -25304,6 +25327,7 @@ msgstr "Άνοιγμα της σημείωσης"
 
 #: src/components/clio/browser-new-page.tsx
 #: src/components/clio/workbench-tab-content.tsx
+#: src/routes/plugin-page.tsx
 msgid "Opening the page"
 msgstr "Άνοιγμα της σελίδας"
 
@@ -28666,6 +28690,7 @@ msgid "Reload"
 msgstr "Επαναφόρτωση"
 
 #: src/components/clio/plugin-tab-view.tsx
+#: src/routes/plugin-page.tsx
 msgid "Reload {label}"
 msgstr "Επαναφόρτωση {label}"
 
@@ -30060,6 +30085,8 @@ msgstr "Ανάκτηση"
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/plugin-page-view.tsx
+#: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
 #: src/components/clio/primitives/state-view.tsx
 #: src/components/clio/private-local-details.tsx
@@ -36755,6 +36782,10 @@ msgstr "Το σχέδιο δεν αποθηκεύτηκε: {message}"
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "Οι αλλαγές πρόσθετων βρίσκονται πλέον στην προτροπή συστήματος του πράκτορα."
 
+#: src/routes/plugin-page.tsx
+msgid "The plugin that added this page may have been removed."
+msgstr "?? ???????? ??? ???????? ???? ?? ?????? ?????? ?? ???? ?????????."
+
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "The plugin's default is known once a conversation loads the tool."
@@ -38288,6 +38319,10 @@ msgstr "Αυτή η σελίδα είναι κλειστή."
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "This page is in your own browser: proceed there if you trust it."
 msgstr "Αυτή η σελίδα βρίσκεται στο δικό σας πρόγραμμα περιήγησης: συνεχίστε εκεί αν την εμπιστεύεστε."
+
+#: src/routes/plugin-page.tsx
+msgid "This page is not available"
+msgstr "???? ? ?????? ??? ????? ?????????"
 
 #: src/components/clio/service-management-confirm-dialog.tsx
 msgid "This permanently deletes this deployment’s databases, environment cache, logs and captured evidence. Separately downloaded models are retained."

@@ -1484,6 +1484,14 @@ msgstr "{computer}上の{code}"
 msgid "{colormap} colour scale"
 msgstr "{colormap}カラースケール"
 
+#: src/components/clio/a2ui-choice-table.tsx
+msgid "{column} for {name}"
+msgstr "{name} ?{column}"
+
+#: src/components/clio/a2ui-choice-table.tsx
+msgid "{column}: {name}"
+msgstr "{column}: {name}"
+
 #: src/components/clio/composer.tsx
 msgid "{command} is unavailable"
 msgstr "{command}は利用できません"
@@ -2360,6 +2368,7 @@ msgstr "{label}の列"
 msgid "{label} connection"
 msgstr "{label}接続"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} could not be opened"
 msgstr "{label} を開けませんでした"
@@ -2395,6 +2404,7 @@ msgstr "{draft}の下書きの{label}"
 msgid "{label} for {name}"
 msgstr "{name}の{label}"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} has nothing to show yet"
 msgstr "{label} にはまだ表示する内容がありません"
@@ -2439,14 +2449,17 @@ msgstr "{label}はこのコンピューターで認識されていません。�
 msgid "{label} is outside the folders this conversation may read, so the browser can't open it."
 msgstr "{label}はこの会話が読み取れるフォルダーの外にあるため、ブラウザーで開けません。"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable"
 msgstr "{label} は利用できません"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable, so this is its last view."
 msgstr "{label} は利用できないため、これは最後に表示された内容です。"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable, so this is its last view. {reason}"
 msgstr "{label} は利用できないため、これは最後に表示された内容です。{reason}"
@@ -3941,6 +3954,7 @@ msgid "{title}\n"
 msgstr "{title}\n"
 "ブランチ{branch}"
 
+#: src/components/clio/navigation-plugin-pages.tsx
 #: src/components/clio/use-workbench-strip.tsx
 msgid "{title} (unavailable)"
 msgstr "{title}(利用不可)"
@@ -3952,6 +3966,10 @@ msgstr "{title}を削除しました"
 #: src/components/clio/infrastructure-activity-row.tsx
 msgid "{title} details"
 msgstr "{title}の詳細"
+
+#: src/components/clio/navigation-plugin-pages.tsx
+msgid "{title} is unavailable"
+msgstr "{title} ????????"
 
 #: src/components/clio/workbench-list-column.tsx
 msgid "{title} list"
@@ -9204,6 +9222,7 @@ msgstr "選択を送信しました"
 msgid "Choices for {group}"
 msgstr "{group}の選択肢"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "Choices for {name}"
 msgstr "{name}の選択肢"
@@ -21737,6 +21756,7 @@ msgstr "{group}のその他"
 msgid "More for {label}"
 msgstr "{label}のその他の操作"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "More for {name}"
@@ -23955,6 +23975,7 @@ msgstr "未送信"
 msgid "Not sent"
 msgstr "未送信"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-runtime-control.tsx
 msgid "Not set"
@@ -24112,6 +24133,7 @@ msgstr "何も描画されていません"
 msgid "Nothing has run yet"
 msgstr "まだ何も実行されていません"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/command-menu.tsx
 msgid "Nothing here yet."
 msgstr "まだ何もありません。"
@@ -25248,6 +25270,7 @@ msgstr "ファイルのデスクトップ用コピーを開きました。"
 msgid "Opening"
 msgstr "開いています"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Opening {label}"
 msgstr "{label} を開いています"
@@ -25304,6 +25327,7 @@ msgstr "ノートを開いています"
 
 #: src/components/clio/browser-new-page.tsx
 #: src/components/clio/workbench-tab-content.tsx
+#: src/routes/plugin-page.tsx
 msgid "Opening the page"
 msgstr "ページを開いています"
 
@@ -28666,6 +28690,7 @@ msgid "Reload"
 msgstr "再読み込み"
 
 #: src/components/clio/plugin-tab-view.tsx
+#: src/routes/plugin-page.tsx
 msgid "Reload {label}"
 msgstr "{label} を再読み込み"
 
@@ -30060,6 +30085,8 @@ msgstr "検索取得"
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/plugin-page-view.tsx
+#: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
 #: src/components/clio/primitives/state-view.tsx
 #: src/components/clio/private-local-details.tsx
@@ -36755,6 +36782,10 @@ msgstr "計画は保存されませんでした: {message}"
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "プラグインの変更はエージェントのシステムプロンプトに反映されました。"
 
+#: src/routes/plugin-page.tsx
+msgid "The plugin that added this page may have been removed."
+msgstr "??????????????????????????????"
+
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "The plugin's default is known once a conversation loads the tool."
@@ -38288,6 +38319,10 @@ msgstr "このページは閉じられています。"
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "This page is in your own browser: proceed there if you trust it."
 msgstr "このページはお使いのブラウザーで開いています。信頼できる場合はそちらで続行してください。"
+
+#: src/routes/plugin-page.tsx
+msgid "This page is not available"
+msgstr "?????????????"
 
 #: src/components/clio/service-management-confirm-dialog.tsx
 msgid "This permanently deletes this deployment’s databases, environment cache, logs and captured evidence. Separately downloaded models are retained."

@@ -1483,6 +1483,14 @@ msgstr ""
 msgid "{colormap} colour scale"
 msgstr ""
 
+#: src/components/clio/a2ui-choice-table.tsx
+msgid "{column} for {name}"
+msgstr ""
+
+#: src/components/clio/a2ui-choice-table.tsx
+msgid "{column}: {name}"
+msgstr ""
+
 #: src/components/clio/composer.tsx
 msgid "{command} is unavailable"
 msgstr ""
@@ -2359,6 +2367,7 @@ msgstr ""
 msgid "{label} connection"
 msgstr ""
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} could not be opened"
 msgstr ""
@@ -2394,6 +2403,7 @@ msgstr ""
 msgid "{label} for {name}"
 msgstr ""
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} has nothing to show yet"
 msgstr ""
@@ -2438,14 +2448,17 @@ msgstr ""
 msgid "{label} is outside the folders this conversation may read, so the browser can't open it."
 msgstr ""
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable"
 msgstr ""
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable, so this is its last view."
 msgstr ""
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable, so this is its last view. {reason}"
 msgstr ""
@@ -3932,6 +3945,7 @@ msgid "{title}\n"
 "Branch {branch}"
 msgstr ""
 
+#: src/components/clio/navigation-plugin-pages.tsx
 #: src/components/clio/use-workbench-strip.tsx
 msgid "{title} (unavailable)"
 msgstr ""
@@ -3942,6 +3956,10 @@ msgstr ""
 
 #: src/components/clio/infrastructure-activity-row.tsx
 msgid "{title} details"
+msgstr ""
+
+#: src/components/clio/navigation-plugin-pages.tsx
+msgid "{title} is unavailable"
 msgstr ""
 
 #: src/components/clio/workbench-list-column.tsx
@@ -9195,6 +9213,7 @@ msgstr ""
 msgid "Choices for {group}"
 msgstr ""
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "Choices for {name}"
 msgstr ""
@@ -21719,6 +21738,7 @@ msgstr ""
 msgid "More for {label}"
 msgstr ""
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "More for {name}"
@@ -23937,6 +23957,7 @@ msgstr ""
 msgid "Not sent"
 msgstr ""
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-runtime-control.tsx
 msgid "Not set"
@@ -24094,6 +24115,7 @@ msgstr ""
 msgid "Nothing has run yet"
 msgstr ""
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/command-menu.tsx
 msgid "Nothing here yet."
 msgstr ""
@@ -25230,6 +25252,7 @@ msgstr ""
 msgid "Opening"
 msgstr ""
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Opening {label}"
 msgstr ""
@@ -25286,6 +25309,7 @@ msgstr ""
 
 #: src/components/clio/browser-new-page.tsx
 #: src/components/clio/workbench-tab-content.tsx
+#: src/routes/plugin-page.tsx
 msgid "Opening the page"
 msgstr ""
 
@@ -28648,6 +28672,7 @@ msgid "Reload"
 msgstr ""
 
 #: src/components/clio/plugin-tab-view.tsx
+#: src/routes/plugin-page.tsx
 msgid "Reload {label}"
 msgstr ""
 
@@ -30042,6 +30067,8 @@ msgstr ""
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/plugin-page-view.tsx
+#: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
 #: src/components/clio/primitives/state-view.tsx
 #: src/components/clio/private-local-details.tsx
@@ -36736,6 +36763,10 @@ msgstr ""
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr ""
 
+#: src/routes/plugin-page.tsx
+msgid "The plugin that added this page may have been removed."
+msgstr ""
+
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "The plugin's default is known once a conversation loads the tool."
@@ -38268,6 +38299,10 @@ msgstr ""
 
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "This page is in your own browser: proceed there if you trust it."
+msgstr ""
+
+#: src/routes/plugin-page.tsx
+msgid "This page is not available"
 msgstr ""
 
 #: src/components/clio/service-management-confirm-dialog.tsx

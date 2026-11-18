@@ -1483,6 +1483,14 @@ msgstr "{code} on {computer}"
 msgid "{colormap} colour scale"
 msgstr "{colormap} colour scale"
 
+#: src/components/clio/a2ui-choice-table.tsx
+msgid "{column} for {name}"
+msgstr "{column} for {name}"
+
+#: src/components/clio/a2ui-choice-table.tsx
+msgid "{column}: {name}"
+msgstr "{column}: {name}"
+
 #: src/components/clio/composer.tsx
 msgid "{command} is unavailable"
 msgstr "{command} is unavailable"
@@ -2359,6 +2367,7 @@ msgstr "{label} columns"
 msgid "{label} connection"
 msgstr "{label} connection"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} could not be opened"
 msgstr "{label} could not be opened"
@@ -2394,6 +2403,7 @@ msgstr "{label} for {draft} draft"
 msgid "{label} for {name}"
 msgstr "{label} for {name}"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} has nothing to show yet"
 msgstr "{label} has nothing to show yet"
@@ -2438,14 +2448,17 @@ msgstr "{label} is not known on this computer. Remove it and deploy it again to 
 msgid "{label} is outside the folders this conversation may read, so the browser can't open it."
 msgstr "{label} is outside the folders this conversation may read, so the browser can't open it."
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable"
 msgstr "{label} is unavailable"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable, so this is its last view."
 msgstr "{label} is unavailable, so this is its last view."
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "{label} is unavailable, so this is its last view. {reason}"
 msgstr "{label} is unavailable, so this is its last view. {reason}"
@@ -3940,6 +3953,7 @@ msgid "{title}\n"
 msgstr "{title}\n"
 "Branch {branch}"
 
+#: src/components/clio/navigation-plugin-pages.tsx
 #: src/components/clio/use-workbench-strip.tsx
 msgid "{title} (unavailable)"
 msgstr "{title} (unavailable)"
@@ -3951,6 +3965,10 @@ msgstr "{title} deleted"
 #: src/components/clio/infrastructure-activity-row.tsx
 msgid "{title} details"
 msgstr "{title} details"
+
+#: src/components/clio/navigation-plugin-pages.tsx
+msgid "{title} is unavailable"
+msgstr "{title} is unavailable"
 
 #: src/components/clio/workbench-list-column.tsx
 msgid "{title} list"
@@ -9203,6 +9221,7 @@ msgstr "Choice sent"
 msgid "Choices for {group}"
 msgstr "Choices for {group}"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "Choices for {name}"
 msgstr "Choices for {name}"
@@ -21736,6 +21755,7 @@ msgstr "More for {group}"
 msgid "More for {label}"
 msgstr "More for {label}"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "More for {name}"
@@ -23954,6 +23974,7 @@ msgstr "not sent"
 msgid "Not sent"
 msgstr "Not sent"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-runtime-control.tsx
 msgid "Not set"
@@ -24111,6 +24132,7 @@ msgstr "Nothing drawn"
 msgid "Nothing has run yet"
 msgstr "Nothing has run yet"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/command-menu.tsx
 msgid "Nothing here yet."
 msgstr "Nothing here yet."
@@ -25247,6 +25269,7 @@ msgstr "Opened a desktop copy of the file."
 msgid "Opening"
 msgstr "Opening"
 
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Opening {label}"
 msgstr "Opening {label}"
@@ -25303,6 +25326,7 @@ msgstr "Opening the note"
 
 #: src/components/clio/browser-new-page.tsx
 #: src/components/clio/workbench-tab-content.tsx
+#: src/routes/plugin-page.tsx
 msgid "Opening the page"
 msgstr "Opening the page"
 
@@ -28665,6 +28689,7 @@ msgid "Reload"
 msgstr "Reload"
 
 #: src/components/clio/plugin-tab-view.tsx
+#: src/routes/plugin-page.tsx
 msgid "Reload {label}"
 msgstr "Reload {label}"
 
@@ -30059,6 +30084,8 @@ msgstr "Retrieval"
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/plugin-page-view.tsx
+#: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
 #: src/components/clio/primitives/state-view.tsx
 #: src/components/clio/private-local-details.tsx
@@ -36754,6 +36781,10 @@ msgstr "The plan was not saved: {message}"
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "The plugin changes are in the agent’s system prompt now."
 
+#: src/routes/plugin-page.tsx
+msgid "The plugin that added this page may have been removed."
+msgstr "The plugin that added this page may have been removed."
+
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "The plugin's default is known once a conversation loads the tool."
@@ -38287,6 +38318,10 @@ msgstr "This page is closed."
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "This page is in your own browser: proceed there if you trust it."
 msgstr "This page is in your own browser: proceed there if you trust it."
+
+#: src/routes/plugin-page.tsx
+msgid "This page is not available"
+msgstr "This page is not available"
 
 #: src/components/clio/service-management-confirm-dialog.tsx
 msgid "This permanently deletes this deployment’s databases, environment cache, logs and captured evidence. Separately downloaded models are retained."

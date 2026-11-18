@@ -104,7 +104,7 @@ export interface Session {
   branch?: string;
   parent_session_id?: string;
   /** Conversation ownership is distinct from provenance parentage. */
-  session_kind?: WireValue<'conversation' | 'branch' | 'agent' | 'lookup'>;
+  session_kind?: WireValue<'conversation' | 'branch' | 'agent' | 'lookup' | 'page'>;
   agent_id?: string;
   metadata?: Record<string, unknown>;
   mode: WireValue<'plan' | 'edit' | 'architect'>;

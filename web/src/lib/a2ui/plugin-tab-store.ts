@@ -1,9 +1,11 @@
 import {
   decodeEventEnvelope,
+  decodePluginPageEvent,
   decodePluginTabEvent,
   TransportError,
   type A2UISurface,
   type A2UISurfaceOwner,
+  type PluginPageOpened,
   type PluginTabOpened,
 } from '@clio/core/v3';
 import { create } from 'zustand';
@@ -25,10 +27,16 @@ export interface PluginTabState {
   stale: boolean;
   /** The tab's server, so a surface it sent without an owner still routes to it. */
   owner?: A2UISurfaceOwner;
+  /** A plugin page's host-owned context session: its events, catalogs and questions. */
+  contextSessionId?: string;
 }
 
 interface PluginTabRepository {
-  openPluginTab(sessionId: string, tabId: string, signal?: AbortSignal): Promise<PluginTabOpened>;
+  openPluginTab(
+    sessionId: string,
+    tabId: string,
+    signal?: AbortSignal,
+  ): Promise<PluginTabOpened & { context_session_id?: string }>;
   closePluginTab(sessionId: string, tabId: string): Promise<{ closed: boolean }>;
 }
 
@@ -40,6 +48,12 @@ const usePluginTabStore = create<PluginTabStore>(() => ({ tabs: {} }));
 
 /** Who to tell when a tab closes, and the read in flight, per open tab. */
 const opened = new Map<string, { repository: PluginTabRepository; controller?: AbortController }>();
+
+/**
+ * Plugin pages share the tab store under one scope of their own: they are
+ * global, so no conversation keys them.
+ */
+export const PLUGIN_PAGE_SCOPE = '\u0001page';
 
 function key(sessionId: string, tabId: string): string {
   return `${sessionId}\u0000${tabId}`;
@@ -79,6 +93,7 @@ export async function openPluginTab(
         surfaces: store.tabs[entry]?.surfaces ?? [],
         revision: store.tabs[entry]?.revision ?? 0,
         owner: store.tabs[entry]?.owner,
+        contextSessionId: store.tabs[entry]?.contextSessionId,
         status: 'loading',
         stale: false,
       },
@@ -104,6 +119,7 @@ export async function openPluginTab(
           reason: result.tab.reason || undefined,
           stale: false,
           owner,
+          contextSessionId: result.context_session_id,
         },
       },
     }));
@@ -114,12 +130,16 @@ export async function openPluginTab(
       tabs: {
         ...store.tabs,
         [entry]: {
-          status: code?.startsWith('plugin_tab_') ? 'unavailable' : 'error',
+          status:
+            code?.startsWith('plugin_tab_') || code?.startsWith('plugin_page_')
+              ? 'unavailable'
+              : 'error',
           surfaces: [],
           revision: 0,
           reason: code,
           detail: error instanceof Error ? error.message : undefined,
           stale: false,
+          contextSessionId: store.tabs[entry]?.contextSessionId,
         },
       },
     }));
@@ -172,21 +192,25 @@ export function pluginsUpdatedByFrame(frame: { eventName?: string; data: unknown
   }
 }
 
-/** Applies a live `plugin_tab.*` frame to the conversation's open tab. */
+/** Applies a live `plugin_tab.*` frame to the conversation's open tab, or a `plugin_page.*` one to its page. */
 export function dispatchPluginTabFrame(
   frame: { eventName?: string; data: unknown },
   sessionId: string,
 ): void {
-  if (!frame.eventName?.startsWith('plugin_tab.')) return;
+  const page = frame.eventName?.startsWith('plugin_page.') ?? false;
+  if (!page && !frame.eventName?.startsWith('plugin_tab.')) return;
   let payload: unknown;
   try {
     payload = decodeEventEnvelope(frame.data).payload;
   } catch {
     return;
   }
-  const event = decodePluginTabEvent(frame.eventName, payload);
+  const event = page
+    ? decodePluginPageEvent(frame.eventName!, payload)
+    : decodePluginTabEvent(frame.eventName!, payload);
   if (!event) return;
-  const entry = key(sessionId, event.tab_id);
+  const scope = page ? PLUGIN_PAGE_SCOPE : sessionId;
+  const entry = key(scope, event.tab_id);
   if (event.type === 'plugin_tab.unavailable') {
     // No revision, and the surfaces stay: the next `refreshed` brings the tab back.
     update(entry, (state) =>
@@ -239,5 +263,44 @@ export function dispatchPluginTabFrame(
   });
   const handle = opened.get(entry);
   if (handle && !handle.controller && usePluginTabStore.getState().tabs[entry]?.stale)
-    void openPluginTab(handle.repository, sessionId, event.tab_id);
+    void openPluginTab(handle.repository, scope, event.tab_id);
+}
+
+interface PluginPageRepository {
+  openPluginPage(pageId: string, signal?: AbortSignal): Promise<PluginPageOpened>;
+  closePluginPage(pageId: string): Promise<{ closed: boolean }>;
+}
+
+function pageRoutes(repository: PluginPageRepository): PluginTabRepository {
+  return {
+    openPluginTab: async (_scope, pageId, signal) => {
+      const opened = await repository.openPluginPage(pageId, signal);
+      return {
+        tab: opened.page,
+        surfaces: opened.surfaces,
+        revision: opened.revision,
+        context_session_id: opened.context_session_id,
+      };
+    },
+    closePluginTab: (_scope, pageId) => repository.closePluginPage(pageId),
+  };
+}
+
+export function usePluginPageState(pageId: string): PluginTabState | undefined {
+  return usePluginTabState(PLUGIN_PAGE_SCOPE, pageId);
+}
+
+/** Reads the page's resource in its context; the first open creates the context. */
+export function openPluginPage(repository: PluginPageRepository, pageId: string): Promise<void> {
+  return openPluginTab(pageRoutes(repository), PLUGIN_PAGE_SCOPE, pageId);
+}
+
+/** The page left the screen: forget its surfaces and tell the service. */
+export function releasePluginPage(pageId: string): void {
+  releasePluginTab(PLUGIN_PAGE_SCOPE, pageId);
+}
+
+/** After a reconnect or a gap on the context's stream, read every open page again. */
+export function rereadPluginPages(): void {
+  rereadPluginTabs(PLUGIN_PAGE_SCOPE);
 }

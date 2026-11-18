@@ -33,6 +33,7 @@ import {
   pluginsUpdatedByFrame,
   rereadPluginTabs,
 } from '@/lib/a2ui/plugin-tab-store';
+import { invalidatePluginPages } from '@/lib/a2ui/plugin-pages';
 import { useRepository } from './use-repository';
 import { ph, t } from '@lingui/core/macro';
 
@@ -225,11 +226,13 @@ export function useSessionLiveStream({
             dispatchPluginTabFrame(frame, sessionId);
             dispatchServerSurfaceRefusalFrame(frame, sessionId);
             if (frame.eventName === 'stream.gap') rereadPluginTabs(sessionId);
-            if (pluginsUpdatedByFrame(frame))
+            if (pluginsUpdatedByFrame(frame)) {
               void queryClient.invalidateQueries({
                 queryKey: ['plugin-tabs'],
                 predicate: (query) => query.queryKey[2] === sessionId,
               });
+              invalidatePluginPages(queryClient);
+            }
             if (frame.eventName === 'message.completed') {
               batcher.flush();
             }

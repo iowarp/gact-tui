@@ -8,6 +8,7 @@ const routeModules = {
   runs: () => import('@/routes/runs-page'),
   infrastructure: () => import('@/routes/infrastructure-page'),
   settings: () => import('@/routes/settings-page'),
+  pluginPage: () => import('@/routes/plugin-page'),
 };
 
 export type RouteChunk = keyof typeof routeModules;
@@ -45,6 +46,7 @@ export function routeChunkForPath(pathname: string): RouteChunk | undefined {
   if (pathname === '/infrastructure' || pathname.startsWith('/infrastructure/'))
     return 'infrastructure';
   if (pathname.startsWith('/settings/')) return 'settings';
+  if (pathname.startsWith('/plugins/')) return 'pluginPage';
   return undefined;
 }
 

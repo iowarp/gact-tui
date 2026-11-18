@@ -212,7 +212,13 @@ export const sessionSchema = z.object({
   effort: z.string().optional(),
   branch: z.string().optional(),
   parent_session_id: z.string().optional(),
-  session_kind: forwardCompatibleEnum(['conversation', 'branch', 'agent', 'lookup']).optional(),
+  session_kind: forwardCompatibleEnum([
+    'conversation',
+    'branch',
+    'agent',
+    'lookup',
+    'page',
+  ]).optional(),
   agent_id: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   mode: forwardCompatibleEnum(['plan', 'edit', 'architect']).default('edit'),
@@ -505,7 +511,13 @@ export const commandDefinitionSchema = z
 
 export const summonTargetsSchema = z.object({
   subagents: z
-    .array(z.object({ id: z.string(), plugin: z.string().default(''), description: z.string().default('') }))
+    .array(
+      z.object({
+        id: z.string(),
+        plugin: z.string().default(''),
+        description: z.string().default(''),
+      }),
+    )
     .default([]),
   servers: z
     .array(
@@ -537,7 +549,13 @@ export const summonTargetsSchema = z.object({
     )
     .default([]),
   flows: z
-    .array(z.object({ id: z.string(), plugin: z.string().default(''), description: z.string().default('') }))
+    .array(
+      z.object({
+        id: z.string(),
+        plugin: z.string().default(''),
+        description: z.string().default(''),
+      }),
+    )
     .default([]),
 });
 

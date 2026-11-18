@@ -18,7 +18,12 @@ export const a2uiActionReplySchema = z
     delivery: z.string().optional(),
     action_id: z.string().optional(),
     tool: z.string().optional(),
-    outcome: forwardCompatibleEnum(['applied', 'no_update', 'task_pending', 'tool_error']).optional(),
+    outcome: forwardCompatibleEnum([
+      'applied',
+      'no_update',
+      'task_pending',
+      'tool_error',
+    ]).optional(),
     surface_ids: z.array(z.string()).optional(),
     error_text: z.string().optional(),
   })
@@ -138,6 +143,62 @@ export function decodePluginTabEvent(type: string, payload: unknown): PluginTabE
     default:
       return undefined;
   }
+}
+
+/**
+ * A plugin's primary navigation page: a left-bar entry that opens the
+ * plugin's surfaces full width. Pages are global. Each runs in one
+ * host-owned context session that belongs to no conversation; its events,
+ * consent and questions arrive on that session's stream.
+ */
+export const pluginPageSchema = pluginTabSchema.extend({
+  page: z.string().default(''),
+  placement: z.string().default('primary'),
+  context_session_id: z.string().nullable().default(null),
+});
+
+export type PluginPage = z.infer<typeof pluginPageSchema>;
+
+export const pluginPageListSchema = z
+  .object({ pages: z.array(pluginPageSchema) })
+  .passthrough()
+  .transform((value) => value.pages);
+
+export interface PluginPageOpened {
+  page: PluginPage;
+  context_session_id: string;
+  surfaces: A2UISurface[];
+  revision: number;
+}
+
+export const pluginPageOpenedSchema: z.ZodType<PluginPageOpened, z.ZodTypeDef, unknown> = z
+  .object({
+    page: pluginPageSchema,
+    context_session_id: z.string(),
+    surfaces: z.array(a2uiSurfaceSchema),
+    revision: z.number().int().nonnegative(),
+  })
+  .passthrough()
+  .transform(({ page, context_session_id, surfaces, revision }) => ({
+    page,
+    context_session_id,
+    surfaces,
+    revision,
+  }));
+
+/**
+ * Decodes one `plugin_page.*` event as its `plugin_tab.*` twin: a page's
+ * surfaces follow the tab rules, with `page_id` in place of `tab_id`.
+ */
+export function decodePluginPageEvent(type: string, payload: unknown): PluginTabEvent | undefined {
+  if (!type.startsWith('plugin_page.')) return undefined;
+  const parsed = z.object({ page_id: z.string() }).passthrough().safeParse(payload);
+  if (!parsed.success) return undefined;
+  const { page_id, ...rest } = parsed.data;
+  return decodePluginTabEvent(`plugin_tab.${type.slice('plugin_page.'.length)}`, {
+    ...rest,
+    tab_id: page_id,
+  });
 }
 
 /** HS1: a server's A2UI payload CLIO would not show. */
