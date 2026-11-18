@@ -3,7 +3,8 @@ import { TransportError } from '@clio/core/v3';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import { AlertTriangleIcon } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
-import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
+import { Button } from '@/components/ui/button';
 import { openPluginTab, usePluginTabState } from '@/lib/a2ui/plugin-tab-store';
 import { serverSurfaceReason } from '@/lib/a2ui/server-surface';
 import { humanizePluginId } from '@/lib/plugin-presentation';
@@ -27,8 +28,8 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
     [repository, tab.sessionId, tab.tabId],
   );
   // The tab keeps its surfaces while in the background; it reads again only
-  // when it has none yet or missed an update. A failure waits for the bar's
-  // Reload, the tab's one retry.
+  // when it has none yet or missed an update. An unavailable tab waits for the
+  // bar's Reload; one that failed to open also offers Retry.
   const needsRead = !state || state.stale;
   useEffect(() => {
     if (needsRead) reopen();
@@ -67,7 +68,18 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
         kind="error"
         size="viewer"
         title={t`${ph({ label })} could not be opened`}
-      />
+      >
+        {/* The same bordered Retry an action's error row carries. */}
+        <Button
+          className="rounded-[7px] border-input text-foreground"
+          onClick={reopen}
+          size="xs"
+          variant="outline"
+        >
+          <RetryIcon aria-hidden="true" className="size-3.5" />
+          {t`Retry`}
+        </Button>
+      </StateView>
     );
   else if (state.surfaces.length === 0)
     body = (

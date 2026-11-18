@@ -38,7 +38,7 @@ export function ServerSurfaceRefusalRow({ refusal }: { refusal: ServerSurfaceRef
   return (
     <TechnicalDetails
       beside={
-        <span className="flex min-w-0 flex-1 items-start gap-1.5">
+        <span className="flex min-w-0 items-start gap-1.5">
           <CircleOffIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
           <span className="min-w-0 text-pretty [overflow-wrap:anywhere]">
             {name ? t`A view from ${ph({ name })} was not shown` : t`A plugin's view was not shown`}
