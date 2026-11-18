@@ -2327,6 +2327,10 @@ msgstr "{label} (your choice)"
 msgid "{label} {shown}"
 msgstr "{label} {shown}"
 
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} actions"
+msgstr "{label} actions"
+
 #: src/components/clio/settings-model-server-row.tsx
 msgid "{label} address"
 msgstr "{label} address"
@@ -2354,6 +2358,10 @@ msgstr "{label} columns"
 #: src/components/clio/provenance-connections.tsx
 msgid "{label} connection"
 msgstr "{label} connection"
+
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} could not be opened"
+msgstr "{label} could not be opened"
 
 #: src/components/reui/date-selector.tsx
 msgid "{label} date"
@@ -2385,6 +2393,10 @@ msgstr "{label} for {draft} draft"
 #: src/components/clio/document-source-view.tsx
 msgid "{label} for {name}"
 msgstr "{label} for {name}"
+
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} has nothing to show yet"
+msgstr "{label} has nothing to show yet"
 
 #: src/lib/a2ui/kernel-catalog.tsx
 msgid "{label} indeterminate"
@@ -2425,6 +2437,10 @@ msgstr "{label} is not known on this computer. Remove it and deploy it again to 
 #: src/lib/html-in-browser.ts
 msgid "{label} is outside the folders this conversation may read, so the browser can't open it."
 msgstr "{label} is outside the folders this conversation may read, so the browser can't open it."
+
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} is unavailable"
+msgstr "{label} is unavailable"
 
 #: src/components/clio/service-management-panel.tsx
 msgid "{label} management"
@@ -3524,9 +3540,37 @@ msgstr "{sent} in, {received} out"
 msgid "{sentence}; {source} says {left} left"
 msgstr "{sentence}; {source} says {left} left"
 
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} does not let this view run that action."
+msgstr "{server} does not let this view run that action."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} finished without changing this view"
+msgstr "{server} finished without changing this view"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} is not running in this conversation, so this view is read-only."
+msgstr "{server} is not running in this conversation, so this view is read-only."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} is still working on it"
+msgstr "{server} is still working on it"
+
 #: src/lib/command-table.ts
 msgid "{server} prompts"
 msgstr "{server} prompts"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} reported a problem with this action."
+msgstr "{server} reported a problem with this action."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} reported a problem: {text}"
+msgstr "{server} reported a problem: {text}"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} sent a view that was refused. {reason}"
+msgstr "{server} sent a view that was refused. {reason}"
 
 #: src/components/clio/settings-tool-detail.tsx
 msgid "{server} server"
@@ -3887,6 +3931,10 @@ msgid "{title}\n"
 "Branch {branch}"
 msgstr "{title}\n"
 "Branch {branch}"
+
+#: src/components/clio/use-workbench-strip.tsx
+msgid "{title} (unavailable)"
+msgstr "{title} (unavailable)"
 
 #: src/components/clio/archived-sessions-dialog.tsx
 msgid "{title} deleted"
@@ -4548,6 +4596,10 @@ msgstr "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
 msgid "A plugin with {kinds}. Adding it to a conversation brings both."
 msgstr "A plugin with {kinds}. Adding it to a conversation brings both."
 
+#: src/lib/streaming/stream-notices.ts
+msgid "A plugin's view was not shown"
+msgstr "A plugin's view was not shown"
+
 #: src/lib/onboarding/tour-script.ts
 msgid "A practice request is already typed in."
 msgstr "A practice request is already typed in."
@@ -4648,6 +4700,10 @@ msgstr "A tool's read-only flag and its own I/O default are known once a convers
 #: src/components/clio/settings-working-context.tsx
 msgid "A typed number of tokens"
 msgstr "A typed number of tokens"
+
+#: src/lib/streaming/stream-notices.ts
+msgid "A view from {server} was not shown"
+msgstr "A view from {server} was not shown"
 
 #: src/components/clio/document-workspace.tsx
 msgid "A working copy is open; stable saves become revisions."
@@ -16440,6 +16496,10 @@ msgstr "From {marketplace}"
 msgid "from {profile}"
 msgstr "from {profile}"
 
+#: src/components/clio/a2ui-surface.tsx
+msgid "From {server} in the {plugin} plugin"
+msgstr "From {server} in the {plugin} plugin"
+
 #: src/lib/model-capability-tags.ts
 msgid "From {source}."
 msgstr "From {source}."
@@ -18663,6 +18723,18 @@ msgstr "It goes on in the background."
 msgid "It has not been checked yet."
 msgstr "It has not been checked yet."
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "It is a trusted address in your settings"
+msgstr "It is a trusted address in your settings"
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "It is on this computer, served by {server}"
+msgstr "It is on this computer, served by {server}"
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "It is on this computer, served by {server} from the {plugin} plugin"
+msgstr "It is on this computer, served by {server} from the {plugin} plugin"
+
 #: src/components/clio/known-service-actions.tsx
 msgid "It is removed from this device’s list. The service itself keeps running."
 msgstr "It is removed from this device’s list. The service itself keeps running."
@@ -18719,6 +18791,18 @@ msgstr "It runs once every member has answered."
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "It took no input"
 msgstr "It took no input"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "It tried to change a view that another server owns."
+msgstr "It tried to change a view that another server owns."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "It uses a component catalog that is not installed."
+msgstr "It uses a component catalog that is not installed."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "It uses an A2UI version this workspace does not support."
+msgstr "It uses an A2UI version this workspace does not support."
 
 #: src/lib/notebook.ts
 msgid "It’s a version 3 notebook. Only version 4 notebooks are shown as cells."
@@ -18784,6 +18868,10 @@ msgstr "Its own web index; filters by date, site and excluded sites."
 msgid "Its own web index; filters by date, site and kind (papers, news, PDF)."
 msgstr "Its own web index; filters by date, site and kind (papers, news, PDF)."
 
+#: src/lib/a2ui/server-surface.ts
+msgid "Its plugin does not declare the component catalog it uses."
+msgstr "Its plugin does not declare the component catalog it uses."
+
 #: src/components/clio/marketplace-manager.tsx
 msgid "Its plugins and agents leave the + menu. Conversations already running keep their pinned plugins until they end."
 msgstr "Its plugins and agents leave the + menu. Conversations already running keep their pinned plugins until they end."
@@ -18817,6 +18905,14 @@ msgstr "Its replies are scripted. Your real conversations open in this same spac
 msgid "Its run is no longer in this conversation."
 msgstr "Its run is no longer in this conversation."
 
+#: src/lib/a2ui/server-surface.ts
+msgid "Its server could not provide the tab's content."
+msgstr "Its server could not provide the tab's content."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Its server is not running in this conversation."
+msgstr "Its server is not running in this conversation."
+
 #: src/components/clio/resource-states.tsx
 msgid "Its size isn't verified, so it wasn't loaded. {ways} {agentName} can still read all of it."
 msgstr "Its size isn't verified, so it wasn't loaded. {ways} {agentName} can still read all of it."
@@ -18836,6 +18932,18 @@ msgstr "Its turn is done"
 #: src/components/clio/plugin-explorer.tsx
 msgid "Its update can run commands and hooks. Trust only sources you know."
 msgstr "Its update can run commands and hooks. Trust only sources you know."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Its view data is malformed."
+msgstr "Its view data is malformed."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Its view did not pass validation."
+msgstr "Its view did not pass validation."
+
+#: src/components/clio/plugin-tab-view.tsx
+msgid "Its view was not shown. {reason}"
+msgstr "Its view was not shown. {reason}"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "JPG image"
@@ -25117,6 +25225,10 @@ msgstr "Opened a desktop copy of the file."
 msgid "Opening"
 msgstr "Opening"
 
+#: src/components/clio/plugin-tab-view.tsx
+msgid "Opening {label}"
+msgstr "Opening {label}"
+
 #: src/components/clio/cad-file-view.tsx
 #: src/components/clio/resource-viewers.tsx
 msgid "Opening {name}"
@@ -25175,6 +25287,10 @@ msgstr "Opening the page"
 #: src/components/clio/command-menu.tsx
 msgid "Opening the search assistant"
 msgstr "Opening the search assistant"
+
+#: src/components/clio/workbench-tab-content.tsx
+msgid "Opening the tab"
+msgstr "Opening the tab"
 
 #: src/components/clio/a2ui-mcp-app.tsx
 #: src/components/clio/workbench-tab-content.tsx
@@ -25331,6 +25447,7 @@ msgstr "Organizations unavailable."
 msgid "organizing memories"
 msgstr "organizing memories"
 
+#: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Origin"
 msgstr "Origin"
@@ -26743,6 +26860,10 @@ msgstr "Private local marketplace"
 #: src/components/clio/a2ui-surface.tsx
 msgid "Private sign-in is unavailable in this archive."
 msgstr "Private sign-in is unavailable in this archive."
+
+#: src/components/clio/a2ui-surface.tsx
+msgid "Private sign-in is unavailable in this workspace view."
+msgstr "Private sign-in is unavailable in this workspace view."
 
 #: src/components/clio/latex-list.tsx
 msgid "Problems"
@@ -28519,6 +28640,10 @@ msgstr "Released in the last 6 months"
 msgid "Reload"
 msgstr "Reload"
 
+#: src/components/clio/plugin-tab-view.tsx
+msgid "Reload {label}"
+msgstr "Reload {label}"
+
 #: src/components/clio/settings-runtime.tsx
 msgid "Reload current settings"
 msgstr "Reload current settings"
@@ -29909,6 +30034,7 @@ msgstr "Retrieval"
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
 #: src/components/clio/primitives/state-view.tsx
 #: src/components/clio/private-local-details.tsx
@@ -30330,11 +30456,6 @@ msgstr "rules save together"
 msgid "Run"
 msgstr "Run"
 
-#: src/components/clio/tool-operation-contract.ts
-msgctxt "verb: tool action"
-msgid "Run"
-msgstr "Run"
-
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "Run {agent} on this computer or install it on a computer reached with SSH."
 msgstr "Run {agent} on this computer or install it on a computer reached with SSH."
@@ -30392,10 +30513,6 @@ msgstr "Run limit: {max_fires}"
 #: src/components/clio/session-work.tsx
 msgid "Run limit: Unlimited"
 msgstr "Run limit: Unlimited"
-
-#: src/components/clio/tool-operation-contract.ts
-msgid "Run on"
-msgstr "Run on"
 
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/tool-operation-contract.ts
@@ -35625,6 +35742,10 @@ msgstr "The {noun} loads when it scrolls into view."
 msgid "The {plugin} plugin"
 msgstr "The {plugin} plugin"
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "The {plugin} plugin names this address for {server}"
+msgstr "The {plugin} plugin names this address for {server}"
+
 #: src/lib/plugin-presentation.ts
 msgid "The {via} agent layer selects this plugin."
 msgstr "The {via} agent layer selects this plugin."
@@ -36603,6 +36724,10 @@ msgstr "The plan was not saved: {message}"
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "The plugin changes are in the agent’s system prompt now."
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "The plugin names this address for {server}"
+msgstr "The plugin names this address for {server}"
+
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "The plugin's default is known once a conversation loads the tool."
@@ -36615,6 +36740,10 @@ msgstr "The plugin's default. Choose a value to override it."
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "The plugin's review could not be loaded, so it can't be checked here."
 msgstr "The plugin's review could not be loaded, so it can't be checked here."
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "the plugin's server"
+msgstr "the plugin's server"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "The points you selected go with your next message, so {agent} works with exactly those."
@@ -36746,6 +36875,7 @@ msgid "The report holds the {wordmark} version, its health checks and its recent
 msgstr "The report holds the {wordmark} version, its health checks and its recent log. Passwords, keys and tokens are removed before you see it."
 
 #: src/components/clio/a2ui-surface.tsx
+#: src/lib/a2ui/server-surface.ts
 msgid "The request could not be completed."
 msgstr "The request could not be completed."
 
@@ -37412,6 +37542,10 @@ msgstr "The view could not be opened: {reason}"
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The view could not open"
 msgstr "The view could not open"
+
+#: src/lib/streaming/stream-notices.ts
+msgid "The view did not meet the rules for plugin views."
+msgstr "The view did not meet the rules for plugin views."
 
 #: src/components/clio/mcp-app-look-waiting-notice.tsx
 msgid "The view is not on screen. Show it so the agent can see it."
@@ -38480,6 +38614,10 @@ msgstr "This view is not attached to a conversation, so its files cannot be load
 msgid "This view needs a registered artifact in a connected {agent} workspace."
 msgstr "This view needs a registered artifact in a connected {agent} workspace."
 
+#: src/lib/a2ui/server-surface.ts
+msgid "This view no longer belongs to {server}, so the action was not sent."
+msgstr "This view no longer belongs to {server}, so the action was not sent."
+
 #: src/components/clio/a2ui-surface.tsx
 msgid "This view uses a catalog this workspace does not have installed."
 msgstr "This view uses a catalog this workspace does not have installed."
@@ -38509,6 +38647,10 @@ msgstr "This window may not open the live view of this page."
 #: src/hooks/use-settings-workspace-name.ts
 msgid "This workspace"
 msgstr "This workspace"
+
+#: src/components/clio/a2ui-surface.tsx
+msgid "This workspace has no account owner to sign in."
+msgstr "This workspace has no account owner to sign in."
 
 #: src/hooks/use-settings-workspace-name.ts
 msgid "This workspace is no longer available"
@@ -39164,6 +39306,10 @@ msgstr "Trust update…"
 #: src/lib/extension-library-entries.ts
 msgid "Trusted"
 msgstr "Trusted"
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "Trusted because"
+msgstr "Trusted because"
 
 #: src/components/clio/settings-plugins.tsx
 msgid "Trusted by you"

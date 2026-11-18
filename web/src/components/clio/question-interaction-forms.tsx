@@ -108,10 +108,34 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   );
 }
 
+/**
+ * HS5: why CLIO let this link through, in words. A plugin's own sign-in page,
+ * or a page its server serves on this computer, says which plugin vouched for it.
+ */
+function urlOriginTrust(payload: PendingInteraction['payload']): string | undefined {
+  const plugin = payload?.plugin ?? '';
+  const server = payload?.server || t`the plugin's server`;
+  switch (payload?.origin_trust) {
+    case 'configured':
+      return t`It is a trusted address in your settings`;
+    case 'plugin_origin':
+      return plugin
+        ? t`The ${ph({ plugin })} plugin names this address for ${ph({ server })}`
+        : t`The plugin names this address for ${ph({ server })}`;
+    case 'plugin_loopback':
+      return plugin
+        ? t`It is on this computer, served by ${ph({ server })} from the ${ph({ plugin })} plugin`
+        : t`It is on this computer, served by ${ph({ server })}`;
+    default:
+      return undefined;
+  }
+}
+
 /** Explicit URL consent; nothing is opened or fetched during render. */
 export function UrlConsentResponse(props: QuestionSurfaceProps) {
   const { interaction } = props;
   const url = interaction.payload?.url ?? '';
+  const originTrust = urlOriginTrust(interaction.payload);
   const [navigationError, setNavigationError] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -156,6 +180,10 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
       <AskFacts
         facts={[
           { label: t`Full URL`, value: url, title: url, mono: true },
+          ...(interaction.payload?.origin
+            ? [{ label: t`Origin`, value: interaction.payload.origin, mono: true }]
+            : []),
+          ...(originTrust ? [{ label: t`Trusted because`, value: originTrust }] : []),
           ...(interaction.payload?.punycode_host
             ? [{ label: t`Decoded host`, value: interaction.payload.punycode_host, mono: true }]
             : []),

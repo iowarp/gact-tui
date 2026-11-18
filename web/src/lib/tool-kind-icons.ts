@@ -37,7 +37,7 @@ export const TOOL_KIND_ICONS: ReadonlyArray<readonly [RegExp, LucideIcon]> = [
     BotIcon,
   ],
   [/^run_code$/u, FileCodeIcon],
-  [/^(shell_|run_command|ssh_execute)/u, SquareTerminalIcon],
+  [/^(shell_|run_command)/u, SquareTerminalIcon],
   [/^(run_flow|run_workflow)/u, WorkflowIcon],
   [/^(fs_edit|edit_)/u, EditIcon],
   [/^(fs_write|write_file|connected_data_write)/u, FilePenLineIcon],

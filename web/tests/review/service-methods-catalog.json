@@ -1022,62 +1022,6 @@
         "observation": null
       },
       {
-        "id": "relay",
-        "category": "remote_access",
-        "label": "CLIO Relay",
-        "description": "Deploy and inspect persistent work on an SSH cluster.",
-        "recommended_variant": "uv-tool",
-        "variants": [
-          {
-            "id": "uv-tool",
-            "label": "Released uv tool",
-            "version": "1.6.8",
-            "install_type": "uv_tool",
-            "artifact": "clio-relay==1.6.8",
-            "compatible": true,
-            "reason": "Requires uv on the managing CLIO host."
-          }
-        ],
-        "configuration_fields": [
-          {
-            "id": "cluster_name",
-            "label": "Cluster name",
-            "placeholder": "my-cluster",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "agent_bin",
-            "label": "Remote agent executable",
-            "placeholder": "agent",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "relay_artifact_sha256",
-            "label": "Relay wheel SHA-256",
-            "placeholder": "Published SHA-256",
-            "required": true,
-            "options": [],
-            "variants": []
-          }
-        ],
-        "supports_stop": false,
-        "state": "unknown",
-        "connection_url": null,
-        "connection_strategy": null,
-        "parameters": [],
-        "effective_parameters": [],
-        "configuration": {},
-        "owned_resources": [],
-        "supports_api_key": false,
-        "access": null,
-        "definition_version": "1",
-        "observation": null
-      },
-      {
         "id": "clio_agent",
         "category": "remote_access",
         "label": "CLIO",
@@ -2143,62 +2087,6 @@
         "observation": null
       },
       {
-        "id": "relay",
-        "category": "remote_access",
-        "label": "CLIO Relay",
-        "description": "Deploy and inspect persistent work on an SSH cluster.",
-        "recommended_variant": "uv-tool",
-        "variants": [
-          {
-            "id": "uv-tool",
-            "label": "Released uv tool",
-            "version": "1.6.8",
-            "install_type": "uv_tool",
-            "artifact": "clio-relay==1.6.8",
-            "compatible": true,
-            "reason": "Requires uv on the managing CLIO host."
-          }
-        ],
-        "configuration_fields": [
-          {
-            "id": "cluster_name",
-            "label": "Cluster name",
-            "placeholder": "my-cluster",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "agent_bin",
-            "label": "Remote agent executable",
-            "placeholder": "agent",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "relay_artifact_sha256",
-            "label": "Relay wheel SHA-256",
-            "placeholder": "Published SHA-256",
-            "required": true,
-            "options": [],
-            "variants": []
-          }
-        ],
-        "supports_stop": false,
-        "state": "unknown",
-        "connection_url": null,
-        "connection_strategy": null,
-        "parameters": [],
-        "effective_parameters": [],
-        "configuration": {},
-        "owned_resources": [],
-        "supports_api_key": false,
-        "access": null,
-        "definition_version": "1",
-        "observation": null
-      },
-      {
         "id": "clio_agent",
         "category": "remote_access",
         "label": "CLIO",
@@ -3254,62 +3142,6 @@
         "observation": null
       },
       {
-        "id": "relay",
-        "category": "remote_access",
-        "label": "CLIO Relay",
-        "description": "Deploy and inspect persistent work on an SSH cluster.",
-        "recommended_variant": "uv-tool",
-        "variants": [
-          {
-            "id": "uv-tool",
-            "label": "Released uv tool",
-            "version": "1.6.8",
-            "install_type": "uv_tool",
-            "artifact": "clio-relay==1.6.8",
-            "compatible": true,
-            "reason": "Requires uv on the managing CLIO host."
-          }
-        ],
-        "configuration_fields": [
-          {
-            "id": "cluster_name",
-            "label": "Cluster name",
-            "placeholder": "my-cluster",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "agent_bin",
-            "label": "Remote agent executable",
-            "placeholder": "agent",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "relay_artifact_sha256",
-            "label": "Relay wheel SHA-256",
-            "placeholder": "Published SHA-256",
-            "required": true,
-            "options": [],
-            "variants": []
-          }
-        ],
-        "supports_stop": false,
-        "state": "unknown",
-        "connection_url": null,
-        "connection_strategy": null,
-        "parameters": [],
-        "effective_parameters": [],
-        "configuration": {},
-        "owned_resources": [],
-        "supports_api_key": false,
-        "access": null,
-        "definition_version": "1",
-        "observation": null
-      },
-      {
         "id": "clio_agent",
         "category": "remote_access",
         "label": "CLIO",
@@ -4362,62 +4194,6 @@
         "supports_api_key": false,
         "access": null,
         "definition_version": "cmf-managed-2",
-        "observation": null
-      },
-      {
-        "id": "relay",
-        "category": "remote_access",
-        "label": "CLIO Relay",
-        "description": "Deploy and inspect persistent work on an SSH cluster.",
-        "recommended_variant": "uv-tool",
-        "variants": [
-          {
-            "id": "uv-tool",
-            "label": "Released uv tool",
-            "version": "1.6.8",
-            "install_type": "uv_tool",
-            "artifact": "clio-relay==1.6.8",
-            "compatible": true,
-            "reason": "Requires uv on the managing CLIO host."
-          }
-        ],
-        "configuration_fields": [
-          {
-            "id": "cluster_name",
-            "label": "Cluster name",
-            "placeholder": "my-cluster",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "agent_bin",
-            "label": "Remote agent executable",
-            "placeholder": "agent",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "relay_artifact_sha256",
-            "label": "Relay wheel SHA-256",
-            "placeholder": "Published SHA-256",
-            "required": true,
-            "options": [],
-            "variants": []
-          }
-        ],
-        "supports_stop": false,
-        "state": "unknown",
-        "connection_url": null,
-        "connection_strategy": null,
-        "parameters": [],
-        "effective_parameters": [],
-        "configuration": {},
-        "owned_resources": [],
-        "supports_api_key": false,
-        "access": null,
-        "definition_version": "1",
         "observation": null
       },
       {
@@ -5486,62 +5262,6 @@
         "observation": null
       },
       {
-        "id": "relay",
-        "category": "remote_access",
-        "label": "CLIO Relay",
-        "description": "Deploy and inspect persistent work on an SSH cluster.",
-        "recommended_variant": "uv-tool",
-        "variants": [
-          {
-            "id": "uv-tool",
-            "label": "Released uv tool",
-            "version": "1.6.8",
-            "install_type": "uv_tool",
-            "artifact": "clio-relay==1.6.8",
-            "compatible": true,
-            "reason": "Requires uv on the managing CLIO host."
-          }
-        ],
-        "configuration_fields": [
-          {
-            "id": "cluster_name",
-            "label": "Cluster name",
-            "placeholder": "my-cluster",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "agent_bin",
-            "label": "Remote agent executable",
-            "placeholder": "agent",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "relay_artifact_sha256",
-            "label": "Relay wheel SHA-256",
-            "placeholder": "Published SHA-256",
-            "required": true,
-            "options": [],
-            "variants": []
-          }
-        ],
-        "supports_stop": false,
-        "state": "unknown",
-        "connection_url": null,
-        "connection_strategy": null,
-        "parameters": [],
-        "effective_parameters": [],
-        "configuration": {},
-        "owned_resources": [],
-        "supports_api_key": false,
-        "access": null,
-        "definition_version": "1",
-        "observation": null
-      },
-      {
         "id": "clio_agent",
         "category": "remote_access",
         "label": "CLIO",
@@ -6594,62 +6314,6 @@
         "supports_api_key": false,
         "access": null,
         "definition_version": "cmf-managed-2",
-        "observation": null
-      },
-      {
-        "id": "relay",
-        "category": "remote_access",
-        "label": "CLIO Relay",
-        "description": "Deploy and inspect persistent work on an SSH cluster.",
-        "recommended_variant": "uv-tool",
-        "variants": [
-          {
-            "id": "uv-tool",
-            "label": "Released uv tool",
-            "version": "1.6.8",
-            "install_type": "uv_tool",
-            "artifact": "clio-relay==1.6.8",
-            "compatible": true,
-            "reason": "Requires uv on the managing CLIO host."
-          }
-        ],
-        "configuration_fields": [
-          {
-            "id": "cluster_name",
-            "label": "Cluster name",
-            "placeholder": "my-cluster",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "agent_bin",
-            "label": "Remote agent executable",
-            "placeholder": "agent",
-            "required": true,
-            "options": [],
-            "variants": []
-          },
-          {
-            "id": "relay_artifact_sha256",
-            "label": "Relay wheel SHA-256",
-            "placeholder": "Published SHA-256",
-            "required": true,
-            "options": [],
-            "variants": []
-          }
-        ],
-        "supports_stop": false,
-        "state": "unknown",
-        "connection_url": null,
-        "connection_strategy": null,
-        "parameters": [],
-        "effective_parameters": [],
-        "configuration": {},
-        "owned_resources": [],
-        "supports_api_key": false,
-        "access": null,
-        "definition_version": "1",
         "observation": null
       },
       {

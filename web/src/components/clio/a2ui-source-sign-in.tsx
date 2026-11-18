@@ -11,7 +11,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { connectionScope } from '@/lib/connection-scope';
 import type { DataSourceIntent } from '@/lib/a2ui/data-source-action';
-import { SourceSignInContext } from '@/lib/a2ui/source-sign-in-context';
+import { SourceSignInContext, SourceSignInWorkspaceContext } from '@/lib/a2ui/source-sign-in-context';
 import { PresentationNavigation } from './presentation-navigation';
 import { ConnectedAccountSignIn } from './connected-source-auth';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -37,7 +37,7 @@ export function A2uiSourceSignInHost({
   );
   return (
     <SourceSignInContext.Provider value={setIntent}>
-      {children}
+      <SourceSignInWorkspaceContext.Provider value={workspaceId}>{children}</SourceSignInWorkspaceContext.Provider>
       {intent ? (
         <A2uiSourceSignIn
           intent={intent}

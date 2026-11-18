@@ -654,6 +654,16 @@ export interface A2UISurface {
   // See `a2uiSurfaceSchema` in `schemas.ts` for the contract.
   message_revisions?: number[];
   error?: string;
+  /** The MCP server that produced the surface (HS1); absent for CLIO's own. */
+  owner?: A2UISurfaceOwner;
+}
+
+/** A plugin's MCP server that owns a surface; its actions go to that server (HS2). */
+export interface A2UISurfaceOwner {
+  kind: WireValue<'server'>;
+  plugin: string;
+  server: string;
+  namespace: string;
 }
 
 export interface PermissionLedgerItem {

@@ -2,6 +2,7 @@ import type { SubagentRun } from '@clio/core/v3';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
 import { returnMcpAppToConversation } from './mcp-app-live-set';
+import { releasePluginTab } from '@/lib/a2ui/plugin-tab-store';
 import { forgetRememberedViews, rememberedViewScope } from './remembered-view';
 import { useScienceLogTab } from './science-log-tab-state';
 import { fileName, subagentTab, type WorkbenchTab } from './workbench-shared';
@@ -126,6 +127,9 @@ export function useWorkbenchTabState(
       // Closing an App's tab returns the App to its card, or closes it (MA2, MA7).
       if (closing.has(tab.id) && tab.kind === 'mcp-app')
         returnMcpAppToConversation(tab.appInstanceId);
+      // Closing a plugin's tab drops its surfaces here and on the service.
+      if (closing.has(tab.id) && tab.kind === 'plugin')
+        releasePluginTab(tab.sessionId, tab.tabId);
     }
     if (closing.has(shownActiveTabId)) {
       const before = orderedTabs.slice(0, Math.max(0, index)).reverse();

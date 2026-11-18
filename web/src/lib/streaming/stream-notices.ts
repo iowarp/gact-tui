@@ -1,5 +1,11 @@
-import type { TransportFrame } from '@clio/core/v3';
+import {
+  A2UI_SERVER_SURFACE_REFUSED_EVENT,
+  decodeA2uiServerSurfaceRefusal,
+  decodeEventEnvelope,
+  type TransportFrame,
+} from '@clio/core/v3';
 import { t } from '@lingui/core/macro';
+import { serverSurfaceReason } from '@/lib/a2ui/server-surface';
 
 /**
  * The live events a person has to be told about, because refreshing a query
@@ -14,7 +20,7 @@ import { t } from '@lingui/core/macro';
  */
 export interface StreamNotice {
   /** Stable machine-readable reason, and the notice's identity prefix. */
-  code: 'queued_message.promotion_failed';
+  code: 'queued_message.promotion_failed' | 'a2ui.server_surface.refused';
   /** Identity for the notice, so a redelivered frame does not raise a second. */
   id: string;
   title: string;
@@ -33,8 +39,28 @@ function recoverable(frame: TransportFrame): boolean {
   return envelope.payload?.recoverable !== false;
 }
 
+function refusedServerSurface(frame: TransportFrame): StreamNotice | undefined {
+  let payload: unknown;
+  try {
+    payload = decodeEventEnvelope(frame.data).payload;
+  } catch {
+    return undefined;
+  }
+  const refusal = decodeA2uiServerSurfaceRefusal(payload);
+  if (!refusal) return undefined;
+  const server = refusal.server || refusal.plugin;
+  const reason = serverSurfaceReason(refusal.reason);
+  return {
+    code: 'a2ui.server_surface.refused',
+    id: `a2ui.server_surface.refused:${entityId(frame)}`,
+    title: server ? t`A view from ${server} was not shown` : t`A plugin's view was not shown`,
+    description: reason ?? (refusal.detail || t`The view did not meet the rules for plugin views.`),
+  };
+}
+
 /** The notice one live frame owes the person, if it owes one at all. */
 export function streamNoticeForFrame(frame: TransportFrame): StreamNotice | undefined {
+  if (frame.eventName === A2UI_SERVER_SURFACE_REFUSED_EVENT) return refusedServerSurface(frame);
   if (frame.eventName !== 'queued_message.promotion_failed') return undefined;
   return {
     code: 'queued_message.promotion_failed',

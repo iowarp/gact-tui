@@ -54,6 +54,11 @@ export interface PendingInteractionPayload {
   punycode_warning?: boolean;
   punycode_host?: string;
   punycode_host_raw?: string;
+  /** HS5: the URL's origin and why CLIO accepted it. */
+  origin?: string;
+  origin_trust?: WireValue<'configured' | 'plugin_origin' | 'plugin_loopback'>;
+  plugin?: string;
+  server?: string;
   expires_at?: string;
   input_key?: string;
   permission_id?: string;

@@ -18,6 +18,14 @@ import { resolveSessionReference, readResolvedReferenceBytes } from './a2ui/refe
 import type { A2UISurface } from './domain.js';
 import { PresentationRepository } from './presentation-repository.js';
 import { a2uiSurfaceSchema } from './schemas.js';
+import {
+  a2uiActionReplySchema,
+  pluginTabListSchema,
+  pluginTabOpenedSchema,
+  type A2uiActionReply,
+  type PluginTab,
+  type PluginTabOpened,
+} from './plugin-tab-contract.js';
 import { captureSessionReview } from './session-export-snapshot.js';
 import type { SessionReviewSnapshot } from './session-export-snapshot.js';
 import {
@@ -26,6 +34,12 @@ import {
   type DashboardReport,
   type SavedDashboard,
 } from './dashboard-report.js';
+
+/** `<plugin>/<tab>` keeps its slash: the route has a segment for each. */
+function pluginTabPath(sessionId: string, tabId: string): string {
+  const [plugin = '', tab = ''] = tabId.split('/', 2);
+  return `/v1/sessions/${encodeURIComponent(sessionId)}/plugin-tabs/${encodeURIComponent(plugin)}/${encodeURIComponent(tab)}`;
+}
 
 /**
  * The A2UI transport doors (`docs/gact/a2ui-binding.md`): posting a client
@@ -133,7 +147,7 @@ export class A2uiRepository extends PresentationRepository {
     message: unknown,
     correlation?: { run_id?: string; message_id?: string; part_id?: string; question_id?: string },
     signal?: AbortSignal,
-  ): Promise<{ status: string; destination?: string; state?: string; delivery?: string }> {
+  ): Promise<A2uiActionReply> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/actions`,
@@ -142,16 +156,60 @@ export class A2uiRepository extends PresentationRepository {
         correlation,
         metadata: mergeA2uiClientMetadata(sessionId, undefined, { includeDataModel: true }),
       },
-      decode: (value) =>
-        z
-          .object({
-            status: z.string(),
-            destination: z.string().optional(),
-            state: z.string().optional(),
-            delivery: z.string().optional(),
-          })
-          .passthrough()
-          .parse(value),
+      decode: (value) => a2uiActionReplySchema.parse(value),
+      signal,
+    });
+  }
+
+  /** HS3: the tabs the plugins mounted in this conversation offer. */
+  public pluginTabs(sessionId: string, signal?: AbortSignal): Promise<PluginTab[]> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/plugin-tabs`,
+      decode: (value) => pluginTabListSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Reads the tab's resource: its surfaces replace everything the tab held. */
+  public openPluginTab(
+    sessionId: string,
+    tabId: string,
+    signal?: AbortSignal,
+  ): Promise<PluginTabOpened> {
+    return this.transport.request({
+      method: 'POST',
+      path: `${pluginTabPath(sessionId, tabId)}/open`,
+      body: {},
+      decode: (value) => pluginTabOpenedSchema.parse(value),
+      signal,
+    });
+  }
+
+  public closePluginTab(sessionId: string, tabId: string): Promise<{ closed: boolean }> {
+    return this.transport.request({
+      method: 'POST',
+      path: `${pluginTabPath(sessionId, tabId)}/close`,
+      body: {},
+      decode: (value) => z.object({ closed: z.boolean() }).passthrough().parse(value),
+    });
+  }
+
+  /** HS2 on a tab's surface: the action goes to the server that owns the tab. */
+  public pluginTabAction(
+    sessionId: string,
+    tabId: string,
+    message: unknown,
+    signal?: AbortSignal,
+  ): Promise<A2uiActionReply> {
+    return this.transport.request({
+      method: 'POST',
+      path: `${pluginTabPath(sessionId, tabId)}/actions`,
+      body: {
+        message,
+        metadata: mergeA2uiClientMetadata(sessionId, undefined, { includeDataModel: true }),
+      },
+      decode: (value) => a2uiActionReplySchema.parse(value),
       signal,
     });
   }

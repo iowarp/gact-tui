@@ -1,5 +1,9 @@
 # Focused Provider/Runtime Rework
 
+> Historical note (2026-11): CLIO Relay is no longer a managed service. The
+> `clio-relay==1.6.8` install described below was removed; relay now ships as an
+> ordinary MCP server with its own CLIO plugin. The text is kept as a record.
+
 ## Goal
 
 Ship one bounded release slice that wires the missing model providers through the existing DSPy/LiteLLM path and adds a small Tauri deployment mechanism for vLLM, llama.cpp, CLIO Web Search, and CLIO Relay. Codex and Claude Code remain unchanged.

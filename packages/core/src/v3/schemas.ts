@@ -702,6 +702,15 @@ export const a2uiSurfaceSchema = z.object({
   // revision then, with a visible, typed degradation, never silently.
   message_revisions: z.array(z.number().int().nonnegative()).optional(),
   error: z.string().optional(),
+  // Host semantics HS1: fixed at createSurface; absent means CLIO's own surface.
+  owner: z
+    .object({
+      kind: forwardCompatibleEnum(['server']),
+      plugin: z.string(),
+      server: z.string(),
+      namespace: z.string(),
+    })
+    .optional(),
 });
 
 export { a2uiActionLifecycleSchema } from './a2ui/lifecycle.js';

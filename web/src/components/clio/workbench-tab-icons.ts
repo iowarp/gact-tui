@@ -13,6 +13,7 @@ import {
   ListIcon,
   PanelsTopLeftIcon,
   PaperclipIcon,
+  PlugIcon,
   SearchIcon,
   TerminalSquareIcon,
   WorkflowIcon,
@@ -44,6 +45,7 @@ export const workbenchTabIcons = {
   search: SearchIcon,
   'variant-try': BotIcon,
   'mcp-app': PanelsTopLeftIcon,
+  plugin: PlugIcon,
 } satisfies Record<
   WorkbenchTab['kind'],
   ComponentType<{ 'aria-hidden'?: boolean; className?: string }>

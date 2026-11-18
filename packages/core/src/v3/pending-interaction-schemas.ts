@@ -126,6 +126,15 @@ export const pendingInteractionSchema = z.object({
       punycode_warning: z.boolean().optional(),
       punycode_host: z.string().optional(),
       punycode_host_raw: z.string().optional(),
+      /** HS5: the URL's origin and why CLIO accepted it. */
+      origin: z.string().optional(),
+      origin_trust: forwardCompatibleEnum([
+        'configured',
+        'plugin_origin',
+        'plugin_loopback',
+      ]).optional(),
+      plugin: z.string().optional(),
+      server: z.string().optional(),
       expires_at: z.string().optional(),
       input_key: z.string().optional(),
       permission_id: z.string().optional(),

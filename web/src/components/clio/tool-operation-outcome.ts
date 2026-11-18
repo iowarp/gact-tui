@@ -17,7 +17,7 @@ export function withOperationOutcome(tool: ToolInvocation): ToolInvocation {
     ['web_search', 'web_fetch', 'literature_search', 'literature_lookup'].includes(tool.name) &&
     result.ok === false;
   const command =
-    ['shell_bash', 'ssh_execute'].includes(tool.name) &&
+    tool.name === 'shell_bash' &&
     typeof result.exit_code === 'number' &&
     result.exit_code !== 0;
   const refused =

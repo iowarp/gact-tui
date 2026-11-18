@@ -8,7 +8,6 @@ const forbidden = [
   /ghcr\.io\/iowarp\/clio-web-search:/u,
   /vllm\/vllm-openai(?::|-)/u,
   /ggml-org\/llama\.cpp:server/u,
-  /clio-relay==\d/u,
   /infrastructure_deploy_web_search/u,
   /infrastructure_managed_service_action/u,
   /CLIO_SSH_ASKPASS_CREDENTIAL/u,

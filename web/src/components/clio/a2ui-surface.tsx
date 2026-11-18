@@ -1,13 +1,15 @@
 import {
   A2UI_VERSION,
+  TransportError,
   type A2UIActionLifecycle,
+  type A2uiActionReply,
   type A2UISurface as DomainSurface,
 } from '@clio/core/v3';
 import { renderMarkdown } from '@a2ui/markdown-it';
 import { MarkdownContext } from '@a2ui/react/v0_9';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangleIcon, Loader2Icon } from 'lucide-react';
+import { AlertTriangleIcon, Loader2Icon, PlugIcon } from 'lucide-react';
 import {
   Component,
   useCallback,
@@ -27,8 +29,14 @@ import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
 import { useOpenedViewSelection } from '@/lib/a2ui/open-view';
 import { cn } from '@/lib/utils';
 import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
-import { dataSourceIntent } from '@/lib/a2ui/data-source-action';
-import { useSourceSignIn } from '@/lib/a2ui/source-sign-in-context';
+import { dataSourceIntent, serverDataSourceProvider } from '@/lib/a2ui/data-source-action';
+import { useSourceSignIn, useSourceSignInWorkspace } from '@/lib/a2ui/source-sign-in-context';
+import {
+  isServerOwned,
+  serverActionFailure,
+  serverActionResult,
+  type ServerActionResult,
+} from '@/lib/a2ui/server-surface';
 import { vocab } from '@/lib/brand-vocabulary';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { TechnicalDetails } from './technical-details';
@@ -124,7 +132,7 @@ function surfaceStatusValue(state: DomainSurface['state']): ClioStatusValue {
 export type A2UIRemoteActionHandler = (message: {
   version: string;
   action: A2uiClientAction;
-}) => Promise<void>;
+}) => Promise<A2uiActionReply | void>;
 
 export type A2UILocalActionHandler = (
   action: A2uiClientAction,
@@ -138,10 +146,11 @@ function ClioA2UISurfaceContent({
   onRemoteAction,
   surface,
   viewport,
-  readOnly,
+  readOnly: archived,
   catalogRegistry,
   captureArtifactId,
   visualFeedback,
+  ownerAttribution,
 }: {
   /**
    * The server-truth footer's data (dispatcher slice S5,
@@ -160,9 +169,18 @@ function ClioA2UISurfaceContent({
   catalogRegistry?: A2uiRegistrySnapshot;
   captureArtifactId?: string;
   visualFeedback?: boolean;
+  ownerAttribution: boolean;
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
+  const serverOwner = isServerOwned(surface.owner) ? surface.owner : undefined;
+  // HS2: once the owning server is gone the view stays, read-only.
+  const [serverGone, setServerGone] = useState(false);
+  const readOnly = archived || serverGone;
+  const [serverResult, setServerResult] = useState<
+    ServerActionResult & { revision: number }
+  >();
+  const signInWorkspace = useSourceSignInWorkspace();
   const sessionRegistry = useA2uiCatalogRegistry(surface.session_id);
   const { registry, catalogs, isLoading: catalogsLoading } = catalogRegistry ?? sessionRegistry;
   const [validationPostFailure, setValidationPostFailure] = useState<{
@@ -178,21 +196,68 @@ function ClioA2UISurfaceContent({
   const [localActionStatus, setLocalActionStatus] = useState<string>();
   const openSourceSignIn = useSourceSignIn();
   const { error, isPending, mutateAsync } = useMutation({
-    mutationFn: async (clientAction: A2uiClientAction) => {
+    mutationFn: async (clientAction: A2uiClientAction): Promise<A2uiActionReply | void> => {
       const message = { version: `v${A2UI_VERSION}`, action: clientAction };
-      if (onRemoteAction) {
-        await onRemoteAction(message);
-        return;
+      setServerResult(undefined);
+      try {
+        const reply = onRemoteAction
+          ? await onRemoteAction(message)
+          : await repository.a2uiAction(surface.session_id, message, {
+              run_id: surface.run_id,
+              message_id: surface.message_id,
+              part_id: surface.part_id,
+            });
+        if (serverOwner) {
+          const result = serverActionResult(reply, serverOwner.server);
+          if (result) setServerResult({ ...result, revision: surface.revision });
+        }
+        return reply;
+      } catch (actionError) {
+        if (!serverOwner) throw actionError;
+        const failure = serverActionFailure(actionError, serverOwner.server);
+        if (failure.serverGone) setServerGone(true);
+        throw new Error(failure.message, { cause: actionError });
       }
-      await repository.a2uiAction(surface.session_id, message, {
-        run_id: surface.run_id,
-        message_id: surface.message_id,
-        part_id: surface.part_id,
-      });
     },
   });
   const handleAction = useCallback(
     async (clientAction: A2uiClientAction) => {
+      if (serverOwner && clientAction.name.startsWith('data_source/')) {
+        try {
+          const provider = serverDataSourceProvider(clientAction);
+          if (readOnly) {
+            setLocalNotice(t`Private sign-in is unavailable in this archive.`);
+            return;
+          }
+          if (!provider || !openSourceSignIn || !signInWorkspace) {
+            throw new Error(t`Private sign-in is unavailable in this workspace view.`);
+          }
+          // The host owns this sign-in: the server's empty context is filled
+          // with this workspace's owner, never with anything the server sent.
+          const message = { version: `v${A2UI_VERSION}`, action: clientAction };
+          const [owner] = await Promise.all([
+            repository.storageProviders(),
+            onRemoteAction
+              ? onRemoteAction(message)
+              : repository.a2uiAction(surface.session_id, message, {
+                  run_id: surface.run_id,
+                  message_id: surface.message_id,
+                  part_id: surface.part_id,
+                }),
+          ]);
+          if (!owner.clio_id) throw new Error(t`This workspace has no account owner to sign in.`);
+          openSourceSignIn({ provider, clioId: owner.clio_id, workspaceId: signInWorkspace });
+        } catch (sourceError) {
+          setLocalNotice(
+            sourceError instanceof TransportError && serverOwner
+              ? serverActionFailure(sourceError, serverOwner.server).message
+              : sourceError instanceof Error
+                ? sourceError.message
+                : t`Sign-in is unavailable.`,
+          );
+        }
+        return;
+      }
       if (clientAction.name.startsWith('data_source/')) {
         try {
           const intent = dataSourceIntent(clientAction);
@@ -251,7 +316,18 @@ function ClioA2UISurfaceContent({
       }
       await mutateAsync(clientAction);
     },
-    [mutateAsync, onLocalAction, readOnly, registry, repository, surface, openSourceSignIn],
+    [
+      mutateAsync,
+      onLocalAction,
+      onRemoteAction,
+      readOnly,
+      registry,
+      repository,
+      surface,
+      openSourceSignIn,
+      serverOwner,
+      signInWorkspace,
+    ],
   );
   const handleValidationFailed = useCallback(
     async (validationError: { code: string; path?: string; message: string }) => {
@@ -430,6 +506,18 @@ function ClioA2UISurfaceContent({
         </p>
       ) : null}
       {error ? <p className="py-2 text-xs text-destructive">{error.message}</p> : null}
+      {serverResult?.revision === surface.revision ? (
+        serverResult.kind === 'error' ? (
+          <p className="py-2 text-xs text-destructive">{serverResult.message}</p>
+        ) : (
+          <div aria-live="polite" className="py-2 text-xs">
+            <ClioStatus
+              label={serverResult.message}
+              value={serverResult.kind === 'running' ? 'running' : 'completed'}
+            />
+          </div>
+        )
+      ) : null}
       {protocolNotice ? (
         <TechnicalDetails
           className="py-1 text-xs text-muted-foreground"
@@ -458,6 +546,17 @@ function ClioA2UISurfaceContent({
       tabIndex={-1}
     >
       {statusNotice}
+      {serverOwner && ownerAttribution ? (
+        <p
+          className="mb-1.5 flex min-w-0 items-center gap-1.5 text-meta text-muted-foreground"
+          data-slot="a2ui-surface-owner"
+        >
+          <PlugIcon aria-hidden="true" className="size-3 shrink-0" />
+          <span className="truncate">
+            {t`From ${ph({ server: serverOwner.server })} in the ${ph({ plugin: serverOwner.plugin })} plugin`}
+          </span>
+        </p>
+      ) : null}
       {renderedSurface}
       {surfaceFeedback}
     </section>
@@ -474,6 +573,7 @@ export function ClioA2UISurface({
   catalogRegistry,
   captureArtifactId,
   visualFeedback,
+  ownerAttribution = true,
 }: {
   actionLifecycle?: A2UIActionLifecycle;
   onLocalAction?: A2UILocalActionHandler;
@@ -484,6 +584,8 @@ export function ClioA2UISurface({
   catalogRegistry?: A2uiRegistrySnapshot;
   captureArtifactId?: string;
   visualFeedback?: boolean;
+  /** Names a plugin server's view's owner; a plugin's own tab already says it. */
+  ownerAttribution?: boolean;
 }) {
   const target = useQuestionAnswer()?.surfaceTarget;
   const navigation = useMemo(
@@ -506,6 +608,7 @@ export function ClioA2UISurface({
           catalogRegistry={catalogRegistry}
           captureArtifactId={captureArtifactId}
           visualFeedback={visualFeedback}
+          ownerAttribution={ownerAttribution}
         />
       </SurfaceQuestionTabs.Provider>
     </SurfaceBoundary>

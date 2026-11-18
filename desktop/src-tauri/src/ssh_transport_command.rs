@@ -453,7 +453,7 @@ mod tests {
     #[test]
     fn desktop_rejects_controller_scoped_commands() {
         let command = TransportCommand {
-            program: "clio-relay".to_string(),
+            program: "controller-agent".to_string(),
             args: Vec::new(),
             scope: "controller".to_string(),
             timeout_seconds: 30.0,
