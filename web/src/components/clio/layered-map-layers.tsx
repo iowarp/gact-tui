@@ -210,6 +210,37 @@ export function TableLayerSource({
 }
 
 /** A shapes layer: a registered GeoJSON file read through the authenticated resolver. */
+const SHAPE_COLOUR = '__clio_colour';
+
+/** The GeoJSON with each feature's colour in SHAPE_COLOUR (undefined if not GeoJSON). */
+export function colourShapes(geojson: unknown, layer: MapLayer): unknown {
+  if (!geojson || typeof geojson !== 'object') return undefined;
+  const collection = geojson as { type?: string; features?: unknown[] };
+  const features =
+    collection.type === 'FeatureCollection' && Array.isArray(collection.features)
+      ? collection.features
+      : collection.type === 'Feature'
+        ? [collection]
+        : undefined;
+  if (!features) return geojson;
+  const own = categoryColor(`layer:${layer.id}`);
+  return {
+    type: 'FeatureCollection',
+    features: features.map((feature) => {
+      const item = feature as { properties?: Record<string, unknown> | null };
+      const properties = item.properties ?? {};
+      const category = layer.categoryField ? properties[layer.categoryField] : undefined;
+      const colour =
+        typeof category === 'string' ||
+        typeof category === 'number' ||
+        typeof category === 'boolean'
+          ? categoryColor(category)
+          : own;
+      return { ...item, properties: { ...properties, [SHAPE_COLOUR]: colour } };
+    }),
+  };
+}
+
 export function ShapesLayerSource({
   map,
   layer,
@@ -221,34 +252,46 @@ export function ShapesLayerSource({
   visible: boolean;
   geojson: unknown;
 }) {
+  // Each feature carries its colour: its category's when the layer names a
+  // categoryField, else the layer's own, so overlapping shapes layers differ.
+  const coloured = useMemo(() => colourShapes(geojson, layer), [geojson, layer]);
   useEffect(() => {
-    if (!geojson) return;
+    if (!coloured) return;
     const sourceId = layerSourceId(layer);
     const source = map.getSource(sourceId) as GeoJSONSource | undefined;
     if (source) {
-      source.setData(geojson as never);
+      source.setData(coloured as never);
       return;
     }
-    map.addSource(sourceId, { type: 'geojson', data: geojson as never });
-    const colour = readThemeColor('primary');
+    map.addSource(sourceId, { type: 'geojson', data: coloured as never });
+    const [lineId, circleId, fillId] = layerStyleIds(layer);
+    const colour = ['get', SHAPE_COLOUR] as never;
+    const opacity = layer.opacity ?? 0.9;
     map.addLayer({
-      id: layerStyleIds(layer)[0]!,
-      type: 'line',
+      id: fillId!,
+      type: 'fill',
       source: sourceId,
-      paint: { 'line-color': colour, 'line-width': 1.5, 'line-opacity': layer.opacity ?? 0.9 },
+      filter: ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
+      paint: { 'fill-color': colour, 'fill-opacity': Math.min(0.6, opacity * 0.4) },
     });
     map.addLayer({
-      id: layerStyleIds(layer)[1]!,
+      id: lineId!,
+      type: 'line',
+      source: sourceId,
+      paint: { 'line-color': colour, 'line-width': 1.5, 'line-opacity': opacity },
+    });
+    map.addLayer({
+      id: circleId!,
       type: 'circle',
       source: sourceId,
       filter: ['==', ['geometry-type'], 'Point'],
       paint: { 'circle-color': colour, 'circle-radius': 4 },
     });
-  }, [geojson, layer, map]);
+  }, [coloured, layer, map]);
   useEffect(() => {
     for (const id of layerStyleIds(layer))
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
-  }, [geojson, layer, map, visible]);
+  }, [coloured, layer, map, visible]);
   useEffect(() => () => removeLayer(map, layer), [layer, map]);
   return null;
 }
