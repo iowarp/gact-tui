@@ -6,7 +6,13 @@ import type { View } from 'vega';
 import type { MapLibreMap } from 'maplibre-gl';
 import { useRepository } from '@/hooks/use-repository';
 import { captureRenderedSurfacePng } from './a2ui-region-capture';
-import { VIEWER_DEFERRED_ATTRIBUTE, withGatedViewersMounted } from './viewer-capture-mount';
+import {
+  CAPTURE_MOUNTED_VIEWERS,
+  inOffscreenViewer,
+  VIEWER_DEFERRED_ATTRIBUTE,
+  VIEWER_OFFSCREEN_ATTRIBUTE,
+  withGatedViewersMounted,
+} from './viewer-capture-mount';
 
 interface VisualNode extends HTMLElement {
   __clioMap?: MapLibreMap;
@@ -26,6 +32,18 @@ function displayed(node: HTMLElement): boolean {
     getComputedStyle(node).visibility !== 'hidden' &&
     getComputedStyle(node).display !== 'none'
   );
+}
+
+/**
+ * Displayed and part of the view a person sees: an off-screen gated viewer, deferred or
+ * mounted only while a capture runs, is neither (`VIEWER_OFFSCREEN_ATTRIBUTE`).
+ */
+function shown(node: HTMLElement): boolean {
+  return displayed(node) && !inOffscreenViewer(node);
+}
+
+function componentId(node: Element): string | null | undefined {
+  return node.closest('[data-a2ui-component-id]')?.getAttribute('data-a2ui-component-id');
 }
 
 /** Report view evidence rather than retransmitting complete referenced datasets. */
@@ -102,7 +120,7 @@ function boundControls(surface: A2UISurface, model: SurfaceModel<ReactComponentI
 /** Inspect the current rendered state independently of definition revisions. */
 export function visualViewState(root: HTMLElement): Record<string, unknown> {
   const maps = [...root.querySelectorAll<VisualNode>('[data-slot="a2ui-map-surface"]')]
-    .filter(displayed)
+    .filter(shown)
     .map((node) => {
       const map = node.__clioMap;
       const center = map?.getCenter();
@@ -126,11 +144,9 @@ export function visualViewState(root: HTMLElement): Record<string, unknown> {
   const meshes = [
     ...root.querySelectorAll<VisualNode>('[data-slot="a2ui-mesh-viewport"] div[role="img"]'),
   ]
-    .filter(displayed)
+    .filter(shown)
     .map((node) => ({
-      component_id: node
-        .closest('[data-a2ui-component-id]')
-        ?.getAttribute('data-a2ui-component-id'),
+      component_id: componentId(node),
       state: node.__clioMeshState?.(),
       ready: Boolean(node.__clioMeshCapture),
     }));
@@ -139,21 +155,23 @@ export function visualViewState(root: HTMLElement): Record<string, unknown> {
     viewport: { width: rect.width, height: rect.height },
     maps,
     meshes,
-    data_views: [...root.querySelectorAll<VisualNode>('[data-slot="surface-toolbar"]')].map(
-      (node) => ({
-        component_id: node
-          .closest('[data-a2ui-component-id]')
-          ?.getAttribute('data-a2ui-component-id'),
-        reference: node.__clioVisualReference?.(),
-      }),
+    // Viewers scrolled out of view; a capture mounts them while it runs.
+    offscreen_views: [...root.querySelectorAll<HTMLElement>(`[${VIEWER_OFFSCREEN_ATTRIBUTE}]`)].map(
+      (node) => ({ component_id: componentId(node) }),
     ),
+    data_views: [...root.querySelectorAll<VisualNode>('[data-slot="surface-toolbar"]')]
+      .filter((node) => !inOffscreenViewer(node))
+      .map((node) => ({
+        component_id: componentId(node),
+        reference: node.__clioVisualReference?.(),
+      })),
     tabs: [...root.querySelectorAll<HTMLElement>('[role="tab"][aria-selected="true"]')]
-      .filter(displayed)
+      .filter(shown)
       .map((node) => ({ id: node.id, label: node.textContent })),
     inputs: [
       ...root.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select, textarea'),
     ]
-      .filter(displayed)
+      .filter(shown)
       .map((node) => ({
         name: node.name,
         value: node.value,
@@ -162,7 +180,13 @@ export function visualViewState(root: HTMLElement): Record<string, unknown> {
   };
 }
 
-function assertReady(target: HTMLElement): void {
+/**
+ * Whether `target` can be captured now. The view a person sees (`capture` false, the
+ * viewer's report) leaves out off-screen gated viewers, which a capture mounts itself;
+ * a capture (`capture` true) also waits for those it mounted.
+ */
+function assertReady(target: HTMLElement, capture = false): void {
+  const counts = capture ? displayed : shown;
   if (!displayed(target) || document.visibilityState !== 'visible')
     throw new Error('The requested view is hidden or unmounted.');
   if (
@@ -179,40 +203,39 @@ function assertReady(target: HTMLElement): void {
     ...target.querySelectorAll<HTMLElement>(
       '[role="alert"]:not([data-a2ui-callout]), [data-visual-state="failed"]',
     ),
-  ].find(displayed);
+  ].find(counts);
   if (failed) throw new Error(failed.textContent || 'A required view failed to render.');
   if (
     [
       ...(target.matches('[aria-busy="true"], [data-visual-state="loading"]') ? [target] : []),
       ...target.querySelectorAll<HTMLElement>('[aria-busy="true"], [data-visual-state="loading"]'),
-    ].some(displayed)
+    ].some(counts)
   )
     throw new Error('Required data or rendering is still loading.');
   if (
     [
       ...(target.hasAttribute(VIEWER_DEFERRED_ATTRIBUTE) ? [target] : []),
       ...target.querySelectorAll<HTMLElement>(`[${VIEWER_DEFERRED_ATTRIBUTE}]`),
-    ].some(displayed)
+    ].some(counts)
   )
     throw new Error('A view is still mounting for the capture.');
   for (const node of target.querySelectorAll<VisualNode>('[data-slot="a2ui-map-surface"]')) {
-    if (!displayed(node)) continue;
+    if (!counts(node)) continue;
     if (node.__clioMapFailure) throw new Error(node.__clioMapFailure);
     if (!node.__clioMap?.loaded() || !node.__clioMap.areTilesLoaded() || node.__clioMap.isMoving())
       throw new Error('Map data, tiles or camera are not ready.');
   }
   for (const node of target.querySelectorAll<VisualNode>('[data-slot="a2ui-chart-view"]')) {
-    if (displayed(node) && !node.__clioChart)
-      throw new Error('The chart has not completed layout.');
+    if (counts(node) && !node.__clioChart) throw new Error('The chart has not completed layout.');
   }
   for (const node of target.querySelectorAll<VisualNode>(
     '[data-slot="a2ui-mesh-viewport"] div[role="img"]',
   )) {
-    if (displayed(node) && !node.__clioMeshCapture)
+    if (counts(node) && !node.__clioMeshCapture)
       throw new Error('The mesh graphics frame is unavailable.');
   }
   for (const image of target.querySelectorAll('img')) {
-    if (displayed(image) && (!image.complete || !image.naturalWidth))
+    if (counts(image) && (!image.complete || !image.naturalWidth))
       throw new Error('A required image is unavailable.');
   }
 }
@@ -251,7 +274,7 @@ async function captureMounted(target: HTMLElement, matches: () => boolean): Prom
   // view remains a failure, never the last canvas frame from an earlier query.
   for (let attempt = 0; ; attempt += 1) {
     try {
-      assertReady(target);
+      assertReady(target, true);
       break;
     } catch (error) {
       if (!displayed(target) || attempt >= 70 || !matches()) throw error;
@@ -266,7 +289,7 @@ async function captureMounted(target: HTMLElement, matches: () => boolean): Prom
   const rect = target.getBoundingClientRect();
   const ratio = visualCapturePixelRatio(rect.width, rect.height, window.devicePixelRatio || 1);
   const blob = await captureRenderedSurfacePng(target, ratio);
-  assertReady(target);
+  assertReady(target, true);
   if (!matches()) throw new Error('The definition or viewer state changed during capture.');
   if (blob.size > 5_000_000)
     throw new Error('The captured PNG exceeds 5 MB; select a smaller component.');
@@ -317,8 +340,10 @@ export function useA2uiVisualViewer(
     let timer = 0;
     let unsupported = false;
     let fingerprint = '';
+    // A viewer off screen, including one a capture mounts, is not the person's view.
     const observer = new MutationObserver((records) => {
-      if (visualMutationsChanged(records)) epoch.current += 1;
+      if (visualMutationsChanged(records.filter((record) => !inOffscreenViewer(record.target))))
+        epoch.current += 1;
     });
     observer.observe(node, {
       subtree: true,
@@ -328,8 +353,16 @@ export function useA2uiVisualViewer(
       characterData: true,
       characterDataOldValue: true,
     });
+    let settledViewport: unknown;
     const report = (): A2uiViewerReport => {
-      const state = { ...visualViewState(node), ...boundControls(surface, model) };
+      const view = visualViewState(node);
+      // Viewers a capture mounts can resize the surface while it runs; that is the
+      // capture's own doing, not the person's view changing, so the size stays the one
+      // the view had without them.
+      if (settledViewport && node.querySelector(CAPTURE_MOUNTED_VIEWERS))
+        view.viewport = settledViewport;
+      else settledViewport = view.viewport;
+      const state = { ...view, ...boundControls(surface, model) };
       let ready = true;
       let detail = '';
       try {
