@@ -5571,6 +5571,10 @@ msgstr "προστέθηκε από {addedBy}"
 msgid "Added by you"
 msgstr "Προστέθηκε από εσάς"
 
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "Added the plugin {target} as you asked"
+msgstr "Προστέθηκε το πρόσθετο {target}, όπως ζήτησες"
+
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Added:"
 msgstr "Προστέθηκαν:"
@@ -7018,6 +7022,10 @@ msgstr "Ζητήθηκε σε συνομιλία"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "asked questions"
 msgstr "έκανε ερωτήσεις"
+
+#: src/components/clio/summon-chip.tsx
+msgid "Asked to add the plugin {target}"
+msgstr "Ζητήθηκε η προσθήκη του πρόσθετου {target}"
 
 #: src/components/clio/flow-step-details.tsx
 msgid "Asked to answer as"
@@ -26373,12 +26381,17 @@ msgstr "Σχεδιάστε την κατακόρυφη μετατόπιση στ
 msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr "Τα γραφήματα, οι πίνακες και οι αναφορές εμφανίζονται ως κάρτες αρχείων στη συνομιλία."
 
+#: src/lib/composer-reference-domain.ts
+msgid "plugin"
+msgstr "πρόσθετο"
+
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/agent-needs.ts
+#: src/lib/composer-reference-domain.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
 msgstr "Πρόσθετο"
@@ -26487,6 +26500,10 @@ msgstr "Πρόσθετα σε αυτό το πακέτο"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "Πρόσθετα που φεύγουν επίσης"
+
+#: src/components/clio/composer-references.tsx
+msgid "Plugins to add"
+msgstr "Πρόσθετα για προσθήκη"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -36783,6 +36800,22 @@ msgstr "Το σχέδιο είναι κενό."
 msgid "The plan was not saved: {message}"
 msgstr "Το σχέδιο δεν αποθηκεύτηκε: {message}"
 
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added"
+msgstr "Το πρόσθετο {target} δεν προστέθηκε"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: {reason}"
+msgstr "Το πρόσθετο {target} δεν προστέθηκε: {reason}"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: the turn was stopped first"
+msgstr "Το πρόσθετο {target} δεν προστέθηκε: η σειρά σταμάτησε πρώτα"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: you chose Not now"
+msgstr "Το πρόσθετο {target} δεν προστέθηκε: επέλεξες Όχι τώρα"
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "Οι αλλαγές πρόσθετων βρίσκονται πλέον στην προτροπή συστήματος του πράκτορα."
@@ -42311,6 +42344,10 @@ msgstr "Ζητήσατε τη ροή {target} σε αυτό το μήνυμα"
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "You asked for the workflow {target} on this message"
 msgstr "Ζητήσατε τη ροή εργασιών {target} σε αυτό το μήνυμα"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "You asked to add the plugin {target} for this message"
+msgstr "Ζήτησες να προστεθεί το πρόσθετο {target} για αυτό το μήνυμα"
 
 #: src/components/clio/permission-request-text.ts
 msgid "You blocked it"

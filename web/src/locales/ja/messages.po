@@ -5571,6 +5571,10 @@ msgstr "{addedBy}が追加"
 msgid "Added by you"
 msgstr "自分で追加"
 
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "Added the plugin {target} as you asked"
+msgstr "依頼どおりプラグイン {target} を追加しました"
+
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Added:"
 msgstr "追加："
@@ -7018,6 +7022,10 @@ msgstr "会話で依頼"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "asked questions"
 msgstr "質問しました"
+
+#: src/components/clio/summon-chip.tsx
+msgid "Asked to add the plugin {target}"
+msgstr "プラグイン {target} の追加を依頼"
 
 #: src/components/clio/flow-step-details.tsx
 msgid "Asked to answer as"
@@ -26373,12 +26381,17 @@ msgstr "観測点BKL1の鉛直変位をグラフにしてください。"
 msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr "グラフ、表、レポートは会話内にファイルカードとして表示されます。"
 
+#: src/lib/composer-reference-domain.ts
+msgid "plugin"
+msgstr "プラグイン"
+
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/agent-needs.ts
+#: src/lib/composer-reference-domain.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
 msgstr "プラグイン"
@@ -26487,6 +26500,10 @@ msgstr "このパックのプラグイン"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "同時に削除されるプラグイン"
+
+#: src/components/clio/composer-references.tsx
+msgid "Plugins to add"
+msgstr "追加できるプラグイン"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -36783,6 +36800,22 @@ msgstr "プランは空です。"
 msgid "The plan was not saved: {message}"
 msgstr "計画は保存されませんでした: {message}"
 
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added"
+msgstr "プラグイン {target} は追加されませんでした"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: {reason}"
+msgstr "プラグイン {target} は追加されませんでした: {reason}"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: the turn was stopped first"
+msgstr "プラグイン {target} は追加されませんでした: 先にターンが停止されました"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: you chose Not now"
+msgstr "プラグイン {target} は追加されませんでした: 「後で」を選びました"
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "プラグインの変更はエージェントのシステムプロンプトに反映されました。"
@@ -42311,6 +42344,10 @@ msgstr "このメッセージでフロー{target}をリクエストしました"
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "You asked for the workflow {target} on this message"
 msgstr "このメッセージでワークフロー{target}をリクエストしました"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "You asked to add the plugin {target} for this message"
+msgstr "このメッセージのためにプラグイン {target} の追加を依頼しました"
 
 #: src/components/clio/permission-request-text.ts
 msgid "You blocked it"

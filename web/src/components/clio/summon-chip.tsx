@@ -1,6 +1,6 @@
 import type { SummonBlock } from '@/lib/sent-inline-references';
 import { cn } from '@/lib/utils';
-import { BotIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
+import { BotIcon, PlugIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
 import { t } from '@lingui/core/macro';
 
 /** "Summoned workflow survey": the chip's accessible name for each kind of target. */
@@ -8,11 +8,12 @@ function summonedLabel(kind: string, target: string): string {
   if (kind === 'server') return t`Summoned tools ${target}`;
   if (kind === 'workflow') return t`Summoned workflow ${target}`;
   if (kind === 'flow') return t`Summoned flow ${target}`;
+  if (kind === 'plugin') return t`Asked to add the plugin ${target}`;
   return t`Summoned agent ${target}`;
 }
 
 /**
- * A subagent, workflow, flow or MCP server the person named with `@`, shown where
+ * A subagent, workflow, flow, MCP server or plugin to add the person named with `@`, shown where
  * they typed it. It names what handles the message, so it reads as a chip, not a
  * link to open.
  */
@@ -26,7 +27,9 @@ export function SummonChip({ block, className }: { block: SummonBlock; className
       )}
       data-slot="summon-chip"
     >
-      {block.target_kind === 'server' ? (
+      {block.target_kind === 'plugin' ? (
+        <PlugIcon aria-hidden="true" className="size-3.5 shrink-0" />
+      ) : block.target_kind === 'server' ? (
         <WrenchIcon aria-hidden="true" className="size-3.5 shrink-0" />
       ) : block.target_kind === 'workflow' || block.target_kind === 'flow' ? (
         <WorkflowIcon aria-hidden="true" className="size-3.5 shrink-0" />

@@ -61,6 +61,7 @@ const groups: Array<{
   { defaultOpen: false, browseOpen: true, kinds: ['workflow'], label: t`Workflows` },
   { defaultOpen: false, browseOpen: true, kinds: ['flow'], label: t`Flows` },
   { defaultOpen: false, browseOpen: true, kinds: ['server'], label: t`Tools` },
+  { defaultOpen: false, browseOpen: true, kinds: ['plugin'], label: t`Plugins to add` },
   { defaultOpen: true, browseOpen: true, kinds: ['workspace_file'], label: WORKSPACE_FILES },
   // Uploaded files and tool-observed evidence have different wire identities, but both are
   // user-facing sources. Artifacts remain reserved for generated or registered outputs.
