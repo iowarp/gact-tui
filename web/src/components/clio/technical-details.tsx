@@ -29,6 +29,7 @@ export function TechnicalDetails({
   shortcut,
   hint,
   hintClassName,
+  rowClassName,
   triggerProps,
   onOpenChange,
 }: {
@@ -44,6 +45,8 @@ export function TechnicalDetails({
   /** A quiet line beside the trigger saying what is inside. */
   hint?: string;
   hintClassName?: string;
+  /** Classes for the line holding `beside`, the trigger and the hint. */
+  rowClassName?: string;
   /** Extra attributes for the trigger, e.g. the key a surface maps to it. */
   triggerProps?: Record<string, string>;
   onOpenChange?: (open: boolean) => void;
@@ -69,7 +72,9 @@ export function TechnicalDetails({
   return (
     <Collapsible className={cn('group', className)} onOpenChange={onOpenChange}>
       {beside || hint ? (
-        <div className={cn('flex min-w-0 items-center', beside ? 'gap-1' : 'gap-2')}>
+        <div
+          className={cn('flex min-w-0 items-center', beside ? 'gap-1' : 'gap-2', rowClassName)}
+        >
           {beside}
           {trigger}
           {hint ? (

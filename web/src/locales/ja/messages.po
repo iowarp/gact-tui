@@ -2968,6 +2968,10 @@ msgstr "{name}は実行されていません。起動してからもう一度確
 msgid "{name} local"
 msgstr "{name}（ローカル）"
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "{name} names this address as its own"
+msgstr "{name} がこのアドレスを自身のものとして指定しています"
+
 #: src/components/clio/new-conversation-draft.tsx
 msgid "{name} new conversation"
 msgstr "{name}の新しい会話"
@@ -4596,6 +4600,10 @@ msgstr "1回限りの実行では、このデバイスのタイムゾーンが�
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
 msgstr "plugin.jsonまたは .claude-plugin/plugin.jsonを含むプラグインフォルダー。"
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "A plugin names this address as its own"
+msgstr "プラグインがこのアドレスを自身のものとして指定しています"
 
 #: src/components/clio/connector-plugin-contents.tsx
 msgid "A plugin with {kinds}. Adding it to a conversation brings both."
@@ -12275,13 +12283,13 @@ msgstr "ソースを信頼できませんでした"
 msgid "Could not update the provider client."
 msgstr "プロバイダーのクライアントをアップデートできませんでした。"
 
-#: src/lib/a2ui/server-surface.ts
-msgid "Couldn't {subject}"
-msgstr "「{subject}」を実行できませんでした"
-
 #: src/components/clio/attention-update-rows.tsx
 msgid "Couldn't check for updates"
 msgstr "アップデートを確認できませんでした"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Couldn't complete “{subject}”"
+msgstr "「{subject}」を実行できませんでした"
 
 #: src/lib/provider-availability.ts
 msgid "Couldn't confirm the API key right now. Try Verify provider again."
@@ -18739,12 +18747,12 @@ msgid "It is a trusted address in your settings"
 msgstr "設定で信頼済みのアドレスです"
 
 #: src/components/clio/question-interaction-forms.tsx
-msgid "It is on this computer, served by {server}"
-msgstr "このコンピューター上にあり、{server} が提供しています"
+msgid "It is on this computer, served by {name}"
+msgstr "このコンピューター上にあり、{name} が提供しています"
 
 #: src/components/clio/question-interaction-forms.tsx
-msgid "It is on this computer, served by {server} from the {plugin} plugin"
-msgstr "このコンピューター上にあり、{plugin} プラグインの {server} が提供しています"
+msgid "It is on this computer, served by a plugin"
+msgstr "このコンピューター上にあり、プラグインが提供しています"
 
 #: src/components/clio/known-service-actions.tsx
 msgid "It is removed from this device’s list. The service itself keeps running."
@@ -30052,7 +30060,6 @@ msgstr "検索取得"
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
-#: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
 #: src/components/clio/primitives/state-view.tsx
 #: src/components/clio/private-local-details.tsx
@@ -35770,10 +35777,6 @@ msgstr "{noun}はスクロールして表示されたときに読み込まれま
 msgid "The {plugin} plugin"
 msgstr "{plugin}プラグイン"
 
-#: src/components/clio/question-interaction-forms.tsx
-msgid "The {plugin} plugin names this address for {server}"
-msgstr "{plugin} プラグインがこのアドレスを {server} 用に指定しています"
-
 #: src/lib/plugin-presentation.ts
 msgid "The {via} agent layer selects this plugin."
 msgstr "{via}エージェントレイヤーがこのプラグインを選択しています。"
@@ -36752,10 +36755,6 @@ msgstr "計画は保存されませんでした: {message}"
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "プラグインの変更はエージェントのシステムプロンプトに反映されました。"
 
-#: src/components/clio/question-interaction-forms.tsx
-msgid "The plugin names this address for {server}"
-msgstr "プラグインがこのアドレスを {server} 用に指定しています"
-
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "The plugin's default is known once a conversation loads the tool."
@@ -36768,10 +36767,6 @@ msgstr "プラグインの既定値です。上書きするには値を選択し
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "The plugin's review could not be loaded, so it can't be checked here."
 msgstr "プラグインのレビューを読み込めなかったため、ここでは確認できません。"
-
-#: src/components/clio/question-interaction-forms.tsx
-msgid "the plugin's server"
-msgstr "プラグインのサーバー"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "The points you selected go with your next message, so {agent} works with exactly those."

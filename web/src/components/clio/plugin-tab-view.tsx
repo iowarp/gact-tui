@@ -27,7 +27,8 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
     [repository, tab.sessionId, tab.tabId],
   );
   // The tab keeps its surfaces while in the background; it reads again only
-  // when it has none yet or missed an update. A failure waits for Retry.
+  // when it has none yet or missed an update. A failure waits for the bar's
+  // Reload, the tab's one retry.
   const needsRead = !state || state.stale;
   useEffect(() => {
     if (needsRead) reopen();
@@ -53,7 +54,6 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
   else if (unavailable && state.surfaces.length === 0)
     body = (
       <StateView
-        action={{ label: t`Retry`, onClick: reopen }}
         detail={reason ?? state.detail}
         kind="unavailable"
         size="viewer"
@@ -63,7 +63,6 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
   else if (state.status === 'error')
     body = (
       <StateView
-        action={{ label: t`Retry`, onClick: reopen }}
         detail={state.detail}
         kind="error"
         size="viewer"

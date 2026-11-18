@@ -2967,6 +2967,10 @@ msgstr "{name} isn't running. Start it, then check again."
 msgid "{name} local"
 msgstr "{name} local"
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "{name} names this address as its own"
+msgstr "{name} names this address as its own"
+
 #: src/components/clio/new-conversation-draft.tsx
 msgid "{name} new conversation"
 msgstr "{name} new conversation"
@@ -4595,6 +4599,10 @@ msgstr "A one-time run uses the time zone of this device."
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
 msgstr "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "A plugin names this address as its own"
+msgstr "A plugin names this address as its own"
 
 #: src/components/clio/connector-plugin-contents.tsx
 msgid "A plugin with {kinds}. Adding it to a conversation brings both."
@@ -12274,13 +12282,13 @@ msgstr "Could not trust source"
 msgid "Could not update the provider client."
 msgstr "Could not update the provider client."
 
-#: src/lib/a2ui/server-surface.ts
-msgid "Couldn't {subject}"
-msgstr "Couldn't {subject}"
-
 #: src/components/clio/attention-update-rows.tsx
 msgid "Couldn't check for updates"
 msgstr "Couldn't check for updates"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Couldn't complete “{subject}”"
+msgstr "Couldn't complete “{subject}”"
 
 #: src/lib/provider-availability.ts
 msgid "Couldn't confirm the API key right now. Try Verify provider again."
@@ -18738,12 +18746,12 @@ msgid "It is a trusted address in your settings"
 msgstr "It is a trusted address in your settings"
 
 #: src/components/clio/question-interaction-forms.tsx
-msgid "It is on this computer, served by {server}"
-msgstr "It is on this computer, served by {server}"
+msgid "It is on this computer, served by {name}"
+msgstr "It is on this computer, served by {name}"
 
 #: src/components/clio/question-interaction-forms.tsx
-msgid "It is on this computer, served by {server} from the {plugin} plugin"
-msgstr "It is on this computer, served by {server} from the {plugin} plugin"
+msgid "It is on this computer, served by a plugin"
+msgstr "It is on this computer, served by a plugin"
 
 #: src/components/clio/known-service-actions.tsx
 msgid "It is removed from this device’s list. The service itself keeps running."
@@ -30051,7 +30059,6 @@ msgstr "Retrieval"
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
-#: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
 #: src/components/clio/primitives/state-view.tsx
 #: src/components/clio/private-local-details.tsx
@@ -35769,10 +35776,6 @@ msgstr "The {noun} loads when it scrolls into view."
 msgid "The {plugin} plugin"
 msgstr "The {plugin} plugin"
 
-#: src/components/clio/question-interaction-forms.tsx
-msgid "The {plugin} plugin names this address for {server}"
-msgstr "The {plugin} plugin names this address for {server}"
-
 #: src/lib/plugin-presentation.ts
 msgid "The {via} agent layer selects this plugin."
 msgstr "The {via} agent layer selects this plugin."
@@ -36751,10 +36754,6 @@ msgstr "The plan was not saved: {message}"
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "The plugin changes are in the agent’s system prompt now."
 
-#: src/components/clio/question-interaction-forms.tsx
-msgid "The plugin names this address for {server}"
-msgstr "The plugin names this address for {server}"
-
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "The plugin's default is known once a conversation loads the tool."
@@ -36767,10 +36766,6 @@ msgstr "The plugin's default. Choose a value to override it."
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "The plugin's review could not be loaded, so it can't be checked here."
 msgstr "The plugin's review could not be loaded, so it can't be checked here."
-
-#: src/components/clio/question-interaction-forms.tsx
-msgid "the plugin's server"
-msgstr "the plugin's server"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "The points you selected go with your next message, so {agent} works with exactly those."

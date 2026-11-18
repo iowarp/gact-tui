@@ -2968,6 +2968,10 @@ msgstr "{name} no se está ejecutando. Inícialo y vuelve a comprobarlo."
 msgid "{name} local"
 msgstr "{name} local"
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "{name} names this address as its own"
+msgstr "{name} declara esta dirección como propia"
+
 #: src/components/clio/new-conversation-draft.tsx
 msgid "{name} new conversation"
 msgstr "Nueva conversación de {name}"
@@ -4596,6 +4600,10 @@ msgstr "Una ejecución única usa la zona horaria de este dispositivo."
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
 msgstr "Una carpeta de complemento que contenga plugin.json o .claude-plugin/plugin.json."
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "A plugin names this address as its own"
+msgstr "Un complemento declara esta dirección como propia"
 
 #: src/components/clio/connector-plugin-contents.tsx
 msgid "A plugin with {kinds}. Adding it to a conversation brings both."
@@ -12275,13 +12283,13 @@ msgstr "No se pudo confiar en la fuente"
 msgid "Could not update the provider client."
 msgstr "No se pudo actualizar el cliente del proveedor."
 
-#: src/lib/a2ui/server-surface.ts
-msgid "Couldn't {subject}"
-msgstr "No se pudo completar «{subject}»"
-
 #: src/components/clio/attention-update-rows.tsx
 msgid "Couldn't check for updates"
 msgstr "No se pudo buscar actualizaciones"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Couldn't complete “{subject}”"
+msgstr "No se pudo completar «{subject}»"
 
 #: src/lib/provider-availability.ts
 msgid "Couldn't confirm the API key right now. Try Verify provider again."
@@ -18739,12 +18747,12 @@ msgid "It is a trusted address in your settings"
 msgstr "Es una dirección de confianza en tu configuración"
 
 #: src/components/clio/question-interaction-forms.tsx
-msgid "It is on this computer, served by {server}"
-msgstr "Está en este equipo y la sirve {server}"
+msgid "It is on this computer, served by {name}"
+msgstr "Está en este equipo y la sirve {name}"
 
 #: src/components/clio/question-interaction-forms.tsx
-msgid "It is on this computer, served by {server} from the {plugin} plugin"
-msgstr "Está en este equipo y la sirve {server} del complemento {plugin}"
+msgid "It is on this computer, served by a plugin"
+msgstr "Está en este equipo y la sirve un complemento"
 
 #: src/components/clio/known-service-actions.tsx
 msgid "It is removed from this device’s list. The service itself keeps running."
@@ -30052,7 +30060,6 @@ msgstr "Recuperación"
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
-#: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
 #: src/components/clio/primitives/state-view.tsx
 #: src/components/clio/private-local-details.tsx
@@ -35770,10 +35777,6 @@ msgstr "El {noun} se carga cuando aparece al desplazarte."
 msgid "The {plugin} plugin"
 msgstr "El complemento {plugin}"
 
-#: src/components/clio/question-interaction-forms.tsx
-msgid "The {plugin} plugin names this address for {server}"
-msgstr "El complemento {plugin} declara esta dirección para {server}"
-
 #: src/lib/plugin-presentation.ts
 msgid "The {via} agent layer selects this plugin."
 msgstr "La capa de agente {via} selecciona este complemento."
@@ -36752,10 +36755,6 @@ msgstr "No se guardó el plan: {message}"
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "Los cambios de complementos ya están en la instrucción del sistema del agente."
 
-#: src/components/clio/question-interaction-forms.tsx
-msgid "The plugin names this address for {server}"
-msgstr "El complemento declara esta dirección para {server}"
-
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "The plugin's default is known once a conversation loads the tool."
@@ -36768,10 +36767,6 @@ msgstr "El valor predeterminado del complemento. Elige un valor para sustituirlo
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "The plugin's review could not be loaded, so it can't be checked here."
 msgstr "No se pudo cargar la revisión del complemento, así que no se puede comprobar aquí."
-
-#: src/components/clio/question-interaction-forms.tsx
-msgid "the plugin's server"
-msgstr "el servidor del complemento"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "The points you selected go with your next message, so {agent} works with exactly those."

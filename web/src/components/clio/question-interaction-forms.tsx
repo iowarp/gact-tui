@@ -27,6 +27,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { openExternalUrl } from '@/tauri/external-url';
+import { serverOwnerName } from '@/lib/a2ui/server-surface';
 import { AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
 import { useQuestionDraftValue } from './question-answer-context';
@@ -119,19 +120,22 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
  * or a page its server serves on this computer, says which plugin vouched for it.
  */
 function urlOriginTrust(payload: PendingInteraction['payload']): string | undefined {
-  const plugin = payload?.plugin ?? '';
-  const server = payload?.server || t`the plugin's server`;
+  // The plugin's one display name ("Demo scheduler"); its ids stay out of the sentence.
+  const name =
+    payload?.plugin || payload?.server
+      ? serverOwnerName({ plugin: payload.plugin ?? '', server: payload.server ?? '' })
+      : '';
   switch (payload?.origin_trust) {
     case 'configured':
       return t`It is a trusted address in your settings`;
     case 'plugin_origin':
-      return plugin
-        ? t`The ${ph({ plugin })} plugin names this address for ${ph({ server })}`
-        : t`The plugin names this address for ${ph({ server })}`;
+      return name
+        ? t`${ph({ name })} names this address as its own`
+        : t`A plugin names this address as its own`;
     case 'plugin_loopback':
-      return plugin
-        ? t`It is on this computer, served by ${ph({ server })} from the ${ph({ plugin })} plugin`
-        : t`It is on this computer, served by ${ph({ server })}`;
+      return name
+        ? t`It is on this computer, served by ${ph({ name })}`
+        : t`It is on this computer, served by a plugin`;
     default:
       return undefined;
   }

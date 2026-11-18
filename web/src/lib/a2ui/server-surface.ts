@@ -82,17 +82,15 @@ export function serverOwnerName(owner: Pick<A2UISurfaceOwner, 'plugin' | 'server
 }
 
 /**
- * What an action did, for "Couldn't …": the control's own label ("Cancel")
- * and, when the action names one target ("train-ensemble"), that target.
+ * What an action did, quoted in "Couldn't complete “…”": the control's own
+ * label verbatim ("Cancel") and, when the action names one target
+ * ("train-ensemble"), that target.
  */
 export function serverActionSubject(
   label: string | undefined,
   action: { name: string; context?: Record<string, unknown> },
 ): string {
-  const verb = (label?.trim() || action.name.replace(/[_/-]+/gu, ' ')).replace(
-    /^(\p{Lu})(?=\p{Ll})/u,
-    (letter) => letter.toLowerCase(),
-  );
+  const verb = label?.trim() || action.name.replace(/[_/-]+/gu, ' ');
   const targets = Object.values(action.context ?? {}).filter(
     (value): value is string => typeof value === 'string' && value.length > 0 && value.length <= 40,
   );
@@ -112,7 +110,9 @@ export function serverActionResult(
       const text = reply.error_text?.trim();
       return {
         kind: 'error',
-        message: subject ? t`Couldn't ${subject}` : t`${server} couldn't complete this action`,
+        message: subject
+          ? t`Couldn't complete “${subject}”`
+          : t`${server} couldn't complete this action`,
         detail: text || undefined,
       };
     }

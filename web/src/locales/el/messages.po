@@ -2968,6 +2968,10 @@ msgstr "Το {name} δεν εκτελείται. Εκκινήστε το και 
 msgid "{name} local"
 msgstr "{name} (τοπικό)"
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "{name} names this address as its own"
+msgstr "Το {name} δηλώνει αυτή τη διεύθυνση ως δική του"
+
 #: src/components/clio/new-conversation-draft.tsx
 msgid "{name} new conversation"
 msgstr "Νέα συνομιλία {name}"
@@ -3555,19 +3559,19 @@ msgstr "Το {server} δεν μπόρεσε να ολοκληρώσει αυτή
 
 #: src/lib/a2ui/server-surface.ts
 msgid "{server} does not let this view run that action."
-msgstr "Ο {server} δεν επιτρέπει σε αυτή την προβολή να εκτελέσει αυτή την ενέργεια."
+msgstr "Το {server} δεν επιτρέπει σε αυτή την προβολή να εκτελέσει αυτή την ενέργεια."
 
 #: src/lib/a2ui/server-surface.ts
 msgid "{server} finished without changing this view"
-msgstr "Ο {server} ολοκλήρωσε χωρίς να αλλάξει αυτή την προβολή"
+msgstr "Το {server} ολοκλήρωσε χωρίς να αλλάξει αυτή την προβολή"
 
 #: src/lib/a2ui/server-surface.ts
 msgid "{server} is not running in this conversation, so this view is read-only."
-msgstr "Ο {server} δεν εκτελείται σε αυτή τη συνομιλία, οπότε η προβολή είναι μόνο για ανάγνωση."
+msgstr "Το {server} δεν εκτελείται σε αυτή τη συνομιλία, οπότε η προβολή είναι μόνο για ανάγνωση."
 
 #: src/lib/a2ui/server-surface.ts
 msgid "{server} is still working on it"
-msgstr "Ο {server} εξακολουθεί να το επεξεργάζεται"
+msgstr "Το {server} εξακολουθεί να το επεξεργάζεται"
 
 #: src/lib/command-table.ts
 msgid "{server} prompts"
@@ -3575,7 +3579,7 @@ msgstr "Προτροπές {server}"
 
 #: src/lib/a2ui/server-surface.ts
 msgid "{server} sent a view that was refused. {reason}"
-msgstr "Ο {server} έστειλε μια προβολή που απορρίφθηκε. {reason}"
+msgstr "Το {server} έστειλε μια προβολή που απορρίφθηκε. {reason}"
 
 #: src/components/clio/settings-tool-detail.tsx
 msgid "{server} server"
@@ -4596,6 +4600,10 @@ msgstr "Μια εφάπαξ εκτέλεση χρησιμοποιεί τη ζώ�
 #: src/components/clio/extension-add-dialog.tsx
 msgid "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
 msgstr "Φάκελος πρόσθετου που περιέχει plugin.json ή .claude-plugin/plugin.json."
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "A plugin names this address as its own"
+msgstr "Ένα πρόσθετο δηλώνει αυτή τη διεύθυνση ως δική του"
 
 #: src/components/clio/connector-plugin-contents.tsx
 msgid "A plugin with {kinds}. Adding it to a conversation brings both."
@@ -12275,13 +12283,13 @@ msgstr "Δεν ήταν δυνατή η εμπιστοσύνη στην πηγή
 msgid "Could not update the provider client."
 msgstr "Δεν ήταν δυνατή η ενημέρωση του πελάτη του παρόχου."
 
-#: src/lib/a2ui/server-surface.ts
-msgid "Couldn't {subject}"
-msgstr "Δεν ήταν δυνατή η ενέργεια «{subject}»"
-
 #: src/components/clio/attention-update-rows.tsx
 msgid "Couldn't check for updates"
 msgstr "Δεν ήταν δυνατός ο έλεγχος για ενημερώσεις"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Couldn't complete “{subject}”"
+msgstr "Δεν ήταν δυνατή η ενέργεια «{subject}»"
 
 #: src/lib/provider-availability.ts
 msgid "Couldn't confirm the API key right now. Try Verify provider again."
@@ -18739,12 +18747,12 @@ msgid "It is a trusted address in your settings"
 msgstr "Είναι αξιόπιστη διεύθυνση στις ρυθμίσεις σας"
 
 #: src/components/clio/question-interaction-forms.tsx
-msgid "It is on this computer, served by {server}"
-msgstr "Βρίσκεται σε αυτόν τον υπολογιστή και την εξυπηρετεί ο {server}"
+msgid "It is on this computer, served by {name}"
+msgstr "Βρίσκεται σε αυτόν τον υπολογιστή και την εξυπηρετεί το {name}"
 
 #: src/components/clio/question-interaction-forms.tsx
-msgid "It is on this computer, served by {server} from the {plugin} plugin"
-msgstr "Βρίσκεται σε αυτόν τον υπολογιστή και την εξυπηρετεί ο {server} του πρόσθετου {plugin}"
+msgid "It is on this computer, served by a plugin"
+msgstr "Βρίσκεται σε αυτόν τον υπολογιστή και την εξυπηρετεί ένα πρόσθετο"
 
 #: src/components/clio/known-service-actions.tsx
 msgid "It is removed from this device’s list. The service itself keeps running."
@@ -30052,7 +30060,6 @@ msgstr "Ανάκτηση"
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
-#: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
 #: src/components/clio/primitives/state-view.tsx
 #: src/components/clio/private-local-details.tsx
@@ -35770,10 +35777,6 @@ msgstr "Το στοιχείο ({noun}) φορτώνεται όταν εμφαν�
 msgid "The {plugin} plugin"
 msgstr "Το πρόσθετο {plugin}"
 
-#: src/components/clio/question-interaction-forms.tsx
-msgid "The {plugin} plugin names this address for {server}"
-msgstr "Το πρόσθετο {plugin} ορίζει αυτή τη διεύθυνση για τον {server}"
-
 #: src/lib/plugin-presentation.ts
 msgid "The {via} agent layer selects this plugin."
 msgstr "Το επίπεδο πράκτορα {via} επιλέγει αυτό το πρόσθετο."
@@ -36752,10 +36755,6 @@ msgstr "Το σχέδιο δεν αποθηκεύτηκε: {message}"
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "Οι αλλαγές πρόσθετων βρίσκονται πλέον στην προτροπή συστήματος του πράκτορα."
 
-#: src/components/clio/question-interaction-forms.tsx
-msgid "The plugin names this address for {server}"
-msgstr "Το πρόσθετο ορίζει αυτή τη διεύθυνση για τον {server}"
-
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "The plugin's default is known once a conversation loads the tool."
@@ -36768,10 +36767,6 @@ msgstr "Η προεπιλογή του πρόσθετου. Επιλέξτε μι
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "The plugin's review could not be loaded, so it can't be checked here."
 msgstr "Δεν ήταν δυνατή η φόρτωση του ελέγχου του πρόσθετου, οπότε δεν μπορεί να ελεγχθεί εδώ."
-
-#: src/components/clio/question-interaction-forms.tsx
-msgid "the plugin's server"
-msgstr "τον διακομιστή του πρόσθετου"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "The points you selected go with your next message, so {agent} works with exactly those."
@@ -38652,7 +38647,7 @@ msgstr "Αυτή η προβολή χρειάζεται ένα καταχωρι�
 
 #: src/lib/a2ui/server-surface.ts
 msgid "This view no longer belongs to {server}, so the action was not sent."
-msgstr "Αυτή η προβολή δεν ανήκει πλέον στον {server}, οπότε η ενέργεια δεν στάλθηκε."
+msgstr "Αυτή η προβολή δεν ανήκει πλέον στο {server}, οπότε η ενέργεια δεν στάλθηκε."
 
 #: src/components/clio/a2ui-surface.tsx
 msgid "This view uses a catalog this workspace does not have installed."
@@ -39346,7 +39341,7 @@ msgstr "Αξιόπιστο"
 
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Trusted because"
-msgstr "Γιατί είναι αξιόπιστο"
+msgstr "Αξιοπιστία"
 
 #: src/components/clio/settings-plugins.tsx
 msgid "Trusted by you"
