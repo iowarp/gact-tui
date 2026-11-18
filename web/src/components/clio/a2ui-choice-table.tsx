@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -90,7 +91,7 @@ const choiceTableSchema = z
   .object({
     label: z.string().min(1),
     columns: z.array(column).min(1).max(6),
-    rows: z.array(row).max(500),
+    rows: z.union([z.array(row).max(500), CommonSchemas.DataBinding]),
     defaults: z
       .object({
         title: z.string().min(1),
@@ -111,7 +112,8 @@ const choiceTableSchema = z
   })
   .strict();
 
-type Props = z.infer<typeof choiceTableSchema>;
+/** Rows arrive inline (bound by the binder) or as whatever the data model holds at their path. */
+type Props = Omit<z.infer<typeof choiceTableSchema>, 'rows'> & { rows: unknown };
 type Column = z.infer<typeof column>;
 type Option = z.infer<typeof option>;
 type Row = z.infer<typeof row>;
@@ -480,17 +482,37 @@ function editableIn(column: Column, values: Record<string, string>): Column {
   return column.id in values ? column : { ...column, editable: false };
 }
 
+/**
+ * Inline rows were checked with the surface. Rows bound to the data model
+ * were not, so each is checked here and one that doesn't fit is left out.
+ */
+function tableRows(value: unknown, inline: boolean): readonly Row[] {
+  if (!Array.isArray(value)) return [];
+  if (inline) return value as Row[];
+  return value.slice(0, 500).flatMap((entry) => {
+    const parsed = row.safeParse(entry);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 export function ClioChoiceTable({ props, context }: { props: Props; context: TableContext }) {
   const raw = context.componentModel.properties as {
     onChoose?: unknown;
     rowMenu?: { action?: unknown }[];
     add?: { action?: unknown };
-    rows?: { menu?: { action?: unknown }[]; context?: unknown }[];
+    rows?: unknown;
     defaults?: { context?: unknown };
   };
+  const inline = Array.isArray(raw.rows);
+  const rows = useMemo(() => tableRows(props.rows, inline), [props.rows, inline]);
+  // Inline rows' actions are bound by the binder, so their raw form is read from the
+  // surface; bound rows are plain data already.
+  const rawRows = (inline ? raw.rows : rows) as
+    | readonly { menu?: readonly { action?: unknown }[]; context?: unknown }[]
+    | undefined;
   // Optimistic picks, by row and column ("" is the defaults row), held for the table
   // they were made on: once the server sends it again, its own values show.
-  const sent = JSON.stringify([props.rows, props.defaults]);
+  const sent = JSON.stringify([rows, props.defaults]);
   const [held, setHeld] = useState<{ sent: string; picks: Readonly<Record<string, string>> }>({
     sent,
     picks: {},
@@ -511,7 +533,7 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
         },
       }));
       if (!raw.onChoose) return;
-      const extra = rowIndex === undefined ? raw.defaults?.context : raw.rows?.[rowIndex]?.context;
+      const extra = rowIndex === undefined ? raw.defaults?.context : rawRows?.[rowIndex]?.context;
       const resolved = resolveDeep(extra ?? {}, context);
       fire(context, raw.onChoose, {
         ...(resolved && typeof resolved === 'object' ? resolved : {}),
@@ -520,7 +542,7 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
         value,
       });
     },
-    [context, raw, sent],
+    [context, raw, rawRows, sent],
   );
   const shown = (rowId: string, values: Record<string, string>) => {
     let next = values;
@@ -555,7 +577,7 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
   const menuFor = (entry: Row, index: number): MenuEntry[] => {
     const own = entry.menu !== undefined;
     const items = own ? entry.menu! : (props.rowMenu ?? []);
-    const rawItems = own ? raw.rows?.[index]?.menu : raw.rowMenu;
+    const rawItems = own ? rawRows?.[index]?.menu : raw.rowMenu;
     return items.map((item, at) => ({
       id: item.id,
       label: item.label,
@@ -565,7 +587,7 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
   };
 
   let body: ReactNode;
-  if (!props.rows.length)
+  if (!rows.length)
     body = (
       <p className="py-4 text-center text-sm text-muted-foreground">
         {props.empty ?? t`Nothing here yet.`}
@@ -574,7 +596,7 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
   else
     body = (
       <ul aria-label={props.label} className="grid">
-        {props.rows.map((entry, index) => (
+        {rows.map((entry, index) => (
           <TableRow
             columns={columns}
             key={entry.id}
@@ -623,7 +645,7 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
             wide={wide}
           />
         ) : null}
-        {wide && props.rows.length ? (
+        {wide && rows.length ? (
           <div
             className="grid min-h-[34px] items-center gap-x-2.5 border-b border-border text-label text-muted-foreground"
             data-slot="choice-table-header"
