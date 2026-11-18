@@ -423,14 +423,19 @@ export function useA2uiVisualViewer(
         ready,
       };
     };
+    // Every report can claim requests, including renewals while a capture runs (a
+    // request the server sent after an earlier one expired). Each is kept until this
+    // viewer has answered it; dropping one leaves the agent waiting out its budget.
+    const claimed: A2uiCaptureRequest[] = [];
+    const renew = async (current = report()) => {
+      claimed.push(
+        ...(await repository.reportA2uiViewer(surface.session_id, current, abort.signal)),
+      );
+    };
     const cycle = async () => {
       try {
-        const requests = await repository.reportA2uiViewer(
-          surface.session_id,
-          report(),
-          abort.signal,
-        );
-        for (const request of requests) {
+        await renew();
+        for (let request = claimed.shift(); request; request = claimed.shift()) {
           if (request.data_model_update) {
             let error = '';
             try {
@@ -450,7 +455,7 @@ export function useA2uiVisualViewer(
               error = failure instanceof Error ? failure.message : String(failure);
             }
             const current = report();
-            await repository.reportA2uiViewer(surface.session_id, current, abort.signal);
+            await renew(current);
             await repository.completeA2uiCapture(
               surface.session_id,
               {
@@ -475,14 +480,11 @@ export function useA2uiVisualViewer(
           };
           const { png, error } = await runCaptureBudget(
             () => captureVisualRequest(node, request, matches),
-            () =>
-              void repository
-                .reportA2uiViewer(surface.session_id, report(), abort.signal)
-                .catch(() => undefined),
+            () => void renew().catch(() => undefined),
           );
           // Report the post-capture epoch first. The server also rejects changes
           // during capture, independently of the local comparison.
-          await repository.reportA2uiViewer(surface.session_id, report(), abort.signal);
+          await renew();
           await repository.completeA2uiCapture(
             surface.session_id,
             {

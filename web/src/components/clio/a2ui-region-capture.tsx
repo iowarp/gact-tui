@@ -81,6 +81,21 @@ function layoutSignature(target: HTMLElement): string {
   return boxes.join(';');
 }
 
+/**
+ * Whether a node paints nothing, so the DOM copy can leave it (and its subtree) out.
+ * html-to-image clones every node and copies its computed style on the main thread;
+ * a profile stack's search suggestions, a `<datalist>` of about a thousand options,
+ * held the page for seven seconds per capture, during which no view in the page
+ * could renew its capture lease. A node with `display: none` affects no layout.
+ */
+function paintsNothing(node: Node): boolean {
+  if (!(node instanceof Element)) return false;
+  if (node instanceof HTMLDataListElement || node instanceof HTMLTemplateElement) return true;
+  // A select's options give the copy its shown value, whatever their own display.
+  if (node instanceof HTMLOptionElement || node instanceof HTMLOptGroupElement) return false;
+  return getComputedStyle(node).display === 'none';
+}
+
 /** Most attempts when a view keeps changing its layout while it is captured. */
 const CAPTURE_LAYOUT_ATTEMPTS = 4;
 
@@ -150,7 +165,7 @@ async function paintedPng(
     // Q19 and Q13, about 40 px off).
     filter: (node) =>
       node.nodeType !== Node.ELEMENT_NODE ||
-      !(node instanceof HTMLCanvasElement || isAppFrame(node as Element)),
+      !(node instanceof HTMLCanvasElement || isAppFrame(node as Element) || paintsNothing(node)),
     pixelRatio,
   });
   const context = canvas.getContext('2d');
@@ -190,7 +205,7 @@ async function paintedPng(
       fetchRequestInit: { cache: 'no-store' },
       backgroundColor: 'transparent',
       pixelRatio,
-      filter: (node) => !(node instanceof HTMLCanvasElement),
+      filter: (node) => !(node instanceof HTMLCanvasElement || paintsNothing(node)),
     });
     const overlayRect = mapElement.getBoundingClientRect();
     context.drawImage(

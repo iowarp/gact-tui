@@ -78,6 +78,27 @@ describe('rendered surface PNG', () => {
     expect(options.filter(document.createElement('canvas'))).toBe(false);
   });
 
+  it('leaves nodes that paint nothing out of the copy, keeping a select its options', async () => {
+    // Live: a profile stack's search suggestions, a datalist of 1064 options, made the
+    // copy hold the page's main thread for seven seconds, so no view could renew its
+    // capture lease and every capture on the page failed.
+    const target = document.createElement('div');
+    target.innerHTML = `<datalist>${'<option value="profile"></option>'.repeat(1064)}</datalist>
+      <select><option>temperature</option></select><p style="display:none">Hidden tab</p>
+      <template><p>Unrendered</p></template><p>Shown</p>`;
+    document.body.append(target);
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 300, 200));
+    const { canvas } = drawableCanvas();
+    embedFonts.mockResolvedValue('');
+    renderCanvas.mockClear().mockResolvedValue(canvas);
+    await captureRenderedSurfacePng(target, 1);
+    const { filter } = renderCanvas.mock.calls[0]![1];
+    const [datalist, select, hidden, template, shown] = target.children;
+    expect([datalist, hidden, template].map(filter)).toEqual([false, false, false]);
+    expect([select, select!.firstElementChild, shown].map(filter)).toEqual([true, true, true]);
+    target.remove();
+  });
+
   it('refuses a view whose map is still loading instead of capturing its placeholder', async () => {
     const target = document.createElement('div');
     target.innerHTML = '<div aria-busy="true" aria-label="Loading Sites map"></div>';

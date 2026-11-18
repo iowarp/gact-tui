@@ -71,7 +71,13 @@ export function useSuspendedA2uiViewer(
       visible: displayed(node) && document.visibilityState === 'visible',
       ready: true,
     });
-    const send = () => repository.reportA2uiViewer(surface.session_id, report(), abort.signal);
+    // As the mounted viewer: a request any report claims is kept until answered.
+    const claimed: A2uiCaptureRequest[] = [];
+    const send = async () => {
+      claimed.push(
+        ...(await repository.reportA2uiViewer(surface.session_id, report(), abort.signal)),
+      );
+    };
     const capture = async (request: A2uiCaptureRequest) => {
       const matches = () =>
         !abort.signal.aborted &&
@@ -99,7 +105,8 @@ export function useSuspendedA2uiViewer(
     };
     const cycle = async () => {
       try {
-        for (const request of await send()) {
+        await send();
+        for (let request = claimed.shift(); request; request = claimed.shift()) {
           const outcome = await capture(request);
           await send();
           await repository.completeA2uiCapture(

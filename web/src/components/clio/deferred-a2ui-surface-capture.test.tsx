@@ -210,3 +210,112 @@ it('refuses a view control while suspended rather than loading controls off scre
   expect(reply.previous_view_revision).toBe(reply.view_revision);
   expect(screen.queryByRole('textbox', { name: 'Track map' })).not.toBeInTheDocument();
 });
+
+it('answers parallel captures of three surfaces, one suspended, and every claimed request', async () => {
+  // Live: three parallel captures on one page, one of a surface scrolled away. A request
+  // a renewal claims while a capture runs (the server's retry after an earlier one
+  // expired) must be answered too, not dropped to time out.
+  vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    callback(0);
+    return 1;
+  });
+  Object.defineProperty(document, 'fonts', {
+    configurable: true,
+    value: { ready: Promise.resolve() },
+  });
+  const away = new Set<Element>();
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    const top = [...away].some((node) => node.contains(this)) ? window.innerHeight + 1_000 : 0;
+    return { top, bottom: top + 120, left: 0, right: 300, width: 300, height: 120 } as DOMRect;
+  });
+  const observers: { element: Element; notify: IntersectionObserverCallback }[] = [];
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      constructor(private readonly notify: IntersectionObserverCallback) {}
+      observe(element: Element) {
+        observers.push({ element, notify: this.notify });
+      }
+      disconnect() {}
+    },
+  );
+  vi.spyOn(regionCapture, 'captureRenderedSurfacePng').mockImplementation(async (target) => {
+    // Longer than a renewal interval, so a renewal claims the retry mid-capture.
+    await new Promise((resolve) => window.setTimeout(resolve, 900));
+    const id = target.closest('[data-surface]')!.getAttribute('data-surface')!;
+    return new Blob([id], { type: 'image/png' });
+  });
+  repository.completeA2uiCapture.mockResolvedValue({ accepted: true });
+  let armed = false;
+  const sent = new Set<string>();
+  const capturing = new Set<string>();
+  repository.reportA2uiViewer.mockImplementation(async (_sid: string, report: A2uiViewerReport) => {
+    const request = (id: string) => ({
+      request_id: id,
+      surface_id: report.surface_id,
+      revision: report.revision,
+      view_revision: report.view_revision,
+      component_id: '',
+      artifact_id: '',
+    });
+    const id = report.surface_id;
+    if (id === 'section-b' && capturing.has(id) && !sent.has('section-b-retry')) {
+      sent.add('section-b-retry');
+      return [request('section-b-retry')];
+    }
+    const ready = id === 'glider' ? report.state.suspended === true : report.ready;
+    if (!ready || sent.has(id) || !armed) return [];
+    sent.add(id);
+    capturing.add(id);
+    return [request(id)];
+  });
+  const surfaces = ['section-a', 'section-b', 'glider'].map((id) => ({
+    ...surface,
+    id,
+    messages: [
+      { version: 'v0.9.1', createSurface: { surfaceId: id, catalogId: 'test://transcript' } },
+    ],
+  }));
+  const { container } = render(
+    <>
+      {surfaces.map((item) => (
+        <div data-surface={item.id} key={item.id}>
+          <DeferredA2UISurface surface={item} />
+        </div>
+      ))}
+    </>,
+  );
+  const glider = container.querySelector('[data-surface="glider"]')!;
+  away.add(glider);
+  act(() => {
+    for (const { element, notify } of observers)
+      if (glider.contains(element))
+        notify(
+          [{ isIntersecting: false } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+  });
+  expect(glider.querySelector('[data-a2ui-viewport="deferred"]')).not.toBeNull();
+  armed = true;
+  await waitFor(() => expect(repository.completeA2uiCapture).toHaveBeenCalledTimes(4), {
+    timeout: 6000,
+  });
+  const replies = Object.fromEntries(
+    repository.completeA2uiCapture.mock.calls.map(([, reply]) => [reply.request_id, reply]),
+  );
+  for (const [request, pixels] of [
+    ['section-a', 'section-a'],
+    ['section-b', 'section-b'],
+    ['section-b-retry', 'section-b'],
+    ['glider', 'glider'],
+  ]) {
+    expect(replies[request]?.error).toBeUndefined();
+    expect(replies[request]?.png_base64).toBe(btoa(pixels!));
+  }
+  await waitFor(() =>
+    expect(glider.querySelector('[data-a2ui-viewport="deferred"]')).not.toBeNull(),
+  );
+});
