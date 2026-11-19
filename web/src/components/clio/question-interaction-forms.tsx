@@ -73,6 +73,45 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     }
   };
 
+  const choice = choiceButtonsField(fields);
+  if (choice) {
+    const answer = async (value: string) => {
+      setSending(true);
+      try {
+        await props.onResponse(interaction, {
+          action: 'answer',
+          metadata: { [choice.name]: value },
+        });
+      } catch (thrown) {
+        const message = thrown instanceof Error ? thrown.message : String(thrown);
+        setFieldErrors({ [choice.name]: message });
+      } finally {
+        setSending(false);
+      }
+    };
+    const error = errors[choice.name];
+    return (
+      <QuestionFrame {...props}>
+        <AskError error={props.responseError ?? (error ? new Error(error) : undefined)} />
+        <AskOptions aria-label={choice.title || t`Answer`}>
+          {(choice.enum as string[]).map((value, index) => (
+            <AskButton
+              disabled={props.disabled || sending}
+              // i18n-ignore: key name
+              hint={index === 0 ? 'Enter' : undefined}
+              key={value}
+              number={index + 1}
+              onClick={() => void answer(value)}
+              primary={index === 0}
+            >
+              {choice.enum_names?.[index] || value}
+            </AskButton>
+          ))}
+        </AskOptions>
+      </QuestionFrame>
+    );
+  }
+
   return (
     <QuestionFrame {...props}>
       <AskError error={props.responseError} />
@@ -106,6 +145,24 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
       </AskOptions>
     </QuestionFrame>
   );
+}
+
+/**
+ * A form that is only one choice of two or three plain options answers by its buttons:
+ * pressing an option sends it. Live 2026-11-19, "Allow searches through the literature
+ * sources?" was a radio list, a "Choice" heading and a separate Send response.
+ */
+function choiceButtonsField(
+  fields: readonly PendingInteractionField[],
+): PendingInteractionField | undefined {
+  const [field] = fields;
+  if (fields.length !== 1 || !field || field.multi || field.type !== 'string') return undefined;
+  const options = field.enum ?? [];
+  return options.length >= 2 &&
+    options.length <= 3 &&
+    options.every((option) => typeof option === 'string' && option !== '')
+    ? field
+    : undefined;
 }
 
 /** Explicit URL consent; nothing is opened or fetched during render. */
