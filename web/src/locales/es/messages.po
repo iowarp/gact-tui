@@ -5310,6 +5310,10 @@ msgstr "Añadir otro equipo…"
 msgid "Add answer to chat"
 msgstr "Añadir la respuesta al chat"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Add as an injection"
+msgstr ""
+
 #: src/components/clio/composer-file-upload.tsx
 msgid "Add attachments"
 msgstr "Añadir adjuntos"
@@ -5476,6 +5480,10 @@ msgstr "Añadir al chat"
 #: src/lib/shortcuts/catalog.ts
 msgid "Add to message"
 msgstr "Añadir al mensaje"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "Add to the tool list"
+msgstr ""
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Add to workspace"
@@ -10291,6 +10299,10 @@ msgstr "¿Compactar el contexto de trabajo de este agente?"
 msgid "Compact this conversation?"
 msgstr "¿Compactar esta conversación?"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Compact, then add"
+msgstr ""
+
 #: src/components/clio/conversation-summarization.tsx
 msgid "Compacted here, earlier messages summarized"
 msgstr "Compactado aquí, mensajes anteriores resumidos"
@@ -10344,6 +10356,10 @@ msgstr "Ajustes de compactación"
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Compaction skipped"
 msgstr "Compactación omitida"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "Compacts the conversation before the agent's next step; its tools go in with it."
+msgstr ""
 
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "Compacts the conversation now; the change goes in with it."
@@ -17436,6 +17452,10 @@ msgstr "Cómo se inició {title}"
 msgid "How hard the model thinks before it answers. Default is the model's own level."
 msgstr "Cuánto piensa el modelo antes de responder. El predeterminado es el nivel propio del modelo."
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "How it joins this turn"
+msgstr ""
+
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "How long"
 msgstr "Durante cuánto tiempo"
@@ -18939,6 +18959,10 @@ msgstr "Se desconoce su origen"
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "Its source is not known, version {version}"
 msgstr "Se desconoce su origen, versión {version}"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "Its tools join the tool list now; the prompt cache is rebuilt on the next call."
+msgstr ""
 
 #: src/components/clio/attention-away.ts
 msgid "Its turn is done"
@@ -35901,6 +35925,10 @@ msgstr "El agente aún está escribiendo el plan."
 #: src/components/clio/task-activity-row.tsx
 msgid "The agent is stopping. New input stays queued until its current execution exits."
 msgstr "El agente se está deteniendo. Las nuevas entradas permanecen en cola hasta que termine su ejecución actual."
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "The agent is told about its tools and can call them now; the prompt cache is kept until the next compaction."
+msgstr ""
 
 #: src/components/clio/mcp-app-look-waiting-notice.tsx
 msgid "The agent is waiting to see this view."
