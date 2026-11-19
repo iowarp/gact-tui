@@ -40,6 +40,8 @@ import {
   type DrawMode,
   type MapLayer,
 } from './layered-map-model';
+import type { CategoryLegend, CategoryLegendEntry } from './layered-map-categories';
+import { LayeredMapCategoryLegend } from './layered-map-category-legend';
 import { LayeredMapContext, type PointLabel } from './layered-map-context';
 import { MAX_POINT_LABELS } from './layered-map-graticule';
 import { GridLayerSource, ShapesLayerSource, TableLayerSource } from './layered-map-layers';
@@ -165,6 +167,30 @@ export function ClioLayeredMap(props: LayeredMapProps) {
     if (error) setFailures((current) => ({ ...current, [id]: error }));
   }, []);
   const [labelRows, setLabelRows] = useState<Record<string, readonly QueryRow[]>>({});
+  const [categories, setCategories] = useState<Record<string, CategoryLegendEntry[]>>({});
+  const onCategories = useCallback((id: string, entries: CategoryLegendEntry[]) => {
+    setCategories((current) =>
+      current[id] === entries || (!current[id]?.length && !entries.length)
+        ? current
+        : { ...current, [id]: entries },
+    );
+  }, []);
+  const categoryLegends = useMemo<CategoryLegend[]>(
+    () =>
+      props.layers.flatMap((layer) =>
+        layer.categoryField && (visible[layer.id] ?? true) && categories[layer.id]?.length
+          ? [
+              {
+                layerId: layer.id,
+                label: layer.label,
+                field: layer.categoryField,
+                entries: categories[layer.id]!,
+              },
+            ]
+          : [],
+      ),
+    [categories, props.layers, visible],
+  );
   // Names of a few points (a plan's stations), drawn beside them where they are now.
   const pointLabels = useMemo<PointLabel[]>(
     () =>
@@ -531,6 +557,7 @@ export function ClioLayeredMap(props: LayeredMapProps) {
                   visible={visible[layer.id] ?? true}
                   query={props.queries[layer.id]}
                   onRows={onRows}
+                  onCategories={onCategories}
                 />
               ),
             )
@@ -560,6 +587,7 @@ export function ClioLayeredMap(props: LayeredMapProps) {
           </p>
         ) : null}
       </div>
+      <LayeredMapCategoryLegend legends={categoryLegends} />
       {times.length > 1 ? (
         <div className="flex items-center gap-2 text-xs">
           <Button

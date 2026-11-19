@@ -2210,6 +2210,10 @@ msgstr "{hidden, plural, one {# ακόμη χώρος εργασίας} other {#
 msgid "{hidden, plural, one {# more} other {# more}}"
 msgstr "{hidden, plural, one {# ακόμη} other {# ακόμη}}"
 
+#: src/components/clio/layered-map-category-legend.tsx
+msgid "{hidden, plural, one {+# more} other {+# more}}"
+msgstr "{hidden, plural, one {+# ακόμη} other {+# ακόμη}}"
+
 #: src/components/clio/knowledge-note-body.tsx
 msgid "{hidden} more"
 msgstr "{hidden} ακόμη"
@@ -10108,6 +10112,7 @@ msgid "Collections and transfers through Globus"
 msgstr "Συλλογές και μεταφορές μέσω Globus"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 msgid "colored by {field}"
 msgstr "χρωματισμός κατά {field}"
 
@@ -20772,6 +20777,7 @@ msgstr "Χάρτης"
 msgid "Map background unavailable"
 msgstr "Το υπόβαθρο του χάρτη δεν είναι διαθέσιμο"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Map category colours"
 msgstr "Χρώματα κατηγοριών χάρτη"
@@ -33162,6 +33168,7 @@ msgstr "Προβολή ακριβώς όπως στάλθηκε"
 
 #: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
 msgstr "Εμφάνιση λιγότερων"
@@ -33920,6 +33927,7 @@ msgstr "Ορισμένες κλήσεις απέτυχαν"
 msgid "Some calls were denied"
 msgstr "Ορισμένες κλήσεις απορρίφθηκαν"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Some category colours repeat; use labels or filter to compare them."
 msgstr "Ορισμένα χρώματα κατηγοριών επαναλαμβάνονται· χρησιμοποιήστε τις ετικέτες ή φιλτράρετε για να τις συγκρίνετε."
@@ -39715,6 +39723,7 @@ msgstr "Μη διαθέσιμο σε αυτόν τον υπολογιστή"
 msgid "Unavailable options"
 msgstr "Μη διαθέσιμες επιλογές"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Uncategorized"
 msgstr "Χωρίς κατηγορία"

@@ -5,6 +5,7 @@ import { readThemeColor } from '@/theme/runtime';
 import { categoryColor } from './category-colors';
 import { tileTemplate } from './clio-tile-protocol';
 import { OFFLINE_COASTLINE_LAYER_ID } from './map-initial-view';
+import { tallyCategories, type CategoryLegendEntry } from './layered-map-categories';
 import { applyEdits, isoTime, layerFeatures, type MapLayer } from './layered-map-model';
 import { mapValueColor } from './map-category-palette';
 import { layerSourceId, layerStyleIds, removeLayer } from './layered-map-style';
@@ -90,10 +91,17 @@ function featureColor(
   layer: MapLayer,
   extent: [number, number] | undefined,
 ): string {
-  if (layer.valueField && extent && properties.value !== undefined)
-    return mapValueColor(properties.value, extent);
+  if (colouredByValue(properties, layer, extent)) return mapValueColor(properties.value!, extent!);
   if (layer.categoryField && properties.category) return categoryColor(properties.category);
   return readThemeColor('primary');
+}
+
+function colouredByValue(
+  properties: { value?: number },
+  layer: MapLayer,
+  extent: [number, number] | undefined,
+): boolean {
+  return Boolean(layer.valueField && extent && properties.value !== undefined);
 }
 
 export function TableLayerSource({
@@ -105,6 +113,7 @@ export function TableLayerSource({
   visible,
   query,
   onRows,
+  onCategories,
 }: {
   map: MapLibreMap;
   layer: MapLayer;
@@ -114,6 +123,8 @@ export function TableLayerSource({
   visible: boolean;
   query: TableDataQuery | undefined;
   onRows: (layerId: string, rows: readonly QueryRow[], note: string) => void;
+  /** The colours this layer paints by `categoryField`, as painted; empty without one. */
+  onCategories?: (layerId: string, entries: CategoryLegendEntry[]) => void;
 }) {
   const columns = useMemo(
     () =>
@@ -159,6 +170,20 @@ export function TableLayerSource({
     }
     return features;
   }, [extent, layer, now, rows, selectedIds]);
+  const categories = useMemo(
+    () =>
+      layer.categoryField
+        ? tallyCategories(collection.features, (feature) =>
+            colouredByValue(feature.properties, layer, extent)
+              ? undefined
+              : String((feature.properties as unknown as Record<string, unknown>).color),
+          )
+        : [],
+    [collection, extent, layer],
+  );
+  useEffect(() => {
+    onCategories?.(layer.id, categories);
+  }, [categories, layer.id, onCategories]);
   useEffect(() => {
     const sourceId = layerSourceId(layer);
     const source = map.getSource(sourceId) as GeoJSONSource | undefined;

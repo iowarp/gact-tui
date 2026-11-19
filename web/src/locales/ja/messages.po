@@ -2210,6 +2210,10 @@ msgstr "{hidden, plural, one {他#件のワークスペース} other {他#件の
 msgid "{hidden, plural, one {# more} other {# more}}"
 msgstr "{hidden, plural, one {他#件} other {他#件}}"
 
+#: src/components/clio/layered-map-category-legend.tsx
+msgid "{hidden, plural, one {+# more} other {+# more}}"
+msgstr "{hidden, plural, one {他#件} other {他#件}}"
+
 #: src/components/clio/knowledge-note-body.tsx
 msgid "{hidden} more"
 msgstr "他{hidden}件"
@@ -10108,6 +10112,7 @@ msgid "Collections and transfers through Globus"
 msgstr "Globus経由のコレクションと転送"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 msgid "colored by {field}"
 msgstr "{field}で色分け"
 
@@ -20772,6 +20777,7 @@ msgstr "地図"
 msgid "Map background unavailable"
 msgstr "地図の背景を利用できません"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Map category colours"
 msgstr "地図のカテゴリの色"
@@ -33162,6 +33168,7 @@ msgstr "送信したとおりに表示"
 
 #: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
 msgstr "表示を減らす"
@@ -33920,6 +33927,7 @@ msgstr "一部の呼び出しが失敗しました"
 msgid "Some calls were denied"
 msgstr "一部の呼び出しが拒否されました"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Some category colours repeat; use labels or filter to compare them."
 msgstr "一部のカテゴリの色が重複しています。比較するにはラベルを使うかフィルターを使用してください。"
@@ -39715,6 +39723,7 @@ msgstr "このコンピューターでは利用できません"
 msgid "Unavailable options"
 msgstr "利用できないオプション"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Uncategorized"
 msgstr "未分類"

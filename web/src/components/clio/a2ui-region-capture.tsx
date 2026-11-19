@@ -1,4 +1,5 @@
 import {
+  boxInCapture,
   displayedRegion,
   geographicBounds,
   mapSurface,
@@ -172,7 +173,8 @@ async function paintedPng(
   if (!context) throw new Error('The browser could not create an image drawing context.');
   const scaleX = canvas.width / target.getBoundingClientRect().width;
   const scaleY = canvas.height / target.getBoundingClientRect().height;
-  const targetRect = target.getBoundingClientRect();
+  // Every paint below places its node with `boxInCapture`, which reads the target's
+  // rect again beside the node's: the page may scroll while a paint awaits.
   const mapCanvases = new Set<HTMLCanvasElement>();
   // The capture target can be the map surface itself, which querySelectorAll never returns.
   const mapSelector = '[data-slot="a2ui-map-surface"]';
@@ -187,14 +189,8 @@ async function paintedPng(
     if (!mapElement.__clioMap)
       throw new Error('The map is still loading, so its tiles cannot be captured yet.');
     const mapImage = await createImageBitmap(await mapPngBlob(mapElement.__clioMap));
-    const rect = mapCanvas.getBoundingClientRect();
-    context.drawImage(
-      mapImage,
-      (rect.left - targetRect.left) * scaleX,
-      (rect.top - targetRect.top) * scaleY,
-      rect.width * scaleX,
-      rect.height * scaleY,
-    );
+    const mapBox = boxInCapture(target, mapCanvas, scaleX, scaleY);
+    context.drawImage(mapImage, mapBox.x, mapBox.y, mapBox.width, mapBox.height);
     mapImage.close();
     // The live WebGL frame covers the DOM clone's markers and attribution.
     // Composite the actual DOM overlay above it, retaining marker colours,
@@ -207,20 +203,14 @@ async function paintedPng(
       pixelRatio,
       filter: (node) => !(node instanceof HTMLCanvasElement || paintsNothing(node)),
     });
-    const overlayRect = mapElement.getBoundingClientRect();
-    context.drawImage(
-      overlay,
-      (overlayRect.left - targetRect.left) * scaleX,
-      (overlayRect.top - targetRect.top) * scaleY,
-      overlayRect.width * scaleX,
-      overlayRect.height * scaleY,
-    );
+    const overlayBox = boxInCapture(target, mapElement, scaleX, scaleY);
+    context.drawImage(overlay, overlayBox.x, overlayBox.y, overlayBox.width, overlayBox.height);
   }
   for (const source of target.querySelectorAll('canvas')) {
     if (mapCanvases.has(source)) continue;
     if (!source.width || !source.height) continue;
-    const rect = source.getBoundingClientRect();
-    if (!rect.width || !rect.height) continue;
+    const box = boxInCapture(target, source, scaleX, scaleY);
+    if (!box.width || !box.height) continue;
     try {
       // html-to-image cannot clone a live WebGL framebuffer. Read the live
       // canvas directly while it is still mounted, then paint the boxes last.
@@ -230,13 +220,7 @@ async function paintedPng(
             | (HTMLElement & { __clioMeshCapture?: () => HTMLCanvasElement })
             | null
         )?.__clioMeshCapture?.() ?? source;
-      context.drawImage(
-        liveSource,
-        (rect.left - targetRect.left) * scaleX,
-        (rect.top - targetRect.top) * scaleY,
-        rect.width * scaleX,
-        rect.height * scaleY,
-      );
+      context.drawImage(liveSource, box.x, box.y, box.width, box.height);
     } catch (error) {
       throw new Error(
         `The ${source.classList.contains('maplibregl-canvas') ? 'map' : 'canvas'} pixels cannot be captured: ${error instanceof Error ? error.message : String(error)}`,

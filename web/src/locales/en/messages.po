@@ -2209,6 +2209,10 @@ msgstr "{hidden, plural, one {# more workspace} other {# more workspaces}}"
 msgid "{hidden, plural, one {# more} other {# more}}"
 msgstr "{hidden, plural, one {# more} other {# more}}"
 
+#: src/components/clio/layered-map-category-legend.tsx
+msgid "{hidden, plural, one {+# more} other {+# more}}"
+msgstr "{hidden, plural, one {+# more} other {+# more}}"
+
 #: src/components/clio/knowledge-note-body.tsx
 msgid "{hidden} more"
 msgstr "{hidden} more"
@@ -10107,6 +10111,7 @@ msgid "Collections and transfers through Globus"
 msgstr "Collections and transfers through Globus"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 msgid "colored by {field}"
 msgstr "colored by {field}"
 
@@ -20771,6 +20776,7 @@ msgstr "Map"
 msgid "Map background unavailable"
 msgstr "Map background unavailable"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Map category colours"
 msgstr "Map category colours"
@@ -33161,6 +33167,7 @@ msgstr "Show exactly as sent"
 
 #: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
 msgstr "Show fewer"
@@ -33919,6 +33926,7 @@ msgstr "Some calls failed"
 msgid "Some calls were denied"
 msgstr "Some calls were denied"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Some category colours repeat; use labels or filter to compare them."
 msgstr "Some category colours repeat; use labels or filter to compare them."
@@ -39714,6 +39722,7 @@ msgstr "Unavailable on this computer"
 msgid "Unavailable options"
 msgstr "Unavailable options"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Uncategorized"
 msgstr "Uncategorized"
