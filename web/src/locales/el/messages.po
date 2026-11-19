@@ -8295,6 +8295,7 @@ msgstr "Δεν είναι δυνατή η εκκίνηση"
 #: src/components/clio/openalex-key-request.tsx
 #: src/components/clio/path-picker.tsx
 #: src/components/clio/plugin-marketplace-dialog.tsx
+#: src/components/clio/plugin-open-waiting.tsx
 #: src/components/clio/primitives/dialog-frame.tsx
 #: src/components/clio/provenance-connections.tsx
 #: src/components/clio/provider-endpoint-editor.tsx
@@ -18950,6 +18951,10 @@ msgstr "Η εκτέλεσή του δεν βρίσκεται πλέον σε α�
 #: src/lib/a2ui/server-surface.ts
 msgid "Its server could not provide the tab's content."
 msgstr "Ο διακομιστής του δεν μπόρεσε να παράσχει το περιεχόμενο της καρτέλας."
+
+#: src/components/clio/plugin-open-waiting.tsx
+msgid "Its server has not answered yet. A first start can take a few minutes."
+msgstr "Ο διακομιστής του δεν έχει απαντήσει ακόμη. Η πρώτη εκκίνηση μπορεί να διαρκέσει μερικά λεπτά."
 
 #: src/lib/a2ui/server-surface.ts
 msgid "Its server is not running in this conversation."
@@ -30089,6 +30094,7 @@ msgstr "Ανάκτηση"
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/plugin-open-waiting.tsx
 #: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
@@ -34714,6 +34720,14 @@ msgstr "Παραμένει στην προτροπή του πράκτορα μ�
 msgid "Still running"
 msgstr "Ακόμη σε εκτέλεση"
 
+#: src/components/clio/plugin-open-waiting.tsx
+msgid "Still waiting for {label}"
+msgstr "Αναμονή ακόμη για {label}"
+
+#: src/components/clio/plugin-open-waiting.tsx
+msgid "Still waiting for {label} to answer."
+msgstr "Αναμονή ακόμη για απάντηση από {label}."
+
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Still waiting. This is taking longer than expected. Check {agent} directly, or try again."
 msgstr "Ακόμη σε αναμονή. Αυτό διαρκεί περισσότερο από το αναμενόμενο. Ελέγξτε απευθείας τον {agent} ή δοκιμάστε ξανά."
@@ -34876,6 +34890,10 @@ msgstr "Σταμάτησε από τον πράκτορα"
 #: src/components/clio/flow-run-parts.tsx
 msgid "stopped or rejected"
 msgstr "σταμάτησε ή απορρίφθηκε"
+
+#: src/components/clio/plugin-open-waiting.tsx
+msgid "Stopped waiting for {label}"
+msgstr "Η αναμονή για {label} σταμάτησε"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "Stopped with this conversation's Stop. A restart keeps the steps that finished."

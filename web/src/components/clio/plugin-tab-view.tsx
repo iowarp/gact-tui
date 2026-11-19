@@ -5,9 +5,14 @@ import { AlertTriangleIcon } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { RefreshIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
-import { openPluginTab, usePluginTabState } from '@/lib/a2ui/plugin-tab-store';
+import {
+  cancelPluginTabOpen,
+  openPluginTab,
+  usePluginTabState,
+} from '@/lib/a2ui/plugin-tab-store';
 import { serverOwnerName, serverSurfaceReason } from '@/lib/a2ui/server-surface';
 import { ClioA2UISurface } from './a2ui-surface';
+import { PluginOpenWaitingLine, PluginOpenWaitingState } from './plugin-open-waiting';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
@@ -25,6 +30,14 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
   const reopen = useCallback(
     () => void openPluginTab(repository, tab.sessionId, tab.tabId),
     [repository, tab.sessionId, tab.tabId],
+  );
+  const retry = useCallback(
+    () => void openPluginTab(repository, tab.sessionId, tab.tabId, { retry: true }),
+    [repository, tab.sessionId, tab.tabId],
+  );
+  const cancel = useCallback(
+    () => cancelPluginTabOpen(tab.sessionId, tab.tabId),
+    [tab.sessionId, tab.tabId],
   );
   // The tab keeps its surfaces while in the background; it reads again only
   // when it has none yet or missed an update. An unavailable tab waits for the
@@ -48,8 +61,15 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
   const label = tab.label;
   const reason = state?.reason ? serverSurfaceReason(state.reason) : undefined;
   const unavailable = state?.status === 'unavailable';
+  const waiting = (
+    <PluginOpenWaitingState label={label} onCancel={cancel} onRetry={retry} state={state} />
+  );
+  const longWait =
+    state?.surfaces.length === 0 &&
+    (state.status === 'cancelled' || (state.status === 'loading' && state.stillWaiting));
   let body;
-  if (!state || (state.status === 'loading' && state.surfaces.length === 0))
+  if (longWait) body = waiting;
+  else if (!state || (state.status === 'loading' && state.surfaces.length === 0))
     body = <StateView kind="loading" size="viewer" title={t`Opening ${ph({ label })}`} />;
   else if (unavailable && state.surfaces.length === 0)
     body = (
@@ -93,6 +113,7 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
     body = (
       <div className="clio-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         <div className="flex w-full min-w-0 flex-col gap-4 px-4 py-3">
+          <PluginOpenWaitingLine label={label} onCancel={cancel} onRetry={retry} state={state} />
           {unavailable ? (
             <p
               className="flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground"
@@ -129,10 +150,10 @@ export function PluginTabView({ tab }: { tab: Extract<WorkbenchTab, { kind: 'plu
       <FrameBar
         actions={
           <IconButton
-            disabled={state?.status === 'loading'}
+            disabled={state?.status === 'loading' && !state.stillWaiting}
             icon={<RefreshIcon />}
             label={t`Reload ${ph({ label })}`}
-            onClick={reopen}
+            onClick={state?.stillWaiting ? retry : reopen}
             size="sm"
             tooltipSide="bottom"
           />

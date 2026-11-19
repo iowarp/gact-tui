@@ -8295,6 +8295,7 @@ msgstr "No se puede iniciar"
 #: src/components/clio/openalex-key-request.tsx
 #: src/components/clio/path-picker.tsx
 #: src/components/clio/plugin-marketplace-dialog.tsx
+#: src/components/clio/plugin-open-waiting.tsx
 #: src/components/clio/primitives/dialog-frame.tsx
 #: src/components/clio/provenance-connections.tsx
 #: src/components/clio/provider-endpoint-editor.tsx
@@ -18950,6 +18951,10 @@ msgstr "Su ejecución ya no está en esta conversación."
 #: src/lib/a2ui/server-surface.ts
 msgid "Its server could not provide the tab's content."
 msgstr "Su servidor no pudo proporcionar el contenido de la pestaña."
+
+#: src/components/clio/plugin-open-waiting.tsx
+msgid "Its server has not answered yet. A first start can take a few minutes."
+msgstr "Su servidor aún no ha respondido. El primer inicio puede tardar unos minutos."
 
 #: src/lib/a2ui/server-surface.ts
 msgid "Its server is not running in this conversation."
@@ -30089,6 +30094,7 @@ msgstr "Recuperación"
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/plugin-open-waiting.tsx
 #: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
@@ -34714,6 +34720,14 @@ msgstr "Sigue en la instrucción del agente hasta la compactación"
 msgid "Still running"
 msgstr "Aún en ejecución"
 
+#: src/components/clio/plugin-open-waiting.tsx
+msgid "Still waiting for {label}"
+msgstr "Aún esperando a {label}"
+
+#: src/components/clio/plugin-open-waiting.tsx
+msgid "Still waiting for {label} to answer."
+msgstr "Aún esperando la respuesta de {label}."
+
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "Still waiting. This is taking longer than expected. Check {agent} directly, or try again."
 msgstr "Sigue en espera. Está tardando más de lo esperado. Comprueba {agent} directamente o vuelve a intentarlo."
@@ -34876,6 +34890,10 @@ msgstr "Detenido por el agente"
 #: src/components/clio/flow-run-parts.tsx
 msgid "stopped or rejected"
 msgstr "detenido o rechazado"
+
+#: src/components/clio/plugin-open-waiting.tsx
+msgid "Stopped waiting for {label}"
+msgstr "Se dejó de esperar a {label}"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "Stopped with this conversation's Stop. A restart keeps the steps that finished."

@@ -17,7 +17,12 @@ import { create } from 'zustand';
  * unmounted. Closing the tab drops them here and on the service.
  */
 export interface PluginTabState {
-  status: 'loading' | 'ready' | 'unavailable' | 'error';
+  /** `cancelled`: the person stopped waiting for an open; Retry reads it again. */
+  status: 'loading' | 'ready' | 'unavailable' | 'error' | 'cancelled';
+  /** An open has gone unanswered long enough to offer Cancel and Retry. */
+  stillWaiting?: boolean;
+  /** Retries of an unanswered open; each waits longer before asking again. */
+  attempt?: number;
   surfaces: A2UISurface[];
   revision: number;
   /** An HS1 or HS3 reason when the tab is empty or unavailable. */
@@ -62,6 +67,18 @@ const closing = new Map<
 >();
 
 /**
+ * An open may wait minutes (a server's first start, a consent answer), but the
+ * person is never held: after this long it offers Cancel and Retry. Each
+ * Retry doubles the wait before asking again, up to the cap. Unit: ms.
+ */
+const STILL_WAITING_MS = 30_000;
+const STILL_WAITING_MAX_MS = 8 * 60_000;
+
+function stillWaitingAfter(attempt: number): number {
+  return Math.min(STILL_WAITING_MS * 2 ** attempt, STILL_WAITING_MAX_MS);
+}
+
+/**
  * Plugin pages share the tab store under one scope of their own: they are
  * global, so no conversation keys them.
  */
@@ -88,11 +105,15 @@ export function usePluginTabState(sessionId: string, tabId: string): PluginTabSt
   return usePluginTabStore((store) => store.tabs[key(sessionId, tabId)]);
 }
 
-/** Reads the tab's resource; its surfaces replace everything the tab held. */
+/**
+ * Reads the tab's resource; its surfaces replace everything the tab held.
+ * `retry` is the person's Retry after a long wait: the next one asks later.
+ */
 export async function openPluginTab(
   repository: PluginTabRepository,
   sessionId: string,
   tabId: string,
+  options: { retry?: boolean } = {},
 ): Promise<void> {
   const entry = key(sessionId, tabId);
   opened.get(entry)?.controller?.abort();
@@ -103,6 +124,10 @@ export async function openPluginTab(
   }
   const controller = new AbortController();
   opened.set(entry, { repository, controller });
+  const previous = usePluginTabStore.getState().tabs[entry];
+  // A re-read during a long wait keeps its count; an answered open starts over.
+  const waited = previous?.status === 'loading' || previous?.status === 'cancelled';
+  const attempt = (waited ? (previous.attempt ?? 0) : 0) + (options.retry ? 1 : 0);
   usePluginTabStore.setState((store) => ({
     tabs: {
       ...store.tabs,
@@ -112,10 +137,17 @@ export async function openPluginTab(
         owner: store.tabs[entry]?.owner,
         contextSessionId: store.tabs[entry]?.contextSessionId,
         status: 'loading',
+        attempt,
         stale: false,
       },
     },
   }));
+  const waiting = setTimeout(() => {
+    if (controller.signal.aborted) return;
+    update(entry, (state) =>
+      state.status === 'loading' ? { ...state, stillWaiting: true } : state,
+    );
+  }, stillWaitingAfter(attempt));
   try {
     if (pending?.sent) await pending.sent;
     if (controller.signal.aborted || !opened.has(entry)) return;
@@ -163,9 +195,24 @@ export async function openPluginTab(
       },
     }));
   } finally {
+    clearTimeout(waiting);
     const current = opened.get(entry);
     if (current?.controller === controller) current.controller = undefined;
   }
+}
+
+/**
+ * The person stopped waiting for an open: drop the request and keep what the
+ * tab showed. The tab stays open, so its events still arrive.
+ */
+export function cancelPluginTabOpen(sessionId: string, tabId: string): void {
+  const entry = key(sessionId, tabId);
+  const handle = opened.get(entry);
+  handle?.controller?.abort();
+  if (handle) handle.controller = undefined;
+  update(entry, (state) =>
+    state.status === 'loading' ? { ...state, status: 'cancelled', stillWaiting: false } : state,
+  );
 }
 
 /** The tab closed: forget its surfaces and tell the service. */
@@ -321,8 +368,17 @@ export function usePluginPageState(pageId: string): PluginTabState | undefined {
 }
 
 /** Reads the page's resource in its context; the first open creates the context. */
-export function openPluginPage(repository: PluginPageRepository, pageId: string): Promise<void> {
-  return openPluginTab(pageRoutes(repository), PLUGIN_PAGE_SCOPE, pageId);
+export function openPluginPage(
+  repository: PluginPageRepository,
+  pageId: string,
+  options: { retry?: boolean } = {},
+): Promise<void> {
+  return openPluginTab(pageRoutes(repository), PLUGIN_PAGE_SCOPE, pageId, options);
+}
+
+/** The person stopped waiting for the page to open. */
+export function cancelPluginPageOpen(pageId: string): void {
+  cancelPluginTabOpen(PLUGIN_PAGE_SCOPE, pageId);
 }
 
 /** The page left the screen: forget its surfaces and tell the service. */

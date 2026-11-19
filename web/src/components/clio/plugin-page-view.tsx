@@ -13,6 +13,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { isPendingInteractionEvent } from '@/hooks/use-session-live-stream';
 import { invalidatePluginPages } from '@/lib/a2ui/plugin-pages';
 import {
+  cancelPluginPageOpen,
   dispatchPluginTabFrame,
   openPluginPage,
   pluginsUpdatedByFrame,
@@ -35,6 +36,7 @@ import { RetryIcon } from '@/lib/icon-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ClioPendingInteractions } from './pending-interactions';
+import { PluginOpenWaitingLine, PluginOpenWaitingState } from './plugin-open-waiting';
 import { StateView } from './primitives/state-view';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ServerSurfaceRefusalRow } from './server-surface-refusal-row';
@@ -108,6 +110,11 @@ export function PluginPageView({ page }: { page: PluginPage }) {
   const pageId = page.id;
   const state = usePluginPageState(pageId);
   const reopen = useCallback(() => void openPluginPage(repository, pageId), [repository, pageId]);
+  const retry = useCallback(
+    () => void openPluginPage(repository, pageId, { retry: true }),
+    [repository, pageId],
+  );
+  const cancel = useCallback(() => cancelPluginPageOpen(pageId), [pageId]);
   const needsRead = !state || state.stale;
   useEffect(() => {
     if (needsRead) reopen();
@@ -166,8 +173,16 @@ export function PluginPageView({ page }: { page: PluginPage }) {
   const label = page.title;
   const reason = state?.reason ? serverSurfaceReason(state.reason) : undefined;
   const unavailable = state?.status === 'unavailable';
+  const longWait =
+    state?.surfaces.length === 0 &&
+    refusals.length === 0 &&
+    (state.status === 'cancelled' || (state.status === 'loading' && state.stillWaiting));
   let body;
-  if (!state || (state.status === 'loading' && state.surfaces.length === 0))
+  if (longWait)
+    body = (
+      <PluginOpenWaitingState label={label} onCancel={cancel} onRetry={retry} state={state} />
+    );
+  else if (!state || (state.status === 'loading' && state.surfaces.length === 0))
     body = <StateView kind="loading" size="viewer" title={t`Opening ${ph({ label })}`} />;
   else if (unavailable && state.surfaces.length === 0)
     body = (
@@ -214,6 +229,7 @@ export function PluginPageView({ page }: { page: PluginPage }) {
   else
     body = (
       <div className="flex w-full min-w-0 flex-col gap-5">
+        <PluginOpenWaitingLine label={label} onCancel={cancel} onRetry={retry} state={state} />
         {unavailable ? (
           <p
             className="flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground"

@@ -16,12 +16,13 @@ import { ph, t } from '@lingui/core/macro';
 function ReloadPage({ pageId, label }: { pageId: string; label: string }) {
   const repository = useRepository();
   const state = usePluginPageState(pageId);
+  const stillWaiting = state?.status === 'loading' && state.stillWaiting;
   return (
     <IconButton
-      disabled={state?.status === 'loading'}
+      disabled={state?.status === 'loading' && !stillWaiting}
       icon={<RefreshIcon />}
       label={t`Reload ${ph({ label })}`}
-      onClick={() => void openPluginPage(repository, pageId)}
+      onClick={() => void openPluginPage(repository, pageId, { retry: stillWaiting })}
       size="sm"
       tooltipSide="bottom"
     />
