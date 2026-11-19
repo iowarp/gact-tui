@@ -505,7 +505,13 @@ export const commandDefinitionSchema = z
 
 export const summonTargetsSchema = z.object({
   subagents: z
-    .array(z.object({ id: z.string(), plugin: z.string().default(''), description: z.string().default('') }))
+    .array(
+      z.object({
+        id: z.string(),
+        plugin: z.string().default(''),
+        description: z.string().default(''),
+      }),
+    )
     .default([]),
   servers: z
     .array(
@@ -537,7 +543,24 @@ export const summonTargetsSchema = z.object({
     )
     .default([]),
   flows: z
-    .array(z.object({ id: z.string(), plugin: z.string().default(''), description: z.string().default('') }))
+    .array(
+      z.object({
+        id: z.string(),
+        plugin: z.string().default(''),
+        description: z.string().default(''),
+      }),
+    )
+    .default([]),
+  /** Plugins and connectors the person has that this conversation does not carry yet. */
+  plugins: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string().default(''),
+        kind: z.string().default(''),
+        description: z.string().default(''),
+      }),
+    )
     .default([]),
 });
 

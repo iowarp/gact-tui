@@ -31,6 +31,38 @@ export function mapSurface(target: HTMLElement): MapDebugSurface | null {
     : target.querySelector<MapDebugSurface>('[data-slot="a2ui-map-surface"]');
 }
 
+/** Where `node` sits in a capture of `target`, in the capture canvas's pixels. */
+export interface CaptureBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * The box `node` paints in a capture of `target`. Both rects are read together, every
+ * time: a capture awaits between paints (a map's tiles, its overlay copy, an app's
+ * snapshot), and a page that scrolls meanwhile (a conversation following an agent's
+ * reply) moves both by the same amount. A target rect read before the await put the
+ * live canvases that many pixels off their copied titles and axes, and drew a map's
+ * scale, attribution and zoom buttons twice.
+ */
+export function boxInCapture(
+  target: Element,
+  node: Element,
+  scaleX: number,
+  scaleY: number,
+): CaptureBox {
+  const origin = target.getBoundingClientRect();
+  const rect = node.getBoundingClientRect();
+  return {
+    x: (rect.left - origin.left) * scaleX,
+    y: (rect.top - origin.top) * scaleY,
+    width: rect.width * scaleX,
+    height: rect.height * scaleY,
+  };
+}
+
 export function geographicBounds(
   target: HTMLElement,
   region: Pick<Region, 'x' | 'y' | 'width' | 'height'>,

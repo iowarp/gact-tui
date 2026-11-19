@@ -78,6 +78,27 @@ describe('rendered surface PNG', () => {
     expect(options.filter(document.createElement('canvas'))).toBe(false);
   });
 
+  it('leaves nodes that paint nothing out of the copy, keeping a select its options', async () => {
+    // Live: a profile stack's search suggestions, a datalist of 1064 options, made the
+    // copy hold the page's main thread for seven seconds, so no view could renew its
+    // capture lease and every capture on the page failed.
+    const target = document.createElement('div');
+    target.innerHTML = `<datalist>${'<option value="profile"></option>'.repeat(1064)}</datalist>
+      <select><option>temperature</option></select><p style="display:none">Hidden tab</p>
+      <template><p>Unrendered</p></template><p>Shown</p>`;
+    document.body.append(target);
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 300, 200));
+    const { canvas } = drawableCanvas();
+    embedFonts.mockResolvedValue('');
+    renderCanvas.mockClear().mockResolvedValue(canvas);
+    await captureRenderedSurfacePng(target, 1);
+    const { filter } = renderCanvas.mock.calls[0]![1];
+    const [datalist, select, hidden, template, shown] = target.children;
+    expect([datalist, hidden, template].map(filter)).toEqual([false, false, false]);
+    expect([select, select!.firstElementChild, shown].map(filter)).toEqual([true, true, true]);
+    target.remove();
+  });
+
   it('refuses a view whose map is still loading instead of capturing its placeholder', async () => {
     const target = document.createElement('div');
     target.innerHTML = '<div aria-busy="true" aria-label="Loading Sites map"></div>';
@@ -114,6 +135,63 @@ describe('rendered surface PNG', () => {
     expect(mapFrame).toHaveBeenCalledWith(map);
     // The frame first, then the DOM overlay above it; never the live WebGL canvas itself.
     expect(drawn).toEqual([frame, overlay]);
+    vi.unstubAllGlobals();
+  });
+
+  it('places live canvases where they sit in the view when the page scrolls during the capture', async () => {
+    // A conversation scrolls while an agent's reply streams in. The capture of a section
+    // above a map awaited the map's frame; the canvases were then placed against the
+    // target's position before the scroll, so the section's plot sat 40 px below its
+    // axis caption and the map's scale and zoom buttons were drawn twice.
+    let scroll = 0;
+    const at = (element: Element, top: number, height: number) =>
+      vi
+        .spyOn(element, 'getBoundingClientRect')
+        .mockImplementation(() => new DOMRect(0, top - scroll, 300, height));
+    const target = document.createElement('div');
+    const section = document.createElement('canvas');
+    section.width = 300;
+    section.height = 100;
+    const surface = document.createElement('div');
+    surface.setAttribute('data-slot', 'a2ui-map-surface');
+    const mapCanvas = document.createElement('canvas');
+    mapCanvas.className = 'maplibregl-canvas';
+    surface.append(mapCanvas);
+    target.append(section, surface);
+    (surface as HTMLElement & { __clioMap?: unknown }).__clioMap = {};
+    at(target, 100, 400);
+    at(section, 120, 100);
+    at(surface, 300, 200);
+    at(mapCanvas, 300, 200);
+    const { canvas } = drawableCanvas();
+    canvas.height = 400;
+    const placed: { source: unknown; y: number }[] = [];
+    vi.spyOn(canvas, 'getContext').mockImplementation((() => ({
+      drawImage: (source: unknown, _x: number, y: number) => placed.push({ source, y }),
+      strokeRect: () => {},
+      fillRect: () => {},
+      fillText: () => {},
+      measureText: () => ({ width: 10 }),
+    })) as unknown as typeof canvas.getContext);
+    const overlay = document.createElement('canvas');
+    const frame = { close: vi.fn() };
+    renderCanvas.mockReset();
+    renderCanvas.mockResolvedValueOnce(canvas).mockResolvedValueOnce(overlay);
+    embedFonts.mockResolvedValue('');
+    mapFrame.mockReset();
+    mapFrame.mockImplementation(async () => {
+      scroll += 40;
+      return new Blob(['frame'], { type: 'image/png' });
+    });
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(frame));
+
+    await captureRenderedSurfacePng(target, 1);
+
+    expect(placed).toEqual([
+      { source: frame, y: 200 },
+      { source: overlay, y: 200 },
+      { source: section, y: 20 },
+    ]);
     vi.unstubAllGlobals();
   });
 

@@ -1,4 +1,5 @@
 import { readThemeColor } from '@/theme/runtime';
+import { boxInCapture } from './a2ui-region-evidence';
 import { viewSnapshotFor } from './mcp-app-look';
 
 /**
@@ -71,16 +72,11 @@ export async function paintAppFrames(
   scaleX: number,
   scaleY: number,
 ): Promise<void> {
-  const origin = target.getBoundingClientRect();
   for (const frame of target.querySelectorAll<HTMLIFrameElement>('iframe[data-mcp-app-iframe]')) {
-    const rect = frame.getBoundingClientRect();
-    if (!rect.width || !rect.height) continue;
-    const box = {
-      x: (rect.left - origin.left) * scaleX,
-      y: (rect.top - origin.top) * scaleY,
-      width: rect.width * scaleX,
-      height: rect.height * scaleY,
-    };
+    // Placed against the target's rect read now: an earlier frame's snapshot awaits,
+    // and the page may scroll meanwhile.
+    const box = boxInCapture(target, frame, scaleX, scaleY);
+    if (!box.width || !box.height) continue;
     const take = viewSnapshotFor(frame);
     // i18n-ignore: painted into the capture the agent reads, kept in English like other text sent to the agent
     let refusal = 'View not captured: the view has not finished loading (view_not_ready).';

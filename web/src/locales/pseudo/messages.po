@@ -2209,6 +2209,10 @@ msgstr ""
 msgid "{hidden, plural, one {# more} other {# more}}"
 msgstr ""
 
+#: src/components/clio/layered-map-category-legend.tsx
+msgid "{hidden, plural, one {+# more} other {+# more}}"
+msgstr ""
+
 #: src/components/clio/knowledge-note-body.tsx
 msgid "{hidden} more"
 msgstr ""
@@ -5570,6 +5574,10 @@ msgstr ""
 msgid "Added by you"
 msgstr ""
 
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "Added the plugin {target} as you asked"
+msgstr ""
+
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Added:"
 msgstr ""
@@ -7016,6 +7024,10 @@ msgstr ""
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "asked questions"
+msgstr ""
+
+#: src/components/clio/summon-chip.tsx
+msgid "Asked to add the plugin {target}"
 msgstr ""
 
 #: src/components/clio/flow-step-details.tsx
@@ -10099,6 +10111,7 @@ msgid "Collections and transfers through Globus"
 msgstr ""
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 msgid "colored by {field}"
 msgstr ""
 
@@ -20770,6 +20783,7 @@ msgstr ""
 msgid "Map background unavailable"
 msgstr ""
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Map category colours"
 msgstr ""
@@ -26379,12 +26393,17 @@ msgstr ""
 msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr ""
 
+#: src/lib/composer-reference-domain.ts
+msgid "plugin"
+msgstr ""
+
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/lib/agent-needs.ts
+#: src/lib/composer-reference-domain.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
 msgstr ""
@@ -26492,6 +26511,10 @@ msgstr ""
 
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
+msgstr ""
+
+#: src/components/clio/composer-references.tsx
+msgid "Plugins to add"
 msgstr ""
 
 #: src/components/reui/time-picker.tsx
@@ -33151,6 +33174,7 @@ msgstr ""
 
 #: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
 msgstr ""
@@ -33909,6 +33933,7 @@ msgstr ""
 msgid "Some calls were denied"
 msgstr ""
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Some category colours repeat; use labels or filter to compare them."
 msgstr ""
@@ -36790,6 +36815,22 @@ msgstr ""
 
 #: src/components/clio/session-plan-section.tsx
 msgid "The plan was not saved: {message}"
+msgstr ""
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added"
+msgstr ""
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: {reason}"
+msgstr ""
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: the turn was stopped first"
+msgstr ""
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: you chose Not now"
 msgstr ""
 
 #: src/components/clio/agent-composition-view.tsx
@@ -39691,6 +39732,7 @@ msgstr ""
 msgid "Unavailable options"
 msgstr ""
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Uncategorized"
 msgstr ""
@@ -42319,6 +42361,10 @@ msgstr ""
 
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "You asked for the workflow {target} on this message"
+msgstr ""
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "You asked to add the plugin {target} for this message"
 msgstr ""
 
 #: src/components/clio/permission-request-text.ts

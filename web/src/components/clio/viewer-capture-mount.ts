@@ -7,6 +7,22 @@ export const VIEWER_CAPTURE_MOUNT = 'clio:viewer-capture-mount';
 export const VIEWER_CAPTURE_RELEASE = 'clio:viewer-capture-release';
 /** On a gate's frame while its viewer is not mounted because it is off screen. */
 export const VIEWER_DEFERRED_ATTRIBUTE = 'data-viewer-deferred';
+/**
+ * On a gate's frame while its viewer is off screen, whether deferred or mounted only
+ * for a capture. Nothing inside it is part of the view a person sees: it neither keeps
+ * the view from being ready for a capture nor changes the view's revision, so a capture
+ * that mounts it is not invalidated by its own mount.
+ */
+export const VIEWER_OFFSCREEN_ATTRIBUTE = 'data-viewer-offscreen';
+
+/** Gates whose viewer is mounted only because a capture is running. */
+export const CAPTURE_MOUNTED_VIEWERS = `[${VIEWER_OFFSCREEN_ATTRIBUTE}]:not([${VIEWER_DEFERRED_ATTRIBUTE}])`;
+
+/** Whether `node` is inside (or is) an off-screen gated viewer, or no longer in the page. */
+export function inOffscreenViewer(node: Node): boolean {
+  const element = node instanceof Element ? node : node.parentElement;
+  return !node.isConnected || Boolean(element?.closest(`[${VIEWER_OFFSCREEN_ATTRIBUTE}]`));
+}
 
 function gates(target: HTMLElement): HTMLElement[] {
   return [

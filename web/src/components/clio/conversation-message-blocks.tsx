@@ -2,7 +2,15 @@ import { ActionAlertCard } from './action-alert-card';
 import { responseArtifactBlocks } from '@/lib/artifact-presentation';
 import type { A2UIActionLifecycle, A2UISurface, Artifact, MessageBlock } from '@clio/core/v3';
 import { AlertTriangleIcon, ExternalLinkIcon, RouteIcon } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   Plan,
   PlanAction,
@@ -13,6 +21,8 @@ import {
 } from '@/components/ai-elements/plan';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ClioA2UISurface } from './a2ui-surface';
+import { useSuspendedA2uiViewer } from './a2ui-suspended-viewer';
+import { A2uiViewerLease, A2uiViewerLeaseContext } from './a2ui-viewer-lease';
 import { ExternalLink } from '@/components/ui/external-link';
 import { McpAppReopenableCard } from './mcp-app-reopen';
 import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
@@ -113,7 +123,19 @@ export function DeferredA2UISurface({
   // Suspending a surface destroys its processor and unsent client data.
   // Keep a surface mounted after the person starts interacting with it, even
   // if scrolling or a transcript resize temporarily moves it out of view.
-  const renderSurface = live || nearViewport || hasInteracted || targeted;
+  const suspended = !(live || nearViewport || hasInteracted || targeted);
+  // A suspended surface stays capturable: its viewer keeps one lease across mounting
+  // and suspension, and a capture mounts it out of sight in its reserved height.
+  const [lease] = useState(() => new A2uiViewerLease());
+  const [captureMounts, setCaptureMounts] = useState(0);
+  const mountForCapture = useCallback(
+    (mounted: boolean) => setCaptureMounts((count) => Math.max(0, count + (mounted ? 1 : -1))),
+    [],
+  );
+  useSuspendedA2uiViewer(hostRef, surface, lease, suspended, mountForCapture);
+  const leaseContext = useMemo(() => ({ lease, suspended }), [lease, suspended]);
+  const captureMounted = suspended && captureMounts > 0;
+  const renderSurface = !suspended || captureMounted;
   // The label belongs on this wrapper only while it IS the accessible
   // content — an empty reserved-height placeholder before the surface has
   // scrolled near. Once mounted, `ClioA2UISurface` renders its own labeled
@@ -124,19 +146,30 @@ export function DeferredA2UISurface({
   // (an axe `aria-prohibited-attr` violation) and duplicated the surface's
   // own name besides. `role="group"` on the placeholder is enough to make
   // its OWN label valid while it is genuinely all there is to announce.
+  // Mounted only for a capture, the surface keeps exactly its reserved height, so
+  // nothing in the transcript moves, and is inert: out of focus and the accessibility tree.
   return (
     <div
-      aria-label={renderSurface ? undefined : t`${ph({ a2ui: PROTOCOL.a2ui })} surface`}
-      data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
+      aria-label={suspended ? t`${ph({ a2ui: PROTOCOL.a2ui })} surface` : undefined}
+      data-a2ui-viewport={captureMounted ? 'capture' : suspended ? 'deferred' : 'mounted'}
+      inert={captureMounted}
       {...tourAnchor('interactive-surface')}
       onFocusCapture={() => setHasInteracted(true)}
       onPointerDownCapture={() => setHasInteracted(true)}
       ref={hostRef}
-      role={renderSurface ? undefined : 'group'}
-      style={renderSurface ? undefined : { minHeight: reservedHeight }}
+      role={suspended ? 'group' : undefined}
+      style={
+        captureMounted
+          ? { height: reservedHeight, overflow: 'hidden' }
+          : suspended
+            ? { minHeight: reservedHeight }
+            : undefined
+      }
     >
       {renderSurface ? (
-        <ClioA2UISurface actionLifecycle={actionLifecycle} surface={surface} />
+        <A2uiViewerLeaseContext.Provider value={leaseContext}>
+          <ClioA2UISurface actionLifecycle={actionLifecycle} surface={surface} />
+        </A2uiViewerLeaseContext.Provider>
       ) : null}
     </div>
   );
