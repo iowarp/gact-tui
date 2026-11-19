@@ -1889,6 +1889,10 @@ msgstr "{count}, up to {atOnce} at a time"
 msgid "{count}+ links"
 msgstr "{count}+ links"
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "{cut, plural, one {Message (the record kept its start; # more character was cut)} other {Message (the record kept its start; # more characters were cut)}}"
+msgstr "{cut, plural, one {Message (the record kept its start; # more character was cut)} other {Message (the record kept its start; # more characters were cut)}}"
+
 #: src/hooks/use-execution-provenance.ts
 msgid "{danglingEdges, plural, one {# relationship references missing nodes} other {# relationships reference missing nodes}}"
 msgstr "{danglingEdges, plural, one {# relationship references missing nodes} other {# relationships reference missing nodes}}"
@@ -14858,6 +14862,7 @@ msgid "error"
 msgstr "error"
 
 #: src/components/clio/agent-plugin-tree.tsx
+#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 #: src/components/clio/workspace-resource-derivatives.tsx
@@ -21326,6 +21331,7 @@ msgstr "Mermaid source"
 msgid "Mesh unavailable"
 msgstr "Mesh unavailable"
 
+#: src/components/clio/flow-run-parts.tsx
 #: src/lib/transcript-message-preview.ts
 msgid "Message"
 msgstr "Message"
@@ -36457,6 +36463,10 @@ msgstr "The flow has not been accepted yet."
 #: src/components/clio/flow-track.tsx
 msgid "The flow has not started any task yet."
 msgstr "The flow has not started any task yet."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "The flow hit an error"
+msgstr "The flow hit an error"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "The flow saw"

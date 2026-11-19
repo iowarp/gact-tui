@@ -1890,6 +1890,10 @@ msgstr "{count}, hasta {atOnce} a la vez"
 msgid "{count}+ links"
 msgstr "{count}+ enlaces"
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "{cut, plural, one {Message (the record kept its start; # more character was cut)} other {Message (the record kept its start; # more characters were cut)}}"
+msgstr "{cut, plural, one {Mensaje (el registro conservó el inicio; se recortó # carácter más)} other {Mensaje (el registro conservó el inicio; se recortaron # caracteres más)}}"
+
 #: src/hooks/use-execution-provenance.ts
 msgid "{danglingEdges, plural, one {# relationship references missing nodes} other {# relationships reference missing nodes}}"
 msgstr "{danglingEdges, plural, one {# relación hace referencia a nodos inexistentes} other {# relaciones hacen referencia a nodos inexistentes}}"
@@ -14859,6 +14863,7 @@ msgid "error"
 msgstr "error"
 
 #: src/components/clio/agent-plugin-tree.tsx
+#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 #: src/components/clio/workspace-resource-derivatives.tsx
@@ -21327,6 +21332,7 @@ msgstr "Código fuente de Mermaid"
 msgid "Mesh unavailable"
 msgstr "Malla no disponible"
 
+#: src/components/clio/flow-run-parts.tsx
 #: src/lib/transcript-message-preview.ts
 msgid "Message"
 msgstr "Mensaje"
@@ -36458,6 +36464,10 @@ msgstr "El flujo aún no se ha aceptado."
 #: src/components/clio/flow-track.tsx
 msgid "The flow has not started any task yet."
 msgstr "El flujo aún no ha iniciado ninguna tarea."
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "The flow hit an error"
+msgstr "El flujo encontró un error"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "The flow saw"
