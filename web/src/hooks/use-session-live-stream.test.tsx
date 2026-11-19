@@ -179,7 +179,7 @@ describe('useSessionLiveStream resume recovery', () => {
     ).not.toContainEqual(transcript);
   });
 
-  it('does not skip unseen tool completions when a newer REST snapshot arrives', async () => {
+  it('keeps one connection when a newer REST snapshot arrives', async () => {
     mocks.storeState.entities.cursor = '2578';
     const { rerender, unmount } = renderHook(
       ({ snapshot }) =>
@@ -192,13 +192,17 @@ describe('useSessionLiveStream resume recovery', () => {
       { initialProps: { snapshot: '2570' } },
     );
     await waitFor(() => expect(mocks.repository.stream).toHaveBeenCalledTimes(1));
-    rerender({ snapshot: '2600' });
-    await waitFor(() => expect(mocks.repository.stream).toHaveBeenCalledTimes(2));
+    // Resume after the last consumed frame, never skip to a newer snapshot cursor.
     expect(mocks.repository.stream).toHaveBeenLastCalledWith(
       { connection_id: 'active', workspace_id: 'ws_1', session_id: 'sess_1' },
       '2578',
       expect.any(AbortSignal),
     );
+    // A transcript refetch's newer cursor must not abort and reopen the stream.
+    rerender({ snapshot: '2600' });
+    rerender({ snapshot: '2610' });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(mocks.repository.stream).toHaveBeenCalledTimes(1);
     unmount();
   });
 

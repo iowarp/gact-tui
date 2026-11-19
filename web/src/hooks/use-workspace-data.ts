@@ -248,7 +248,9 @@ export function useWorkspaceData({
   const streamError = useSessionLiveStream({
     enabled:
       workspaceRouteState.canOpenSessionStream(capabilities.data?.gact_versions, sessionId) &&
-      streamSession?.workspace_id === workspaceId,
+      streamSession?.workspace_id === workspaceId &&
+      // The first connection resumes from the transcript's cursor (read or failed).
+      transcript.isFetched,
     initialCursor: transcript.data?.cursor,
     sessionId,
     workspaceId,

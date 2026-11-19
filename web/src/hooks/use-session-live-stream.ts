@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient, type Query, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { recordById } from '@/lib/entities';
@@ -40,6 +40,7 @@ import { ph, t } from '@lingui/core/macro';
 
 interface SessionLiveStreamInput {
   enabled: boolean;
+  /** Where the first connection resumes. A later snapshot cursor never reconnects. */
   initialCursor?: string;
   sessionId: string;
   workspaceId: string;
@@ -67,6 +68,12 @@ export function useSessionLiveStream({
   const [documentVisible, setDocumentVisible] = useState(
     () => document.visibilityState === 'visible',
   );
+  // Every transcript refetch carries a newer cursor. Read only when a connection
+  // starts: as a dependency it aborted and reopened the stream on each refetch.
+  const initialCursorRef = useRef(initialCursor);
+  useEffect(() => {
+    initialCursorRef.current = initialCursor;
+  }, [initialCursor]);
 
   useEffect(() => {
     let lastReconnectAt = Number.NEGATIVE_INFINITY;
@@ -111,7 +118,7 @@ export function useSessionLiveStream({
     const science = new ScienceEntryMerger(queryClient, settings.endpoint, sessionId);
     const liveSources = new LiveSourceRefresher(queryClient, settings.endpoint, sessionId);
     let reconnectDelay = STREAM_RECONNECT_BASE_MS;
-    let resumeCursor = initialCursor;
+    let resumeCursor = initialCursorRef.current;
     let reconcileBeforeConnect = false;
     let failingSince: number | undefined;
     // Whether /v1/health could not be reached. A health check that is merely slow
@@ -287,7 +294,6 @@ export function useSessionLiveStream({
     clearSessionModelReferences,
     documentVisible,
     enabled,
-    initialCursor,
     queryClient,
     reconcileSnapshots,
     reconnectEpoch,
