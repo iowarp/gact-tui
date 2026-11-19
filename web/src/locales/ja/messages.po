@@ -49,6 +49,11 @@ msgstr "、あなたの回答"
 msgid "; dashed: {overlay}"
 msgstr "、破線: {overlay}"
 
+#. The label of the control the person pressed, quoted
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "“{control}”"
+msgstr "「{control}」"
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "“{label}” is per-node; a threshold needs per-element values, so the threshold is off."
 msgstr "「{label}」はノードごとの値です。しきい値には要素ごとの値が必要なため、しきい値はオフになっています。"
@@ -42500,6 +42505,10 @@ msgstr "あなたの回答"
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Your change could not be saved."
 msgstr "変更を保存できませんでした。"
+
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "Your choice"
+msgstr "あなたの選択"
 
 #. placeholder {0}: tab.comment
 #: src/components/clio/workbench-variant-try-tab.tsx

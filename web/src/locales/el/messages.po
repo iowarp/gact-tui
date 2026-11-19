@@ -49,6 +49,11 @@ msgstr ", η απάντησή σας"
 msgid "; dashed: {overlay}"
 msgstr "; διακεκομμένη: {overlay}"
 
+#. The label of the control the person pressed, quoted
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "“{control}”"
+msgstr "«{control}»"
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "“{label}” is per-node; a threshold needs per-element values, so the threshold is off."
 msgstr "Το «{label}» ορίζεται ανά κόμβο· ένα κατώφλι χρειάζεται τιμές ανά στοιχείο, οπότε το κατώφλι είναι απενεργοποιημένο."
@@ -42500,6 +42505,10 @@ msgstr "Οι απαντήσεις σας"
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Your change could not be saved."
 msgstr "Δεν ήταν δυνατή η αποθήκευση της αλλαγής σας."
+
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "Your choice"
+msgstr "Η επιλογή σας"
 
 #. placeholder {0}: tab.comment
 #: src/components/clio/workbench-variant-try-tab.tsx

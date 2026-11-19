@@ -1,5 +1,6 @@
 import { t } from '@lingui/core/macro';
-import type { A2UIActionLifecycle } from '@clio/core/v3';
+import type { A2UIActionLifecycle, A2UISurface } from '@clio/core/v3';
+import { actionControlLabel } from '@/lib/a2ui/surface-components';
 import { ClioStatus, type ClioStatusValue } from './status';
 
 /**
@@ -31,13 +32,18 @@ function lifecycleStatusValue(status: A2UIActionLifecycle['status']): ClioStatus
   }
 }
 
-function lifecycleLabel(lifecycle: A2UIActionLifecycle): string {
+function lifecycleLabel(lifecycle: A2UIActionLifecycle, surface?: A2UISurface): string {
+  // The action's name is the producer's identifier, not copy: the person reads the
+  // control they pressed, or plain words when it has no readable label.
+  const control = actionControlLabel(surface, lifecycle.source_component_id);
   const name =
     lifecycle.action_name === 'approval.respond'
       ? t`Decision`
       : lifecycle.action_name === 'agent.submit'
         ? t`Selection`
-        : lifecycle.action_name;
+        : control
+          ? t({ message: `“${control}”`, comment: 'The label of the control the person pressed, quoted' })
+          : t`Your choice`;
   switch (lifecycle.status) {
     case 'received':
       return t`${name} received by the agent`;
@@ -61,12 +67,19 @@ function lifecycleLabel(lifecycle: A2UIActionLifecycle): string {
   }
 }
 
-export function ClioA2UIActionLifecycle({ lifecycle }: { lifecycle?: A2UIActionLifecycle }) {
+export function ClioA2UIActionLifecycle({
+  lifecycle,
+  surface,
+}: {
+  lifecycle?: A2UIActionLifecycle;
+  /** The surface the action came from, to name the control that sent it. */
+  surface?: A2UISurface;
+}) {
   if (!lifecycle || lifecycle.action_name === 'VALIDATION_FAILED') return null;
   return (
-    <div aria-live="polite" className="border-t px-4 py-2 text-xs">
+    <div aria-live="polite" className="pt-2 text-xs" data-slot="a2ui-action-lifecycle">
       <ClioStatus
-        label={lifecycleLabel(lifecycle)}
+        label={lifecycleLabel(lifecycle, surface)}
         value={lifecycleStatusValue(lifecycle.status)}
       />
     </div>

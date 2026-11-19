@@ -49,6 +49,11 @@ msgstr ", tu respuesta"
 msgid "; dashed: {overlay}"
 msgstr "; discontinua: {overlay}"
 
+#. The label of the control the person pressed, quoted
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "“{control}”"
+msgstr "«{control}»"
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "“{label}” is per-node; a threshold needs per-element values, so the threshold is off."
 msgstr "“{label}” es por nodo; un umbral necesita valores por elemento, así que el umbral está desactivado."
@@ -42500,6 +42505,10 @@ msgstr "Tus respuestas"
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Your change could not be saved."
 msgstr "No se pudo guardar tu cambio."
+
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "Your choice"
+msgstr "Tu elección"
 
 #. placeholder {0}: tab.comment
 #: src/components/clio/workbench-variant-try-tab.tsx
