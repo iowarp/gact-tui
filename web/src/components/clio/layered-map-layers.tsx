@@ -9,6 +9,7 @@ import { tallyCategories, type CategoryLegendEntry } from './layered-map-categor
 import { applyEdits, isoTime, layerFeatures, type MapLayer } from './layered-map-model';
 import { mapValueColor } from './map-category-palette';
 import { layerSourceId, layerStyleIds, removeLayer } from './layered-map-style';
+import { colourShapes, SHAPE_COLOUR } from './layered-map-shapes';
 import { useTableQueryRows, type QueryRow, type TableDataQuery } from './table-query-rows';
 
 /**
@@ -246,34 +247,46 @@ export function ShapesLayerSource({
   visible: boolean;
   geojson: unknown;
 }) {
+  // Each feature carries its colour: its category's when the layer names a
+  // categoryField, else the layer's own, so overlapping shapes layers differ.
+  const coloured = useMemo(() => colourShapes(geojson, layer), [geojson, layer]);
   useEffect(() => {
-    if (!geojson) return;
+    if (!coloured) return;
     const sourceId = layerSourceId(layer);
     const source = map.getSource(sourceId) as GeoJSONSource | undefined;
     if (source) {
-      source.setData(geojson as never);
+      source.setData(coloured as never);
       return;
     }
-    map.addSource(sourceId, { type: 'geojson', data: geojson as never });
-    const colour = readThemeColor('primary');
+    map.addSource(sourceId, { type: 'geojson', data: coloured as never });
+    const [lineId, circleId, fillId] = layerStyleIds(layer);
+    const colour = ['get', SHAPE_COLOUR] as never;
+    const opacity = layer.opacity ?? 0.9;
     map.addLayer({
-      id: layerStyleIds(layer)[0]!,
-      type: 'line',
+      id: fillId!,
+      type: 'fill',
       source: sourceId,
-      paint: { 'line-color': colour, 'line-width': 1.5, 'line-opacity': layer.opacity ?? 0.9 },
+      filter: ['match', ['geometry-type'], ['Polygon', 'MultiPolygon'], true, false],
+      paint: { 'fill-color': colour, 'fill-opacity': Math.min(0.6, opacity * 0.4) },
     });
     map.addLayer({
-      id: layerStyleIds(layer)[1]!,
+      id: lineId!,
+      type: 'line',
+      source: sourceId,
+      paint: { 'line-color': colour, 'line-width': 1.5, 'line-opacity': opacity },
+    });
+    map.addLayer({
+      id: circleId!,
       type: 'circle',
       source: sourceId,
       filter: ['==', ['geometry-type'], 'Point'],
       paint: { 'circle-color': colour, 'circle-radius': 4 },
     });
-  }, [geojson, layer, map]);
+  }, [coloured, layer, map]);
   useEffect(() => {
     for (const id of layerStyleIds(layer))
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
-  }, [geojson, layer, map, visible]);
+  }, [coloured, layer, map, visible]);
   useEffect(() => () => removeLayer(map, layer), [layer, map]);
   return null;
 }

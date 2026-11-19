@@ -12,7 +12,13 @@ export const layerSourceId = (layer: MapLayer) => `clio-layer-${layer.id}`;
 export const layerStyleIds = (layer: MapLayer) =>
   layer.kind === 'grid'
     ? [`${layerSourceId(layer)}-raster`]
-    : [`${layerSourceId(layer)}-line`, `${layerSourceId(layer)}-circle`];
+    : layer.kind === 'shapes'
+      ? [
+          `${layerSourceId(layer)}-line`,
+          `${layerSourceId(layer)}-circle`,
+          `${layerSourceId(layer)}-fill`,
+        ]
+      : [`${layerSourceId(layer)}-line`, `${layerSourceId(layer)}-circle`];
 
 export function removeLayer(map: MapLibreMap, layer: MapLayer): void {
   for (const id of layerStyleIds(layer)) if (map.getLayer(id)) map.removeLayer(id);
