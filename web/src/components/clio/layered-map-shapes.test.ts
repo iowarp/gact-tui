@@ -5,7 +5,7 @@ vi.mock('@/theme/runtime', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/theme/runtime')>()),
   readThemeColor: (token: string) => `colour(${token})`,
 }));
-import { colourShapes } from './layered-map-layers';
+import { colourShapes } from './layered-map-shapes';
 import type { MapLayer } from './layered-map-model';
 
 const square = (props: Record<string, unknown>) => ({
