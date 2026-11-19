@@ -6187,6 +6187,10 @@ msgid "Allow notifications for this site in your browser settings."
 msgstr ""
 
 #: src/components/clio/permission-response.tsx
+msgid "Allow on this page"
+msgstr ""
+
+#: src/components/clio/permission-response.tsx
 msgid "Allow once"
 msgstr ""
 
@@ -38291,6 +38295,10 @@ msgstr ""
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "This offer can’t be read by this version."
+msgstr ""
+
+#: src/components/clio/permission-response.tsx
+msgid "This page"
 msgstr ""
 
 #: src/components/clio/browser-live-socket.ts

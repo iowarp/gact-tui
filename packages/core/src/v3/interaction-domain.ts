@@ -80,6 +80,14 @@ export interface PendingInteractionPayload {
   tool_call?: { tool_name?: string; input?: unknown };
   /** The run_code script a nested call's question was asked from. */
   script?: { call_id: string; code: string };
+  /** One question for a server's view-only tools while a person acts on its surface. */
+  consent?: {
+    scope: string;
+    place?: string;
+    place_title?: string;
+    server_title?: string;
+    [key: string]: unknown;
+  };
   revision?: number;
   server_id?: string;
   awaiting_question?: boolean;

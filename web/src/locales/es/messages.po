@@ -6196,6 +6196,10 @@ msgid "Allow notifications for this site in your browser settings."
 msgstr "Permite las notificaciones de este sitio en los ajustes de tu navegador."
 
 #: src/components/clio/permission-response.tsx
+msgid "Allow on this page"
+msgstr "Permitir en esta página"
+
+#: src/components/clio/permission-response.tsx
 msgid "Allow once"
 msgstr "Permitir una vez"
 
@@ -38311,6 +38315,10 @@ msgstr "Este cuaderno no tiene celdas"
 #: src/components/clio/connector-offer-response.tsx
 msgid "This offer can’t be read by this version."
 msgstr "Esta versión no puede leer esta oferta."
+
+#: src/components/clio/permission-response.tsx
+msgid "This page"
+msgstr "Esta página"
 
 #: src/components/clio/browser-live-socket.ts
 msgid "This page is closed."

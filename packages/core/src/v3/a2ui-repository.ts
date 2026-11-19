@@ -47,6 +47,13 @@ import { A2UI_VERSION } from './protocol-versions.js';
  */
 const A2UI_ACTION_HEADERS = { 'x-a2ui-version': A2UI_VERSION } as const;
 
+/**
+ * Budget for opening a plugin tab or page, or acting on one. An open may wait for the
+ * server's first start (a build), and an action for the person's answer to the server's
+ * consent or for a slow remote call, so neither fits an ordinary call's budget. Unit: ms.
+ */
+const PLUGIN_SURFACE_TIMEOUT_MS = 30 * 60 * 1000;
+
 /** `<plugin>/<tab>` keeps its slash: the route has a segment for each. */
 function pluginTabPath(sessionId: string, tabId: string): string {
   const [plugin = '', tab = ''] = tabId.split('/', 2);
@@ -203,6 +210,7 @@ export class A2uiRepository extends PresentationRepository {
       method: 'POST',
       path: `${pluginTabPath(sessionId, tabId)}/open`,
       body: {},
+      timeoutMs: PLUGIN_SURFACE_TIMEOUT_MS,
       decode: (value) => pluginTabOpenedSchema.parse(value),
       signal,
     });
@@ -228,6 +236,7 @@ export class A2uiRepository extends PresentationRepository {
       method: 'POST',
       path: `${pluginTabPath(sessionId, tabId)}/actions`,
       headers: A2UI_ACTION_HEADERS,
+      timeoutMs: PLUGIN_SURFACE_TIMEOUT_MS,
       body: {
         message,
         metadata: mergeA2uiClientMetadata(sessionId, undefined, { includeDataModel: true }),
@@ -253,6 +262,7 @@ export class A2uiRepository extends PresentationRepository {
       method: 'POST',
       path: `${pluginPagePath(pageId)}/open`,
       body: {},
+      timeoutMs: PLUGIN_SURFACE_TIMEOUT_MS,
       decode: (value) => pluginPageOpenedSchema.parse(value),
       signal,
     });
@@ -277,6 +287,7 @@ export class A2uiRepository extends PresentationRepository {
       method: 'POST',
       path: `${pluginPagePath(pageId)}/actions`,
       headers: A2UI_ACTION_HEADERS,
+      timeoutMs: PLUGIN_SURFACE_TIMEOUT_MS,
       body: { message },
       decode: (value) => a2uiActionReplySchema.parse(value),
       signal,

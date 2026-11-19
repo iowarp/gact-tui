@@ -10,6 +10,7 @@ import { AlertTriangleIcon } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
+import { isPendingInteractionEvent } from '@/hooks/use-session-live-stream';
 import { invalidatePluginPages } from '@/lib/a2ui/plugin-pages';
 import {
   dispatchPluginTabFrame,
@@ -79,7 +80,7 @@ function usePluginPageStream(contextSessionId: string | undefined) {
               invalidatePluginPages(queryClient);
               invalidateA2uiSessionCatalogs(queryClient, contextSessionId);
             }
-            if (frame.eventName?.startsWith('interaction.'))
+            if (frame.eventName && isPendingInteractionEvent(frame.eventName))
               void queryClient.invalidateQueries({ queryKey: interactionsKey });
           }
         } catch {
@@ -175,7 +176,17 @@ export function PluginPageView({ page }: { page: PluginPage }) {
         kind="unavailable"
         size="viewer"
         title={t`${ph({ label })} is unavailable`}
-      />
+      >
+        <Button
+          className="rounded-[7px] border-input text-foreground"
+          onClick={reopen}
+          size="xs"
+          variant="outline"
+        >
+          <RetryIcon aria-hidden="true" className="size-3.5" />
+          {t`Retry`}
+        </Button>
+      </StateView>
     );
   else if (state.status === 'error')
     body = (

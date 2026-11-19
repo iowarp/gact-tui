@@ -510,8 +510,14 @@ export function ClioAttentionCenter({
                 const to = sessionPath(session);
                 const deciding =
                   respond.isPending && respond.variables?.interaction.id === row.permission?.id;
-                const decide = (action: 'allow' | 'deny') => {
+                const decide = (choice: 'allow' | 'deny') => {
                   if (!row.permission) return;
+                  // A server's surface asks once for all its controls; once would ask again.
+                  const lasting =
+                    choice === 'allow' &&
+                    row.permission.payload?.consent?.scope === 'server_surface' &&
+                    row.permission.actions?.includes('allow_session');
+                  const action = lasting ? 'allow_session' : choice;
                   respond.mutate(
                     { interaction: row.permission, action },
                     {

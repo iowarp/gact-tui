@@ -6195,6 +6195,10 @@ msgid "Allow notifications for this site in your browser settings."
 msgstr "Allow notifications for this site in your browser settings."
 
 #: src/components/clio/permission-response.tsx
+msgid "Allow on this page"
+msgstr "Allow on this page"
+
+#: src/components/clio/permission-response.tsx
 msgid "Allow once"
 msgstr "Allow once"
 
@@ -38310,6 +38314,10 @@ msgstr "This notebook has no cells"
 #: src/components/clio/connector-offer-response.tsx
 msgid "This offer can’t be read by this version."
 msgstr "This offer can’t be read by this version."
+
+#: src/components/clio/permission-response.tsx
+msgid "This page"
+msgstr "This page"
 
 #: src/components/clio/browser-live-socket.ts
 msgid "This page is closed."

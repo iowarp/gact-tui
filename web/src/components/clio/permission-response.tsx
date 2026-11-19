@@ -35,6 +35,23 @@ const SCOPES = [
 ];
 const KNOWN_ACTIONS = new Set(['deny', ...SCOPES.map((scope) => scope.action)]);
 
+/**
+ * A person acting on a server's surface answers one question for all of that server's
+ * view-only tools, so the lasting answer leads: allowing once would ask again at the next
+ * control. On a plugin page the page's own context is the session, so it reads as the page.
+ */
+function surfaceScopes(interaction: PendingInteraction, scopes: typeof SCOPES): typeof SCOPES {
+  const consent = interaction.payload?.consent;
+  if (consent?.scope !== 'server_surface') return scopes;
+  const lasting = scopes.find((scope) => scope.action === 'allow_session');
+  if (!lasting) return scopes;
+  const first =
+    consent.place === 'page'
+      ? { ...lasting, label: t`This page`, name: t`Allow on this page` }
+      : lasting;
+  return [first, ...scopes.filter((scope) => scope !== lasting)];
+}
+
 /** The tool's own arguments: CLIO's `_clio_*` annotations ride along but are not for people. */
 function agentArguments(input: unknown): unknown {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
@@ -172,8 +189,9 @@ export function PermissionResponse({
   // plugin, which lasts, so it is offered once ("Trust and run") without a duration.
   const flowTrust = flowTrustRequest(interaction);
   const offered = (action: string) => !interaction.actions || interaction.actions.includes(action);
-  const scopes = SCOPES.filter(
-    (scope) => offered(scope.action) && (!flowTrust || scope.action === 'allow'),
+  const scopes = surfaceScopes(
+    interaction,
+    SCOPES.filter((scope) => offered(scope.action) && (!flowTrust || scope.action === 'allow')),
   );
   const toolCall = interaction.payload?.tool_call;
   const toolName = toolCall?.tool_name ?? interaction.source.tool_name;

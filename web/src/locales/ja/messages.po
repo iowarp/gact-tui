@@ -6196,6 +6196,10 @@ msgid "Allow notifications for this site in your browser settings."
 msgstr "ブラウザーの設定で、このサイトの通知を許可してください。"
 
 #: src/components/clio/permission-response.tsx
+msgid "Allow on this page"
+msgstr "このページで許可"
+
+#: src/components/clio/permission-response.tsx
 msgid "Allow once"
 msgstr "1回だけ許可"
 
@@ -38311,6 +38315,10 @@ msgstr "このノートブックにはセルがありません"
 #: src/components/clio/connector-offer-response.tsx
 msgid "This offer can’t be read by this version."
 msgstr "このバージョンではこの提案を読み取れません。"
+
+#: src/components/clio/permission-response.tsx
+msgid "This page"
+msgstr "このページ"
 
 #: src/components/clio/browser-live-socket.ts
 msgid "This page is closed."

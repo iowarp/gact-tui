@@ -29,7 +29,7 @@ export function useAttentionResponse() {
       action,
     }: {
       interaction: PendingInteraction;
-      action: 'allow' | 'deny';
+      action: 'allow' | 'allow_session' | 'deny';
     }) =>
       unified
         ? repository.respondInteraction(interaction.attended_session_id, interaction.id, {

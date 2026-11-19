@@ -360,7 +360,8 @@ export function useSessionLiveStream({
   return streamError;
 }
 
-function isPendingInteractionEvent(eventName: string): boolean {
+/** Whether an event adds, answers or withdraws a question or approval someone must see. */
+export function isPendingInteractionEvent(eventName: string): boolean {
   return [
     'permission.',
     'user_question.',

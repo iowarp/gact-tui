@@ -163,6 +163,16 @@ export const pendingInteractionSchema = z.object({
         .optional(),
       /** The run_code script a nested call's question was asked from. */
       script: z.object({ call_id: z.string(), code: z.string() }).optional(),
+      /** One question for a server's view-only tools while a person acts on its surface. */
+      consent: z
+        .object({
+          scope: z.string(),
+          place: z.string().optional(),
+          place_title: z.string().optional(),
+          server_title: z.string().optional(),
+        })
+        .passthrough()
+        .optional(),
       revision: z.number().int().nonnegative().optional(),
       server_id: z.string().optional(),
       awaiting_question: z.boolean().optional(),

@@ -6196,6 +6196,10 @@ msgid "Allow notifications for this site in your browser settings."
 msgstr "Επιτρέψτε τις ειδοποιήσεις για αυτόν τον ιστότοπο στις ρυθμίσεις του προγράμματος περιήγησής σας."
 
 #: src/components/clio/permission-response.tsx
+msgid "Allow on this page"
+msgstr "Να επιτρέπεται σε αυτήν τη σελίδα"
+
+#: src/components/clio/permission-response.tsx
 msgid "Allow once"
 msgstr "Να επιτραπεί μία φορά"
 
@@ -38311,6 +38315,10 @@ msgstr "Αυτό το σημειωματάριο δεν έχει κελιά"
 #: src/components/clio/connector-offer-response.tsx
 msgid "This offer can’t be read by this version."
 msgstr "Αυτή η έκδοση δεν μπορεί να διαβάσει την πρόταση."
+
+#: src/components/clio/permission-response.tsx
+msgid "This page"
+msgstr "Αυτή η σελίδα"
 
 #: src/components/clio/browser-live-socket.ts
 msgid "This page is closed."
