@@ -27,6 +27,8 @@ export interface SegmentedControlProps<Value extends string> {
    * `others` keeps the current option's name and folds the rest to icons.
    */
   iconOnly?: boolean | 'others';
+  /** Labels wrap between words rather than pushing past a narrow row. */
+  wrap?: boolean;
   className?: string;
 }
 
@@ -40,6 +42,7 @@ function SegmentedControlImpl<Value extends string>({
   value,
   onValueChange,
   iconOnly = false,
+  wrap = false,
   className,
 }: SegmentedControlProps<Value>) {
   return (
@@ -52,10 +55,16 @@ function SegmentedControlImpl<Value extends string>({
         if (next) onValueChange(next as Value);
       }}
       data-slot="segmented-control"
-      className={cn('h-7 shrink-0 gap-px rounded-[7px] bg-muted p-[2px]', className)}
+      className={cn(
+        'h-7 shrink-0 gap-px rounded-[7px] bg-muted p-[2px]',
+        // Folded: the current name wraps rather than pushing past a narrow row.
+        (iconOnly === 'others' || wrap) && 'h-auto min-h-7 max-w-full shrink',
+        className,
+      )}
     >
       {options.map((option) => {
         const bare = iconOnly === true || (iconOnly === 'others' && option.value !== value);
+        const wraps = (iconOnly === 'others' || wrap) && !bare;
         const item = (
           <ToggleGroupItem
             key={option.value}
@@ -71,10 +80,15 @@ function SegmentedControlImpl<Value extends string>({
             className={cn(
               'h-6 min-w-0 gap-1.5 rounded-[5px]! border-0 px-2.5 text-meta font-normal whitespace-nowrap text-muted-foreground shadow-none hover:bg-hover hover:text-foreground focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset data-[state=on]:bg-popover data-[state=on]:text-foreground data-[state=on]:shadow-xs dark:data-[state=on]:bg-menu-highlight dark:data-[state=on]:shadow-none [&_svg:not([class*=size-])]:size-3.5',
               bare && (option.count === undefined ? 'w-[27px] px-0' : 'gap-1 px-1.5'),
+              wraps &&
+                // auto-phrase: Japanese wraps between words ("メモリーの/エクスポート").
+                'h-auto min-h-6 min-w-min shrink whitespace-normal [word-break:auto-phrase] [line-break:strict]',
+              // Folded names also tighten and start-align; `wrap` keeps a one-line label's metrics.
+              wraps && iconOnly === 'others' && 'py-0.5 text-left leading-tight',
             )}
           >
             {option.icon}
-            {bare ? null : <span className="truncate">{option.label}</span>}
+            {bare ? null : <span className={wraps ? undefined : 'truncate'}>{option.label}</span>}
             {bare && option.count !== undefined ? (
               <span aria-hidden="true" className="tabular-nums">
                 {option.count}

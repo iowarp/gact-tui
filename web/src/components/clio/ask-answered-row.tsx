@@ -51,7 +51,7 @@ export function AskAnsweredRow({
       disclosure={
         onOpenChange ? (
           <ActivityDisclosure
-            label={`${open ? 'Collapse' : 'Expand'} ${verb}`}
+            label={open ? t`Collapse ${verb}` : t`Expand ${verb}`}
             onClick={() => onOpenChange(!open)}
             open={Boolean(open)}
           />

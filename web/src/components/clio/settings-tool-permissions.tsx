@@ -197,7 +197,7 @@ export function ToolPermissionsSettings() {
           bulkLabel: t`All ${ph({ title: source.title })} tools`,
           bulkPhrase: t`all ${ph({ title: source.title })} tools`,
           tools: [],
-          notice: { text: source.catalog, status: 'Loading', tone: 'running' },
+          notice: { text: source.catalog, status: t`Loading`, tone: 'running' },
           reserveRows: source.count,
         },
       ];
@@ -341,7 +341,7 @@ export function ToolPermissionsSettings() {
     );
   }
   const list = (
-    <div className="@container/page grid min-w-0 gap-3">
+    <div className="@container/page grid min-w-0 grid-cols-1 gap-3">
       {toolbar ? (
         <div className="flex min-w-0 items-center gap-x-4 gap-y-2 @max-[36rem]/page:flex-wrap">
           <ToolFilterField

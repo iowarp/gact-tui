@@ -16,6 +16,7 @@ import { DataSourceSettings } from '@/components/clio/settings-data-sources';
 import { WebSearchSettings } from '@/components/clio/settings-web-search';
 import { GeneralSettings } from '@/components/clio/settings-general';
 import { AboutSettings } from '@/components/clio/settings-about';
+import { ReportProblemSettingsRoute } from '@/components/clio/settings-report-problem';
 import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
 import { MemorySettings } from '@/components/clio/settings-memory';
 import { ConnectionsSettings } from '@/components/clio/settings-connection';
@@ -78,6 +79,7 @@ export function SettingsSection({
   if (section === 'notifications') return <NotificationSettings />;
   if (section === 'general') return <GeneralSettings />;
   if (section === 'about') return <AboutSettings />;
+  if (section === 'report-problem') return <ReportProblemSettingsRoute />;
   if (section === 'appearance') return <AppearanceSettings />;
   return <GeneralSettings />;
 }

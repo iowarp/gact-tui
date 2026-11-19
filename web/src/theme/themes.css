@@ -92,6 +92,8 @@
   --chart-3: #a8472f;
   --chart-4: #4f6d8f;
   --chart-5: #847c6d;
+  --attention-heat-text: oklch(0.62 0.2 145);
+  --attention-heat-tool: oklch(0.6 0.23 27);
   --category-1: #2f6f6a;
   --category-2: #b07a1e;
   --category-3: #a8472f;
@@ -209,6 +211,8 @@
   --chart-3: #e8a595;
   --chart-4: #8db4da;
   --chart-5: #b3ac9f;
+  --attention-heat-text: oklch(0.72 0.19 145);
+  --attention-heat-tool: oklch(0.68 0.2 27);
   --category-1: #5fa8a0;
   --category-2: #e8c27a;
   --category-3: #e8a595;
@@ -325,6 +329,8 @@
   --chart-3: oklch(0.54 0.14 155);
   --chart-4: oklch(0.58 0.15 290);
   --chart-5: oklch(0.58 0.17 25);
+  --attention-heat-text: oklch(0.62 0.2 145);
+  --attention-heat-tool: oklch(0.6 0.23 27);
   --category-1: #2563eb;
   --category-2: #7c3aed;
   --category-3: #059669;
@@ -440,6 +446,8 @@
   --chart-3: oklch(0.72 0.15 155);
   --chart-4: oklch(0.72 0.15 290);
   --chart-5: oklch(0.7 0.18 25);
+  --attention-heat-text: oklch(0.72 0.19 145);
+  --attention-heat-tool: oklch(0.68 0.2 27);
   --category-1: #2563eb;
   --category-2: #7c3aed;
   --category-3: #059669;
@@ -559,6 +567,8 @@
   --chart-3: #ff6666;
   --chart-4: #990000;
   --chart-5: #e63333;
+  --attention-heat-text: #0a8f0a;
+  --attention-heat-tool: #b30000;
   --category-1: #ff0000;
   --category-2: #cc0000;
   --category-3: #ff6666;

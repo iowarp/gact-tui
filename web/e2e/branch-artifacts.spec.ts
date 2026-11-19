@@ -66,6 +66,8 @@ test('allows central child follow-ups while hiding user branching controls', asy
   await expect(page.getByRole('menuitem', { name: 'Share read-only link' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('subagent-actions.png') });
   await page.keyboard.press('Escape');
+  // The menu returns focus to its trigger only once its exit animation ends; Enter would reopen it.
+  await expect(page.getByRole('menu', { name: `Actions for ${worker.title}` })).toHaveCount(0);
 
   const parentMessagesUrl = `${fixtureEndpoint}/v1/sessions/${worker.parent_session_id}/messages`;
   const parentBefore = (await (await page.request.get(parentMessagesUrl)).json()).messages;

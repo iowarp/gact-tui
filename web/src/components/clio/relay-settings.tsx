@@ -105,7 +105,7 @@ export function RelaySettings() {
   return (
     <section
       aria-label={GROUP}
-      className="grid min-w-0"
+      className="grid min-w-0 grid-cols-1"
       onKeyDown={newItemKey(() => setAdding(true))}
     >
       <SettingsGroupLabel

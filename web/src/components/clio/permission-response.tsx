@@ -17,9 +17,10 @@ import { FlowTrustDetails } from './flow-trust-details';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { PermissionOperationDetails, PermissionPaths } from './permission-operation-details';
-import { permissionOperationLabel } from './permission-operation-labels';
+import { permissionTitle } from './permission-operation-labels';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { t, ph, plural } from '@lingui/core/macro';
+import { formatList } from '@/lib/locale-format';
 
 const SCOPES = [
   { action: 'allow', label: t`Allow once`, name: t`Allow once` },
@@ -74,25 +75,6 @@ function argumentParts(
             },
     );
   return { blocks, facts };
-}
-
-function permissionTitle(interaction: PendingInteraction, toolName: string | undefined) {
-  const input = interaction.payload?.tool_call?.input;
-  const fields =
-    input && typeof input === 'object'
-      ? (input as Record<string, unknown>)
-      : ({} as Record<string, unknown>);
-  const legacy =
-    interaction.title === `destructive tool call: ${toolName}` ||
-    interaction.title === `tool call: ${toolName}` ||
-    interaction.title === `external MCP tool call: ${toolName}`;
-  if (!legacy) return interaction.title;
-  if (toolName === 'connected_data_connect')
-    return typeof fields.label === 'string' && fields.label.trim()
-      ? t`Connect ${ph({ source: String(fields.label) })}`
-      : t`Connect source`;
-  if (toolName === 'connected_data_download') return t`Download source`;
-  return permissionOperationLabel(toolName ?? '', fields) ?? interaction.title;
 }
 
 /**
@@ -158,7 +140,12 @@ function spokenToolCall(
     const values = Object.entries(args)
       .filter(([, value]) => ['string', 'number', 'boolean'].includes(typeof value))
       .map(([key, value]) => `${key} ${String(value).replace(/\s+/gu, ' ')}`);
-    if (values.length) return clip(`${toolName}: ${values.join(', ')}`);
+    if (values.length) {
+      const list = formatList(values);
+      return clip(
+        t({ message: `${toolName}: ${list}`, comment: 'Spoken tool call: tool name, then its arguments' }),
+      );
+    }
   }
   return toolName;
 }

@@ -82,7 +82,8 @@ describe('NotificationSettings', () => {
     renderNotifications();
 
     const finished = screen.getByRole('combobox', { name: 'Finished work' });
-    expect(finished).toHaveTextContent('Bell only');
+    // The visible value; the field also holds invisible copies of every choice for its width.
+    expect(finished).toHaveAttribute('title', 'Bell only');
     fireEvent.click(finished);
     fireEvent.click(await screen.findByRole('option', { name: 'Desktop alert' }));
 

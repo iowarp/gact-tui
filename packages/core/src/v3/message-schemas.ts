@@ -116,7 +116,7 @@ const summonMessageBlockSchema = additivelyTolerant(
     .object({
       id: z.string(),
       type: z.literal('summon'),
-      target_kind: forwardCompatibleEnum(['subagent', 'workflow', 'flow', 'server']),
+      target_kind: forwardCompatibleEnum(['subagent', 'workflow', 'flow', 'server', 'plugin']),
       target: z.string(),
       agent_id: z.string().optional(),
       sequence: z.number().int().positive().optional(),
@@ -137,6 +137,8 @@ const mcpAppMessageBlockSchema = additivelyTolerant(
       data_ref: z.string(),
       mime_type: z.string(),
       height: z.number().int().positive().optional(),
+      display_mode: z.enum(['inline', 'fullscreen']).optional(),
+      title: z.string().optional(),
       agent_id: z.string().optional(),
       sequence: z.number().int().positive().optional(),
       stream_source: z.string().optional(),

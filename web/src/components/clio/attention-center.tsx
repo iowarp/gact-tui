@@ -40,7 +40,7 @@ import { AttentionUpdateRows } from './attention-update-rows';
 import { attentionUpdate } from './version-check-issue';
 import { IconButton } from './primitives/icon-button';
 import { ListRow } from './primitives/list-row';
-import { permissionCommand } from './permission-operation-labels';
+import { permissionCommand, permissionTitle } from './permission-operation-labels';
 import { ClioRelativeTime } from './relative-time';
 import { plural, select, t, ph } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
@@ -230,7 +230,7 @@ function requestRow(session: Session, request: PendingInteraction): NeedRow {
         permission,
       };
     }
-    const detail = request.title || request.prompt || '';
+    const detail = permissionTitle(request) || request.prompt || '';
     return { ...row, kind, detail, detailText: detail, permission };
   }
   const detail = request.prompt || request.title;

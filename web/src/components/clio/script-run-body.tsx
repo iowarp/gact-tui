@@ -1,6 +1,4 @@
 import type { ToolPresentationBlock } from '@clio/core/v3';
-import type { BundledLanguage } from 'shiki';
-import { bundledLanguages } from 'shiki/langs';
 import { useMemo, useState } from 'react';
 import { FileIcon, ImageIcon } from 'lucide-react';
 import { plural, ph, t } from '@lingui/core/macro';
@@ -8,8 +6,9 @@ import { CodeBlock, HANGING_SOURCE_WRAP } from '@/components/ai-elements/code-bl
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { formatBytes } from '@/lib/format';
-import { formatNumber } from '@/lib/locale-format';
+import { formatList, formatNumber } from '@/lib/locale-format';
 import { cn } from '@/lib/utils';
+import { resolveCodeLanguage } from '@/lib/code-language';
 import { parsePrintedValue } from './python-literal';
 import { workspaceImages } from './image-reach';
 import { WorkspaceImageStrip } from './workspace-image-thumbnail';
@@ -37,6 +36,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   typescript: 'TypeScript',
   bash: 'Shell',
   sh: 'Shell',
+  openqasm: 'OpenQASM',
 };
 
 /**
@@ -203,10 +203,7 @@ function ScriptSource({
   const shown = all ? code : lines.slice(0, PREVIEW_LINES).join('\n');
   const hidden = all ? 0 : lines.length - PREVIEW_LINES;
   const long = lines.length > PREVIEW_LINES;
-  const language =
-    block.language && block.language in bundledLanguages
-      ? (block.language as BundledLanguage)
-      : ('python' as BundledLanguage);
+  const language = resolveCodeLanguage(block.language) ?? 'python';
   const name = LANGUAGE_NAMES[language] ?? language;
   const count = lines.length;
   return (
@@ -427,7 +424,7 @@ function descriptorNote(sizeBytes: number | undefined, shown: boolean): string {
 }
 
 function pagesLabel(pages: readonly number[]): string {
-  const list = pages.join(', ');
+  const list = formatList(pages.map(String));
   return plural(pages.length, { one: `Page ${list}`, other: `Pages ${list}` });
 }
 
@@ -440,7 +437,7 @@ function remainingLabel(remaining: number): string {
 }
 
 function descriptionsLabel(names: readonly string[]): string {
-  const files = names.join(', ');
+  const files = formatList(names);
   return plural(names.length, {
     one: `Description of # image: ${files}`,
     other: `Descriptions of # images: ${files}`,

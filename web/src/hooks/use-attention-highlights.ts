@@ -10,28 +10,44 @@ import {
 import { findTextPartSource, resolveAttentionSources } from '@/lib/attention-highlight-sources';
 import { contentRevision } from '@/lib/content-revision';
 
-/** Every unit paints levels 1..9 of SPOTTER's ramp; level 0 stays unpainted. */
+/** Every unit paints levels 1..9 of SPOTTER's ramps; level 0 stays unpainted. */
 const SEGMENT_HIGHLIGHT_NAMES = Array.from(
   { length: SEGMENT_HEAT_LEVELS },
   (_, level) => `clio-attn-level-${level}`,
 );
+/** The same levels on the tool ramp: tool blocks and `>>>` tool calls written in text. */
+const TOOL_HIGHLIGHT_NAMES = Array.from(
+  { length: SEGMENT_HEAT_LEVELS },
+  (_, level) => `clio-attn-tool-level-${level}`,
+);
 const SELECTED_HIGHLIGHT_NAME = 'clio-attn-selected';
 
 /*
- * SPOTTER's text-map levels 1..9 (render_heatmap.py, render_pretoken_heatmap.py)
- * over the warm "signal" chart hue, the same for lines, words and tokens; level
- * 0 is not painted. A Highlight's ranges can only be styled through a global
+ * SPOTTER's text-map levels 1..9 (render_heatmap.py, render_pretoken_heatmap.py),
+ * the same for lines, words and tokens, on two ramps: prompt text and tool calls,
+ * so evidence a tool returned stands apart from instructions and earlier answers.
+ * Level 0 is not painted; every painted level is also underlined in its ramp's
+ * hue, so heat never rests on color alone, and the ink switches to the foreground
+ * once the band is dark enough to need it. A Highlight's ranges can only be styled through a global
  * ::highlight() rule, and while any such rule exists every style recalculation
  * computes highlight styles for every element (about half the cost of opening
  * a menu on a long conversation). So the rules are mounted only while heat is
  * shown.
  */
-const HIGHLIGHT_RULES = [
-  ...SEGMENT_HIGHLIGHT_NAMES.slice(1).map((name, index) => {
+/** The share of the ramp's hue at levels 0..9: distinct steps from the first level on. */
+const LEVEL_MIX = [0, 22, 30, 39, 48, 56, 64, 73, 82, 90] as const;
+
+function rampRules(names: readonly string[], hue: string): string[] {
+  return names.slice(1).map((name, index) => {
     const level = index + 1;
-    const ink = level >= 7 ? ' color: var(--foreground);' : '';
-    return `::highlight(${name}) { background-color: color-mix(in oklch, var(--chart-5) ${level * 8}%, transparent);${ink} }`;
-  }),
+    const ink = level >= 6 ? ' color: var(--foreground);' : '';
+    return `::highlight(${name}) { background-color: color-mix(in oklch, var(${hue}) ${LEVEL_MIX[level]}%, transparent); text-decoration: underline; text-decoration-color: var(${hue}); text-decoration-thickness: 2px;${ink} }`;
+  });
+}
+
+const HIGHLIGHT_RULES = [
+  ...rampRules(SEGMENT_HIGHLIGHT_NAMES, '--attention-heat-text'),
+  ...rampRules(TOOL_HIGHLIGHT_NAMES, '--attention-heat-tool'),
   `::highlight(${SELECTED_HIGHLIGHT_NAME}) { background-color: color-mix(in oklch, var(--primary) 22%, transparent); text-decoration: underline; text-decoration-color: color-mix(in oklch, var(--primary) 70%, transparent); text-decoration-thickness: 2px; }`,
 ].join('\n');
 
@@ -51,7 +67,9 @@ function retainHighlightStyle(): () => void {
 
 function clearHighlights() {
   if (typeof CSS === 'undefined' || !CSS.highlights) return;
-  for (const name of SEGMENT_HIGHLIGHT_NAMES) CSS.highlights.delete(name);
+  for (const name of [...SEGMENT_HIGHLIGHT_NAMES, ...TOOL_HIGHLIGHT_NAMES]) {
+    CSS.highlights.delete(name);
+  }
   CSS.highlights.delete(SELECTED_HIGHLIGHT_NAME);
 }
 
@@ -95,9 +113,17 @@ export function useAttentionHighlights(
 
     let frame = 0;
     const apply = () => {
-      const { heat } = buildSegmentHighlightRanges(container, resolved, view.unit, view.reduction);
+      const { heat, toolHeat } = buildSegmentHighlightRanges(
+        container,
+        resolved,
+        view.unit,
+        view.reduction,
+      );
       heat.forEach((ranges, level) => {
         CSS.highlights.set(SEGMENT_HIGHLIGHT_NAMES[level] as string, new Highlight(...ranges));
+      });
+      toolHeat.forEach((ranges, level) => {
+        CSS.highlights.set(TOOL_HIGHLIGHT_NAMES[level] as string, new Highlight(...ranges));
       });
       const selectedRanges = data.selected_references?.flatMap((reference) => {
         if (reference.field !== 'text') return [];

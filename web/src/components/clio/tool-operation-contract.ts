@@ -84,6 +84,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   fs_read_file: define(t`Read file`, 'declared', 'path'),
   fs_write_file: { ...define(t`Write file`, 'declared', 'path'), instruction: 'content' },
   fs_edit_file: define(t`Edit file`, 'declared', 'path'),
+  fs_git_commit: define(t`Commit`, 'declared', 'path'),
   shell_bash: define(t`Run command`, 'declared', 'command'),
   // The script's name (its label, first comment or first statement) is the declared subject.
   run_code: define(t`Run script`),
@@ -195,6 +196,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
     'surface_id',
   ),
   capture_a2ui_surface: define(t`Inspect rendered widget`, 'declared', 'surface_id'),
+  look_at_view: { ...define(t`Look at view`, 'declared', 'view'), presentedAction: true },
   delete_a2ui_surface: define(t`Remove widget`, 'ack', 'surface_id'),
   publish_dashboard_report: define(t`Save dashboard`, 'declared', 'report_id'),
   create_artifact: define(t({ message: 'Keep', context: 'verb: tool action' }), 'declared', 'name'),

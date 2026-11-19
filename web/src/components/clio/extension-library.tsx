@@ -1,11 +1,16 @@
-import type { McpServerDefinition, PluginMarketplace, SavedMcpService } from '@clio/core/v3';
+import type { McpServerDefinition, PluginEntry, SavedMcpService } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BoxIcon, CopyIcon, GlobeIcon, KeyRoundIcon, PlugIcon, SparklesIcon } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import {
+  useConnectorChanges,
+  useConnectors,
+  useInvalidateConnectors,
+} from '@/hooks/use-connectors';
 import { useRepository } from '@/hooks/use-repository';
+import { useWindowContentHeight } from '@/hooks/use-window-content-height';
 import { useRemoveSavedMcp, useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
 import {
   useExtensionsSupported,
@@ -14,12 +19,14 @@ import {
   usePluginMarketplaces,
 } from '@/hooks/use-session-agent';
 import { connectionScope } from '@/lib/connection-scope';
+import { bundlingPlugin } from '@/lib/connector-plugin';
 import {
   copyAddress,
   copyReference,
   defaultAdd,
   extensionEntries,
   LOCAL_MARKETPLACE,
+  LOCAL_PLACEHOLDER,
   type ExtensionEntry,
   type ExtensionType,
 } from '@/lib/extension-library-entries';
@@ -28,9 +35,15 @@ import { serviceTarget } from '@/lib/mcp-service-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { newItemKey } from '@/lib/settings-row-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { ConnectorLogo } from './connector-need-rows';
+import { ConnectorPane } from './connector-pane';
 import { ExtensionAddDialog, type ExtensionAdd } from './extension-add-dialog';
+import { ExtensionScopeHeading } from './extension-scope-heading';
 import { useDiscoverItems, type DiscoverItem } from './extension-discover';
+import { DiscoverCatalog, type CatalogEntry } from './discover-catalog';
+import { listedInYours } from '@/lib/connector-groups';
 import { BackupDialog, DiscoverPane, McpConnectionPane } from './extension-library-panes';
+import { McpRegistrySection } from './extension-registry-section';
 import { ExtensionToolbar, type ExtensionView } from './extension-library-toolbar';
 import { ExtensionRow, SlotButton } from './extension-parts';
 import { PluginIcon } from './installed-plugin-list';
@@ -38,18 +51,18 @@ import { marketplaceSlot, useMarketplaceManager } from './marketplace-manager';
 import { MarketplaceActions } from './marketplace-actions';
 import { McpSignInDialog } from './mcp-sign-in';
 import { PluginDetailPane } from './plugin-explorer';
+import { OfferListRow } from './offer-list-row';
 import { ListDetailLayout } from './primitives/detail-pane';
 import { IconButton } from './primitives/icon-button';
 import { ItemList } from './primitives/item-row';
 import { StateView } from './primitives/state-view';
 import { PrivateLocalLibrary } from './private-local-library';
 import { SettingsGroupLabel } from './settings-row';
-import { SettingsSectionHeading } from './settings-section-heading';
 import { MarketplaceDetailPane } from './settings-plugins';
 import { RowConfirm } from './primitives/row-confirm';
 import { RemoveSavedMcpDialog } from './settings-saved-mcp';
 import { downloadBytes } from './surface-export';
-import { t, ph } from '@lingui/core/macro';
+import { ph, t } from '@lingui/core/macro';
 
 /** Each type's empty state, written whole (not composed from the type's label). */
 const EMPTY_TITLES: Record<ExtensionType, string> = {
@@ -61,48 +74,19 @@ const EMPTY_TITLES: Record<ExtensionType, string> = {
 };
 
 type Detail =
+  | { kind: 'connector'; id: string }
   | { kind: 'plugin'; ref: string; pending: boolean; skill?: string }
   | { kind: 'marketplace'; name: string }
   | { kind: 'mcp'; name: string }
   | { kind: 'discover'; key: string };
 
-/** The private local marketplace before anything is saved to it. */
-const LOCAL_PLACEHOLDER: PluginMarketplace = {
-  name: LOCAL_MARKETPLACE,
-  source: '',
-  commit: '',
-  format: '',
-  trusted: true,
-  trust_reason: 'local',
-  default: false,
-  parent: '',
-  installed_at: '',
-  diagnostics: [],
-};
-
-/** Plugins, marketplaces, MCP connections and skills: one list, one pane beside it. */
+/** Connectors, plugins, marketplaces and skills: one list, one pane beside it. */
 export function ExtensionLibrary(props: {
   initialWorkspaceId?: string;
   initialSessionId?: string;
 }) {
   const { settings } = useConnectionSettings();
   return <ExtensionLibraryContents key={connectionScope(settings)} {...props} />;
-}
-
-/** The settings window's scrolling height, so the pane can fill it beside a long list. */
-function useWindowContentHeight() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number>();
-  useLayoutEffect(() => {
-    const scroller = ref.current?.closest<HTMLElement>('[data-window-content]');
-    if (!scroller || typeof ResizeObserver === 'undefined') return;
-    const measure = () => setHeight(scroller.clientHeight || undefined);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(scroller);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, height] as const;
 }
 
 function ExtensionLibraryContents({
@@ -120,6 +104,8 @@ function ExtensionLibraryContents({
   const supported = useExtensionsSupported();
   const agents = useInstalledAgents();
   const saved = useSavedMcpServices();
+  const connectorList = useConnectors(supported !== false);
+  const invalidateConnectors = useInvalidateConnectors();
   const manager = useMarketplaceManager();
   const servers = useQuery({
     queryKey: queryKeys.key('mcp-servers', settings.endpoint, initialWorkspaceId || 'global'),
@@ -149,6 +135,8 @@ function ExtensionLibraryContents({
   const plugins = catalog.data?.plugins ?? [];
   const installed = marketplaces.data ?? [];
   const services = saved.data ?? [];
+  const connectors = connectorList.data ?? [];
+  const connectorChanges = useConnectorChanges();
   const serverRows = servers.data ?? [];
   const mine = agents.data?.filter((agent) => agent.kind === 'user') ?? [];
   const hasLocalItems = Boolean(
@@ -169,10 +157,16 @@ function ExtensionLibraryContents({
         : listed.filter((row) => row !== LOCAL_PLACEHOLDER),
     saved: services,
     servers: serverRows,
+    connectors,
+    changes: connectorChanges,
     term,
   });
   const nothingInstalled =
-    !plugins.length && !installed.length && !services.length && !hasLocalItems;
+    !connectors.length &&
+    !plugins.length &&
+    !installed.length &&
+    !services.length &&
+    !hasLocalItems;
   const loadError = catalog.error ?? marketplaces.error;
   const loading = supported !== false && (catalog.isPending || marketplaces.isPending);
 
@@ -180,6 +174,7 @@ function ExtensionLibraryContents({
     Promise.all(
       (
         [
+          'connectors',
           'plugins',
           'plugin-marketplaces',
           'agents',
@@ -217,17 +212,14 @@ function ExtensionLibraryContents({
   };
 
   const { curated, registry, registryItems } = useDiscoverItems({
-    enabled: view === 'discover' && (type === 'all' || type === 'mcp'),
+    enabled: view === 'discover' && (type === 'all' || type === 'mcp') && registrySearch === term,
     search: registrySearch,
     cursor,
-    plugins,
-    marketplaces: installed,
-    services,
     onAdd: setAdding,
     onAddMarketplace: manager.openInstall,
-    onViewSkill: (plugin, skill) =>
-      setDetail({ kind: 'plugin', ref: plugin.ref, pending: plugin.pending_trust, skill }),
   });
+  const viewSkill = (plugin: PluginEntry, skill: string) =>
+    setDetail({ kind: 'plugin', ref: plugin.ref, pending: plugin.pending_trust, skill });
   const matches = (item: DiscoverItem) =>
     item.types.includes(type) &&
     (!term || `${item.title} ${item.description}`.toLowerCase().includes(term.toLowerCase()));
@@ -251,6 +243,20 @@ function ExtensionLibraryContents({
 
   const pane = (() => {
     if (!detail) return null;
+    if (detail.kind === 'connector') {
+      const connector = connectors.find((row) => row.id === detail.id);
+      return connector ? (
+        <ConnectorPane
+          className={paneClass}
+          connector={connector}
+          key={connector.id}
+          onClose={close}
+          onSignIn={(row) => setSigning(row.id)}
+          onViewSkill={viewSkill}
+          plugin={bundlingPlugin(connector, plugins)}
+        />
+      ) : null;
+    }
     if (detail.kind === 'plugin') {
       const plugin = plugins.find((row) => row.ref === detail.ref);
       const marketplace = marketplaceFor(plugin?.marketplace ?? detail.ref.split('/')[0]!);
@@ -339,6 +345,23 @@ function ExtensionLibraryContents({
   })();
 
   const row = (entry: ExtensionEntry) => {
+    if (entry.kind === 'connector') {
+      const target: Detail = { kind: 'connector', id: entry.connector.id };
+      return (
+        <ExtensionRow
+          icon={<ConnectorLogo className="size-5 text-[9px]" connector={entry.connector} />}
+          key={entry.key}
+          meta={entry.meta}
+          description={entry.description}
+          needs={entry.needs}
+          name={entry.title}
+          onExplore={() => open(target)}
+          selected={isOpen(target)}
+          aligned
+          status={entry.status}
+        />
+      );
+    }
     if (entry.kind === 'plugin') {
       const { plugin } = entry;
       const marketplace = marketplaceFor(plugin.marketplace);
@@ -554,7 +577,7 @@ function ExtensionLibraryContents({
         selected={isOpen(target)}
         slot={
           <SlotButton
-            disabled={supported !== true && !item.action.opensOnly}
+            disabled={supported !== true}
             label={t`${ph({ action: item.action.label })} ${ph({ name: item.title })}`}
             onClick={item.action.run}
             reason={
@@ -571,7 +594,15 @@ function ExtensionLibraryContents({
     );
   };
 
-  const suggestions = curated.filter((item) => item.suggested && !item.installed && matches(item));
+  // DC-D2: Discover is the whole catalog as cards; one that is on reads "Enabled".
+  const catalogEntries = entries.filter(
+    (entry): entry is CatalogEntry =>
+      entry.kind === 'connector' && entry.connector.source !== 'custom',
+  );
+  // A clio-kit connector is in Discover until it is enabled (LZ-D9).
+  const yoursEntries = entries.filter(
+    (entry) => entry.kind !== 'connector' || listedInYours(entry.connector),
+  );
   const yours = loadError ? (
     <div title={loadError.message}>
       <StateView
@@ -599,8 +630,8 @@ function ExtensionLibraryContents({
     />
   ) : (
     <>
-      {entries.length ? (
-        <ItemList label={t`Extensions`}>{entries.map(row)}</ItemList>
+      {yoursEntries.length ? (
+        <ItemList label={t`Extensions`}>{yoursEntries.map(row)}</ItemList>
       ) : (
         <StateView
           kind="empty"
@@ -608,66 +639,51 @@ function ExtensionLibraryContents({
           title={term ? t`No extensions match “${term}”.` : EMPTY_TITLES[type]}
         />
       )}
-      {suggestions.length ? (
-        <>
-          <SettingsGroupLabel>{t`Discover`}</SettingsGroupLabel>
-          <ItemList label={t`Suggested extensions`}>{suggestions.map(discoverRow)}</ItemList>
-        </>
-      ) : null}
     </>
   );
   const shownCurated = curated.filter(matches);
+  const catalogHeading =
+    type === 'plugins'
+      ? t`Catalog plugins`
+      : type === 'mcp'
+        ? t`Catalog connectors`
+        : t`Catalog plugins and connectors`;
   const showRegistry = type === 'all' || type === 'mcp';
   const discover = (
     <>
+      {type !== 'marketplaces' && type !== 'skills' && catalogEntries.length ? (
+        <DiscoverCatalog
+          entries={catalogEntries}
+          isOpen={(connector) => isOpen({ kind: 'connector', id: connector.id })}
+          label={catalogHeading}
+          onOpen={(connector) => open({ kind: 'connector', id: connector.id })}
+          shippedMarketplace={installed.find((row) => row.default)?.name}
+          showAll={Boolean(term)}
+          supported={supported}
+        />
+      ) : null}
       {shownCurated.length ? (
         <>
-          <SettingsGroupLabel>{t`Suggested`}</SettingsGroupLabel>
+          <SettingsGroupLabel>
+            {type === 'mcp' ? t`MCP servers you add yourself` : t`Suggested`}
+          </SettingsGroupLabel>
           <ItemList label={t`Suggested extensions`}>{shownCurated.map(discoverRow)}</ItemList>
         </>
       ) : null}
       {showRegistry ? (
-        <section aria-label={t`MCP Registry`}>
-          <SettingsGroupLabel>{t`MCP Registry`}</SettingsGroupLabel>
-          {registry.isPending ? (
-            <StateView kind="loading" size="row" title={t`Searching the MCP Registry…`} />
-          ) : null}
-          {registry.error ? (
-            <div title={registry.error.message}>
-              <StateView
-                action={{ label: t`Retry`, onClick: () => void registry.refetch() }}
-                kind="error"
-                size="row"
-                title={t`The MCP Registry couldn’t be searched.`}
-              />
-            </div>
-          ) : null}
-          {registryItems.length ? (
-            <ItemList label={t`MCP Registry servers`}>{registryItems.map(discoverRow)}</ItemList>
-          ) : null}
-          {registry.data && !registry.data.servers.length ? (
-            <StateView kind="empty" size="row" title={t`No servers match.`} />
-          ) : null}
-          <div className="mt-2 flex items-center gap-2">
-            {registry.data?.next_cursor ? (
-              <Button
-                onClick={() => setCursor(registry.data!.next_cursor)}
-                size="sm"
-                variant="outline"
-              >
-                {t`Next page`}
-              </Button>
-            ) : null}
-            {cursor ? (
-              <Button onClick={() => setCursor('')} size="sm" variant="ghost">
-                {t`Back to first page`}
-              </Button>
-            ) : null}
-            <span className="min-w-0 truncate text-xs text-muted-foreground">
-              {t`Public server metadata. Browsing starts no servers.`}
-            </span>
-          </div>
-        </section>
+        <McpRegistrySection
+          cursor={cursor}
+          items={registryItems}
+          onCursor={setCursor}
+          onSearch={() => {
+            setRegistrySearch(term);
+            setCursor('');
+          }}
+          query={term}
+          registry={registry}
+          renderItem={discoverRow}
+          searched={registrySearch}
+        />
       ) : null}
       {!shownCurated.length && !showRegistry ? (
         <StateView kind="empty" size="row" title={t`No suggestions match.`} />
@@ -684,16 +700,21 @@ function ExtensionLibraryContents({
           : undefined,
       )}
     >
-      <SettingsSectionHeading
-        description={t`Plugins, marketplaces, MCP connections and skills for your agents.`}
-        title={t`Extensions`}
-      />
+      <ExtensionScopeHeading />
+      {supported === true ? <OfferListRow /> : null}
       <ExtensionToolbar
         onAdd={setAdding}
         onAddMarketplace={manager.openInstall}
-        onSearchChange={setSearch}
+        onSearchChange={(next) => {
+          setSearch(next);
+          // An emptied field browses the Registry again instead of the last query's page.
+          if (!next.trim()) {
+            setRegistrySearch('');
+            setCursor('');
+          }
+        }}
         onSearchSubmit={(next) => {
-          setRegistrySearch(next);
+          setRegistrySearch(next.trim());
           setCursor('');
         }}
         onTypeChange={changeType}
@@ -720,6 +741,7 @@ function ExtensionLibraryContents({
   return (
     <div
       className="-mt-4 -mr-5 -mb-17 flex min-w-0 sm:-mr-7"
+      data-slot="extension-library"
       ref={paneRoot}
       style={
         paneHeight
@@ -755,7 +777,11 @@ function ExtensionLibraryContents({
           key={`${scope}:${signing}`}
           name={signing}
           onClose={() => setSigning(undefined)}
-          title={services.find((row) => row.name === signing)?.label}
+          onConnected={() => void invalidateConnectors()}
+          title={
+            connectors.find((row) => row.id === signing)?.name ??
+            services.find((row) => row.name === signing)?.label
+          }
         />
       ) : null}
       <RemoveSavedMcpDialog

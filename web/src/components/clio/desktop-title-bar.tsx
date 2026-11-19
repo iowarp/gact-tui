@@ -11,6 +11,7 @@ import {
   FileIcon,
   KeyboardIcon,
   LayersIcon,
+  LifeBuoyIcon,
   Link2Icon,
   Maximize2Icon,
   MinusIcon,
@@ -489,6 +490,10 @@ export function DesktopTitleBar() {
                 <MenuActionItem action="keyboard-shortcuts" shortcut="shortcuts">
                   <KeyboardIcon aria-hidden="true" />
                   {t`Keyboard shortcuts`}
+                </MenuActionItem>
+                <MenuActionItem action="report-problem">
+                  <LifeBuoyIcon aria-hidden="true" />
+                  {t`Report a problem…`}
                 </MenuActionItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>

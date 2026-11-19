@@ -174,6 +174,7 @@ const KNOWN_SUMMARIES: Record<string, string> = {
   fs_read_file: t`Reads a file that this workspace has granted the agent access to.`,
   fs_write_file: t`Creates a file or replaces its content in the workspace; each change can be undone.`,
   fs_edit_file: t`Replaces exact text in a workspace file; each change can be undone.`,
+  fs_git_commit: t`Records a workspace folder’s changes in git, creating the repository when asked; repository hooks never run.`,
   shell_bash: t`Runs a command inside the workspace’s permitted folders.`,
 };
 

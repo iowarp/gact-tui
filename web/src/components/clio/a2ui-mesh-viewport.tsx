@@ -31,7 +31,7 @@ import { formatFieldValue } from './mesh-viewport-colormap';
 import { MeshLegend, type MeshLegendState } from './mesh-viewport-legend';
 import { composeSnapshot } from './mesh-viewport-snapshot';
 import { parsedMeshCache } from './mesh-viewport-cache';
-import type { MeshField } from './mesh-viewport-mesh';
+import { partOpacityByName, type MeshField } from './mesh-viewport-mesh';
 import { parseMeshArtifact, type MeshFormat } from './mesh-viewport-formats';
 import { MeshViewportScene, type MeshUpAxis } from './mesh-viewport-scene';
 import {
@@ -74,6 +74,8 @@ export interface ClioMeshViewportProps {
   weight?: number;
   /** The viewport's height in CSS pixels; the default frame is 320. */
   height?: number;
+  /** Opacity (0 to 1) per named node, e.g. a see-through case over a board. */
+  nodeOpacity?: Readonly<Record<string, number>>;
 }
 
 const STAGE_LABEL: Record<string, string> = {
@@ -92,6 +94,7 @@ const MESH_MIME_TYPE: Record<MeshFormat, string> = {
   vtk: 'application/octet-stream',
   vtp: 'application/xml',
   drc: 'application/octet-stream',
+  step: 'model/step',
 };
 
 /** An orbitable view of one registered mesh, colored, thresholded, and stepped by its fields. */
@@ -114,6 +117,7 @@ export function ClioMeshViewport({
   upAxis = 'y',
   weight,
   height,
+  nodeOpacity,
 }: ClioMeshViewportProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -185,6 +189,10 @@ export function ClioMeshViewport({
   const thresholdNeedsCells =
     parsed?.topology === 'cells' && namedCutField?.location === 'node' ? namedCutField : undefined;
   const cutField = thresholdNeedsCells ? undefined : namedCutField;
+  const faded = useMemo(
+    () => partOpacityByName(parsed?.parts, nodeOpacity),
+    [parsed?.parts, nodeOpacity],
+  );
   const frameCount = parsed?.frames.length ?? 0;
   const frameIndex = Math.min(Math.max(0, Math.round(frame)), Math.max(0, frameCount - 1));
   const inputs = useMemo<ViewInputs>(
@@ -198,8 +206,9 @@ export function ClioMeshViewport({
           }
         : undefined,
       frame: frameIndex,
+      partOpacity: faded.opacity,
     }),
-    [colorField, cutField, frameIndex, showField, thresholdMax, thresholdMin],
+    [colorField, cutField, faded, frameIndex, showField, thresholdMax, thresholdMin],
   );
   const inputsRef = useRef<ViewInputs>({ frame: 0 });
   const memberRef = useRef<MeshSyncMember | undefined>(undefined);
@@ -283,6 +292,7 @@ export function ClioMeshViewport({
         color: current.color && range ? { field: current.color, ...range } : undefined,
         threshold: current.threshold,
         frame: current.frame,
+        partOpacity: current.partOpacity,
       });
       setVisibleCells(current.threshold ? selection?.visibleCells : undefined);
       setLegend(
@@ -744,6 +754,11 @@ export function ClioMeshViewport({
                 {missing.length > 1
                   ? t`This mesh has no ${ph({ first: missing[0] ?? '' })} or ${ph({ second: missing[1] ?? '' })} result, so that part of the view is off.`
                   : t`This mesh has no ${ph({ field: missing[0] ?? '' })} result, so that part of the view is off.`}
+              </p>
+            ) : null}
+            {faded.unmatched.length ? (
+              <p className="mt-2 border-t py-2 text-xs text-muted-foreground">
+                {t`No part of this model is named ${ph({ names: faded.unmatched.join(', ') })}, so its opacity is not applied.`}
               </p>
             ) : null}
             {parsed?.warnings?.map((warning) => (

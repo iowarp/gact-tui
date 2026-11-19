@@ -83,7 +83,7 @@ export function NavigationAgentMenu({
       <DropdownMenuTrigger asChild>
         <SidebarMenuButton
           aria-label={`${brand.name}: ${line.text}`}
-          className="h-11 min-w-0 flex-1 gap-2.5 px-1.5"
+          className="h-auto min-h-11 min-w-0 flex-1 gap-2.5 px-1.5 py-1"
           data-connection-state={stream}
           size="lg"
           tooltip={tooltip}
@@ -104,7 +104,11 @@ export function NavigationAgentMenu({
           </span>
           <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
             <span className="flex min-w-0 items-center gap-1">
-              <span className="truncate font-heading text-h3 font-semibold">{brand.wordmark}</span>
+              {/* The wordmark is never cut: in a narrow bar (phone at 150% zoom) it wraps
+                  and the header row grows. */}
+              <span className="min-w-0 font-heading text-h3 font-semibold text-balance whitespace-normal break-words">
+                {brand.wordmark}
+              </span>
               <ChevronsUpDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-faint" />
             </span>
             <span
@@ -125,7 +129,10 @@ export function NavigationAgentMenu({
               />
               {line.parts ? (
                 <span
-                  className={cn('flex min-w-0', line.at ? 'gap-1' : 'gap-1.5')}
+                  className={cn(
+                    'flex min-w-0',
+                    line.at ? 'gap-1' : 'h-[1lh] flex-wrap gap-x-1.5 overflow-hidden',
+                  )}
                   data-truncation-gap="space"
                 >
                   <span className={cn('shrink-0', line.leadClassName)}>{line.parts[0]}</span>
@@ -134,7 +141,11 @@ export function NavigationAgentMenu({
                       @
                     </span>
                   ) : null}
-                  <span className="truncate">{line.parts[1]}</span>
+                  {/* After a long state ("Update ready" in Greek) the name keeps a few
+                      letters; with less room it wraps onto the clipped line and hides whole. */}
+                  <span className={cn('truncate', !line.at && 'min-w-[4ch] grow basis-[4ch]')}>
+                    {line.parts[1]}
+                  </span>
                 </span>
               ) : (
                 <span className="truncate">{line.text}</span>
@@ -219,5 +230,6 @@ function statusLine(
 }
 
 function placeWords(location: string): string {
-  return location === 'Local' ? t`this computer` : location;
+  // Its own message: the header has room for a short form ("τοπικά" in Greek).
+  return location === 'Local' ? t({ message: 'this computer', context: 'agent place' }) : location;
 }

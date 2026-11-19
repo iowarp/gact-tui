@@ -3,6 +3,7 @@ import {
   BotIcon,
   CircleSlashIcon,
   MessageSquareQuoteIcon,
+  PlugIcon,
   WorkflowIcon,
   WrenchIcon,
 } from 'lucide-react';
@@ -15,6 +16,7 @@ interface Summons {
   subagents: string[];
   workflows: string[];
   flows: string[];
+  plugins: string[];
   servers: string[];
   failed: { role: string; error: string }[];
 }
@@ -80,6 +82,7 @@ function summonedWork(metadata: Record<string, unknown> | undefined): {
           subagents: strings(summons.subagents),
           workflows: strings(summons.workflows),
           flows: strings(summons.flows),
+          plugins: strings(summons.plugins),
           servers: strings(summons.servers),
           failed: (Array.isArray(summons.failed) ? summons.failed : []).flatMap((row) => {
             const failure = record(row);
@@ -147,6 +150,7 @@ function PromptRow({ prompt }: { prompt: McpPrompt }) {
 function askedForLabel(kind: string, target: string): string {
   if (kind === 'workflow') return t`You asked for the workflow ${target} on this message`;
   if (kind === 'flow') return t`You asked for the flow ${target} on this message`;
+  if (kind === 'plugin') return t`You asked to add the plugin ${target} for this message`;
   return t`You asked for ${target} on this message`;
 }
 
@@ -154,12 +158,22 @@ function askedForLabel(kind: string, target: string): string {
 function startedLabel(kind: string, target: string): string {
   if (kind === 'workflow') return t`Started the workflow ${target} as you asked`;
   if (kind === 'flow') return t`Started the flow ${target} as you asked`;
+  if (kind === 'plugin') return t`Added the plugin ${target} as you asked`;
   return t`Started ${target} as you asked`;
 }
 
 /** "The workflow survey was not started", with why when there is more to say than that it was not. */
 function notStartedLabel(kind: string, target: string, why: string): string {
   const reason = !why || why === 'not_called' ? '' : why;
+  if (kind === 'plugin') {
+    if (why === 'plugin_offer_declined')
+      return t`The plugin ${target} was not added: you chose Not now`;
+    if (why === 'plugin_offer_cancelled')
+      return t`The plugin ${target} was not added: the turn was stopped first`;
+    return reason
+      ? t`The plugin ${target} was not added: ${reason}`
+      : t`The plugin ${target} was not added`;
+  }
   if (kind === 'workflow') {
     return reason
       ? t`The workflow ${target} was not started: ${reason}`
@@ -174,6 +188,7 @@ function notStartedLabel(kind: string, target: string, why: string): string {
 }
 
 function kindIcon(kind: string) {
+  if (kind === 'plugin') return <PlugIcon aria-hidden="true" className="size-3.5 shrink-0" />;
   return kind === 'workflow' || kind === 'flow' ? (
     <WorkflowIcon aria-hidden="true" className="size-3.5 shrink-0" />
   ) : (
@@ -192,6 +207,7 @@ export function ConversationSummonedWork({ metadata }: { metadata?: Record<strin
     ...(summons?.subagents ?? []).map((target) => ({ kind: 'subagent', target })),
     ...(summons?.workflows ?? []).map((target) => ({ kind: 'workflow', target })),
     ...(summons?.flows ?? []).map((target) => ({ kind: 'flow', target })),
+    ...(summons?.plugins ?? []).map((target) => ({ kind: 'plugin', target })),
   ];
   if (
     !asked.length &&

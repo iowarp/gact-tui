@@ -167,6 +167,7 @@ export function ScheduleDialog({
             options={sessions}
             placeholder={t`Choose a session`}
             value={sessionId}
+            wrap
           />
         </SettingsRow>
         <SettingsRow title={t`Runs`}>

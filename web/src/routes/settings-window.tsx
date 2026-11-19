@@ -15,6 +15,7 @@ import {
 import { SettingsResults } from '@/components/clio/settings-results';
 import { useRepository } from '@/hooks/use-repository';
 import { useSettingsAgentName } from '@/hooks/use-settings-agent-name';
+import { agentScopeHeading } from '@/lib/settings-agent-name';
 import { useSettingsWorkspaceName } from '@/hooks/use-settings-workspace-name';
 import { useUnavailableSettingsSections } from '@/hooks/use-unavailable-settings-sections';
 import { settingsDestinations } from '@/lib/application-destinations';
@@ -108,7 +109,11 @@ export function SettingsWindow() {
   const workspaceName = useSettingsWorkspaceName(workspaceId);
   const agentName = useSettingsAgentName();
   const destination = destinations.find((item) => item.id === section);
-  const scopeLabels = { App: t`App`, Workspace: workspaceName.label, Agent: agentName };
+  const scopeLabels = {
+    App: t`App`,
+    Workspace: workspaceName.label,
+    Agent: agentScopeHeading(agentName, settings.label),
+  };
   const scopeLine: SettingsScope = {
     group:
       destination?.group === 'Agent' || destination?.group === 'Workspace'
@@ -262,7 +267,7 @@ export function SettingsWindow() {
         if (!open) close();
       }}
       open
-      picker={<SettingsSectionPicker {...navigation} />}
+      picker={<SettingsSectionPicker {...navigation} compact={searching} />}
       rail={<SettingsNavRail {...navigation} />}
       search={
         searching ? (
@@ -287,8 +292,10 @@ export function SettingsWindow() {
         data-settings-main=""
       >
         <AnnounceStates />
-        {/* Panes stop at the spec's 760 px; an open detail pane takes the window's width. */}
-        <div className="max-w-[760px] pb-12 has-[[data-slot=detail-pane]]:max-w-none">
+        {/* Panes stop at the spec's 760 px; Extensions, a directory of cards with its
+            search beside the tabs, at 1040 px (DC-D9); an open detail pane takes the
+            window's width. */}
+        <div className="max-w-[760px] pb-12 has-[[data-slot=detail-pane]]:max-w-none has-[[data-slot=extension-library]]:max-w-[1040px]">
           <SettingsScopeContext.Provider value={scopeLine}>
             <SettingsWindowCloseContext.Provider value={close}>
               <Suspense fallback={<SectionsLoading />}>

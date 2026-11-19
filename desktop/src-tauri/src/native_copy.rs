@@ -51,6 +51,7 @@ pub(crate) const ENGLISH: &[(&str, &str)] = &[
     ("menu.item.open-infrastructure", "Infrastructure"),
     ("menu.item.help-docs", "Documentation"),
     ("menu.item.keyboard-shortcuts", "Keyboard Shortcuts"),
+    ("menu.item.report-problem", "Report a Problem…"),
     // Predefined items keep the operating system's text unless a translation is sent.
     ("menu.predefined.undo", "Undo"),
     ("menu.predefined.redo", "Redo"),

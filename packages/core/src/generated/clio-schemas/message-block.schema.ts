@@ -191,6 +191,19 @@ export const messageBlockGeneratedSchema: z.ZodType<MessageBlock> = z.discrimina
       channel: z.union([z.string(), z.null()]).default(null),
       compaction_id: z.union([z.string(), z.null()]).default(null),
       id: z.string(),
+      metadata: z
+        .union([
+          z
+            .object({
+              compacted_message_ids: z.union([z.array(z.string()), z.null()]).default(null),
+              derived_from: z.union([z.array(z.string()), z.null()]).default(null),
+              kept_message_ids: z.union([z.array(z.string()), z.null()]).default(null),
+              system_prompt: z.union([z.string(), z.null()]).default(null),
+            })
+            .strict(),
+          z.null(),
+        ])
+        .default(null),
       sequence: z.union([z.number().int().gt(0), z.null()]).default(null),
       source: z.string(),
       stream_source: z.union([z.string(), z.null()]).default(null),
@@ -208,12 +221,82 @@ export const messageBlockGeneratedSchema: z.ZodType<MessageBlock> = z.discrimina
       code: z.union([z.string(), z.null()]).default(null),
       compaction_id: z.union([z.string(), z.null()]).default(null),
       id: z.string(),
+      metadata: z
+        .union([
+          z
+            .object({
+              hook: z.union([z.string(), z.null()]).default(null),
+              revises: z.union([z.string(), z.null()]).default(null),
+            })
+            .strict(),
+          z.null(),
+        ])
+        .default(null),
       sequence: z.union([z.number().int().gt(0), z.null()]).default(null),
       source: z.string(),
       stream_source: z.union([z.string(), z.null()]).default(null),
       text: z.string(),
       trigger: z.union([z.enum(['auto', 'manual']), z.null()]).default(null),
       type: z.literal('notice'),
+    })
+    .strict(),
+  z
+    .object({
+      agent_id: z.union([z.string(), z.null()]).default(null),
+      channel: z.union([z.string(), z.null()]).default(null),
+      delivery: z
+        .union([
+          z
+            .object({
+              evidence_source: z.union([z.string(), z.null()]).default(null),
+              reason: z.union([z.string(), z.null()]).default(null),
+              representation: z.enum([
+                'native',
+                'bounded_tools',
+                'structured_document',
+                'sandbox',
+                'retrieval',
+                'metadata_only',
+              ]),
+            })
+            .strict(),
+          z.null(),
+        ])
+        .default(null),
+      id: z.string(),
+      media_type: z.string(),
+      name: z.string(),
+      resource_id: z.string(),
+      resource_revision: z.string(),
+      sequence: z.union([z.number().int().gt(0), z.null()]).default(null),
+      stream_source: z.union([z.string(), z.null()]).default(null),
+      type: z.literal('resource'),
+      workspace_id: z.string(),
+    })
+    .strict(),
+  z
+    .object({
+      agent_id: z.union([z.string(), z.null()]).default(null),
+      channel: z.union([z.string(), z.null()]).default(null),
+      id: z.string(),
+      label: z.string(),
+      media_type: z.string(),
+      navigation: z.record(z.string()).optional(),
+      ref_id: z.string(),
+      ref_kind: z.enum([
+        'workspace_file',
+        'artifact',
+        'session',
+        'agent_run',
+        'evidence_source',
+        'context_frame',
+        'diff',
+        'plan',
+      ]),
+      revision: z.string(),
+      sequence: z.union([z.number().int().gt(0), z.null()]).default(null),
+      stream_source: z.union([z.string(), z.null()]).default(null),
+      type: z.literal('context_reference'),
     })
     .strict(),
 ]);
@@ -234,4 +317,6 @@ export const messageBlockTypes = [
   'routing',
   'injection',
   'notice',
+  'resource',
+  'context_reference',
 ] as const;

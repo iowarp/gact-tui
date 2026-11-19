@@ -5,6 +5,7 @@ import { fitBoxDistance } from './mesh-viewport-framing';
 import {
   selectTriangles,
   vertexValue,
+  partOpacityGroups,
   type MeshSelection,
   type MeshViewState,
   type ParsedFeaMesh,
@@ -54,10 +55,12 @@ export function projectedMeshNodeIds(
   const nodes = new Set<number>();
   for (const vertex of visibleTriangleIndex) {
     const offset = vertex * 3;
-    point.set(data.positions[offset]!, data.positions[offset + 1]!, data.positions[offset + 2]!).project(camera);
+    point
+      .set(data.positions[offset]!, data.positions[offset + 1]!, data.positions[offset + 2]!)
+      .project(camera);
     if (point.z < -1 || point.z > 1) continue;
-    const x = (point.x + 1) * size.width / 2;
-    const y = (1 - point.y) * size.height / 2;
+    const x = ((point.x + 1) * size.width) / 2;
+    const y = ((1 - point.y) * size.height) / 2;
     if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) {
       nodes.add(Math.round(data.nodeIndex[vertex] ?? vertex));
     }
@@ -81,12 +84,16 @@ export class MeshViewportScene {
     polygonOffsetUnits: 1,
   });
   private readonly edgeMaterial = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.18 });
+  /** See-through copies of `material`, one per opacity a producer asked for. */
+  private readonly fadedMaterials = new Map<number, THREE.MeshStandardMaterial>();
   private readonly raycaster = new THREE.Raycaster();
   private readonly resize: ResizeObserver;
   private data?: ParsedFeaMesh;
   private geometry?: THREE.BufferGeometry;
   private mesh?: THREE.Mesh;
-  private edges?: THREE.LineSegments;
+  /** Feature edges, one set per part when the model names parts, so hiding a part hides its edges. */
+  private edges: THREE.LineSegments[] = [];
+  private edgesShown = true;
   private selectedPoints?: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial>;
   private selection?: MeshSelection;
   private view: MeshViewState = { frame: 0 };
@@ -134,8 +141,29 @@ export class MeshViewportScene {
     // Feature edges help read a smooth surface; a cell mesh already shades each face flat.
     if (data.topology === 'surface') {
       this.edgeMaterial.color.set(edgeColor);
-      this.edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 35), this.edgeMaterial);
-      this.scene.add(this.edges);
+      const parts = data.parts?.length
+        ? data.parts
+        : [{ triangleStart: 0, triangleCount: data.triangles.length / 3 }];
+      for (const part of parts) {
+        const outline = new THREE.BufferGeometry();
+        outline.setAttribute('position', geometry.getAttribute('position'));
+        outline.setIndex(
+          new THREE.BufferAttribute(
+            data.triangles.slice(
+              part.triangleStart * 3,
+              (part.triangleStart + part.triangleCount) * 3,
+            ),
+            1,
+          ),
+        );
+        const edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(outline, 35),
+          this.edgeMaterial,
+        );
+        outline.dispose();
+        this.edges.push(edges);
+        this.scene.add(edges);
+      }
     }
     this.setView(this.view);
   }
@@ -160,7 +188,12 @@ export class MeshViewportScene {
     if (!color) {
       for (let v = 0; v < colors.count; v += 1) {
         const base = data.baseColors;
-        colors.setXYZ(v, base?.[v * 3] ?? NEUTRAL.r, base?.[v * 3 + 1] ?? NEUTRAL.g, base?.[v * 3 + 2] ?? NEUTRAL.b);
+        colors.setXYZ(
+          v,
+          base?.[v * 3] ?? NEUTRAL.r,
+          base?.[v * 3 + 1] ?? NEUTRAL.g,
+          base?.[v * 3 + 2] ?? NEUTRAL.b,
+        );
       }
     } else {
       const span = color.max > color.min ? color.max - color.min : 1;
@@ -181,10 +214,59 @@ export class MeshViewportScene {
       }
     }
     colors.needsUpdate = true;
+    this.applyPartOpacity(data, selection, view.partOpacity);
     // Feature edges belong to the whole surface; hide them while a threshold cuts it.
-    if (this.edges) this.edges.visible = !view.threshold;
+    this.edges.forEach((edges, part) => {
+      edges.visible = this.edgesShown && !view.threshold && !view.hiddenParts?.has(part);
+    });
     this.requestRender();
     return selection;
+  }
+
+  /**
+   * Draw the named parts see-through: one draw group per run of visible triangles, opaque
+   * groups first so a faded shell blends over what it encloses.
+   */
+  private applyPartOpacity(
+    data: ParsedFeaMesh,
+    selection: MeshSelection,
+    partOpacity: ReadonlyMap<number, number> | undefined,
+  ): void {
+    const geometry = this.geometry;
+    const mesh = this.mesh;
+    if (!geometry || !mesh) return;
+    geometry.clearGroups();
+    if (!partOpacity?.size || !data.parts?.length) {
+      mesh.material = this.material;
+      return;
+    }
+    const { levels, runs } = partOpacityGroups(data, selection, partOpacity);
+    const materials: THREE.Material[] = [this.material];
+    for (const level of levels) {
+      let faded = this.fadedMaterials.get(level);
+      if (!faded) {
+        faded = this.material.clone();
+        faded.transparent = true;
+        faded.opacity = level;
+        faded.depthWrite = false;
+        this.fadedMaterials.set(level, faded);
+      }
+      materials.push(faded);
+    }
+    for (const run of runs) geometry.addGroup(run.start * 3, run.count * 3, run.material);
+    mesh.material = materials;
+  }
+
+  /** How strongly the feature edges show (0 to 1); a CAD part reads its edges at about half. */
+  public setEdgeOpacity(opacity: number): void {
+    this.edgeMaterial.opacity = opacity;
+    this.requestRender();
+  }
+
+  /** Show or hide the feature edges drawn over the faces. */
+  public setEdgesShown(shown: boolean): void {
+    this.edgesShown = shown;
+    this.setView(this.view);
   }
 
   /** Frame `bounds` from an isometric direction relative to `up`. */
@@ -196,6 +278,14 @@ export class MeshViewportScene {
       .multiplyScalar(0.9)
       .add(upVector.clone().multiplyScalar(0.45))
       .normalize();
+    this.frameFrom(bounds, direction, upVector);
+  }
+
+  /**
+   * Frame `bounds` looking along `-direction` (unit, from the centre towards the camera)
+   * with `up` as the screen's up. The camera moves at once: there is no animation.
+   */
+  public frameFrom(bounds: MeshBounds, direction: THREE.Vector3, upVector: THREE.Vector3): void {
     const { center, distance, radius } = fitBoxDistance(
       bounds,
       direction,
@@ -220,6 +310,12 @@ export class MeshViewportScene {
     this.requestRender();
   }
 
+  /** Frame `bounds` again from where the camera looks now. */
+  public fit(bounds: MeshBounds): void {
+    const direction = this.camera.position.clone().sub(this.controls.target).normalize();
+    this.frameFrom(bounds, direction, this.camera.up.clone());
+  }
+
   /** Keep the current orbit direction while moving into a dragged screen region. */
   public zoomToScreenBox(box: NormalizedMeshScreenBox): boolean {
     const width = this.container.clientWidth;
@@ -236,7 +332,9 @@ export class MeshViewportScene {
     const centerY = 0.5 - (box.top + box.bottom) / 2;
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
-    const offset = right.multiplyScalar(centerX * visibleWidth).add(up.multiplyScalar(centerY * visibleHeight));
+    const offset = right
+      .multiplyScalar(centerX * visibleWidth)
+      .add(up.multiplyScalar(centerY * visibleHeight));
     const nextTarget = currentTarget.add(offset);
     const scale = Math.min(1, Math.max(boxWidth, boxHeight) * 1.5);
     const nextDistance = Math.max(distance * scale, 1e-3);
@@ -245,7 +343,9 @@ export class MeshViewportScene {
     this.camera.position.copy(nextTarget).addScaledVector(direction, nextDistance);
     this.camera.near = Math.max(nextDistance / 1000, 1e-4);
     const meshRadius = this.data
-      ? new THREE.Vector3(...this.data.bounds.min).distanceTo(new THREE.Vector3(...this.data.bounds.max)) / 2
+      ? new THREE.Vector3(...this.data.bounds.min).distanceTo(
+          new THREE.Vector3(...this.data.bounds.max),
+        ) / 2
       : distance;
     this.camera.far = Math.max((nextDistance + meshRadius) * 100, 1);
     this.camera.updateProjectionMatrix();
@@ -311,10 +411,16 @@ export class MeshViewportScene {
     const data = this.data;
     const selection = this.selection;
     if (!data || !selection) return [];
-    return projectedMeshNodeIds(data, selection.index, this.camera, {
-      width: this.container.clientWidth,
-      height: this.container.clientHeight,
-    }, box);
+    return projectedMeshNodeIds(
+      data,
+      selection.index,
+      this.camera,
+      {
+        width: this.container.clientWidth,
+        height: this.container.clientHeight,
+      },
+      box,
+    );
   }
 
   /** Keep selected vertices visibly attached to the geometry while the camera moves. */
@@ -339,20 +445,27 @@ export class MeshViewportScene {
       if (!selected.has(node) || seen.has(node)) continue;
       seen.add(node);
       const offset = vertex * 3;
-      positions.push(data.positions[offset]!, data.positions[offset + 1]!, data.positions[offset + 2]!);
+      positions.push(
+        data.positions[offset]!,
+        data.positions[offset + 1]!,
+        data.positions[offset + 2]!,
+      );
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     const size = positions.length > 300 ? 3 : positions.length > 30 ? 5 : 8;
-    this.selectedPoints = new THREE.Points(geometry, new THREE.PointsMaterial({
-      color: 0x22d3ee,
-      size,
-      sizeAttenuation: false,
-      depthTest: true,
-      depthWrite: false,
-      transparent: true,
-      opacity: 0.85,
-    }));
+    this.selectedPoints = new THREE.Points(
+      geometry,
+      new THREE.PointsMaterial({
+        color: 0x22d3ee,
+        size,
+        sizeAttenuation: false,
+        depthTest: true,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.85,
+      }),
+    );
     this.scene.add(this.selectedPoints);
     this.requestRender();
   }
@@ -377,6 +490,8 @@ export class MeshViewportScene {
     this.controls.dispose();
     this.clearMesh();
     this.material.dispose();
+    for (const faded of this.fadedMaterials.values()) faded.dispose();
+    this.fadedMaterials.clear();
     this.edgeMaterial.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
@@ -396,11 +511,11 @@ export class MeshViewportScene {
     }
     this.geometry?.dispose();
     this.geometry = undefined;
-    if (this.edges) {
-      this.scene.remove(this.edges);
-      this.edges.geometry.dispose();
-      this.edges = undefined;
+    for (const edges of this.edges) {
+      this.scene.remove(edges);
+      edges.geometry.dispose();
     }
+    this.edges = [];
   }
 
   private fitCanvas(): void {

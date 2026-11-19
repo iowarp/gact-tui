@@ -35,6 +35,10 @@ export const meshViewportSchema = z
       .optional(),
     upAxis: z.enum(['x', 'y', 'z']).optional(),
     height: z.number().int().min(160).max(2000).optional(),
+    nodeOpacity: z
+      .record(z.string().min(1).max(128), z.number().min(0).max(1))
+      .refine((value) => Object.keys(value).length <= 256)
+      .optional(),
     accessibility: CommonSchemas.AccessibilityAttributes.optional(),
     weight: z.number().optional(),
   })
@@ -69,6 +73,7 @@ export const ClioMeshViewportCatalogComponent = createComponentImplementation(
           title: props.title,
           upAxis: props.upAxis,
           height: props.height,
+          nodeOpacity: props.nodeOpacity,
           weight: props.weight,
         }),
       ),

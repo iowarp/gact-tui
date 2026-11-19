@@ -64,12 +64,40 @@ export const taskSnapshotSchema = z.object({
     .nullable(),
 });
 
+const messageAssignmentSchema = z.object({
+  metadata: z
+    .object({
+      recipient_input: z.object({ assignment_id: z.string() }).nullable().optional(),
+    })
+    .optional(),
+});
+
 const taskPageSchema = z.object({
   tasks: z.array(taskSnapshotSchema),
   total: z.number().int().nullable(),
   cursor: z.string().nullable(),
   revision: z.number().int(),
 });
+
+/** Just the fields a step's details show: the task's name and the full text it was given. */
+const taskInputPageSchema = z.object({
+  tasks: z.array(
+    z.object({
+      handle: z.string(),
+      label: z.string().default(''),
+      description: z.string().nullable().default(null),
+      description_missing: z.boolean().default(false),
+    }),
+  ),
+});
+
+/** A task's name and its full assignment text (``null`` when it was not recorded). */
+export interface TaskInput {
+  handle: string;
+  label: string;
+  description: string | null;
+  description_missing: boolean;
+}
 
 export type TaskSnapshot = z.infer<typeof taskSnapshotSchema>;
 export type TaskPage = z.infer<typeof taskPageSchema>;
@@ -143,6 +171,25 @@ export class TaskRepository extends MemoryRepository {
       signal,
     });
   }
+  /**
+   * What one task in this conversation's tree was given: its assignment text, read
+   * (not observed) from the task index. ``null`` when the handle is not in the tree.
+   */
+  public async taskInput(
+    sessionId: string,
+    handle: string,
+    signal?: AbortSignal,
+  ): Promise<TaskInput | null> {
+    const query = new URLSearchParams({ handle, scope: 'tree', limit: '1' });
+    const page = await this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tasks/query?${query}`,
+      decode: (value) => taskInputPageSchema.parse(value),
+      signal,
+    });
+    return page.tasks.find((task) => task.handle === handle) ?? null;
+  }
+
   /** Human-only relationship controls use the authenticated service channel. */
   public async coordinationGrants(
     sessionId: string,
@@ -228,6 +275,25 @@ export class TaskRepository extends MemoryRepository {
       if (error instanceof TransportError && error.status === 404) return null;
       throw error;
     }
+  }
+
+  /**
+   * The assignment a person's message was delivered into (its `recipient_input`), or
+   * `null` before it is confirmed. A session whose own work is a flow runs one flow run
+   * per message under that assignment.
+   */
+  public async messageAssignment(
+    sessionId: string,
+    messageId: string,
+    signal?: AbortSignal,
+  ): Promise<string | null> {
+    const message = await this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}`,
+      decode: (value) => messageAssignmentSchema.parse(value),
+      signal,
+    });
+    return message.metadata?.recipient_input?.assignment_id || null;
   }
 
   public async cancelTasks(

@@ -79,6 +79,9 @@
       },
       "y": {
         "field": "{{yField}}",
+        "scale": {
+          "zero": false
+        },
         "type": "quantitative"
       }
     },

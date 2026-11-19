@@ -32,6 +32,7 @@ const order: SourceChoiceId[] = [
   'globus',
   'obsidian',
   'ndp',
+  's3',
 ];
 
 const signInSentences: Partial<Record<SourceProvider['id'], string>> = {

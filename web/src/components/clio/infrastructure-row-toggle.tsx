@@ -18,10 +18,11 @@ export function InfraRowToggle({
   children: ReactNode;
 }) {
   return (
+    // Under 480px the name wraps whole with the rest of the row text instead of cutting.
     <button
       aria-expanded={expanded}
       aria-label={label}
-      className="max-w-full truncate rounded-[3px] text-left align-bottom outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="max-w-full truncate rounded-[3px] text-left align-bottom outline-none focus-visible:ring-1 focus-visible:ring-ring @max-[480px]/infra:break-words @max-[480px]/infra:whitespace-normal @max-[480px]/infra:[word-break:auto-phrase] @max-[480px]/infra:[line-break:strict]"
       type="button"
     >
       {children}

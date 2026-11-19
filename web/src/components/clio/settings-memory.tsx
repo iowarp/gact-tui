@@ -106,8 +106,15 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
   const [params, setParams] = useSearchParams();
   const rootRef = useRef<HTMLDivElement>(null);
   const [toolbar, toolbarWidth] = useElementWidth<HTMLDivElement>();
-  // The four views need about 27rem; below that the others fold to named icons.
-  const foldViews = narrowerThan(toolbarWidth, 440);
+  const [actions, actionsWidth] = useElementWidth<HTMLSpanElement>();
+  // The views fold to named icons once their names and the actions no longer fit
+  // on one line. An unfolded copy measures that, in every language and size.
+  const [viewsProbe, viewsWidth] = useElementWidth<HTMLDivElement>();
+  const foldViews = narrowerThan(toolbarWidth, viewsWidth);
+  // Narrower still than the folded strip at its smallest (the current name's longest
+  // word), every view is a named icon.
+  const [foldedProbe, foldedWidth] = useElementWidth<HTMLDivElement>();
+  const iconViews = narrowerThan(toolbarWidth, foldedWidth);
   const searchRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [paneTab, setPaneTab] = useState<MemoryPaneTab>('facts');
@@ -202,6 +209,29 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
     ) ??
     candidates[0];
   const inbox = summary.data?.inbox ?? 0;
+  const viewOptions = (folded: boolean) => [
+    { value: 'memories' as const, label: t`Memories`, icon: folded ? <BrainIcon /> : undefined },
+    {
+      value: 'review' as const,
+      label: t`Under review`,
+      icon: folded ? <InboxIcon /> : undefined,
+      count: inbox || undefined,
+      badge: inbox ? (
+        <span
+          aria-label={t`${inbox} waiting`}
+          className="ml-1.5 inline-grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[0.65625rem] leading-none font-semibold text-background tabular-nums"
+        >
+          {inbox}
+        </span>
+      ) : undefined,
+    },
+    {
+      value: 'create' as const,
+      label: t`Create memories`,
+      icon: folded ? <SparklesIcon /> : undefined,
+    },
+    { value: 'log' as const, label: t`Creation log`, icon: folded ? <HistoryIcon /> : undefined },
+  ];
   const body = {
     memories: (
       <MemoryDocuments
@@ -244,57 +274,67 @@ export function MemorySettings({ workspaceId }: { workspaceId?: string } = {}) {
     ),
   }[tab];
   return (
-    <div className="grid min-w-0" data-row-keys="" onKeyDown={rowArrowKeyDown} ref={rootRef}>
+    <div
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)]"
+      data-row-keys=""
+      onKeyDown={rowArrowKeyDown}
+      ref={rootRef}
+    >
       <SettingsSectionHeading
         info={t`Saved facts and preferences the agent can use in later conversations.`}
         title={t`Memory and instructions`}
       />
-      <div className="mb-1.5 flex h-[2.125rem] min-w-0 items-center gap-2" ref={toolbar}>
+      <div
+        className="mb-1.5 flex min-h-[2.125rem] min-w-0 flex-wrap items-center gap-2 gap-y-1.5"
+        ref={toolbar}
+      >
         <SegmentedControl
-          className="min-w-0 overflow-hidden"
-          iconOnly={foldViews ? 'others' : false}
+          iconOnly={iconViews ? true : foldViews ? 'others' : false}
           label={t`Memory views`}
           onValueChange={setTab}
-          options={[
-            { value: 'memories', label: t`Memories`, icon: foldViews ? <BrainIcon /> : undefined },
-            {
-              value: 'review',
-              label: t`Under review`,
-              icon: foldViews ? <InboxIcon /> : undefined,
-              count: inbox || undefined,
-              badge: inbox ? (
-                <span
-                  aria-label={t`${inbox} waiting`}
-                  className="ml-1.5 inline-grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[0.65625rem] leading-none font-semibold text-background tabular-nums"
-                >
-                  {inbox}
-                </span>
-              ) : undefined,
-            },
-            {
-              value: 'create',
-              label: t`Create memories`,
-              icon: foldViews ? <SparklesIcon /> : undefined,
-            },
-            { value: 'log', label: t`Creation log`, icon: foldViews ? <HistoryIcon /> : undefined },
-          ]}
+          options={viewOptions(foldViews)}
           value={tab}
         />
-        <span className="flex-1" />
-        {tab === 'review' ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none invisible absolute size-0 overflow-hidden"
+          inert
+        >
+          <div className="flex w-max items-center gap-2" ref={viewsProbe}>
+            <SegmentedControl
+              label={t`Memory views`}
+              onValueChange={setTab}
+              options={viewOptions(false)}
+              value={tab}
+            />
+            <span className="shrink-0" style={{ width: actionsWidth }} />
+          </div>
+          <div className="flex w-min" ref={foldedProbe}>
+            <SegmentedControl
+              iconOnly="others"
+              label={t`Memory views`}
+              onValueChange={setTab}
+              options={viewOptions(true)}
+              value={tab}
+            />
+          </div>
+        </div>
+        <span className="ml-auto flex items-center gap-2" ref={actions}>
+          {tab === 'review' ? (
+            <IconButton
+              icon={<UploadIcon />}
+              label={t`Import memory`}
+              onClick={() => setImporting(true)}
+              shortcut={IMPORT_SHORTCUT}
+            />
+          ) : null}
           <IconButton
-            icon={<UploadIcon />}
-            label={t`Import memory`}
-            onClick={() => setImporting(true)}
-            shortcut={IMPORT_SHORTCUT}
+            disabled={exportAll.isPending || !documents.data?.length}
+            icon={<DownloadIcon />}
+            label={t`Export all memory`}
+            onClick={() => exportAll.mutate()}
           />
-        ) : null}
-        <IconButton
-          disabled={exportAll.isPending || !documents.data?.length}
-          icon={<DownloadIcon />}
-          label={t`Export all memory`}
-          onClick={() => exportAll.mutate()}
-        />
+        </span>
       </div>
       {summary.data && !summary.data.enabled ? (
         <div className="flex min-w-0 items-center gap-2 py-2 text-menu text-muted-foreground">

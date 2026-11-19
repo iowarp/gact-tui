@@ -14,6 +14,7 @@ import {
   HardDriveIcon,
   HeartPulseIcon,
   HistoryIcon,
+  LifeBuoyIcon,
   LayoutDashboardIcon,
   PaletteIcon,
   PlugIcon,
@@ -77,6 +78,13 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
     icon: InfoIcon,
     group: 'App',
     keywords: 'version updates build',
+  },
+  {
+    id: 'report-problem',
+    label: t`Report a problem`,
+    icon: LifeBuoyIcon,
+    group: 'App',
+    keywords: 'bug issue help support logs diagnostics error crash send report',
   },
   {
     id: 'folders',
@@ -146,10 +154,11 @@ const SETTINGS_DESTINATIONS: ApplicationDestination[] = [
   },
   {
     id: 'plugins',
-    label: t`Extensions`,
+    label: t`Extensions and connectors`,
     icon: BoxesIcon,
     group: 'Agent',
-    keywords: 'plugins packs marketplace install trust update skills tools',
+    keywords:
+      'connectors connector apps views services plugins packs marketplace install trust update skills tools',
   },
   {
     id: 'tools',

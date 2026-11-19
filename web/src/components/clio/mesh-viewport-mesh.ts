@@ -22,6 +22,25 @@ export interface MeshField {
   data: Float32Array;
 }
 
+/**
+ * One named body of a multi-part model (a STEP assembly's parts, a 3MF's objects): its
+ * contiguous triangles and vertices, and the colour the file declares for it, if any.
+ */
+export interface MeshPart {
+  name: string;
+  /** The names of the nodes that hold this body, nearest first (a CAD scene names the
+   * group, e.g. ``lid``, and its mesh something else). */
+  ancestors?: string[];
+  /** First triangle (not index) and how many, in `triangles`. */
+  triangleStart: number;
+  triangleCount: number;
+  /** First vertex and how many, in `positions` / `baseColors`. */
+  vertexStart: number;
+  vertexCount: number;
+  /** Linear RGB the file declares for the part; undefined lets the viewer choose. */
+  color?: [number, number, number];
+}
+
 export interface ParsedFeaMesh {
   positions: Float32Array;
   triangles: Uint32Array;
@@ -38,6 +57,8 @@ export interface ParsedFeaMesh {
   baseColors?: Float32Array;
   sourceFormat?: string;
   warnings?: string[];
+  /** The model's bodies, in triangle order, when the file names them. */
+  parts?: MeshPart[];
 }
 
 interface ClioExtras {
@@ -139,6 +160,33 @@ export interface MeshViewState {
   /** Keep only cells (or triangles, on a surface) whose value lies in [min, max]. */
   threshold?: { field: MeshField; min: number; max: number };
   frame: number;
+  /** Parts (indices into `parts`) left out of the view. */
+  hiddenParts?: ReadonlySet<number>;
+  /** Opacity (0 to 1) of parts (indices into `parts`) drawn see-through. */
+  partOpacity?: ReadonlyMap<number, number>;
+}
+
+/**
+ * The parts a producer's `nodeOpacity` names (by node name), with their opacity, and the
+ * names that match no part, so the viewer can say so.
+ */
+export function partOpacityByName(
+  parts: readonly MeshPart[] | undefined,
+  nodeOpacity: Readonly<Record<string, number>> | undefined,
+): { opacity: Map<number, number>; unmatched: string[] } {
+  const opacity = new Map<number, number>();
+  if (!nodeOpacity) return { opacity, unmatched: [] };
+  const matched = new Set<string>();
+  (parts ?? []).forEach((part, index) => {
+    // The body's own name, else the nearest node above it that the producer named.
+    const name = [part.name, ...(part.ancestors ?? [])].find((n) => n in nodeOpacity);
+    const value = name === undefined ? undefined : nodeOpacity[name];
+    if (name === undefined || value === undefined || !Number.isFinite(value)) return;
+    matched.add(name);
+    const clamped = Math.min(1, Math.max(0, value));
+    if (clamped < 1) opacity.set(index, clamped);
+  });
+  return { opacity, unmatched: Object.keys(nodeOpacity).filter((name) => !matched.has(name)) };
 }
 
 export interface MeshSelection {
@@ -203,7 +251,9 @@ export function selectTriangles(mesh: ParsedFeaMesh, view: MeshViewState): MeshS
     };
   }
   const nodeField = threshold?.field.location === 'node' ? threshold : undefined;
+  const hidden = hiddenTriangles(mesh, view.hiddenParts);
   for (let t = 0; t < count; t += 1) {
+    if (hidden?.[t]) continue;
     if (nodeField) {
       let inside = true;
       for (let k = 0; k < 3; k += 1) {
@@ -222,6 +272,49 @@ export function selectTriangles(mesh: ParsedFeaMesh, view: MeshViewState): MeshS
     triangleCell: triangleCell.slice(0, kept),
     visibleCells: 0,
   };
+}
+
+/**
+ * Draw groups for see-through parts: the distinct opacities (highest first; material
+ * index 0 is the opaque material, `i + 1` is `levels[i]`), and runs of visible triangles
+ * per material, opaque runs first so a faded shell blends over what it encloses.
+ */
+export function partOpacityGroups(
+  mesh: Pick<ParsedFeaMesh, 'positions' | 'parts'>,
+  selection: Pick<MeshSelection, 'index'>,
+  partOpacity: ReadonlyMap<number, number>,
+): { levels: number[]; runs: { start: number; count: number; material: number }[] } {
+  const vertexPart = new Int32Array(mesh.positions.length / 3).fill(-1);
+  (mesh.parts ?? []).forEach((part, index) => {
+    vertexPart.fill(index, part.vertexStart, part.vertexStart + part.vertexCount);
+  });
+  const levels = [...new Set(partOpacity.values())].sort((a, b) => b - a);
+  const runs: { start: number; count: number; material: number }[] = [];
+  const triangles = selection.index.length / 3;
+  for (let t = 0; t < triangles; t += 1) {
+    const part = vertexPart[selection.index[t * 3]!] ?? -1;
+    const level = partOpacity.get(part);
+    const material = level === undefined ? 0 : levels.indexOf(level) + 1;
+    const last = runs[runs.length - 1];
+    if (last && last.material === material && last.start + last.count === t) last.count += 1;
+    else runs.push({ start: t, count: 1, material });
+  }
+  runs.sort((a, b) => a.material - b.material || a.start - b.start);
+  return { levels, runs };
+}
+
+/** A flag per triangle of the hidden parts, or undefined when every part shows. */
+function hiddenTriangles(
+  mesh: ParsedFeaMesh,
+  hiddenParts: ReadonlySet<number> | undefined,
+): Uint8Array | undefined {
+  if (!hiddenParts?.size || !mesh.parts?.length) return undefined;
+  const flags = new Uint8Array(mesh.triangles.length / 3);
+  mesh.parts.forEach((part, index) => {
+    if (hiddenParts.has(index))
+      flags.fill(1, part.triangleStart, part.triangleStart + part.triangleCount);
+  });
+  return flags;
 }
 
 /** Field value shown by one vertex of a visible triangle. */

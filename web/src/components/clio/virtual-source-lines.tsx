@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { BundledLanguage, ThemedToken } from 'shiki';
+import type { ThemedToken } from 'shiki';
+import type { CodeLanguage } from '@/lib/code-language';
 import { TokenSpan } from '@/components/ai-elements/code-block';
 import { cn } from '@/lib/utils';
 import { indentColumns, leadingWhitespace, splitIndent } from '@/lib/source-indent';
@@ -25,7 +26,7 @@ export function VirtualSourceLines({
   content: string;
   wrap: boolean;
   /** Colours the lines once tokenized; plain text and unknown languages stay plain. */
-  language?: BundledLanguage;
+  language?: CodeLanguage;
   /** The first line names the columns and reads faint. */
   headerRow?: boolean;
   className?: string;

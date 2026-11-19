@@ -39,6 +39,7 @@ export const sourceProviderNames: Record<SourceProviderId, string> = {
   github: 'GitHub',
   obsidian: 'Obsidian',
   ndp: t`NDP endpoint`,
+  s3: 'S3',
 };
 
 /** A source's access word, as its sub-line names it. */

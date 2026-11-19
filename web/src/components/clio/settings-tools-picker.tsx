@@ -47,11 +47,12 @@ export function ValueMark({
   return (
     <span
       aria-hidden="true"
-      className="relative inline-grid size-[15px] shrink-0 place-items-center"
+      // In rem like its glyph: a px box lets a larger interface size push the glyph low and into the label.
+      className="relative inline-grid size-[0.9375rem] shrink-0 place-items-center"
     >
       <Glyph className={cn('size-3.5', className)} />
       {isDefault ? (
-        <b className="absolute -right-1.5 -bottom-[5px] rounded-[3px] bg-faint/70 px-[2px] py-px text-[0.53125rem] leading-none font-bold text-foreground">
+        <b className="absolute -right-1.5 -bottom-[0.3125rem] rounded-[3px] bg-faint/70 px-[2px] py-px text-[0.53125rem] leading-none font-bold text-foreground">
           D
         </b>
       ) : null}
@@ -327,12 +328,19 @@ export function OutcomeModeField({
   const options = [...known, ...other];
   const current = options.find((option) => option.value === value);
   return (
-    <span className={cn('flex min-w-0 shrink-0 items-center gap-2.5', className)}>
+    // Capped at its row: when the label and picker don't fit side by side, the
+    // picker moves under the label instead of pushing the page wider.
+    <span
+      className={cn(
+        'flex max-w-full min-w-0 shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1',
+        className,
+      )}
+    >
       <span className="text-xs whitespace-nowrap text-muted-foreground" id={id}>
         {t`Outcomes in`}
       </span>
       <ChoicePicker
-        className="h-[1.875rem] w-44 pl-2.5"
+        className="h-[1.875rem] w-44 max-w-full pl-2.5"
         icon={current?.icon ?? HelpIcon}
         label={modeLabel(value)}
         name={t`Outcomes in`}

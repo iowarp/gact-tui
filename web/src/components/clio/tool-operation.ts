@@ -14,6 +14,7 @@ import {
   type OperationTask,
 } from './tool-operation-data';
 import { ph, plural, t as tx } from '@lingui/core/macro';
+import { formatList } from '@/lib/locale-format';
 
 export interface ToolOperation {
   action: string;
@@ -62,15 +63,15 @@ function receiptMetadata(counts: {
   unavailable?: number;
 }): string {
   const { returned, running, failed, attention, unavailable } = counts;
-  return [
-    plural(returned, { one: '# returned', other: '# returned' }),
-    running ? plural(running, { one: '# running', other: '# running' }) : '',
-    failed ? plural(failed, { one: '# unsuccessful', other: '# unsuccessful' }) : '',
-    attention ? plural(attention, { one: '# needs attention', other: '# need attention' }) : '',
-    unavailable ? plural(unavailable, { one: '# unavailable', other: '# unavailable' }) : '',
-  ]
-    .filter(Boolean)
-    .join(', ');
+  return formatList(
+    [
+      plural(returned, { one: '# returned', other: '# returned' }),
+      running ? plural(running, { one: '# running', other: '# running' }) : '',
+      failed ? plural(failed, { one: '# unsuccessful', other: '# unsuccessful' }) : '',
+      attention ? plural(attention, { one: '# needs attention', other: '# need attention' }) : '',
+      unavailable ? plural(unavailable, { one: '# unavailable', other: '# unavailable' }) : '',
+    ].filter(Boolean),
+  );
 }
 
 function subjectFromInput(

@@ -67,3 +67,23 @@ describe('markdownSummary', () => {
     expect(markdownSummary(undefined)).toBe('');
   });
 });
+
+describe('markdownSummary reads a block-scalar description', () => {
+  it('folds the indented lines of `description: >` instead of showing ">"', () => {
+    const skill = [
+      '---',
+      'name: home-assistant-best-practices',
+      'description: >',
+      '  Home Assistant best practices.',
+      '  Load first, before answering.',
+      'license: MIT',
+      '---',
+      '# Body',
+    ].join('\n');
+    expect(markdownSummary(skill)).toBe(
+      'Home Assistant best practices. Load first, before answering.',
+    );
+    expect(markdownSummary('---\ndescription: |-\n  One line\n---\nText')).toBe('One line');
+    expect(markdownSummary('---\ndescription: "Plain words"\n---\n')).toBe('Plain words');
+  });
+});

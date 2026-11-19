@@ -58,6 +58,114 @@ const skillBatch: ToolInvocation = {
     ],
   },
 };
+// The agent looks at an app view (CM1): the image it saw, the view's last report, the gaps.
+const viewReport = [
+  'ParaView view of /data/runs/2026-11/ocean-heat/wave_series_with_a_long_descriptive_name.pvd',
+  'Time step 6 of 6 (time 0.5), following the latest step.',
+  ...Array.from(
+    { length: 40 },
+    (_, i) => `probe_${i + 1}: ${(0.1 * i).toFixed(2)} K at depth ${i * 25} m`,
+  ),
+];
+const modelState = [
+  'Model: whistle_assembly.step, 2 parts (body, plug); Z is up; lengths in millimetres',
+  'Size of the shown parts, as modelled: 74.0 × 20.0 × 16.0 mm',
+  'Camera: looking from the front (camera on the −Y side), orthographic projection',
+  'Section: plane across Y at Y = 0.0 mm, keeping the side above (+Y); cut faces are filled solid',
+  'Selected part: plug, 23.0 × 20.0 × 16.0 mm, 28 triangles',
+  ...Array.from(
+    { length: 36 },
+    (_, i) =>
+      `Measurement ${i + 1}: distance ${(1.6 + i * 0.25).toFixed(2)} mm (ΔX 0.00, ΔY 0.00, ΔZ ${(1.6 + i * 0.25).toFixed(2)}), edge to edge, on body`,
+  ),
+];
+const lookPresented = (
+  id: string,
+  presentation: ToolInvocation['presentation'],
+  state: ToolInvocation['state'] = 'succeeded',
+  view = 'Open a ParaView view',
+): ToolInvocation => ({
+  ...tool(id, 'look_at_view', { view }, { ok: state === 'succeeded' }),
+  state,
+  presentation,
+});
+const looks: ToolInvocation[] = [
+  lookPresented('look', {
+    action: 'Look at view',
+    subject: 'Open a ParaView view',
+    summary: '1331×804 image, shown to the model',
+    blocks: [
+      {
+        id: 'image',
+        type: 'link',
+        target: 'artifact',
+        uri: 'art_look_1',
+        label: 'What Open a ParaView view showed',
+      },
+      {
+        id: 'view',
+        type: 'text',
+        label: 'View',
+        text: 'Open a ParaView view, paraview view opened by paraview_open_view',
+      },
+      { id: 'context', type: 'code', label: 'Last reported', text: viewReport.join('\n') },
+      {
+        id: 'gaps',
+        type: 'text',
+        label: 'Snapshot gaps',
+        severity: 'warning',
+        text: 'Not in the image: a frame from another origin (frame_cross_origin).',
+      },
+    ],
+  }),
+  // A look at a client-rendered file view (FV-D3): the 3D view's composite and its state.
+  lookPresented(
+    'look-file',
+    {
+      action: 'Look at view',
+      subject: 'whistle_assembly.step',
+      summary: '1339×818 image, shown to the model',
+      blocks: [
+        {
+          id: 'image',
+          type: 'link',
+          target: 'artifact',
+          uri: 'art_look_2',
+          label: 'What whistle_assembly.step showed',
+        },
+        {
+          id: 'view',
+          type: 'text',
+          label: 'View',
+          text: '3D model view of out/whistle_assembly.step',
+        },
+        { id: 'context', type: 'code', label: 'View state', text: modelState.join('\n') },
+      ],
+    },
+    'succeeded',
+    'whistle',
+  ),
+  { ...tool('look-running', 'look_at_view', { view: '' }, null), state: 'running' },
+  lookPresented(
+    'look-refused',
+    {
+      action: 'Look at view',
+      subject: 'Preview a PDB structure',
+      summary: 'The view is not on screen',
+      status: 'failed',
+      blocks: [
+        {
+          id: 'outcome',
+          type: 'text',
+          label: 'Not looked at',
+          severity: 'warning',
+          text: 'The view “Preview a PDB structure” is not on screen, so it cannot be looked at.',
+        },
+      ],
+    },
+    'failed',
+  ),
+];
 // The finished audit child's only recorded call, served from its transcript page.
 const childCall: ToolInvocation = {
   ...tool('child-read', 'fs_read_file', { path: '/workspace/observations.csv' }, 'id,value\n'),
@@ -65,6 +173,14 @@ const childCall: ToolInvocation = {
 };
 
 // Rendered report pages a script viewed, served as real PNG bytes from the workspace.
+// offer_plugin finding what the session facts do not list (clio-agent OL-D11): presentations
+// produced by the agent's own presenter from synthetic candidates.
+const offerTools = JSON.parse(
+  readFileSync(
+    new URL('../tests/review/fixtures/offer-plugin-tools.json', import.meta.url),
+    'utf8',
+  ),
+) as ToolInvocation[];
 const pagePng = readFileSync(new URL('../tests/fixtures/gallery-sample.png', import.meta.url));
 const pageSha = createHash('sha256').update(pagePng).digest('hex');
 const pagePath = (i: number) => `tmp/pdfs/page-${i}.png`;
@@ -576,6 +692,7 @@ const fixture = {
       state: 'failed',
       error: "bundled file 'missing.md' not found in skill 'work-with-ndp'",
     },
+    ...looks,
     ...scriptTools,
     webSearch,
     webSearchFailed,
@@ -584,6 +701,7 @@ const fixture = {
     webFetchFailed,
     literatureSearch,
     literatureLookup,
+    ...offerTools,
   ],
 };
 
@@ -682,6 +800,26 @@ for (const width of [1440, 390]) {
     expect(await guide.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThan(2);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('region', { name: 'Opened entity' })).toHaveText('child-audit');
+    // A look shows the image it saw as a link, the view's report and its gaps; a refusal
+    // says why, and a running look waits.
+    await opener('look', 'Look at view').click();
+    await expect(row('look').getByText('What Open a ParaView view showed')).toBeVisible();
+    await expect(row('look')).toContainText('probe_40: 3.90 K at depth 975 m');
+    await expect(row('look')).toContainText('frame_cross_origin');
+    await expect(row('look-refused').getByRole('img', { name: /Failed/ })).toHaveAccessibleName(
+      'Failed: The view is not on screen.',
+    );
+    await opener('look-refused', 'Look at view').click();
+    await expect(row('look-refused')).toContainText('is not on screen, so it cannot be looked at');
+    await row('look').screenshot({ path: test.info().outputPath(`look-${width}.png`) });
+    await row('look-refused').screenshot({
+      path: test.info().outputPath(`look-refused-${width}.png`),
+    });
+    await opener('look-file', 'Look at view').click();
+    await expect(row('look-file')).toContainText('3D model view of out/whistle_assembly.step');
+    await expect(row('look-file')).toContainText('Measurement 36: distance 10.35 mm');
+    await row('look-file').screenshot({ path: test.info().outputPath(`look-file-${width}.png`) });
+    await expect(row('look-running')).toContainText('Look at view');
     await opener('skill-failed', 'Load skill').click();
     await expect(row('skill-failed')).toContainText("bundled file 'missing.md' not found");
     await expect(row('skill-running')).toContainText('Load skill');
@@ -759,7 +897,9 @@ for (const width of [1440, 390]) {
     await open('script-shown');
     await expect(shown).toContainText('Descriptions of 2 images: page-1.png, page-2.png');
     await expect(shown.getByRole('heading', { name: 'Shown to the model' })).toBeVisible();
-    await expect(shown).toContainText("with the run_code script's result");
+    await expect(shown).toContainText(
+      'Shown to the model on its next step, with the run_code script’s result.',
+    );
     if (width > 480)
       await expect(row('script-shown-view-3')).toContainText('Not shown to the model');
     await open('script-shown-view-3');
@@ -767,7 +907,9 @@ for (const width of [1440, 390]) {
 
     // A direct view shows the image and opens it; a vanished file says so in place.
     await open('view-direct');
-    await expect(row('view-direct')).toContainText('Shown to the model on its next step.');
+    await expect(row('view-direct')).toContainText(
+      'Shown to the model on its next step, as this call’s result.',
+    );
     await row('view-direct').getByRole('button', { name: 'Open page-1.png' }).click();
     await expect(page.getByRole('region', { name: 'Opened entity' })).toHaveText(
       'tmp/pdfs/page-1.png',
@@ -889,5 +1031,48 @@ for (const width of [1440, 390]) {
     ).toBeLessThan(2);
     expect(errors).toEqual([]);
     await page.screenshot({ path: test.info().outputPath(`search-${width}.png`), fullPage: true });
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`plugin search rows name the query, the matches and what was left out at ${width}px`, async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.route('**/__test/operation-tools', (route) => route.fulfill({ json: fixture }));
+    await page.route('**/v1/**', (route) => route.fulfill({ json: {} }));
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/tests/review/tool-operations.html');
+    const row = (id: string) => page.locator(`#tool-${id}`);
+    const open = (id: string) =>
+      row(id)
+        .getByRole('button', { name: /^(Expand|Show result for) / })
+        .first()
+        .click();
+    if (width > 480) {
+      await expect(row('offer-search')).toContainText('Search plugins');
+      await expect(row('offer-category')).toContainText('Plugins in');
+    }
+    await expect(row('offer-search')).toContainText('earth');
+    await expect(row('offer-category')).toContainText('Earth science');
+    await open('offer-search');
+    await expect(row('offer-search')).toContainText('Seismology (Connector)');
+    await expect(row('offer-search')).toContainText('earthscope (Plugin, left out in Settings)');
+    await open('offer-category');
+    await expect(row('offer-category')).toContainText('Terrain (Connector, left out in Settings)');
+    await open('offer-none');
+    await expect(row('offer-none')).toContainText('Nothing matches');
+    await open('offer-large');
+    await expect(row('offer-large')).toContainText('Found (57)');
+    await expect(row('offer-large')).toContainText('37 more');
+    await open('offer-overview');
+    await expect(row('offer-overview')).toContainText('Research: 57');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+    ).toBeLessThan(2);
+    expect(errors).toEqual([]);
+    await row('offer-search').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: test.info().outputPath(`offer-${width}.png`), fullPage: true });
   });
 }

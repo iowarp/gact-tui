@@ -1,0 +1,176 @@
+import type { Connector, ConnectorValues } from '@clio/core/v3';
+import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { useRepository } from '@/hooks/use-repository';
+import { connectionScope } from '@/lib/connection-scope';
+import type { ConnectorChange } from '@/lib/connector-presentation';
+import { queryKeys } from '@/lib/query-keys';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { t } from '@lingui/core/macro';
+
+/**
+ * What a connector change makes stale: the connectors, the servers they start, the
+ * tools, and the plugins that follow a connector into an agent.
+ */
+export const CONNECTOR_DEPENDENT_READS = [
+  'connectors',
+  'mcp-configurations',
+  'mcp-servers',
+  'tools',
+  'plugins',
+  'agents',
+  'agent-resolution',
+  'session-agent',
+] as const;
+
+/** Every connector with its state for the person asking (`GET /v1/connectors`). */
+export function useConnectors(enabled = true) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  return useQuery({
+    queryKey: queryKeys.key('connectors', settings.endpoint, connectionScope(settings)),
+    queryFn: ({ signal }) => repository.connectors(signal),
+    enabled,
+  });
+}
+
+/** One connector by id, from the same list. */
+export function useConnector(id: string | undefined) {
+  const connectors = useConnectors(Boolean(id));
+  return {
+    ...connectors,
+    connector: id ? connectors.data?.find((row) => row.id === id) : undefined,
+  };
+}
+
+/**
+ * One connector as a conversation sees it (its own values over the defaults). Kept under
+ * the `connectors` key, so every connector change refreshes it too.
+ */
+export function useSessionConnector(id: string | undefined, sessionId: string | undefined) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const query = useQuery({
+    queryKey: queryKeys.key(
+      'connectors',
+      settings.endpoint,
+      connectionScope(settings),
+      'conversation',
+      id ?? '',
+      sessionId ?? '',
+    ),
+    queryFn: ({ signal }) => repository.sessionConnector(id!, sessionId!, signal),
+    enabled: Boolean(id && sessionId),
+  });
+  return { ...query, connector: query.data };
+}
+
+/**
+ * A connector's logo as an image address. The SVG is read through the repository (so
+ * it carries the service's credentials on every transport) and shown in an `<img>`,
+ * where it cannot run anything. `dark` reads the dark-theme variant, when the row names
+ * one (`logo_dark_url`).
+ */
+export function useConnectorLogo(
+  connector: Pick<Connector, 'id' | 'logo_url'> & { logo_dark_url?: string | null },
+  theme: 'light' | 'dark' = 'light',
+) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const url = theme === 'dark' ? connector.logo_dark_url : connector.logo_url;
+  return useQuery({
+    queryKey: queryKeys.key('connector-logo', settings.endpoint, connector.id, url ?? ''),
+    queryFn: async ({ signal }) =>
+      `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+        await repository.connectorLogo(connector.id, signal, theme),
+      )}`,
+    enabled: Boolean(url),
+    staleTime: Infinity,
+    retry: false,
+  });
+}
+
+/** Enable and turn-off calls share this key, so every place a connector appears sees them. */
+const CONNECTOR_CHANGE = 'connector-change';
+
+/**
+ * The connectors with an Enable or Turn off still running, by id (CN3): the card, the
+ * Extensions row and the scope controls all say "Starting…" while it runs.
+ */
+export function useConnectorChanges(): ReadonlyMap<string, ConnectorChange> {
+  const pending = useMutationState({
+    filters: { mutationKey: [CONNECTOR_CHANGE], status: 'pending' },
+    select: (mutation) => ({
+      change: mutation.options.mutationKey?.[1] as ConnectorChange,
+      variables: mutation.state.variables as { id: string } | string | undefined,
+    }),
+  });
+  const changes = new Map<string, ConnectorChange>();
+  for (const { change, variables } of pending) {
+    const id = typeof variables === 'string' ? variables : variables?.id;
+    if (id) changes.set(id, change);
+  }
+  return changes;
+}
+
+export function useInvalidateConnectors() {
+  const client = useQueryClient();
+  const { settings } = useConnectionSettings();
+  return () =>
+    Promise.all(
+      CONNECTOR_DEPENDENT_READS.map((key) =>
+        client.invalidateQueries({ queryKey: queryKeys.key(key, settings.endpoint) }),
+      ),
+    );
+}
+
+/** Puts a connector the service answered with into the cached list at once. */
+function useStoreConnector() {
+  const client = useQueryClient();
+  const { settings } = useConnectionSettings();
+  return (next: Connector) =>
+    client.setQueryData<Connector[]>(
+      queryKeys.key('connectors', settings.endpoint, connectionScope(settings)),
+      (rows) => rows?.map((row) => (row.id === next.id ? next : row)),
+    );
+}
+
+export function useConnectorActions() {
+  const repository = useRepository();
+  const invalidate = useInvalidateConnectors();
+  const store = useStoreConnector();
+  const settle = async (connector: Connector) => {
+    store(connector);
+    await invalidate();
+  };
+  const save = useMutation({
+    mutationFn: ({ id, values }: { id: string; values: ConnectorValues }) =>
+      repository.setConnectorValues(id, values),
+    onSuccess: settle,
+    onError: (error: Error) =>
+      toast.error(t`The values were not saved`, { description: error.message }),
+  });
+  const enable = useMutation({
+    mutationKey: [CONNECTOR_CHANGE, 'starting'],
+    mutationFn: (id: string) => repository.enableConnector(id),
+    onSuccess: settle,
+    onError: (error: Error) =>
+      toast.error(t`The connector was not enabled`, { description: error.message }),
+  });
+  const disable = useMutation({
+    mutationKey: [CONNECTOR_CHANGE, 'turning-off'],
+    mutationFn: (id: string) => repository.disableConnector(id),
+    onSuccess: settle,
+    onError: (error: Error) =>
+      toast.error(t`The connector was not turned off`, { description: error.message }),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => repository.removeConnector(id),
+    onSuccess: async () => {
+      await invalidate();
+    },
+    onError: (error: Error) =>
+      toast.error(t`The connector was not removed`, { description: error.message }),
+  });
+  return { save, enable, disable, remove, invalidate };
+}

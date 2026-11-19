@@ -20,12 +20,11 @@
 //     falls through to the system paths below.
 //  1. $CLIO_AGENT_GACT_BIN env var (explicit override; used by CI +
 //     `pnpm tauri:dev` against the gact emulator)
-//  2. `clio-agent-gact` on PATH
-//  3. Per-OS install-prefix conventions matching iowarp/clio-agent's
-//     install.{sh,ps1}:
-//     - Windows: %LOCALAPPDATA%\clio\clio-agent\.venv\Scripts\clio-agent-gact.exe
-//     - Linux:   $HOME/.local/share/clio/clio-agent/.venv/bin/clio-agent-gact
-//     - macOS:   $HOME/Library/Application Support/clio/clio-agent/.venv/bin/clio-agent-gact
+//  2. Per-OS install-prefix conventions matching iowarp/clio-agent's
+//     install.{sh,ps1} (see installPrefixes), each trying
+//     <prefix>/clio-agent/.venv/<bin|Scripts>/clio-agent-gact first, then
+//     the front-door `clio-agent serve` in the same environment.
+//  3. `clio-agent-gact` on PATH, unless older than this desktop
 //  4. Dev repo checkout, when $CLIO_DEV_REPO points at a local
 //     clio-agent clone with a built .venv. Opt-in only.
 //
@@ -262,7 +261,8 @@ func main() {
 				"No bundled runtime manifest was found next to the launcher, so this\n"+
 				"is the lite build (or a broken bundle). Either:\n"+
 				"  - install clio-agent@develop via the upstream installer (CLIO_REF=develop),\n"+
-				"  - place clio-agent-gact on PATH,\n"+
+				"  - place clio-agent-gact on PATH (a managed install may also\n"+
+				"    provide only clio-agent, started with `serve`),\n"+
 				"  - set %s to an explicit binary, or\n"+
 				"  - set %s to a local clio-agent checkout with a built .venv.\n"+
 				"The bundled installer variant ships the runtime and needs none of these.\n",

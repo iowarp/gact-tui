@@ -133,6 +133,9 @@ export const COLOR_TOKENS = [
   'shadow-color',
   'highlight',
   'highlight-foreground',
+  // Attention heat: prompt text, and tool calls (levels mix these with the background)
+  'attention-heat-text',
+  'attention-heat-tool',
   'media-backdrop',
   'media-foreground',
 ] as const;

@@ -11,6 +11,7 @@ import {
   GlobeIcon,
   ListChecksIcon,
   ListIcon,
+  PanelsTopLeftIcon,
   PaperclipIcon,
   SearchIcon,
   TerminalSquareIcon,
@@ -42,6 +43,7 @@ export const workbenchTabIcons = {
   list: ListIcon,
   search: SearchIcon,
   'variant-try': BotIcon,
+  'mcp-app': PanelsTopLeftIcon,
 } satisfies Record<
   WorkbenchTab['kind'],
   ComponentType<{ 'aria-hidden'?: boolean; className?: string }>

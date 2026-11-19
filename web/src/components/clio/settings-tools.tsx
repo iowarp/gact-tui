@@ -226,7 +226,7 @@ export function ToolsSettings({
     );
 
   return (
-    <div className="@container grid min-w-0 gap-1">
+    <div className="@container grid min-w-0 grid-cols-1 gap-1">
       {!embedded && heading ? (
         <SettingsSectionHeading
           description={t`MCP services give agents tools, data, and reusable prompts. Built-in services ship with the agent; external services are connections you can manage.`}
@@ -274,13 +274,13 @@ export function ToolsSettings({
       ) : null}
       <section
         aria-label={groupLabel}
-        className="grid min-w-0"
+        className="grid min-w-0 grid-cols-1"
         onKeyDown={newItemKey(showAdd && addSupported ? startAdding : undefined)}
       >
         <SettingsGroupLabel
           actions={
             showAdd ? (
-              <span className="text-foreground">
+              <span className="flex max-w-full min-w-0 justify-end text-foreground">
                 <ExtensionAddMenu
                   label={embedded ? undefined : t`Add`}
                   mcpOnly
@@ -579,6 +579,7 @@ function InventoryRows({
                   {inventoryTitle(row)}
                 </span>
               }
+              wrapTitle
             />
             {schema && expanded ? (
               <div className="border-b border-border/70 px-2 py-2 pl-9">

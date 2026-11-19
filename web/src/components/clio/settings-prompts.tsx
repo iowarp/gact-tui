@@ -371,15 +371,12 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
 
   return (
     <div
-      className="grid min-w-0"
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)]"
       onKeyDown={newItemKey(promptsOffered && view !== 'commands' ? () => openEditor() : undefined)}
     >
       <SettingsSectionHeading info={INFO} title={t`Prompts & commands`} />
       <div
-        className={cn(
-          'mb-1.5 flex min-w-0 items-center gap-2.5 whitespace-nowrap',
-          tight ? 'flex-wrap gap-y-1.5' : 'h-[2.125rem]',
-        )}
+        className="mb-1.5 flex min-h-[2.125rem] min-w-0 flex-wrap items-center gap-2.5 gap-y-1.5 whitespace-nowrap"
         data-slot="settings-toolbar"
         ref={toolbar}
       >
@@ -408,13 +405,22 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
           <SelectTrigger
             aria-label={t`Prompt workspace`}
             className={cn(
-              'h-[30px]! min-w-0 shrink justify-start gap-2 px-2.5 text-menu *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:text-left',
-              tight ? 'order-last w-full' : 'w-44',
+              'min-w-0 justify-start gap-2 px-2.5 text-menu *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:text-left',
+              // At least 11rem and its value ("No workspace" in every language): when
+              // the line has no room, the field moves to the next line instead of cutting it.
+              // On that line of its own the value wraps, so a narrow phone still reads it whole.
+              tight
+                ? 'order-last h-auto! min-h-[30px] w-full py-1 *:data-[slot=select-value]:overflow-visible! *:data-[slot=select-value]:leading-snug *:data-[slot=select-value]:break-words *:data-[slot=select-value]:whitespace-normal! *:data-[slot=select-value]:[-webkit-line-clamp:unset]! *:data-[slot=select-value]:[line-break:strict] *:data-[slot=select-value]:[word-break:auto-phrase]'
+                : 'h-[30px]! w-auto max-w-[min(100%,18rem)] min-w-[min(11rem,100%)] shrink-0 *:data-[slot=select-value]:truncate',
             )}
             size="sm"
             title={selectedWorkspaceName ?? t`No workspace`}
           >
-            <FolderIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+            <FolderIcon
+              aria-hidden="true"
+              // Below 20rem the value needs the icon's room to keep "workspace" whole.
+              className={cn('size-3.5 text-muted-foreground', tight && 'max-[20rem]:hidden')}
+            />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -428,7 +434,8 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
         </Select>
         <span className="flex-1" />
         {promptsOffered ? (
-          <>
+          // One group, so the actions wrap together rather than leaving "+" alone.
+          <span className="flex shrink-0 items-center gap-2.5">
             <IconButton
               disabled={reload.isPending}
               icon={reload.isPending ? <Spinner /> : <RefreshIcon />}
@@ -442,7 +449,7 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
                 <AddIcon aria-hidden="true" /> {t`New prompt`}
               </Button>
             )}
-          </>
+          </span>
         ) : null}
       </div>
       <ListDetailLayout

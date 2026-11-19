@@ -35,6 +35,13 @@ describe('useAttentionHighlights', () => {
     expect(highlightRules()).toHaveLength(1);
     expect(highlightRules()[0]?.textContent).toContain('::highlight(clio-attn-level-9)');
     expect(highlightRules()[0]?.textContent).not.toContain('clio-attn-level-0');
+    // Tool calls have their own ramp; every painted level is underlined in its hue.
+    expect(highlightRules()[0]?.textContent).toContain(
+      '::highlight(clio-attn-tool-level-9) { background-color: color-mix(in oklch, var(--attention-heat-tool) 90%',
+    );
+    expect(highlightRules()[0]?.textContent).toContain(
+      '::highlight(clio-attn-level-1) { background-color: color-mix(in oklch, var(--attention-heat-text) 22%, transparent); text-decoration: underline;',
+    );
 
     second.unmount();
     expect(highlightRules()).toHaveLength(1);

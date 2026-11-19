@@ -152,6 +152,7 @@ export function DataSourceSettings() {
         icon={<AccountLogo provider={account.id} />}
         key={account.id}
         meta={accountMeta(account) || undefined}
+        wrapMeta
         selected={login?.id === account.id}
         slot={
           obsidian ? (

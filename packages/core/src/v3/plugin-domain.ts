@@ -27,6 +27,37 @@ export type PluginDiagnostic = z.infer<typeof pluginDiagnosticSchema>;
 const diagnostics = z.array(pluginDiagnosticSchema).default([]);
 
 /** One installed plugin or pack, as the + menu lists it (`GET /v1/plugins`). */
+/** The connector a plugin row follows, as `GET /v1/plugins` names it. */
+export const pluginConnectorSchema = z
+  .object({
+    id: z.string(),
+    name: z.string().default(''),
+    logo_url: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? null),
+    /** The logo on a dark theme, when it differs (`?theme=dark`); null: `logo_url` on every theme. */
+    logo_dark_url: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? null),
+    enabled: z.boolean().default(false),
+    status: z.string().default('unknown'),
+    needs: z.array(z.string()).default([]),
+    reason: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? null),
+    tool_count: z
+      .number()
+      .int()
+      .nullish()
+      .transform((value) => value ?? null),
+  })
+  .passthrough();
+
+export type PluginConnector = z.infer<typeof pluginConnectorSchema>;
+
 export const pluginEntrySchema = z.object({
   id: z.string(),
   ref: z.string(),
@@ -48,6 +79,16 @@ export const pluginEntrySchema = z.object({
   fragments: strings,
   trusted: z.boolean().default(false),
   pending_trust: z.boolean().default(false),
+  /**
+   * The connector this plugin follows (CN9): a conversation adds it while that
+   * connector is on. Empty when it follows none.
+   */
+  follows: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? ''),
+  /** The followed connector as a picker shows it: logo, name, whether it is on, its state. */
+  connector: pluginConnectorSchema.nullish().transform((value) => value ?? null),
   diagnostics,
 });
 
@@ -192,7 +233,7 @@ export type LocalLibrary = z.infer<typeof localLibrarySchema>;
  * pack named by `via`), `required` (a hard requirement of `via`) or `user`.
  */
 export const pluginProvenanceSchema = z.object({
-  source: forwardCompatibleEnum(['core', 'agent', 'pack', 'required', 'user']),
+  source: forwardCompatibleEnum(['core', 'agent', 'pack', 'required', 'user', 'connector']),
   via: z.string().default(''),
   label: z.string().default(''),
 });
@@ -209,6 +250,26 @@ export const resolvedPluginSchema = z.object({
   requires: strings,
   members: strings,
   removable: z.boolean().default(true),
+  /** The connector this plugin follows ("" for none) and how a list names it. */
+  follows: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? ''),
+  connector: z
+    .object({
+      id: z.string(),
+      name: z.string().default(''),
+      logo_url: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? null),
+      logo_dark_url: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? null),
+    })
+    .nullish()
+    .transform((value) => value ?? null),
 });
 
 export type ResolvedPlugin = z.infer<typeof resolvedPluginSchema>;
@@ -403,6 +464,23 @@ export const removalPreviewSchema = z.object({
 export type RemovalPreview = z.infer<typeof removalPreviewSchema>;
 
 /** The agent a session runs, from the pin carried in its metadata. */
+/**
+ * The flow a session runs as its own work (a session a script created with `flow`):
+ * its id and options, or `null`. A flow started from another conversation (`run_flow`,
+ * a workflow step) carries its input and depth, and shows on the starter's card instead.
+ */
+export function sessionOwnFlow(
+  session: { metadata?: Record<string, unknown> } | undefined,
+): { id: string; options: Record<string, unknown> } | null {
+  const flow = session?.metadata?.agent_flow;
+  if (!flow || typeof flow !== 'object') return null;
+  const record = flow as Record<string, unknown>;
+  if (typeof record.id !== 'string' || !record.id || 'input' in record || 'depth' in record)
+    return null;
+  const options = record.options && typeof record.options === 'object' ? record.options : {};
+  return { id: record.id, options: options as Record<string, unknown> };
+}
+
 export function sessionAgentRef(session: { metadata?: Record<string, unknown> } | undefined) {
   const value = session?.metadata?.agent_ref;
   return typeof value === 'string' ? value : '';

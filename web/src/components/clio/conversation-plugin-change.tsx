@@ -2,7 +2,14 @@ import type { MessageBlock } from '@clio/core/v3';
 import { SyringeIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { pluginChangeLabel, pluginChangeTools } from '@/lib/plugin-presentation';
+import { usePluginNames } from '@/hooks/use-plugin-names';
+import {
+  humanizePluginId,
+  pluginChangeLabel,
+  pluginChangeTools,
+  type PluginKind,
+} from '@/lib/plugin-presentation';
+import { useHasConnection } from '@/providers/connection-provider';
 import { t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 
@@ -14,9 +21,32 @@ type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
  * chip; hover, focus or a press shows exactly what the agent got.
  */
 export function PluginChangeInjection({ block }: { block: InjectionBlock }) {
+  // A bare chip (no connection, as in a test) reads ids as words; in the app the
+  // connectors and installed plugins name them.
+  return useHasConnection() ? (
+    <NamedPluginChange block={block} />
+  ) : (
+    <PluginChangeChip block={block} nameOf={humanizePluginId} />
+  );
+}
+
+function NamedPluginChange({ block }: { block: InjectionBlock }) {
+  const { nameOf, kindOf } = usePluginNames();
+  return <PluginChangeChip block={block} kindOf={kindOf} nameOf={nameOf} />;
+}
+
+function PluginChangeChip({
+  block,
+  nameOf,
+  kindOf,
+}: {
+  block: InjectionBlock;
+  nameOf: (id: string) => string;
+  kindOf?: (id: string) => PluginKind;
+}) {
   const [open, setOpen] = useState(false);
   const detailsId = useId();
-  const label = pluginChangeLabel(block.text);
+  const label = pluginChangeLabel(block.text, nameOf, kindOf);
   const tools = pluginChangeTools(block.text);
   const toolList = tools.join(', ');
   return (

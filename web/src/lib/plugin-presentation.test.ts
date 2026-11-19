@@ -7,6 +7,8 @@ import {
   provenanceLabel,
   removalPreviewReason,
   removedPluginReason,
+  resolvedPluginName,
+  resolvedPluginOrigin,
   unwrapFragmentText,
   userAgentId,
 } from './plugin-presentation';
@@ -29,6 +31,16 @@ describe('plugin presentation', () => {
       'Required by pdf',
     );
     expect(provenanceLabel({ source: 'user', via: 'user', label: 'user' })).toBe('Added by you');
+    expect(
+      provenanceLabel({
+        source: 'connector',
+        via: 'fixture-plain',
+        label: 'From connector Fixture Plain',
+      }),
+    ).toBe('From connector Fixture Plain');
+    expect(provenanceLabel({ source: 'connector', via: 'fixture-plain', label: '' })).toBe(
+      'From connector fixture-plain',
+    );
   });
 
   it('names a parent agent from its ref, a ranged id, or falls back to the id', () => {
@@ -113,5 +125,39 @@ describe('plugin presentation', () => {
     ]);
     expect(capabilitySummary(visuals)).toBe('2 tools, 2 MCP servers');
     expect(pluginContributions(resolution, 'shell').tools).toEqual(['shell_bash']);
+  });
+
+  it('names a connector plugin by its connector and says why it left (CN10, PL-D1)', () => {
+    const connector = { id: 'viewer', name: 'Viewer', logo_url: null, logo_dark_url: null };
+    expect(resolvedPluginName({ id: 'connector-viewer', connector })).toBe('Viewer');
+    expect(resolvedPluginName({ id: 'shell', connector: null })).toBe('shell');
+    expect(
+      resolvedPluginOrigin({
+        id: 'connector-viewer',
+        provenance: { source: 'user', via: '', label: '' },
+        connector,
+      }),
+    ).toBe('Connector you added');
+    expect(
+      resolvedPluginOrigin({
+        id: 'connector-viewer',
+        provenance: { source: 'agent', via: 'mine', label: '' },
+        connector,
+      }),
+    ).toBe('Connector (from mine)');
+    // A plugin that bundles a connector is a plugin: its origin reads as any plugin's.
+    expect(
+      resolvedPluginOrigin({
+        id: 'viewer-scenes',
+        provenance: { source: 'user', via: '', label: '' },
+        connector,
+      }),
+    ).toBe('Added by you');
+    expect(
+      removedPluginReason({ id: 'connector-viewer', reason: 'connector_off', because: 'viewer' }),
+    ).toContain('turned off');
+    expect(
+      removedPluginReason({ id: 'x', reason: 'connector_not_found', because: 'gone' }),
+    ).toContain('no longer exists');
   });
 });

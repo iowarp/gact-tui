@@ -28,6 +28,7 @@ import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { IconButton } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
 import { t, ph } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
 
 export interface DiffCanvasViewProps {
   diff: SessionDiff;
@@ -183,7 +184,7 @@ function UndoChange({
           <AlertDialogDescription>
             {diff.created
               ? t`The service will delete ${ph({ path: diff.path })}, which the agent created.`
-              : t`The service will put ${ph({ path: diff.path })} back as it was before this change.`}{' '}
+              : t`The service will put ${ph({ path: diff.path })} back as it was before this change.`}{sentenceGap()}
             {t`It refuses if the file changed after the agent wrote it.`}
           </AlertDialogDescription>
         </AlertDialogHeader>

@@ -31,9 +31,17 @@ describe('imageReach', () => {
     expect(scripted?.detail).toMatch(/run_code script’s result/u);
   });
 
-  it('prefers the block’s own sentence', () => {
+  // The agent's block detail is English; the client's own (translatable) sentence wins.
+  it.each([
+    [{}, 'Shown to the model on its next step, as this call’s result.'],
+    [
+      { parent_call_id: 'run' },
+      'Shown to the model on its next step, with the run_code script’s result.',
+    ],
+  ])('uses the client’s sentence over the block’s English detail (%o)', (extra, detail) => {
     const reach = imageReach(
       view({
+        ...extra,
         presentation: {
           blocks: [
             {
@@ -47,7 +55,7 @@ describe('imageReach', () => {
         },
       } as Partial<ToolInvocation>),
     );
-    expect(reach).toMatchObject({ state: 'shown', detail: 'Shown to the model on its next step.' });
+    expect(reach).toEqual({ state: 'shown', label: 'Shown to the model', detail });
   });
 
   it.each([

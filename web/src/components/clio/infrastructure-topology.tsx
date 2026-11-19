@@ -1,6 +1,6 @@
 import type { InfrastructureInventory, InfrastructureTarget } from '@clio/core/v3';
 import { CpuIcon, LaptopIcon, MonitorIcon, PackageIcon, PlugIcon, ServerIcon } from 'lucide-react';
-import { memo, useMemo, type ReactNode } from 'react';
+import { memo, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -46,14 +46,35 @@ interface MapEdge {
 
 /** Column positions as percentages of the map width: client, agent, computers, services. */
 const COLUMNS = [
-  { left: 0, width: 17 },
-  { left: 21, width: 20 },
-  { left: 45.5, width: 23.5 },
-  { left: 74, width: 26 },
+  { left: 0, width: 18 },
+  { left: 23, width: 20 },
+  { left: 47, width: 23.5 },
+  { left: 75, width: 25 },
 ] as const;
-const ROW = 50;
+/** The space between rows; a row is one node height plus this. */
+const ROW_GAP = 12;
+/** A node's height while every title fits on one line. */
 const NODE_HEIGHT = 38;
+/** A node's border and breathing room around its text, when a title wraps. */
+const NODE_CHROME = 8;
 const PAD = 12;
+
+interface MapFit {
+  /** Every node's height: the tallest node's text decides it, so rows stay even. */
+  nodeHeight: number;
+  width: number;
+  /** Each edge label's drawn length, so a label too long for its gap moves above the nodes. */
+  labels: Record<string, number>;
+}
+
+function sameFit(a: MapFit, b: MapFit): boolean {
+  if (a.nodeHeight !== b.nodeHeight || a.width !== b.width) return false;
+  const keys = Object.keys(b.labels);
+  return (
+    keys.length === Object.keys(a.labels).length &&
+    keys.every((key) => Math.abs((a.labels[key] ?? -1) - b.labels[key]) < 0.5)
+  );
+}
 
 const NODE_TONE: Record<NodeTone, string> = {
   ok: 'border-border bg-background [&_[data-slot=map-icon]]:text-muted-foreground',
@@ -98,7 +119,43 @@ export function InfrastructureTopology({
     () => topologyLayout(data, agentLabel, agentRoute, client, canReconnect),
     [data, agentLabel, agentRoute, client, canReconnect],
   );
-  const height = PAD * 2 + (map.rows - 1) * ROW + NODE_HEIGHT;
+  const frame = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<MapFit>({ nodeHeight: NODE_HEIGHT, width: 0, labels: {} });
+  // Titles wrap to two lines in wide locales; every row grows to the tallest node's text.
+  useLayoutEffect(() => {
+    const element = frame.current;
+    if (!element) return;
+    let live = true;
+    const measure = () => {
+      if (!live) return;
+      let tallest = 0;
+      for (const text of element.querySelectorAll<HTMLElement>('[data-slot="map-text"]')) {
+        tallest = Math.max(tallest, text.offsetHeight);
+      }
+      const labels: Record<string, number> = {};
+      for (const text of element.querySelectorAll<SVGTextElement>('text[data-edge]')) {
+        labels[text.dataset.edge!] = text.getComputedTextLength();
+      }
+      const next = {
+        nodeHeight: Math.max(NODE_HEIGHT, Math.ceil(tallest) + NODE_CHROME),
+        width: element.clientWidth,
+        labels,
+      };
+      setFit((current) => (sameFit(current, next) ? current : next));
+    };
+    measure();
+    void document.fonts?.ready.then(measure);
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => {
+      live = false;
+      observer.disconnect();
+    };
+  }, [map]);
+  const { nodeHeight } = fit;
+  const row = nodeHeight + ROW_GAP;
+  const centerY = (slot: number) => PAD + slot * row + nodeHeight / 2;
+  const height = PAD * 2 + (map.rows - 1) * row + nodeHeight;
   const nodes = new Map(map.nodes.map((node) => [node.id, node]));
   return (
     <section
@@ -108,7 +165,7 @@ export function InfrastructureTopology({
         className,
       )}
     >
-      <div className="relative min-w-0" style={{ height }}>
+      <div ref={frame} className="relative min-w-0" style={{ height }}>
         <svg
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 size-full overflow-visible"
@@ -121,9 +178,15 @@ export function InfrastructureTopology({
             const x2 = COLUMNS[to.column].left;
             const y1 = centerY(from.row);
             const y2 = centerY(to.row);
+            const key = `${edge.from}>${edge.to}`;
+            // The label sits over the line in the gap, as drawn, while it fits there;
+            // a longer one ("Απευθείας") moves above the nodes so it never runs under one.
+            const length = fit.labels[key];
+            const inGap = !length || !fit.width || length + 6 <= ((x2 - x1) / 100) * fit.width;
+            const labelY = inGap ? (y1 + y2) / 2 - 5 : Math.min(y1, y2) - nodeHeight / 2 - 4;
             return (
               <g
-                key={`${edge.from}>${edge.to}`}
+                key={key}
                 className={cn(
                   'fill-none stroke-muted-foreground/55',
                   edge.tone && EDGE_TONE[edge.tone],
@@ -150,9 +213,10 @@ export function InfrastructureTopology({
                 {edge.label ? (
                   <text
                     className="fill-muted-foreground stroke-none text-[0.625rem]"
+                    data-edge={key}
                     textAnchor="middle"
                     x={`${(x1 + x2) / 2}%`}
-                    y={(y1 + y2) / 2 - 5}
+                    y={labelY}
                   >
                     {edge.label}
                   </text>
@@ -169,7 +233,9 @@ export function InfrastructureTopology({
           {map.nodes.map((node) => (
             <MapNodeView
               key={node.id}
+              height={nodeHeight}
               node={node}
+              top={PAD + node.row * row}
               onReconnect={onReconnect}
               reconnecting={reconnecting}
             />
@@ -182,16 +248,20 @@ export function InfrastructureTopology({
 
 const MapNodeView = memo(function MapNodeView({
   node,
+  top,
+  height,
   onReconnect,
   reconnecting,
 }: {
   node: MapNode;
+  top: number;
+  height: number;
   onReconnect?: (host: SshHost) => Promise<unknown>;
   reconnecting: boolean;
 }) {
   const column = COLUMNS[node.column];
   const className = cn(
-    'flex h-[38px] w-full min-w-0 items-center gap-2 rounded-[7px] border px-2.5 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring',
+    'flex size-full min-w-0 items-center gap-2 rounded-[7px] border px-2.5 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring',
     node.action && 'hover:bg-hover disabled:opacity-60',
     NODE_TONE[node.tone],
   );
@@ -204,9 +274,11 @@ const MapNodeView = memo(function MapNodeView({
       >
         {node.icon}
       </span>
-      <span className="flex min-w-0 flex-col leading-tight">
-        <span className="truncate text-meta font-semibold text-foreground">{node.title}</span>
-        <span className="truncate text-caption text-muted-foreground">
+      <span className="flex min-w-0 flex-col leading-tight" data-slot="map-text">
+        <span className="line-clamp-2 text-meta font-semibold break-words text-foreground">
+          {node.title}
+        </span>
+        <span className="line-clamp-2 text-caption break-words text-muted-foreground">
           {node.brief ?? node.detail}
         </span>
       </span>
@@ -239,7 +311,7 @@ const MapNodeView = memo(function MapNodeView({
     <div
       className="absolute"
       role="listitem"
-      style={{ left: `${column.left}%`, top: PAD + node.row * ROW, width: `${column.width}%` }}
+      style={{ left: `${column.left}%`, top, width: `${column.width}%`, height }}
     >
       <Tooltip>
         <TooltipTrigger asChild>{trigger}</TooltipTrigger>
@@ -251,10 +323,6 @@ const MapNodeView = memo(function MapNodeView({
     </div>
   );
 });
-
-function centerY(row: number): number {
-  return PAD + row * ROW + NODE_HEIGHT / 2;
-}
 
 /** One band per computer, its services stacked beside it; the agent sits in the middle. */
 function topologyLayout(

@@ -6,6 +6,17 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.14.0] - 2026-11-19
+
+### Added
+
+- A conversation a Python script started with `run_flow` (its own work is a flow)
+  shows each run of the flow under the message that started it: the same card a
+  `run_flow` call shows, with the railroad, its steps and the result.
+- Desktop counts itself among the clients of a CLIO server it attaches to, so a
+  server a Python script started keeps running after the script ends while Desktop
+  uses it, and stops when Desktop quits.
+
 ## [0.13.0] - 2026-11-13
 
 The interface for CLIO 0.9.7: it finishes the design introduced in 0.12.0 and is

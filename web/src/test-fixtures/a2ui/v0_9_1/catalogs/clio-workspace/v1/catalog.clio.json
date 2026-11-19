@@ -183,8 +183,14 @@
     "clio.diff.v1": {
       "kernel": "clio.diff.v1"
     },
+    "clio.layered-map.v1": {
+      "kernel": "clio.layered-map.v1"
+    },
     "clio.map.v1": {
       "kernel": "clio.map.v1"
+    },
+    "clio.mcp-app.v1": {
+      "kernel": "clio.mcp-app.v1"
     },
     "clio.mermaid.v1": {
       "kernel": "clio.mermaid.v1"
@@ -198,11 +204,17 @@
     "clio.metric.v1": {
       "kernel": "clio.metric.v1"
     },
+    "clio.profile-stack.v1": {
+      "kernel": "clio.profile-stack.v1"
+    },
     "clio.progress.v1": {
       "kernel": "clio.progress.v1"
     },
     "clio.raster-viewport.v1": {
       "kernel": "clio.raster-viewport.v1"
+    },
+    "clio.section.v1": {
+      "kernel": "clio.section.v1"
     },
     "clio.slider.v1": {
       "kernel": "clio.slider.v1"

@@ -31,6 +31,7 @@ import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notifi
 import { SandboxInactiveBanner } from '@/components/clio/sandbox-inactive-banner';
 import { ConnectionAnnouncer } from '@/components/clio/connection-announcer';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
+import { reportProblemRoute, useReportProblemRequests } from '@/hooks/use-open-report-problem';
 import { OnboardingTourProvider } from '@/components/clio/onboarding/onboarding-tour';
 import {
   installRoutePrefetch,
@@ -183,6 +184,10 @@ export default function App() {
   useShortcut('infrastructure', openInfrastructure);
   useMenuAction('open-infrastructure', openInfrastructure);
   useMenuAction('about', () => navigate('/settings/about', { state: settingsReturnState }));
+  const openReportProblem = (conversationId?: string) =>
+    navigate(reportProblemRoute(conversationId), { state: settingsReturnState });
+  useMenuAction('report-problem', () => openReportProblem());
+  useReportProblemRequests(openReportProblem);
   useMenuAction('help-docs', () => {
     if (brand.homeUrl) openExternalUrlOrToast(brand.homeUrl);
     else navigate('/settings/about', { state: settingsReturnState });

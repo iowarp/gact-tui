@@ -1,5 +1,13 @@
 import { PanelRightIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
 import { cn } from '@/lib/utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -26,6 +34,8 @@ import { settingsWindowOpen } from '@/lib/settings-window-route';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbench-request-store';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
+import { usePhoneAppDock, useWorkbenchAppTabs } from './phone-app-dock';
+import { appTabShare } from './workbench-app-width';
 import { OPEN_TERMINAL_EVENT } from './workspace-canvas-visibility-context';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
@@ -261,6 +271,14 @@ export function ClioAppShell({
   const collapseNavigationForWorkbench = workbenchOpen && conversationCrowded;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
+  // An App tab shown on a phone docks between the conversation's header and composer.
+  const appTabShown = useWorkbenchAppTabs((state) => state.shown);
+  // With an App tab open the closed sheet stays mounted and hidden: unmounting it
+  // would reload the App's view when the sheet opens again.
+  const keepSheetMounted = useWorkbenchAppTabs((state) => state.open);
+  const appDock = usePhoneAppDock(
+    hasWorkbench && !desktopWorkbench && workbenchOpen && appTabShown,
+  );
   // Opens at the remembered share of the window; the panel keeps those pixels
   // until the window itself resizes (below), so folding the left bar widens
   // the conversation rather than the workbench. A closed canvas mounts
@@ -329,6 +347,16 @@ export function ClioAppShell({
       applyWorkbenchShare();
     } else workbenchPanelRef.current?.collapse();
   }, [applyWorkbenchShare, desktopWorkbench, workbenchOpen]);
+
+  // An app view opens at half the window until the person sizes the canvas themselves.
+  useEffect(() => {
+    if (!desktopWorkbench || !workbenchOpen || !appTabShown) return;
+    const personSized = Boolean(window.localStorage.getItem(WORKBENCH_SHARE_KEY));
+    const share = appTabShare(workbenchShareRef.current, currentWindowWidth(), personSized);
+    if (share === workbenchShareRef.current) return;
+    workbenchShareRef.current = share;
+    applyWorkbenchShare();
+  }, [appTabShown, applyWorkbenchShare, desktopWorkbench, workbenchOpen]);
 
   // Under the split breakpoint the canvas is a sheet over the conversation, so
   // the floating conversation rail hides under it: one sheet at a time.
@@ -448,8 +476,11 @@ export function ClioAppShell({
               <TopBarEndHost.Provider value={topBarEnd}>{contextBar}</TopBarEndHost.Provider>
             )}
           </div>
-          {updating ? null : statusStrip}
-          {updating ? null : toolbarActions}
+          {/* Each slot sits in its own keyed fragment: the page keys every conversation
+              region by endpoint and conversation, so the two siblings would otherwise
+              share one key. */}
+          <Fragment key="status-strip">{updating ? null : statusStrip}</Fragment>
+          <Fragment key="toolbar-actions">{updating ? null : toolbarActions}</Fragment>
           {hasWorkbench && !updating && (
             <ToolbarAction
               label={workbenchOpen ? t`Close workspace canvas` : t`Open workspace canvas`}
@@ -555,19 +586,34 @@ export function ClioAppShell({
           {workspace}
         </main>
       )}
+      {/* Non-modal: an App tab docks beside the conversation's composer (below), and
+          switching the sheet's modality while it is open would remount its contents. */}
       {hasWorkbench && !desktopWorkbench ? (
-        <Sheet onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
+        <Sheet modal={false} onOpenChange={setWorkbenchOpen} open={workbenchOpen}>
           <SheetContent
             // Under the split breakpoint the workbench slides over the conversation at 86%,
             // whichever tab is open; the spec's shadow sets the conversation strip beside
             // it underneath, not cut off.
-            className="w-[86vw] p-0 shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_60%,transparent)] data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_75%,transparent)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none"
+            className="w-[86vw] p-0 shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_60%,transparent)] data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_75%,transparent)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none data-[state=closed]:pointer-events-none data-[state=closed]:invisible"
             // Land on the sheet itself, announced by its title, rather than on whichever icon
             // button comes first (which would also pop its tooltip).
             onOpenAutoFocus={(event) => {
               event.preventDefault();
               workbenchSheetRef.current?.focus();
             }}
+            forceMount={keepSheetMounted || undefined}
+            inert={!workbenchOpen || undefined}
+            // Docked beside the composer, typing in the conversation keeps the App shown.
+            onInteractOutside={(event) => {
+              if (appDock) event.preventDefault();
+            }}
+            // Non-modal, the sheet would close whenever focus leaves it, including when
+            // the conversation moves focus itself (a #message- link refocusing its turn
+            // after a resize). Only a click outside or Close dismisses it, as when it
+            // was modal.
+            onFocusOutside={(event) => event.preventDefault()}
+            style={appDock}
+            data-app-dock={appDock ? '' : undefined}
             // A list search field closes itself on Escape; that press must not close the sheet.
             onEscapeKeyDown={(event) => {
               if ((event.target as Element | null)?.closest?.('[data-escape-owner]'))

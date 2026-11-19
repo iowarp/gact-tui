@@ -27,6 +27,10 @@ export const sourceConfigurationSchema = z.object({
   obsidian_connection: z.enum(['local_vault', 'headless_sync']).default('local_vault'),
   obsidian_excluded_folders: z.array(z.string()).default([]),
   obsidian_sync_mode: z.enum(['pull-only', 'bidirectional']).default('pull-only'),
+  s3_region: z.string().default(''),
+  s3_endpoint_url: z.string().default(''),
+  s3_access: z.enum(['anonymous', 'keys', 'profile']).default('anonymous'),
+  s3_profile: z.string().default(''),
 });
 export const connectedSourceStateSchema = z
   .object({
@@ -98,6 +102,10 @@ export interface SftpCredentials {
   private_key?: string;
   passphrase?: string;
 }
+export interface S3Credentials {
+  access_key_id: string;
+  secret_access_key: string;
+}
 export interface CreateSourceInput {
   provider: SourceProviderId;
   label: string;
@@ -106,9 +114,10 @@ export interface CreateSourceInput {
   create_vault?: boolean;
   configuration?: Partial<z.infer<typeof sourceConfigurationSchema>>;
   sftp_credentials?: SftpCredentials;
+  s3_credentials?: S3Credentials;
 }
 export const sourceProviderSchema = z.object({
-  id: z.enum(['local', 'sftp', 'google_drive', 'globus', 'github', 'obsidian', 'ndp']),
+  id: z.enum(['local', 'sftp', 'google_drive', 'globus', 'github', 'obsidian', 'ndp', 's3']),
   name: z.string(),
   logo: z.string(),
   authentication: z.enum(['none', 'ssh_profile', 'browser']),

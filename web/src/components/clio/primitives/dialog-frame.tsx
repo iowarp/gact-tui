@@ -234,7 +234,8 @@ export const DialogFrame = memo(function DialogFrame({
         )}
       >
         {fullWindow ? null : <DialogSheetHandle />}
-        <div className="flex h-12 min-w-0 items-center gap-2.5 pr-2.5 pl-4">
+        {/* A long translated title wraps whole onto more lines; the row grows with it. */}
+        <div className="flex min-h-12 min-w-0 items-center gap-2.5 py-1.5 pr-2.5 pl-4">
           {icon ? (
             <span
               aria-hidden="true"
@@ -243,7 +244,7 @@ export const DialogFrame = memo(function DialogFrame({
               {icon}
             </span>
           ) : null}
-          <DialogTitle className="min-w-0 flex-1 truncate font-sans text-[0.875rem] leading-7 font-semibold [overflow-wrap:normal]">
+          <DialogTitle className="min-w-0 flex-1 font-sans text-[0.875rem] leading-snug font-semibold text-pretty break-words [word-break:auto-phrase] [line-break:strict]">
             {title}
           </DialogTitle>
           {help ? (
@@ -272,12 +273,15 @@ export const DialogFrame = memo(function DialogFrame({
             // Prose starts under the title text (`.xd .bd`: 16px icon + 10px gap); setting
             // rows start at the frame's 18px edge (settings `.xdb`), whatever the icon.
             // No rule closes it, so a last settings row drops its own too. Its setting rows
-            // stay inline at every frame width (spec `.xdb .xr`): label 36%, control the rest.
+            // stay inline (spec `.xdb .xr`): label 36% or its longest word, control the rest.
+            // A row under 18rem (a phone sheet at a larger interface size) stacks instead.
             className={cn(
               'min-w-0 pt-2 pr-[18px] text-ui [&>[data-slot=settings-row-frame]:last-child>[data-slot=settings-row]]:border-b-0',
               // Full window: the body takes the height, so the buttons sit at the bottom.
               fullWindow && 'max-[599px]:flex-1',
-              '[&_[data-slot=settings-row]]:grid-cols-[36%_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
+              '[&_[data-slot=settings-row]]:@min-[18rem]:grid-cols-[minmax(min-content,36%)_minmax(0,1fr)] [&_[data-slot=settings-control]]:justify-start [&_[data-slot=settings-control]>input]:flex-1',
+              // Inline-control rows wrap their control under the label elsewhere; here they keep the two columns.
+              '[&_[data-slot=settings-row][data-control=inline]]:@min-[18rem]:grid',
               // A 36% label column is ~110px in a 340px frame: names wrap onto a
               // second line there rather than cut to "Provider prefe…".
               '[&_[data-slot=settings-label]]:leading-[1.3] [&_[data-slot=settings-label]]:whitespace-normal',
@@ -293,7 +297,10 @@ export const DialogFrame = memo(function DialogFrame({
         ) : null}
         <div
           data-slot="dialog-frame-footer"
-          className="@container flex min-w-0 items-center justify-end gap-2 pt-[18px] pr-3.5 pb-3.5 pl-[18px]"
+          // What no longer fits one row wraps (right-aligned) instead of pushing
+          // Cancel past the left edge of a narrow sheet. Cancel and the primary
+          // wrap as a pair; they split only when the pair is wider than the row.
+          className="@container flex min-w-0 flex-wrap items-center justify-end gap-2 pt-[18px] pr-3.5 pb-3.5 pl-[18px]"
         >
           {footerStart ? (
             // Supplemental text truncates; an action button (Back) keeps its whole label.
@@ -302,38 +309,45 @@ export const DialogFrame = memo(function DialogFrame({
             </div>
           ) : null}
           {secondary}
-          {confirmOnly ? null : (
-            <DialogPrimitive.Close asChild>
+          <div
+            data-slot="dialog-frame-actions"
+            className="ml-auto flex max-w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-2 empty:hidden"
+          >
+            {confirmOnly ? null : (
+              <DialogPrimitive.Close asChild>
+                <Button
+                  aria-keyshortcuts={closeAria}
+                  className="border-border gap-[7px]"
+                  variant="ghost"
+                  data-initial-focus=""
+                >
+                  {cancelLabel ?? t`Close`}
+                  <FooterKey
+                    className="border-muted-foreground/45 text-muted-foreground"
+                    keys={CLOSE_KEYS}
+                  />
+                </Button>
+              </DialogPrimitive.Close>
+            )}
+            {confirm ? (
               <Button
-                aria-keyshortcuts={closeAria}
-                className="border-border gap-[7px]"
-                variant="ghost"
-                data-initial-focus=""
+                key={confirmOnly ? 'only' : 'confirm'}
+                aria-keyshortcuts={confirmAria}
+                variant={confirm.tone === 'destructive' ? 'danger' : 'default'}
+                // The face fills the whole 28 px, under the border too.
+                className="gap-[7px] bg-clip-border"
+                disabled={confirm.disabled}
+                onClick={confirm.onConfirm}
+                data-initial-focus={confirmOnly ? '' : undefined}
+                ref={confirmOnly ? focusOnMount : undefined}
               >
-                {cancelLabel ?? t`Close`}
-                <FooterKey
-                  className="border-muted-foreground/45 text-muted-foreground"
-                  keys={CLOSE_KEYS}
-                />
+                {confirm.label}
+                {confirmKeys ? (
+                  <FooterKey className="border-current/45" keys={[confirmKey]} />
+                ) : null}
               </Button>
-            </DialogPrimitive.Close>
-          )}
-          {confirm ? (
-            <Button
-              key={confirmOnly ? 'only' : 'confirm'}
-              aria-keyshortcuts={confirmAria}
-              variant={confirm.tone === 'destructive' ? 'danger' : 'default'}
-              // The face fills the whole 28 px, under the border too.
-              className="gap-[7px] bg-clip-border"
-              disabled={confirm.disabled}
-              onClick={confirm.onConfirm}
-              data-initial-focus={confirmOnly ? '' : undefined}
-              ref={confirmOnly ? focusOnMount : undefined}
-            >
-              {confirm.label}
-              {confirmKeys ? <FooterKey className="border-current/45" keys={[confirmKey]} /> : null}
-            </Button>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -425,7 +439,8 @@ export const WindowShell = memo(function WindowShell({
           >
             {title}
           </DialogTitle>
-          {/* The picker keeps its full label; the search beside it gives up the width. */}
+          {/* The picker keeps its full label; the search beside it gives up the width
+              (Settings' query field takes it back by showing a label-less picker). */}
           {picker ? <div className="flex min-w-0 shrink-0 min-[600px]:hidden">{picker}</div> : null}
           <DialogDescription className="sr-only">{title}</DialogDescription>
           {search ? (

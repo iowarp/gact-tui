@@ -17,4 +17,4 @@ export const SETTINGS_COLUMN = '@xl:w-[60%] max-[1023px]:in-data-window-content:
  * sheet) it grows and wraps its sentence rather than cutting it off.
  */
 export const ROW_STATE_WRAP =
-  'max-[599px]:h-auto max-[599px]:min-h-7 max-[599px]:py-1 max-[599px]:whitespace-normal max-[599px]:[&>span>span]:whitespace-normal';
+  'max-[599px]:h-auto max-[599px]:min-h-7 max-[599px]:py-1 max-[599px]:whitespace-normal max-[599px]:[&>span>span]:whitespace-normal max-[599px]:[&>span>span]:[word-break:auto-phrase] max-[599px]:[&>span>span]:[line-break:strict]';

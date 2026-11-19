@@ -1,5 +1,5 @@
 import { attentionDomainLabel, type AttentionAvailable } from '@clio/core/v3';
-import { RadarIcon } from 'lucide-react';
+import { RadarIcon, TriangleAlertIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { AttentionModeState } from '@/hooks/use-attention-mode';
@@ -70,9 +70,7 @@ export function AttentionModeBanner({
           state.status === 'loading' ? (
             <span role="status">{t`Loading`}</span>
           ) : state.status === 'unavailable' ? (
-            <span data-slot="attention-unavailable-message" title={state.message}>
-              {state.message}
-            </span>
+            <span title={state.message}>{t`No heat`}</span>
           ) : dominant ? (
             <span title={t`Tool results lead captured content`}>{t`tool results first`}</span>
           ) : (
@@ -104,9 +102,46 @@ export function AttentionModeBanner({
           <AttentionBreakdown data={shown} hideFlags={dominant} />
         </div>
       ) : null}
+      {state.status === 'unavailable' ? <AttentionUnavailableNotice state={state} /> : null}
     </div>
   );
 }
+/** Reasons meaning the canonical tokenizer did not reproduce the capture: a warning, not a gap. */
+const ALIGNMENT_REASONS = new Set(['output_alignment_mismatch', 'range_alignment_mismatch']);
+
+/**
+ * Why no heat is shown, under the bar where it never folds away: the server's message and
+ * its explanation (for a tokenizer that does not line up with the capture, the likely
+ * cause). An alignment failure is a warning; any other reason reads as plain information.
+ */
+function AttentionUnavailableNotice({
+  state,
+}: {
+  state: Extract<AttentionModeState, { status: 'unavailable' }>;
+}) {
+  const warning = state.reason !== undefined && ALIGNMENT_REASONS.has(state.reason);
+  return (
+    <div
+      className={
+        warning
+          ? 'flex items-start gap-1.5 border-b border-warning/30 bg-warning/5 px-2 py-1.5 text-xs text-foreground'
+          : 'flex items-start gap-1.5 border-b border-border px-2 py-1.5 text-xs text-muted-foreground'
+      }
+      data-reason={state.reason}
+      data-slot="attention-unavailable-message"
+      role={warning ? 'alert' : 'status'}
+    >
+      {warning ? (
+        <TriangleAlertIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-warning" />
+      ) : null}
+      <span className="min-w-0 break-words">
+        {state.message}
+        {state.detail ? <span className="text-muted-foreground"> {state.detail}</span> : null}
+      </span>
+    </div>
+  );
+}
+
 /** Every prompt section the capture scored (system, tool definitions, tool calls/results, user, …) plus the spread-thin residual. */
 export function AttentionBreakdown({
   data,

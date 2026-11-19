@@ -6,6 +6,38 @@ export function formatLocale(): string {
   return i18n.locale === 'pseudo' ? 'en' : i18n.locale;
 }
 
+function joinItem(list: string, item: string, last: boolean): string {
+  return last
+    ? t({ message: `${list} and ${item}`, comment: 'A short list, its last item' })
+    : t({ message: `${list}, ${item}`, comment: 'A short list, one more item' });
+}
+
+/**
+ * A short list in the interface language: "a, b, c" (Japanese "a、b、c"), or with
+ * `and`, "a, b and c". `Intl.ListFormat` unit lists join Japanese with spaces, so
+ * the separators are messages.
+ */
+export function formatList(items: readonly string[], options: { and?: boolean } = {}): string {
+  return items.length
+    ? items.reduce((list, item, index) =>
+        joinItem(list, item, Boolean(options.and) && index === items.length - 1),
+      )
+    : '';
+}
+
+/** What `formatList` puts before an item, for lists of styled parts. */
+export function listSeparator(options: { last?: boolean } = {}): string {
+  return joinItem('', '', Boolean(options.last));
+}
+
+/**
+ * The gap between two sentences rendered side by side: a space, except in
+ * Japanese and Chinese, where "。" ends a sentence without one.
+ */
+export function sentenceGap(): string {
+  return /^(ja|zh)\b/u.test(formatLocale()) ? '' : ' ';
+}
+
 /**
  * Cached Intl formatters for per-row hot paths. `Date#toLocale*String` and
  * `Number#toLocaleString` build a new formatter on every call, which costs a

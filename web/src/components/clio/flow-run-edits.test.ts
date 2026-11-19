@@ -100,4 +100,28 @@ describe('workflow edits', () => {
       expect.objectContaining({ step: 'check', about: 'step', answer: 'Yes' }),
     ]);
   });
+
+  it("keeps only the options an unattended run took, not its 'nobody is watching' note", () => {
+    const note = 'The user is not available to answer: this run was started from a script.';
+    const [declined, defaulted] = runQuestions(run, [
+      question('question:task_ask_a', {
+        task_id: 'task_ask_a',
+        answered_by: 'unattended',
+        payload: { answer: note, metadata: { flow_run: 'flowrun_e' } },
+        created_at: '2026-10-27T10:01:00Z',
+      }),
+      question('question:task_ask_b', {
+        task_id: 'task_ask_b',
+        answered_by: 'unattended',
+        payload: {
+          options: [{ label: 'Allow searches', value: 'approve' }],
+          selected_options: ['approve'],
+          metadata: { flow_run: 'flowrun_e' },
+        },
+        created_at: '2026-10-27T10:02:00Z',
+      }),
+    ]);
+    expect(declined).toEqual(expect.objectContaining({ answeredBy: 'unattended', answer: '' }));
+    expect(defaulted).toEqual(expect.objectContaining({ answer: 'Allow searches' }));
+  });
 });

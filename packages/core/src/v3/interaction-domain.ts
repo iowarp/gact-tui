@@ -1,7 +1,7 @@
 import type { WireValue } from './domain.js';
 
 export type PendingInteractionKind = WireValue<
-  'question' | 'permission' | 'a2ui' | 'mcp_task_input'
+  'question' | 'permission' | 'a2ui' | 'mcp_task_input' | 'connector_setup'
 >;
 
 export interface PendingInteractionSource {
@@ -104,14 +104,14 @@ export interface PendingInteraction {
   owner_session_id: string;
   attended_session_id: string;
   task_id?: string;
-  status: WireValue<'pending' | 'answered' | 'cancelled' | 'expired'>;
+  status: WireValue<'pending' | 'answered' | 'denied' | 'cancelled' | 'expired'>;
   title: string;
   prompt?: string;
   requires_human_response?: boolean;
   audience?: WireValue<'human' | 'agent'>;
   routing_state?: WireValue<'elicitation_routed_to_agent' | 'agent_elicitation_fallback_to_human'>;
   fallback_detail?: string;
-  answered_by?: WireValue<'human' | 'agent'>;
+  answered_by?: WireValue<'human' | 'agent' | 'unattended'>;
   source: PendingInteractionSource;
   created_at: string;
   payload?: PendingInteractionPayload;
@@ -130,6 +130,11 @@ export interface PendingInteractionResponse {
   action?: string;
   answer?: string;
   selected_options?: string[];
+  /**
+   * A `connector_setup` card's rows (CN5); a secret is sent once and never echoed. The
+   * agent-load card (`agent_needs`) sends them by connector id: `{id: {key: value}}`.
+   */
+  values?: Record<string, string | null> | Record<string, Record<string, string | null>>;
   metadata?: Record<string, unknown>;
   message?: unknown;
   correlation?: PendingInteractionCorrelation;

@@ -7,7 +7,9 @@ import type {
   PendingInteractionResponse,
 } from '@clio/core/v3';
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { ConnectorSetupResponse } from './connector-setup-response';
 import { PermissionResponse } from './permission-response';
+import { permissionTitle } from './permission-operation-labels';
 import { AskPagerContext } from './ask-card-keys';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStableCallback } from '@/hooks/use-stable-callback';
@@ -25,6 +27,7 @@ import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
 import { QuestionResponse } from './pending-interaction-question-response';
 import { PendingSurfaceNotices } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
+import { useScrollClipped } from './use-scroll-clipped';
 import { planArtifact } from './plan-artifact';
 import { plainQuestionText, questionPrompt } from './question-card-model';
 import { plural, t } from '@lingui/core/macro';
@@ -109,6 +112,7 @@ export function ClioPendingInteractions({
   const viewportRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLElement>(null);
   const docked = pending.length > 0 || Boolean(error) || Boolean(capabilityError);
+  useScrollClipped(viewportRef, docked);
   useLayoutEffect(() => {
     // The cap is 45% of the conversation, not of the window: publish its height to the dock.
     const dock = dockRef.current;
@@ -244,10 +248,11 @@ export function ClioPendingInteractions({
       <ScrollArea
         className={cn(
           'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
-          // The card stops at 45% of the conversation's height; a visual answer gets more.
+          // The card stops at 45% of the conversation's height, but never below 20rem (its
+          // options grow with the interface size) nor past 75%. A visual answer gets more.
           hasInteractiveSurface
             ? 'max-h-[calc(100dvh-12rem)]'
-            : 'max-h-[calc(var(--conversation-h,100dvh)*0.45)]',
+            : 'max-h-[min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75))]',
         )}
         scrollHideDelay={500}
         // No scrollbar chrome at rest; it shows only while the card scrolls.
@@ -258,7 +263,9 @@ export function ClioPendingInteractions({
             one: '# pending response',
             other: '# pending responses',
           }),
-          className: 'pending-interactions-viewport overscroll-contain',
+          // The scrollbar hides at rest, so the bottom edge fades while the card continues.
+          className:
+            'pending-interactions-viewport overscroll-contain data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
           onKeyDown: handleScrollableRegionKeys,
           // The sticky card header draws its hairline only while content is under it.
           onScroll: (event) =>
@@ -273,9 +280,10 @@ export function ClioPendingInteractions({
         <AskPagerContext.Provider value={pager}>
           <div
             className={cn(
-              'flex min-w-0 flex-col gap-2',
+              '@container/dock flex min-w-0 flex-col gap-2',
               // A card past the cap scrolls its body; its options stay in view.
-              !hasInteractiveSurface && '[--ask-card-max:calc(var(--conversation-h,100dvh)*0.45)]',
+              !hasInteractiveSurface &&
+                '[--ask-card-max:min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75))]',
             )}
           >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
@@ -307,6 +315,17 @@ export function ClioPendingInteractions({
                         ownerLabel={ownerLabel}
                         responseError={responseError}
                         showOwner={showOwner}
+                      />
+                    );
+                  }
+                  if (interaction.kind === 'connector_setup') {
+                    return (
+                      <ConnectorSetupResponse
+                        disabled={interactionDisabled}
+                        interaction={interaction}
+                        key={interaction.id}
+                        onResponse={handleResponse}
+                        responseError={responseError}
                       />
                     );
                   }
@@ -391,6 +410,7 @@ const KIND_NAMES: Record<string, string> = {
   question: t`Question`,
   a2ui: t`Question`,
   mcp_task_input: t`Input`,
+  connector_setup: t`Setup`,
 };
 
 /** The dock as the workspace mounts it: it renders again only when its props change. */
@@ -400,18 +420,52 @@ export const ClioPendingInteractionsDock = memo(ClioPendingInteractions);
 function announcement(interaction: PendingInteraction, index: number, total: number): string {
   const kind =
     interaction.source.tool_name === 'plan_exit'
-      ? 'Plan'
-      : (KIND_NAMES[interaction.kind] ?? 'Request');
+      ? t`Plan`
+      : (KIND_NAMES[interaction.kind] ?? t`Request`);
   const why = interaction.payload?.access?.reason;
   // A question is announced by its words, not a generic "Question" title.
   const words =
     interaction.kind === 'question'
       ? plainQuestionText(questionPrompt(interaction))
-      : interaction.title;
-  return [`${kind}: ${words}`, why, total > 1 ? `${index + 1} of ${total}` : undefined]
-    .filter(Boolean)
-    .join('. ');
+      : interaction.kind === 'permission'
+        ? permissionTitle(interaction)
+        : interaction.title;
+  const position = index + 1;
+  return [
+    t({
+      message: `${kind}: ${words}`,
+      comment: 'Screen-reader announcement: request kind, then its title',
+    }),
+    why,
+    total > 1 ? t`${position} of ${total}` : undefined,
+  ]
+    .filter((sentence): sentence is string => Boolean(sentence))
+    .reduce((text, sentence) =>
+      // A title that already ends a sentence ("…flat-ndp?") takes no second stop. Half-width
+      // punctuation still needs a gap before the next sentence, even in Japanese.
+      LATIN_SENTENCE_END.test(text)
+        ? t({
+            message: `${text} ${sentence}`,
+            context: 'after half-width sentence punctuation',
+            comment:
+              'Joins sentences of a screen-reader announcement when the first already ends in half-width ? ! . ; or …',
+          })
+        : WIDE_SENTENCE_END.test(text)
+          ? t({
+              message: `${text} ${sentence}`,
+              comment:
+                'Joins sentences of a screen-reader announcement when the first already ends in full-width 。 ？ or ！',
+            })
+          : t({
+              message: `${text}. ${sentence}`,
+              comment: 'Joins sentences of a screen-reader announcement',
+            }),
+    );
 }
+
+// ";" and U+037E are the Greek question mark.
+const LATIN_SENTENCE_END = /[?!.;\u037e…]\s*$/u;
+const WIDE_SENTENCE_END = /[。？！]\s*$/u;
 
 function dropEntry<K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> {
   if (!map.has(key)) return map;

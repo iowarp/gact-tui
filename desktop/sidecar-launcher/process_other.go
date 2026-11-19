@@ -91,5 +91,8 @@ func configureChild(_ *exec.Cmd) {}
 func configureCrashCleanup(cmd *exec.Cmd) { configureChild(cmd) }
 
 func crashCleanupArgv(rt *resolvedRuntime) []string {
+	if argv, ok := serveCleanupArgv(rt); ok {
+		return argv
+	}
 	return append(append([]string{}, rt.Argv...), "--cleanup-runtime-after-crash")
 }

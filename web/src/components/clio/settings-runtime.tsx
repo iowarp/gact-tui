@@ -18,6 +18,7 @@ import { StateView } from './primitives/state-view';
 import { SettingsLoadError, UnofferedLine } from './settings-health-load-error';
 import { plainReason } from './settings-health-reason';
 import { RuntimeSettingControl } from './settings-runtime-control';
+import { localizeRuntimeSetting, runtimeGroupLabel } from './settings-schema-copy';
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { t, ph } from '@lingui/core/macro';
@@ -194,7 +195,7 @@ export function RuntimeSettingsPanel({
   const trailing = insertBefore?.content;
   if (current.isError && !source)
     return (
-      <div className="grid gap-1">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
         {heading}
         <UnofferedLine />
         <SettingsLoadError
@@ -209,7 +210,7 @@ export function RuntimeSettingsPanel({
     );
   if (!source)
     return (
-      <div className="grid gap-1">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-1">
         {heading}
         <UnofferedLine />
         <StateView kind="loading" size="row" title={t`Loading configuration…`} />
@@ -229,15 +230,18 @@ export function RuntimeSettingsPanel({
         : (groupInfo[group] ?? t`Choose how context and response history are saved.`);
     return (
       <section
-        aria-label={only ? undefined : group}
+        aria-label={only ? undefined : runtimeGroupLabel(group)}
         className={anchor ? 'scroll-mt-4' : undefined}
         data-settings-anchor={anchor}
       >
         {only && !anchor ? null : (
-          <SettingsGroupLabel info={info || undefined}>{group}</SettingsGroupLabel>
+          <SettingsGroupLabel info={info || undefined}>
+            {runtimeGroupLabel(group)}
+          </SettingsGroupLabel>
         )}
         {source.settings
           .filter((setting) => setting.group === group)
+          .map(localizeRuntimeSetting)
           .map((setting) => {
             const value = draft?.changes[setting.key] ?? displayValue(setting);
             const resetting = draft?.changes[setting.key] === null;
@@ -267,7 +271,9 @@ export function RuntimeSettingsPanel({
     );
   };
   return (
-    <div className="grid">
+    // One track no wider than the page: a nowrap row (a retention line) would otherwise
+    // widen the page past a phone's width and push the heading's caption off screen.
+    <div className="grid grid-cols-[minmax(0,1fr)]">
       {heading}
       <UnofferedLine />
       {groups.map((group) => (

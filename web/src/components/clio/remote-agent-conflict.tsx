@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { vocab } from '@/lib/brand-vocabulary';
 import type { ConflictAnswer, FoundConflict } from './managed-service-target-utils';
 import { t, ph } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
 
 const { agent } = vocab;
 
@@ -42,7 +43,7 @@ export function RemoteAgentConflict({
       <p className="text-sm text-muted-foreground">
         {found.targetVersion
           ? t`Existing agent: ${version}. This app: ${ph({ target: found.targetVersion })}.`
-          : t`Existing agent: ${version}. This app: not reported.`}{' '}
+          : t`Existing agent: ${version}. This app: not reported.`}{sentenceGap()}
         {stopped
           ? t`Starting it keeps its version and data.`
           : t`Reconnecting keeps the existing process and its lifecycle unchanged.`}

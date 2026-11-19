@@ -1,5 +1,5 @@
 import { EyeIcon, TriangleAlertIcon } from 'lucide-react';
-import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
+import { Fragment, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,31 +16,56 @@ import { StatusIndicator } from './primitives/status-indicator';
 import { t } from '@lingui/core/macro';
 
 /**
+ * Text that may break after its hyphens ("clio-" / "science"): Japanese phrase
+ * breaking treats a Latin compound as one phrase, so without these it splits mid-word.
+ */
+function HyphenBreaks({ text }: { text: string }) {
+  const pieces = text.split(/(?<=-)(?=.)/u);
+  return pieces.map((piece, index) => (
+    <Fragment key={index}>
+      {index ? <wbr /> : null}
+      {piece}
+    </Fragment>
+  ));
+}
+
+/**
  * Meta parts separated by space alone; the whole line is the hover text when it is cut.
  * A phone-width list drops the addresses and commands after the first part.
+ * `wrap` puts a part that doesn't fit on the next line, whole, instead of cutting it.
  */
 export function MetaLine({
   parts,
   className,
+  wrap = false,
 }: {
   parts: readonly (ExtensionMetaPart | string)[];
   className?: string;
+  wrap?: boolean;
 }) {
   const rows = parts
     .map((part) => (typeof part === 'string' ? { text: part } : part))
     .filter((part) => part.text);
   return (
-    <span className={className} title={rows.map((part) => part.text).join(', ')}>
+    <span
+      className={cn(wrap && 'flex min-w-0 flex-wrap gap-x-2.5 whitespace-normal', className)}
+      title={rows.map((part) => part.text).join(', ')}
+    >
       {rows.map((part, index) => (
         <span
           className={cn(
-            index ? 'ml-2.5' : undefined,
+            wrap
+              ? 'max-w-full min-w-0 break-words [word-break:auto-phrase] [line-break:strict]'
+              : index
+                ? 'ml-2.5'
+                : undefined,
+            wrap && part.mono && 'truncate',
             part.mono && 'font-mono text-label',
             part.mono && index && '@max-sm:hidden',
           )}
           key={`${index}:${part.text}`}
         >
-          {part.text}
+          {wrap && !part.mono ? <HyphenBreaks text={part.text} /> : part.text}
         </span>
       ))}
     </span>
@@ -136,6 +161,8 @@ export function ExtensionRow({
   name,
   title = name,
   meta,
+  description,
+  needs,
   status,
   onExplore,
   exploreLabel = t`Explore ${name}`,
@@ -154,6 +181,10 @@ export function ExtensionRow({
   name: string;
   title?: string;
   meta?: readonly (ExtensionMetaPart | string)[];
+  /** What it is, one line under the meta, cut with an ellipsis (its whole text on hover). */
+  description?: string;
+  /** What it still needs, a line of its own under the description. */
+  needs?: string;
   status?: ExtensionStatus;
   onExplore?: () => void;
   exploreLabel?: string;
@@ -197,7 +228,27 @@ export function ExtensionRow({
       className={cn(onExplore && 'cursor-default', ROW_MENU_OPEN_VISIBLE, className)}
       confirm={confirm}
       icon={icon}
-      meta={meta?.length ? <MetaLine parts={meta} /> : undefined}
+      meta={
+        meta?.length || description || needs ? (
+          <span className="flex min-w-0 flex-col">
+            {meta?.length ? <MetaLine parts={meta} wrap /> : null}
+            {description ? (
+              <span
+                className="block truncate"
+                data-slot="extension-description"
+                title={description}
+              >
+                {description}
+              </span>
+            ) : null}
+            {needs ? (
+              <span className="block break-words whitespace-normal" data-slot="extension-needs">
+                {needs}
+              </span>
+            ) : null}
+          </span>
+        ) : undefined
+      }
       onClick={onExplore ? open : undefined}
       onKeyDown={onKeyDown}
       selected={selected}
@@ -205,7 +256,12 @@ export function ExtensionRow({
       slot={slot ?? (aligned ? null : undefined)}
       status={status ? <EntryStatus status={status} /> : aligned ? null : undefined}
       tabIndex={onExplore ? 0 : undefined}
-      title={<span title={title}>{title}</span>}
+      // A long name wraps whole rather than ending in an ellipsis.
+      title={
+        <span className="block break-words whitespace-normal" title={title}>
+          <HyphenBreaks text={title} />
+        </span>
+      }
       actions={
         hasActions ? (
           <>

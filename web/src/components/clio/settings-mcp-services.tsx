@@ -34,6 +34,8 @@ import { ShortcutKeys } from './primitives/key-chip';
 import { MenuRow } from './primitives/menu-row';
 import { RowConfirm } from './primitives/row-confirm';
 import { StatusIndicator } from './primitives/status-indicator';
+import { useConnector } from '@/hooks/use-connectors';
+import { ConnectorLogo } from './connector-need-rows';
 import { SlotButton } from './extension-parts';
 import { RefreshIndicator } from './refresh-button';
 import { plural, t } from '@lingui/core/macro';
@@ -46,7 +48,14 @@ const KIND_ICONS: Record<McpServiceKind, LucideIcon> = {
   local: TerminalIcon,
 };
 
-export function McpServiceIcon({ entry }: { entry: Pick<McpServiceEntry, 'server' | 'saved'> }) {
+export function McpServiceIcon({
+  entry,
+}: {
+  entry: Pick<McpServiceEntry, 'server' | 'saved'> & { name?: string };
+}) {
+  // A service a connector starts carries that connector's logo (its id is the service name).
+  const { connector } = useConnector(entry.name);
+  if (connector) return <ConnectorLogo className="size-4 text-[8px]" connector={connector} />;
   const Icon = KIND_ICONS[serviceKind(entry)];
   return <Icon aria-hidden="true" />;
 }
@@ -76,11 +85,12 @@ export function McpServiceMeta({ entry }: { entry: McpServiceEntry }) {
     .filter(Boolean)
     .join(', ');
   return (
-    <span title={words}>
-      <span>{origin}</span>
-      {total === undefined ? null : <span className="ml-2.5">{countWords(total)}</span>}
+    // Parts wrap onto their own lines on a narrow row, so the name keeps the width.
+    <span className="flex min-w-0 flex-wrap gap-x-2.5" title={words}>
+      <span className="min-w-0 break-words whitespace-normal">{origin}</span>
+      {total === undefined ? null : <span className="shrink-0">{countWords(total)}</span>}
       {target ? (
-        <span className="ml-2.5 font-mono text-label whitespace-nowrap">{target.short}</span>
+        <span className="max-w-full min-w-0 truncate font-mono text-label">{target.short}</span>
       ) : null}
     </span>
   );
@@ -302,10 +312,12 @@ function McpServiceRow({
       onClick={open}
       onKeyDown={onKeyDown}
       selected={selected}
-      slot={slot}
+      // The slot column exists only while some row needs it, so names get the width.
+      slot={showSlot ? slot : undefined}
       status={<StatusIndicator label={status.label} tone={status.tone} />}
       tabIndex={0}
       title={<span title={title}>{title}</span>}
+      wrapTitle
     />
   );
 }

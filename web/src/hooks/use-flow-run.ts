@@ -32,6 +32,19 @@ export function useFlowRun(sessionId: string, handle: string, enabled = true) {
   });
 }
 
+/** The assignment a person's message was delivered into: its flow run's handle. */
+export function useMessageAssignment(sessionId: string, messageId: string, enabled: boolean) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  return useQuery({
+    queryKey: queryKeys.key('message-assignment', settings.endpoint, sessionId, messageId),
+    enabled: Boolean(sessionId && messageId) && enabled,
+    queryFn: ({ signal }) => repository.messageAssignment(sessionId, messageId, signal),
+    // Confirmed just after the message is accepted: ask again until it is.
+    refetchInterval: (query) => (query.state.data ? false : FLOW_RUN_POLL_MS),
+  });
+}
+
 /**
  * The task behind a flow handle, read only when that task has no flow checkpoint.
  * A flow refused before it wrote one (a limit hit on its first call) is then shown
@@ -124,6 +137,29 @@ export function useFlowTaskAnswer(handle: string | undefined, enabled: boolean, 
       const texts =
         last?.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])) ?? [];
       return (texts.at(-1) ?? '').trim();
+    },
+  });
+}
+
+/**
+ * What a run's step was given: its task's full assignment text, read from the task
+ * index of the conversation that started the run. ``''`` when it was not recorded.
+ * The input never changes, so it is read once.
+ */
+export function useFlowTaskInput(
+  sessionId: string | undefined,
+  handle: string | undefined,
+  enabled: boolean,
+) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  return useQuery({
+    queryKey: queryKeys.key('flow-task-input', settings.endpoint, sessionId ?? '', handle ?? ''),
+    enabled: Boolean(sessionId && handle) && enabled,
+    staleTime: Infinity,
+    queryFn: async ({ signal }) => {
+      const task = await repository.taskInput(sessionId!, handle!, signal);
+      return (task?.description ?? '').trim();
     },
   });
 }

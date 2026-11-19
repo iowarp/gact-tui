@@ -35,7 +35,7 @@ export function InfraFilterMenu<Value extends string>({
       <DropdownMenuTrigger asChild>
         <Button
           aria-label={`${label}: ${current?.label ?? ''}`}
-          className="h-7 max-w-[132px] min-w-0 gap-1.5 px-2 text-meta font-normal"
+          className="h-7 max-w-[8.25rem] min-w-0 gap-1.5 px-2 text-meta font-normal"
           size="sm"
           variant="outline"
         >

@@ -13,6 +13,7 @@ import {
   searchSourceUsage,
   type SearchSourceState,
 } from '@/lib/search-source-status';
+import { searchSourceText } from '@/lib/search-source-text';
 import { vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
@@ -26,7 +27,9 @@ export interface SearchSourceOrdering {
   onMove: (step: -1 | 1) => void;
 }
 
-const action = 'h-7 px-2 text-xs';
+// Narrow, a long localized label ("Προσθήκη κλειδιού") wraps inside its button rather than past the card.
+const action =
+  'h-7 px-2 text-xs max-sm:h-auto max-sm:min-h-7 max-sm:max-w-full max-sm:whitespace-normal';
 
 /**
  * One search source: its name, what it is, its state in words, whether it runs on its
@@ -63,7 +66,8 @@ export function SearchSourceRow({
   const queue = searchSourceQueue(source);
   const paidId = `search-paid-${source.id}`;
   // "Needs your key" is already the status; the free-use line would only repeat it.
-  const freeUse = source.free_use && source.free_use !== state.label ? source.free_use : '';
+  const freeUseText = searchSourceText(source.free_use);
+  const freeUse = freeUseText && freeUseText !== state.label ? freeUseText : '';
   const body = (
     <>
       {ordering ? (
@@ -79,13 +83,15 @@ export function SearchSourceRow({
           </SortableItemHandle>
         </div>
       ) : null}
-      <div className={cn('min-w-0', !source.enabled && 'text-muted-foreground')}>
+      <div className={cn('min-w-0 break-words', !source.enabled && 'text-muted-foreground')}>
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-          <span className="text-[0.8125rem] font-medium">{source.name}</span>
+          <span className="max-w-full min-w-0 text-[0.8125rem] font-medium">{source.name}</span>
           <span className="text-xs text-muted-foreground">{searchSourceMode(source)}</span>
         </div>
         {source.description ? (
-          <p className="mt-0.5 text-xs text-muted-foreground">{source.description}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {searchSourceText(source.description)}
+          </p>
         ) : null}
         {freeUse ? <p className="mt-0.5 text-xs text-faint">{t`Free use: ${freeUse}`}</p> : null}
         {allowance ? <p className="mt-0.5 text-xs text-faint">{allowance}</p> : null}
@@ -106,9 +112,14 @@ export function SearchSourceRow({
         ) : null}
         {children}
       </div>
-      <div className="flex flex-col items-end gap-1.5 max-sm:col-span-full max-sm:flex-row max-sm:flex-wrap max-sm:items-center max-sm:justify-between">
-        <StatusIndicator label={state.label} tone={state.tone} />
-        <div className="flex items-center gap-1">
+      <div className="flex flex-col items-end gap-1.5 max-sm:col-span-full max-sm:min-w-0 max-sm:flex-row max-sm:flex-wrap max-sm:items-center max-sm:justify-between">
+        <StatusIndicator
+          className="max-sm:max-w-full max-sm:[&>span:last-child]:break-words max-sm:[&>span:last-child]:whitespace-normal"
+          label={state.label}
+          tone={state.tone}
+        />
+        {/* Narrow, the moves, key button and switch wrap onto more lines inside the card. */}
+        <div className="flex items-center gap-1 max-sm:max-w-full max-sm:min-w-0 max-sm:flex-wrap max-sm:justify-end">
           {ordering ? (
             <>
               <IconButton
@@ -128,28 +139,32 @@ export function SearchSourceRow({
             </>
           ) : null}
           {confirming ? (
-            <span className="flex items-center gap-1 text-xs">
-              <span className="text-muted-foreground">{t`Remove the key?`}</span>
-              <Button
-                className={action}
-                onClick={() => setConfirming(false)}
-                size="sm"
-                variant="ghost"
-              >
-                {t({ message: 'Keep', context: 'verb: keep the saved key' })}
-              </Button>
-              <Button
-                className={action}
-                disabled={busy}
-                onClick={() => {
-                  setConfirming(false);
-                  onRemoveKey();
-                }}
-                size="sm"
-                variant="outline"
-              >
-                {t({ message: 'Remove', context: 'verb: remove the saved key' })}
-              </Button>
+            <span className="flex items-center gap-1 text-xs max-sm:max-w-full max-sm:min-w-0 max-sm:flex-wrap">
+              <span className="min-w-0 text-muted-foreground">{t`Remove the key?`}</span>
+              {/* Keep and Remove wrap together, so neither answer sits alone on a line; a
+                  line too narrow for both stacks the pair instead of overflowing the card. */}
+              <span className="flex max-w-full min-w-0 flex-wrap items-center gap-1">
+                <Button
+                  className={action}
+                  onClick={() => setConfirming(false)}
+                  size="sm"
+                  variant="ghost"
+                >
+                  {t({ message: 'Keep', context: 'verb: keep the saved key' })}
+                </Button>
+                <Button
+                  className={action}
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirming(false);
+                    onRemoveKey();
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  {t({ message: 'Remove', context: 'verb: remove the saved key' })}
+                </Button>
+              </span>
             </span>
           ) : source.has_key ? (
             <Button

@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import {
+  artifactGridInfoSchema,
+  artifactSectionSampleSchema,
+  artifactTileQuery,
+  type ArtifactGridInfo,
+  type ArtifactSectionSample,
+  type ArtifactTileRequest,
+} from './artifact-grid-schemas.js';
 import { ProviderRepository } from './provider-repository.js';
 
 /**
@@ -156,6 +164,17 @@ const artifactRasterQuerySchema = z
     sourceShape: z.tuple([z.number().int().positive(), z.number().int().positive()]),
     xLabel: z.string(),
     yLabel: z.string(),
+    /** The plane drawn along each leading dimension of a time series (time, say). */
+    frame: z
+      .array(
+        z.object({
+          dim: z.string(),
+          value: z.string(),
+          index: z.number().int().nonnegative(),
+          count: z.number().int().positive(),
+        }),
+      )
+      .optional(),
     min: z.number().nullable(),
     max: z.number().nullable(),
     values: z.array(z.number().nullable()),
@@ -176,6 +195,8 @@ export interface ArtifactRasterQueryRequest {
   extent?: readonly [number, number, number, number];
   variable?: string;
   band?: number;
+  /** Leading-dimension values to draw (nearest), e.g. `{ time: '2024-09-26T12:00' }`. */
+  select?: Record<string, string | number>;
 }
 
 /**
@@ -238,6 +259,59 @@ export type StreamDescription = z.infer<typeof streamDescriptionSchema>;
 export type StreamContent = z.infer<typeof streamContentSchema>;
 
 export class ArtifactPreviewRepository extends ProviderRepository {
+  /** Grid facts of a registered gridded artifact: variables, extent, times, a legend range. */
+  public artifactGridInfo(
+    artifactId: string,
+    variable?: string,
+    select?: Record<string, string | number>,
+    signal?: AbortSignal,
+  ): Promise<ArtifactGridInfo> {
+    const query = new URLSearchParams();
+    if (variable) query.set('variable', variable);
+    if (select && Object.keys(select).length) query.set('select', JSON.stringify(select));
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/artifacts/${encodeURIComponent(artifactId)}/grid-info${suffix}`,
+      decode: (value) => artifactGridInfoSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** One PNG map tile of a registered grid, read through the connection's transport. */
+  public artifactTileBytes(
+    artifactId: string,
+    request: ArtifactTileRequest,
+    signal?: AbortSignal,
+  ): Promise<Uint8Array> {
+    const { z, x, y } = request;
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/artifacts/${encodeURIComponent(artifactId)}/tiles/${z}/${x}/${y}.png?${artifactTileQuery(request)}`,
+      responseType: 'bytes',
+      decode: (value) => {
+        if (!(value instanceof Uint8Array)) throw new TypeError('Expected a binary tile');
+        return value;
+      },
+      signal,
+    });
+  }
+
+  /** A bounded sample of a registered section (distance x vertical). */
+  public artifactSectionQuery(
+    artifactId: string,
+    body: { variable?: string; width: number; height: number },
+    signal?: AbortSignal,
+  ): Promise<ArtifactSectionSample> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/artifacts/${encodeURIComponent(artifactId)}/section-query`,
+      body,
+      decode: (value) => artifactSectionSampleSchema.parse(value),
+      signal,
+    });
+  }
+
   /** Read a bounded sample of the visible extent of a registered grid. */
   public artifactRasterQuery(
     artifactId: string,

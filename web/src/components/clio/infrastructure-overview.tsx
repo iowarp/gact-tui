@@ -139,21 +139,22 @@ export function InfrastructureOverview({
       ) : null}
       <nav
         aria-label={t`More infrastructure`}
-        className="flex min-w-0 items-center gap-1.5 overflow-hidden px-0.5 pt-2 pb-1"
+        className="flex min-w-0 flex-wrap items-center gap-1.5 px-0.5 pt-2 pb-1"
       >
         {MORE.map(({ to, label, short, icon: Icon }) => (
           <Button
             asChild
-            className="min-w-0 shrink gap-1.5 text-foreground [&_svg]:size-3.5"
+            className="shrink-0 gap-1.5 text-foreground [&_svg]:size-3.5"
             key={to}
             size="compact"
             variant="ghost"
           >
-            {/* A phone-width overview names each link by its place, so none is clipped. */}
+            {/* A phone-width overview names each link by its place; the links wrap
+                rather than clip. */}
             <Link aria-label={label} title={label} to={to}>
               <Icon aria-hidden="true" />
-              <span className="truncate @max-[440px]/overview:hidden">{label}</span>
-              <span className="hidden truncate @max-[440px]/overview:inline">{short}</span>
+              <span className="@max-[440px]/overview:hidden">{label}</span>
+              <span className="hidden @max-[440px]/overview:inline">{short}</span>
             </Link>
           </Button>
         ))}

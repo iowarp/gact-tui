@@ -23,6 +23,7 @@ import { SettingsScopeContext } from '@/lib/settings-scope-context';
 import { workspaceScopeLine } from '@/lib/settings-workspace-name';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { SettingsSelectField } from './model-select-field';
+import { PathText } from './path-text';
 import { IconButton } from './primitives/icon-button';
 import { ItemList, ItemRow } from './primitives/item-row';
 import { SaveBar } from './primitives/save-bar';
@@ -144,8 +145,9 @@ interface Draft {
 
 function FolderTitle({ folder }: { folder: WorkspaceSourceFolder }) {
   return (
-    <span className="font-mono text-menu font-normal" title={folder.path}>
-      {folder.path}
+    // Wraps after its separators rather than ending in an ellipsis, so the leaf folder shows.
+    <span className="block font-mono text-menu font-normal whitespace-normal" title={folder.path}>
+      <PathText path={folder.path} />
     </span>
   );
 }
@@ -326,6 +328,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
             }
             slotWidth={SLOT_WIDTH}
             title={<FolderTitle folder={primary} />}
+            wrapMeta
           />
         </ItemList>
 
@@ -365,6 +368,7 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
                   key={folder.path}
                   meta={words}
                   title={<FolderTitle folder={folder} />}
+                  wrapMeta
                 />
               );
             })
@@ -378,11 +382,11 @@ function WorkspaceFolders({ workspace }: { workspace: Workspace }) {
           )}
         </ItemList>
         <p
-          className="flex h-[1.875rem] min-w-0 items-center gap-2 text-xs whitespace-nowrap text-muted-foreground"
+          className="flex min-h-[1.875rem] min-w-0 items-center gap-2 py-1 text-xs text-muted-foreground"
           data-slot="folders-note"
         >
           <InfoIcon aria-hidden="true" className="size-[0.8125rem] shrink-0" />
-          <span className="min-w-0 truncate">
+          <span className="min-w-0 break-words [word-break:auto-phrase] [line-break:strict]">
             {t`Running tools pick up folder changes when they finish.`}
           </span>
         </p>

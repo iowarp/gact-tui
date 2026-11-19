@@ -460,7 +460,15 @@ function UploadRow({
         }
       : resource.state === 'ready'
         ? { tone: 'success' as const, label: t`Ready` }
-        : { tone: 'idle' as const, label: sentenceCase(resource.state) };
+        : {
+            tone: 'idle' as const,
+            label:
+              resource.state === 'quarantined'
+                ? t({ message: 'Quarantined', context: 'source state' })
+                : resource.state === 'failed'
+                  ? t({ message: 'Failed', context: 'source state' })
+                  : sentenceCase(resource.state),
+          };
   return (
     <div role="listitem" title={`${name}, ${parts.join(', ')}`}>
       <ListRow

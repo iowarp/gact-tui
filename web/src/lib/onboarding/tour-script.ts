@@ -31,6 +31,8 @@ export interface TourPracticeScene {
   draft?: string;
   /** The opened plot shows beside the conversation. */
   viewer?: boolean;
+  /** The agent's example offer to add a connector shows above the composer. */
+  offer?: boolean;
 }
 
 export interface TourStep {
@@ -162,6 +164,13 @@ export const TOUR_STEPS: readonly TourStep[] = [
     title: t`Explore the results`,
     body: t`Maps, charts and tables work right in the conversation. Hover for values, scroll to zoom and drag to pan.`,
     tryIt: t`Zoom or pan the map.`,
+  },
+  {
+    id: 'connectors',
+    practice: { turns: 2, offer: true },
+    anchor: 'connector-offer',
+    title: t`Bring in tools`,
+    body: t`Connectors and plugins add tools to a conversation. Just ask, and ${ph({ agent: vocab.agent })} offers what fits, like this card, or browse Discover in Settings.`,
   },
   {
     id: 'select',

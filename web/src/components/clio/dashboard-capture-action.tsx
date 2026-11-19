@@ -28,9 +28,9 @@ export function DashboardCaptureAction({
       start
         ? [
             {
-              label: t`Capture labelled regions`,
+              label: t`Mark regions across the dashboard`,
               description: allowed
-                ? t`Send the displayed dashboard, with its regions labelled, to the conversation`
+                ? t`Mark regions anywhere on the displayed dashboard, across its charts and views`
                 : t`Choose a model that accepts images to capture a region`,
               icon: CameraIcon,
               disabled: !allowed || !target,

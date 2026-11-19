@@ -1,6 +1,7 @@
 import type { WorkspaceReference } from '@clio/core/v3';
 import { ContextReferenceLink } from './context-reference-link';
 import { GroundedMessageResponse } from './grounded-message-response';
+import { escapeTagLikeText } from '@/lib/escape-tag-like-text';
 import { sentDataReferences } from '@/lib/sent-data-references';
 import { inlineReferenceSegments, type InlineReferenceBlock } from '@/lib/sent-inline-references';
 import { SummonChip } from './summon-chip';
@@ -21,7 +22,8 @@ function SentTextWithReferences({
 }) {
   const segments = inlineReferenceSegments(text, references);
   if (!segments.some((segment) => segment.kind === 'reference')) {
-    return <GroundedMessageResponse>{text}</GroundedMessageResponse>;
+    // Tag-like words ("<AGREES or DISAGREES>") are the person's text, not HTML.
+    return <GroundedMessageResponse>{escapeTagLikeText(text)}</GroundedMessageResponse>;
   }
   return (
     <p className="min-w-0 whitespace-pre-wrap break-words leading-7">

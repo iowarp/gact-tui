@@ -49,6 +49,7 @@ import { StateView } from './primitives/state-view';
 import { ScopedDocumentNavigation } from './scoped-document-navigation';
 import { SettingsGroupLabel } from './settings-row';
 import { ph, plural, t } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
 import { Trans } from '@lingui/react/macro';
 
 const FileReader = lazy(async () => ({ default: (await import('./file-text-view')).FileTextView }));
@@ -391,7 +392,7 @@ export function PluginDetailPane({
               <div className="mt-3 grid gap-2.5">
                 {inspection.data?.incomplete ? (
                   <p className="text-xs text-muted-foreground">
-                    {inspection.data.reason || t`Some source files could not be fully included.`}{' '}
+                    {inspection.data.reason || t`Some source files could not be fully included.`}{sentenceGap()}
                     {t`A complete source is required to save a variation.`}
                   </p>
                 ) : null}

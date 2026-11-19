@@ -87,6 +87,16 @@ if (!HTMLElement.prototype.hasPointerCapture) {
   HTMLElement.prototype.releasePointerCapture = () => undefined;
 }
 
+// jsdom has no SVG text layout (and no SVGTextElement): a label measures zero, so the
+// connection map keeps it where it is drawn. Browser checks cover the fitting.
+if (!('getComputedTextLength' in SVGElement.prototype)) {
+  Object.defineProperty(SVGElement.prototype, 'getComputedTextLength', {
+    configurable: true,
+    value: () => 0,
+    writable: true,
+  });
+}
+
 if (!HTMLElement.prototype.scrollIntoView) {
   HTMLElement.prototype.scrollIntoView = () => undefined;
 }

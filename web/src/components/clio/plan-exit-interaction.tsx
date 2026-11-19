@@ -106,41 +106,79 @@ function PlanPreview({
   // The glance goes from the summary straight to the numbered steps, as the spec draws.
   const glance = expanded ? content : content?.replace(STEPS_HEADING, '');
   const [overflowing, setOverflowing] = useState(false);
+  // Under a tight height cap the reading area can get less than a line: show none of it, not a sliver.
+  const [cramped, setCramped] = useState(false);
   const clipRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const clip = clipRef.current;
     const body = bodyRef.current;
     if (!clip || !body || expanded) return;
-    const measure = () => setOverflowing(body.scrollHeight > clip.clientHeight + 1);
+    const measure = () => {
+      setOverflowing(body.scrollHeight > clip.clientHeight + 1);
+      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setCramped(clip.clientHeight > 0 && clip.clientHeight < 2.5 * rem);
+    };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(body);
+    observer.observe(clip);
     return () => observer.disconnect();
   }, [expanded, content]);
   const opens = Boolean(artifact && onOpenArtifact);
   const toggles = Boolean(content) && !opens && (overflowing || expanded);
   const clipped = !expanded && overflowing;
+  const hidden = !expanded && cramped;
   const footer = footerText(plan);
+  const hasFooter = Boolean(footer || opens || toggles);
+  // Once the button has taken its own line, the summary has the row to itself and wraps whole.
+  const [stacked, setStacked] = useState(false);
+  useLayoutEffect(() => {
+    const row = footerRef.current;
+    if (!row) return;
+    const measure = () => {
+      const first = row.firstElementChild as HTMLElement | null;
+      const last = row.lastElementChild as HTMLElement | null;
+      setStacked(
+        Boolean(
+          first && last && first !== last && last.offsetTop >= first.offsetTop + first.offsetHeight,
+        ),
+      );
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [hasFooter]);
   return (
     <AskSection
-      className={cn('overflow-hidden rounded-lg border border-border bg-background', className)}
+      // Under the card's height cap the reading area gives up height; the footer stays whole.
+      className={cn(
+        'flex min-h-[36px] flex-col overflow-hidden rounded-lg border border-border bg-background',
+        className,
+      )}
       data-slot="plan-preview"
     >
       <div
         className={cn(
-          'px-3.5 pt-2.5',
+          // The padding sits on the body, so the reading area can give up all of its height.
+          'min-h-0',
           expanded
-            ? 'clio-scrollbar max-h-[min(28rem,50dvh)] overflow-auto pb-2.5'
-            : 'max-h-[118px] overflow-hidden pb-2.5',
+            ? 'clio-scrollbar max-h-[min(28rem,50dvh)] overflow-auto'
+            : // A narrow card wraps the plan to more lines, so its glance gets more height.
+              'max-h-[118px] overflow-hidden @max-[420px]/ask:max-h-[11rem]',
           clipped && '[mask-image:linear-gradient(#000_55%,transparent)]',
+          hidden && 'invisible',
         )}
         data-plan-clipped={clipped || undefined}
+        data-plan-cramped={hidden || undefined}
         ref={clipRef}
         tabIndex={expanded ? 0 : undefined}
       >
-        <div ref={bodyRef}>
+        <div className="px-3.5 py-2.5" ref={bodyRef}>
           {content ? (
             <MessageResponse className={PLAN_MARKDOWN}>{glance}</MessageResponse>
           ) : (
@@ -154,12 +192,27 @@ function PlanPreview({
           <PlanGuidance plan={plan} />
         </div>
       </div>
-      {footer || opens || toggles ? (
+      {hasFooter ? (
         <div
-          className="flex h-[34px] min-w-0 items-center gap-2.5 border-t border-border pr-1.5 pl-3 text-label whitespace-nowrap text-muted-foreground"
+          ref={footerRef}
+          // rem, so the footer grows with its button at larger interface sizes. The summary's
+          // basis is its whole line, so whenever it can't fit beside the button, the button
+          // takes its own line rather than cutting the summary short.
+          className={cn(
+            'flex min-h-[2.125rem] min-w-0 shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 border-border py-[0.3125rem] pr-1.5 pl-3 text-label whitespace-nowrap text-muted-foreground',
+            !hidden && 'border-t',
+          )}
           data-slot="plan-preview-footer"
         >
-          <span className="min-w-0 truncate" title={footer}>
+          <span
+            className={cn(
+              'min-w-0',
+              stacked ? 'whitespace-normal' : 'truncate',
+              footer && 'flex-auto',
+            )}
+            data-plan-summary-stacked={stacked || undefined}
+            title={footer}
+          >
             {footer}
           </span>
           {!keys && content ? (
@@ -371,6 +424,9 @@ export function PlanExitResponse({
   const file = plan?.plan_file;
   return (
     <AskCard
+      // In a narrow dock the options stack and fill the cap, which would squeeze the plan down
+      // to its summary line. There the card keeps its height and the dock scrolls it instead.
+      className="@max-[420px]/dock:max-h-none"
       data-interaction-kind="plan_exit"
       icon={NotebookTextIcon}
       id={pendingInteractionDomId(interaction.id)}

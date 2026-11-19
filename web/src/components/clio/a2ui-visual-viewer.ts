@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useContext, useEffect, useRef, type RefObject } from 'react';
 import type { SurfaceModel } from '@a2ui/web_core/v0_9';
 import type { ReactComponentImplementation } from '@a2ui/react/v0_9';
 import type { A2uiCaptureRequest, A2uiViewerReport, A2UISurface } from '@clio/core/v3';
@@ -6,6 +6,14 @@ import type { View } from 'vega';
 import type { MapLibreMap } from 'maplibre-gl';
 import { useRepository } from '@/hooks/use-repository';
 import { captureRenderedSurfacePng } from './a2ui-region-capture';
+import { A2uiViewerLease, A2uiViewerLeaseContext } from './a2ui-viewer-lease';
+import {
+  CAPTURE_MOUNTED_VIEWERS,
+  inOffscreenViewer,
+  VIEWER_DEFERRED_ATTRIBUTE,
+  VIEWER_OFFSCREEN_ATTRIBUTE,
+  withGatedViewersMounted,
+} from './viewer-capture-mount';
 
 interface VisualNode extends HTMLElement {
   __clioMap?: MapLibreMap;
@@ -16,7 +24,7 @@ interface VisualNode extends HTMLElement {
   __clioVisualReference?: () => unknown;
 }
 
-function displayed(node: HTMLElement): boolean {
+export function displayed(node: HTMLElement): boolean {
   const rect = node.getBoundingClientRect();
   return (
     node.isConnected &&
@@ -25,6 +33,18 @@ function displayed(node: HTMLElement): boolean {
     getComputedStyle(node).visibility !== 'hidden' &&
     getComputedStyle(node).display !== 'none'
   );
+}
+
+/**
+ * Displayed and part of the view a person sees: an off-screen gated viewer, deferred or
+ * mounted only while a capture runs, is neither (`VIEWER_OFFSCREEN_ATTRIBUTE`).
+ */
+function shown(node: HTMLElement): boolean {
+  return displayed(node) && !inOffscreenViewer(node);
+}
+
+function componentId(node: Element): string | null | undefined {
+  return node.closest('[data-a2ui-component-id]')?.getAttribute('data-a2ui-component-id');
 }
 
 /** Report view evidence rather than retransmitting complete referenced datasets. */
@@ -101,7 +121,7 @@ function boundControls(surface: A2UISurface, model: SurfaceModel<ReactComponentI
 /** Inspect the current rendered state independently of definition revisions. */
 export function visualViewState(root: HTMLElement): Record<string, unknown> {
   const maps = [...root.querySelectorAll<VisualNode>('[data-slot="a2ui-map-surface"]')]
-    .filter(displayed)
+    .filter(shown)
     .map((node) => {
       const map = node.__clioMap;
       const center = map?.getCenter();
@@ -125,11 +145,9 @@ export function visualViewState(root: HTMLElement): Record<string, unknown> {
   const meshes = [
     ...root.querySelectorAll<VisualNode>('[data-slot="a2ui-mesh-viewport"] div[role="img"]'),
   ]
-    .filter(displayed)
+    .filter(shown)
     .map((node) => ({
-      component_id: node
-        .closest('[data-a2ui-component-id]')
-        ?.getAttribute('data-a2ui-component-id'),
+      component_id: componentId(node),
       state: node.__clioMeshState?.(),
       ready: Boolean(node.__clioMeshCapture),
     }));
@@ -138,21 +156,23 @@ export function visualViewState(root: HTMLElement): Record<string, unknown> {
     viewport: { width: rect.width, height: rect.height },
     maps,
     meshes,
-    data_views: [...root.querySelectorAll<VisualNode>('[data-slot="surface-toolbar"]')].map(
-      (node) => ({
-        component_id: node
-          .closest('[data-a2ui-component-id]')
-          ?.getAttribute('data-a2ui-component-id'),
-        reference: node.__clioVisualReference?.(),
-      }),
+    // Viewers scrolled out of view; a capture mounts them while it runs.
+    offscreen_views: [...root.querySelectorAll<HTMLElement>(`[${VIEWER_OFFSCREEN_ATTRIBUTE}]`)].map(
+      (node) => ({ component_id: componentId(node) }),
     ),
+    data_views: [...root.querySelectorAll<VisualNode>('[data-slot="surface-toolbar"]')]
+      .filter((node) => !inOffscreenViewer(node))
+      .map((node) => ({
+        component_id: componentId(node),
+        reference: node.__clioVisualReference?.(),
+      })),
     tabs: [...root.querySelectorAll<HTMLElement>('[role="tab"][aria-selected="true"]')]
-      .filter(displayed)
+      .filter(shown)
       .map((node) => ({ id: node.id, label: node.textContent })),
     inputs: [
       ...root.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select, textarea'),
     ]
-      .filter(displayed)
+      .filter(shown)
       .map((node) => ({
         name: node.name,
         value: node.value,
@@ -161,7 +181,13 @@ export function visualViewState(root: HTMLElement): Record<string, unknown> {
   };
 }
 
-function assertReady(target: HTMLElement): void {
+/**
+ * Whether `target` can be captured now. The view a person sees (`capture` false, the
+ * viewer's report) leaves out off-screen gated viewers, which a capture mounts itself;
+ * a capture (`capture` true) also waits for those it mounted.
+ */
+function assertReady(target: HTMLElement, capture = false): void {
+  const counts = capture ? displayed : shown;
   if (!displayed(target) || document.visibilityState !== 'visible')
     throw new Error('The requested view is hidden or unmounted.');
   if (
@@ -178,33 +204,39 @@ function assertReady(target: HTMLElement): void {
     ...target.querySelectorAll<HTMLElement>(
       '[role="alert"]:not([data-a2ui-callout]), [data-visual-state="failed"]',
     ),
-  ].find(displayed);
+  ].find(counts);
   if (failed) throw new Error(failed.textContent || 'A required view failed to render.');
   if (
     [
       ...(target.matches('[aria-busy="true"], [data-visual-state="loading"]') ? [target] : []),
       ...target.querySelectorAll<HTMLElement>('[aria-busy="true"], [data-visual-state="loading"]'),
-    ].some(displayed)
+    ].some(counts)
   )
     throw new Error('Required data or rendering is still loading.');
+  if (
+    [
+      ...(target.hasAttribute(VIEWER_DEFERRED_ATTRIBUTE) ? [target] : []),
+      ...target.querySelectorAll<HTMLElement>(`[${VIEWER_DEFERRED_ATTRIBUTE}]`),
+    ].some(counts)
+  )
+    throw new Error('A view is still mounting for the capture.');
   for (const node of target.querySelectorAll<VisualNode>('[data-slot="a2ui-map-surface"]')) {
-    if (!displayed(node)) continue;
+    if (!counts(node)) continue;
     if (node.__clioMapFailure) throw new Error(node.__clioMapFailure);
     if (!node.__clioMap?.loaded() || !node.__clioMap.areTilesLoaded() || node.__clioMap.isMoving())
       throw new Error('Map data, tiles or camera are not ready.');
   }
   for (const node of target.querySelectorAll<VisualNode>('[data-slot="a2ui-chart-view"]')) {
-    if (displayed(node) && !node.__clioChart)
-      throw new Error('The chart has not completed layout.');
+    if (counts(node) && !node.__clioChart) throw new Error('The chart has not completed layout.');
   }
   for (const node of target.querySelectorAll<VisualNode>(
     '[data-slot="a2ui-mesh-viewport"] div[role="img"]',
   )) {
-    if (displayed(node) && !node.__clioMeshCapture)
+    if (counts(node) && !node.__clioMeshCapture)
       throw new Error('The mesh graphics frame is unavailable.');
   }
   for (const image of target.querySelectorAll('img')) {
-    if (displayed(image) && (!image.complete || !image.naturalWidth))
+    if (counts(image) && (!image.complete || !image.naturalWidth))
       throw new Error('A required image is unavailable.');
   }
 }
@@ -232,13 +264,18 @@ export async function captureVisualRequest(
       throw new Error('The requested component has no capturable displayed content.');
     target = content;
   }
+  const shown = target;
+  return withGatedViewersMounted(shown, () => captureMounted(shown, matches));
+}
+
+async function captureMounted(target: HTMLElement, matches: () => boolean): Promise<string> {
   await document.fonts.ready;
   await nextFrame();
   // Required data and tiles have a bounded chance to finish. An unavailable
   // view remains a failure, never the last canvas frame from an earlier query.
   for (let attempt = 0; ; attempt += 1) {
     try {
-      assertReady(target);
+      assertReady(target, true);
       break;
     } catch (error) {
       if (!displayed(target) || attempt >= 70 || !matches()) throw error;
@@ -253,7 +290,7 @@ export async function captureVisualRequest(
   const rect = target.getBoundingClientRect();
   const ratio = visualCapturePixelRatio(rect.width, rect.height, window.devicePixelRatio || 1);
   const blob = await captureRenderedSurfacePng(target, ratio);
-  assertReady(target);
+  assertReady(target, true);
   if (!matches()) throw new Error('The definition or viewer state changed during capture.');
   if (blob.size > 5_000_000)
     throw new Error('The captured PNG exceeds 5 MB; select a smaller component.');
@@ -286,7 +323,37 @@ export function visualMutationsChanged(records: MutationRecord[]): boolean {
   });
 }
 
-/** One lease per mounted renderer; polling is serialized and stops on unmount. */
+/**
+ * Run one capture within the renderer's budget, renewing the viewer's lease while it
+ * runs. Returns the PNG or the reason there is none, never an earlier frame.
+ */
+export async function runCaptureBudget(
+  work: () => Promise<string>,
+  renew: () => void,
+): Promise<{ png: string; error: string }> {
+  let budget = 0;
+  const renewal = window.setInterval(renew, 750);
+  try {
+    const png = await Promise.race([
+      work(),
+      new Promise<never>((_, reject) => {
+        budget = window.setTimeout(() => reject(new Error('Renderer capture timed out.')), 10_000);
+      }),
+    ]);
+    return { png, error: '' };
+  } catch (failure) {
+    return { png: '', error: failure instanceof Error ? failure.message : String(failure) };
+  } finally {
+    window.clearTimeout(budget);
+    window.clearInterval(renewal);
+  }
+}
+
+/**
+ * One lease per mounted renderer; polling is serialized and stops on unmount. A
+ * transcript surface shares its lease (`A2uiViewerLeaseContext`) with the viewer that
+ * reports for it while it is suspended off screen.
+ */
 export function useA2uiVisualViewer(
   root: RefObject<HTMLDivElement | null>,
   surface: A2UISurface,
@@ -295,17 +362,22 @@ export function useA2uiVisualViewer(
   enabled = true,
 ): void {
   const repository = useRepository();
-  const epoch = useRef(0);
-  const viewerId = useRef(crypto.randomUUID());
+  const shared = useContext(A2uiViewerLeaseContext);
+  const ownLease = useRef<A2uiViewerLease | null>(null);
   useEffect(() => {
     const node = root.current;
-    if (!enabled || !node || !model || !repository.reportA2uiViewer) return;
+    // While the surface is mounted only for an off-screen capture, its suspended
+    // viewer owns the lease and runs that capture.
+    if (!enabled || shared?.suspended || !node || !model || !repository.reportA2uiViewer) return;
+    const lease = shared?.lease ?? (ownLease.current ??= new A2uiViewerLease());
     const abort = new AbortController();
     let timer = 0;
     let unsupported = false;
     let fingerprint = '';
+    // A viewer off screen, including one a capture mounts, is not the person's view.
     const observer = new MutationObserver((records) => {
-      if (visualMutationsChanged(records)) epoch.current += 1;
+      if (visualMutationsChanged(records.filter((record) => !inOffscreenViewer(record.target))))
+        lease.advance();
     });
     observer.observe(node, {
       subtree: true,
@@ -315,8 +387,16 @@ export function useA2uiVisualViewer(
       characterData: true,
       characterDataOldValue: true,
     });
+    let settledViewport: unknown;
     const report = (): A2uiViewerReport => {
-      const state = { ...visualViewState(node), ...boundControls(surface, model) };
+      const view = visualViewState(node);
+      // Viewers a capture mounts can resize the surface while it runs; that is the
+      // capture's own doing, not the person's view changing, so the size stays the one
+      // the view had without them.
+      if (settledViewport && node.querySelector(CAPTURE_MOUNTED_VIEWERS))
+        view.viewport = settledViewport;
+      else settledViewport = view.viewport;
+      const state = { ...view, ...boundControls(surface, model) };
       let ready = true;
       let detail = '';
       try {
@@ -330,27 +410,32 @@ export function useA2uiVisualViewer(
         readiness: { ready, detail },
       };
       const next = JSON.stringify(observed);
-      if (fingerprint && next !== fingerprint) epoch.current += 1;
+      if (fingerprint && next !== fingerprint) lease.advance();
       fingerprint = next;
       return {
-        viewer_id: viewerId.current,
+        viewer_id: lease.viewerId,
         surface_id: surface.id,
         revision: surface.revision,
-        view_revision: epoch.current,
+        view_revision: lease.epoch,
         artifact_id: artifactId,
         state: observed,
         visible: displayed(node) && document.visibilityState === 'visible',
         ready,
       };
     };
+    // Every report can claim requests, including renewals while a capture runs (a
+    // request the server sent after an earlier one expired). Each is kept until this
+    // viewer has answered it; dropping one leaves the agent waiting out its budget.
+    const claimed: A2uiCaptureRequest[] = [];
+    const renew = async (current = report()) => {
+      claimed.push(
+        ...(await repository.reportA2uiViewer(surface.session_id, current, abort.signal)),
+      );
+    };
     const cycle = async () => {
       try {
-        const requests = await repository.reportA2uiViewer(
-          surface.session_id,
-          report(),
-          abort.signal,
-        );
-        for (const request of requests) {
+        await renew();
+        for (let request = claimed.shift(); request; request = claimed.shift()) {
           if (request.data_model_update) {
             let error = '';
             try {
@@ -364,18 +449,18 @@ export function useA2uiVisualViewer(
               if (!boundControls(surface, model).controls.some((control) => control.path === path))
                 throw new Error('The requested path is not a declared view binding.');
               model.dataModel.set(path, value);
-              epoch.current += 1;
+              lease.advance();
               await nextFrame();
             } catch (failure) {
               error = failure instanceof Error ? failure.message : String(failure);
             }
             const current = report();
-            await repository.reportA2uiViewer(surface.session_id, current, abort.signal);
+            await renew(current);
             await repository.completeA2uiCapture(
               surface.session_id,
               {
                 request_id: request.request_id,
-                viewer_id: viewerId.current,
+                viewer_id: lease.viewerId,
                 revision: current.revision,
                 view_revision: current.view_revision,
                 previous_view_revision: request.view_revision,
@@ -385,8 +470,6 @@ export function useA2uiVisualViewer(
             );
             continue;
           }
-          let png = '',
-            error = '';
           const matches = () => {
             const current = report();
             return (
@@ -395,36 +478,18 @@ export function useA2uiVisualViewer(
               current.view_revision === request.view_revision
             );
           };
-          let budget = 0;
-          const renew = window.setInterval(() => {
-            void repository
-              .reportA2uiViewer(surface.session_id, report(), abort.signal)
-              .catch(() => undefined);
-          }, 750);
-          try {
-            png = await Promise.race([
-              captureVisualRequest(node, request, matches),
-              new Promise<never>((_, reject) => {
-                budget = window.setTimeout(
-                  () => reject(new Error('Renderer capture timed out.')),
-                  10_000,
-                );
-              }),
-            ]);
-          } catch (failure) {
-            error = failure instanceof Error ? failure.message : String(failure);
-          } finally {
-            window.clearTimeout(budget);
-            window.clearInterval(renew);
-          }
+          const { png, error } = await runCaptureBudget(
+            () => captureVisualRequest(node, request, matches),
+            () => void renew().catch(() => undefined),
+          );
           // Report the post-capture epoch first. The server also rejects changes
           // during capture, independently of the local comparison.
-          await repository.reportA2uiViewer(surface.session_id, report(), abort.signal);
+          await renew();
           await repository.completeA2uiCapture(
             surface.session_id,
             {
               request_id: request.request_id,
-              viewer_id: viewerId.current,
+              viewer_id: lease.viewerId,
               revision: request.revision,
               view_revision: request.view_revision,
               ...(error ? { error } : { png_base64: png }),
@@ -452,7 +517,7 @@ export function useA2uiVisualViewer(
       abort.abort();
       observer.disconnect();
       window.clearTimeout(timer);
-      epoch.current += 1;
+      lease.advance();
     };
-  }, [artifactId, enabled, model, repository, root, surface]);
+  }, [artifactId, enabled, model, repository, root, shared, surface]);
 }

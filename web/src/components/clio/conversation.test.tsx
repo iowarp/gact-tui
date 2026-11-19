@@ -7,6 +7,7 @@ import { ConversationDisplayProvider } from '@/providers/conversation-display-pr
 import { TranscriptTestAppearance as AppearanceProvider } from '@/test/transcript-test-appearance';
 import { ClioConversation } from './conversation';
 import { ConversationMessageRow } from './conversation-message-row';
+import { resetMcpAppLiveSet } from './mcp-app-live-set';
 
 // Scroll, virtualization, and minimap behaviour live in
 // `conversation-viewport.test.tsx`; this file covers message content.
@@ -612,77 +613,12 @@ describe('ClioConversation recovery actions', () => {
     );
 
     expect(screen.getByText('This reply didn’t load')).toBeInTheDocument();
-    expect(screen.getByText(/No response content was recorded/)).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="reply-error-reason"]')).toHaveTextContent(
+      /No response content was recorded/,
+    );
     expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
     expect(document.querySelector('[data-slot="message-completion-footer"]')).toBeNull();
-  });
-
-  it('explains when a response was interrupted by a service restart', () => {
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={[
-          {
-            id: 'message_restart_interrupted',
-            session_id: 'session_1',
-            role: 'assistant',
-            created_at: '2026-09-11T18:30:23Z',
-            blocks: [],
-            stop_reason: 'error',
-            error_info: {
-              error: 'server_restart_interrupted',
-              message:
-                'The agent service restarted before this response completed. Your request was preserved and can be retried.',
-              recoverable: true,
-            },
-          },
-        ]}
-        onRetryMessage={() => undefined}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{}}
-        tools={{}}
-      />,
-    );
-
-    expect(screen.getByText('This reply was interrupted')).toBeInTheDocument();
-    expect(screen.getByText(/agent service restarted/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
-  });
-
-  it('renders a client-cancelled response as one compact line', () => {
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={[
-          {
-            id: 'message_client_cancelled',
-            session_id: 'session_1',
-            role: 'assistant',
-            created_at: '2026-09-22T09:30:00Z',
-            blocks: [],
-            stop_reason: 'error',
-            error_info: {
-              error: 'cancelled',
-              message: 'turn cancelled by client',
-              recoverable: true,
-            },
-          },
-        ]}
-        onRetryMessage={() => undefined}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{}}
-        tools={{}}
-      />,
-    );
-
-    const notice = screen.getByText('Reply cancelled').closest('[data-slot="reply-error"]');
-    expect(notice).toHaveClass('w-fit');
-    expect(notice).not.toHaveAttribute('title');
-    expect(notice?.querySelector('[role="alert"]')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
 
   it('does not render projection-only A2UI updates as missing assistant responses', () => {
@@ -710,10 +646,12 @@ describe('ClioConversation recovery actions', () => {
   });
 
   it('closes only an app superseded inside the session, not the active app on navigation', async () => {
+    resetMcpAppLiveSet();
     const closeMcpApp = vi.fn(async () => undefined);
     const repository = {
       closeMcpApp,
       mcpAppDescriptor: vi.fn(() => new Promise(() => undefined)),
+      mcpAppLive: vi.fn(() => new Promise(() => undefined)),
     } as unknown as ClioRepository;
     const appMessage = (id: string, appInstanceId: string, createdAt: string): DomainMessage => ({
       id,

@@ -66,6 +66,7 @@ export function ScheduleSelect({
   icon,
   className,
   disabled,
+  wrap,
 }: {
   id?: string;
   /** Accessible name when no visible label points at the field. */
@@ -77,6 +78,8 @@ export function ScheduleSelect({
   icon?: ReactNode;
   className?: string;
   disabled?: boolean;
+  /** A long value wraps whole onto more lines (a dialog row) instead of ending in an ellipsis. */
+  wrap?: boolean;
 }) {
   const current = options.find((option) => option.value === value);
   const shown = current ? (current.hint ? `${current.label}, ${current.hint}` : current.label) : '';
@@ -91,6 +94,7 @@ export function ScheduleSelect({
           placeholder={placeholder}
           title={shown || undefined}
           value={current?.label}
+          wrap={wrap}
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent

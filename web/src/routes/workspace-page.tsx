@@ -320,7 +320,7 @@ export function WorkspacePage() {
           navigation={sideNavigation}
           contextBar={<div className="min-w-0 truncate text-ui font-medium">{contextTitle}</div>}
           statusStrip={
-            <WorkspaceLiveStatusStrip key={sessionKey} work={work} sessionId={sessionId} />
+            <WorkspaceLiveStatusStrip key={`${sessionKey}:status`} work={work} sessionId={sessionId} />
           }
           workbench={<div aria-label={canvasLabel} className="h-full bg-background" />}
         >
@@ -410,7 +410,7 @@ export function WorkspacePage() {
       <QuestionAnswerContext.Provider value={questionAnswering.context}>
         <ClioCommandMenu onOpenResource={revealWorkbench} />
         <ClioMoreDetails
-          key={sessionKey}
+          key={`${sessionKey}:details`}
           composerDraft={composerDraft}
           focusComposer={() => setComposerFocusKey((key) => key + 1)}
           model={data.activeModel}
@@ -422,7 +422,7 @@ export function WorkspacePage() {
           key="shell"
           toolbarActions={
             <WorkspaceObservabilityDock
-              key={sessionKey}
+              key={`${sessionKey}:dock`}
               data={data}
               navigation={workbench}
               sessionId={sessionId}
@@ -436,7 +436,7 @@ export function WorkspacePage() {
           navigation={sideNavigation}
           contextBar={
             <WorkspaceContextBar
-              key={sessionKey}
+              key={`${sessionKey}:context`}
               session={session}
               parentSession={data.parentSession}
               workspaceLabel={activeWorkspace ? workspaceName(activeWorkspace) : undefined}
@@ -449,7 +449,7 @@ export function WorkspacePage() {
           }
           workbench={
             <WorkspaceWorkbench
-              key={sessionKey}
+              key={`${sessionKey}:workbench`}
               data={data}
               navigation={workbench}
               sessionId={sessionId}
@@ -468,7 +468,7 @@ export function WorkspacePage() {
           workbenchReveal={workbench.requests}
           statusStrip={
             <WorkspaceLiveStatusStrip
-              key={sessionKey}
+              key={`${sessionKey}:status`}
               work={work}
               onInspectTasks={() => openObservability()}
               onOpenWork={openWork}

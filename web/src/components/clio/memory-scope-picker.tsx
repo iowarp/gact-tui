@@ -61,6 +61,7 @@ export function MemoryPicker({
           placeholder={placeholder}
           title={chosen?.label ?? placeholder}
           value={chosen?.label}
+          wrap
         />
       </PopoverTrigger>
       <PopoverContent

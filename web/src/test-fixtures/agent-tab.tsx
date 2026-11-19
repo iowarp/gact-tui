@@ -76,6 +76,8 @@ export function plugin(
     requires: [],
     members: [],
     removable: true,
+    follows: '',
+    connector: null,
     ...extra,
   };
 }

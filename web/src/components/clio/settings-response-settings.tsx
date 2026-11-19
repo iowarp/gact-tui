@@ -14,6 +14,7 @@ import {
   unusedResponseSettings,
   type ModelSettingsValues,
   type ResponseSettingName,
+  RESPONSE_SETTING_DESCRIPTIONS,
   RESPONSE_SETTING_LABELS,
 } from './settings-models-form';
 import {
@@ -73,11 +74,14 @@ export function SettingsResponseSettings({
   leading,
 }: SettingsResponseSettingsProps) {
   const [openState, setOpen] = useState<boolean>();
-  // The service names each parameter in English; a name this interface knows
-  // is shown in the interface language.
+  // The service names and describes each parameter in English; a name this
+  // interface knows is shown in the interface language.
   const shown = shownResponseParameters(parameters).map((parameter) => ({
     ...parameter,
     label: RESPONSE_SETTING_LABELS[parameter.name as ResponseSettingName] ?? parameter.label,
+    description:
+      RESPONSE_SETTING_DESCRIPTIONS[parameter.name as ResponseSettingName] ??
+      parameter.description,
   }));
   // A search match or a search arrival on one of its rows opens the disclosure.
   const results = useContext(SettingsResultsContext);

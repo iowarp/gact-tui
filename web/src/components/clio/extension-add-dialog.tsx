@@ -15,6 +15,7 @@ import type { SavedMcpService } from '@clio/core/v3';
 import { McpConnectionDialog } from './mcp-connection-dialog';
 import { SettingsRow } from './settings-row';
 import { t } from '@lingui/core/macro';
+import { sentenceGap } from '@/lib/locale-format';
 
 export type ExtensionAdd = {
   kind: 'remote' | 'local' | 'import' | 'skill' | 'plugin' | 'upload';
@@ -26,13 +27,14 @@ export type ExtensionAdd = {
   category?: 'marketplaces' | 'mcp' | 'skills' | 'plugins';
 };
 
-const CHOICES: ExtensionAdd['kind'][] = ['remote', 'local', 'import', 'upload', 'skill', 'plugin'];
+// The raw connection form takes a URL or a command; `local` opens it on Command.
+const CHOICES: ExtensionAdd['kind'][] = ['remote', 'import', 'upload', 'skill', 'plugin'];
 // The same field size as the other Settings dialogs' setting rows.
 const FIELD = 'h-[1.875rem] text-menu';
 
 const ADD_LABELS = {
-  remote: t`MCP server URL`,
-  local: t`Local MCP command`,
+  remote: t`Add by URL or command`,
+  local: t`Add by command`,
   import: t`Repository or host folder`,
   upload: t`Upload ZIP`,
   skill: t`Create a skill`,
@@ -72,15 +74,19 @@ export function ExtensionAddMenu({
           ? t`Add plugin`
           : t({ message: 'Add', context: 'verb' });
   const kinds = CHOICES.filter((kind) => {
-    if (mcp) return kind === 'remote' || kind === 'local';
+    if (mcp) return kind === 'remote';
     if (category === 'skills') return kind === 'skill' || kind === 'import' || kind === 'upload';
     if (category === 'plugins') return kind === 'plugin' || kind === 'import' || kind === 'upload';
     return true;
   });
   return (
-    <span className="inline-flex shrink-0 items-center gap-2.5">
+    // Without room for both, the button wraps under the status instead of off the row.
+    <span className="inline-flex max-w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-x-2.5 gap-y-1">
       {supported !== true ? (
-        <span className="text-xs whitespace-nowrap text-muted-foreground" role="status">
+        <span
+          className="min-w-0 text-xs whitespace-normal text-muted-foreground [word-break:auto-phrase] [line-break:strict]"
+          role="status"
+        >
           {supported === false ? t`Needs a newer agent service` : t`Checking the agent service…`}
         </span>
       ) : null}
@@ -107,7 +113,7 @@ export function ExtensionAddMenu({
   );
 }
 const TITLES = {
-  remote: t`Add an MCP connection`,
+  remote: t`Add by URL or command`,
   local: t`Add a local MCP`,
   import: t`Add from a repository or folder`,
   skill: t`Create a skill`,
@@ -370,7 +376,8 @@ function ExtensionSourceDialog({
             <span className="text-sm text-muted-foreground">
               {choice.category === 'skills'
                 ? t`A skill folder containing SKILL.md and its references.`
-                : t`A plugin folder containing plugin.json or .claude-plugin/plugin.json.`}{' '}
+                : t`A plugin folder containing plugin.json or .claude-plugin/plugin.json.`}
+              {sentenceGap()}
               {t`Up to 128 UTF-8 files, 2 MiB uncompressed.`}
             </span>
           </div>
@@ -431,7 +438,8 @@ function PluginChoices({
 }) {
   const catalog = usePluginCatalog();
   const items = (catalog.data?.plugins ?? [])
-    .filter((row) => row.id !== 'core' && !row.pending_trust)
+    // A plugin that follows a connector comes with it and is not offered on its own.
+    .filter((row) => row.id !== 'core' && !row.pending_trust && !row.follows)
     .map((row) => ({
       id: row.ref,
       title: row.id,

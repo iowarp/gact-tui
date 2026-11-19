@@ -21,7 +21,14 @@ export type AttentionModeState =
   | { status: 'idle' }
   | { status: 'loading'; selection: AgentAnswerTextSelection }
   | { status: 'shown'; selection: AgentAnswerTextSelection; data: AttentionAvailable }
-  | { status: 'unavailable'; selection: AgentAnswerTextSelection; message: string };
+  | {
+      status: 'unavailable';
+      selection: AgentAnswerTextSelection;
+      message: string;
+      /** The server's typed reason (e.g. `output_alignment_mismatch`) and its explanation. */
+      reason?: string;
+      detail?: string;
+    };
 
 /**
  * "Understand attention": select a passage of an agent answer, and see which
@@ -146,7 +153,15 @@ export function useAttentionMode(
         );
         if (requestTokenRef.current !== token) return; // superseded by a newer selection
         if (result.available) setState({ status: 'shown', selection: target, data: result });
-        else setState({ status: 'unavailable', selection: target, message: result.message });
+        else {
+          setState({
+            status: 'unavailable',
+            selection: target,
+            message: result.message,
+            ...(result.reason ? { reason: result.reason } : {}),
+            ...(result.detail ? { detail: result.detail } : {}),
+          });
+        }
       } catch (error) {
         if (controller.signal.aborted || requestTokenRef.current !== token) return;
         setState({ status: 'idle' });

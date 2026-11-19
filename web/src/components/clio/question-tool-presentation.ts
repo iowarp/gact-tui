@@ -1,6 +1,7 @@
 import type { PendingInteraction, ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { interactionAnswerLabels, isCausalQuestionInteraction } from './agent-answer-domain';
 import { ph, t, plural } from '@lingui/core/macro';
+import { formatList } from '@/lib/locale-format';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -86,31 +87,33 @@ export function answeredQuestionReading(
     .flatMap(interactionAnswerLabels);
   if (!answers.length) return;
   const picked = new Set(answers);
+  // Raw answer values the questions offered, so a pick is not read as typed text.
+  const offered = new Set<string>();
+  const option = (value: string, label: string, description?: string) => {
+    offered.add(value);
+    return { label, description, chosen: picked.has(value) };
+  };
   const questionsRead = rows.map((question): AnsweredQuestion => {
     const options = Array.isArray(question.options)
       ? question.options.flatMap((value) => {
-          const option = record(value);
-          return typeof option?.label === 'string'
+          const authored = record(value);
+          return typeof authored?.label === 'string'
             ? [
-                {
-                  label: option.label,
-                  description:
-                    typeof option.description === 'string' && option.description.trim()
-                      ? option.description
-                      : undefined,
-                  chosen: picked.has(option.label),
-                },
+                option(
+                  authored.label,
+                  authored.label,
+                  typeof authored.description === 'string' && authored.description.trim()
+                    ? authored.description
+                    : undefined,
+                ),
               ]
             : [];
         })
       : question.kind === 'confirmation'
-        ? ['Yes', 'No'].map((label) => ({ label, chosen: picked.has(label) }))
+        ? [option('Yes', t`Yes`), option('No', t`No`)]
         : [];
     return { prompt: String(question.question), options };
   });
-  const offered = new Set(
-    questionsRead.flatMap((question) => question.options.map((o) => o.label)),
-  );
   const input = questionInput(tool);
   const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined);
   return {
@@ -214,7 +217,7 @@ export function withQuestionPresentation(
         status === 'pending'
           ? t`Waiting for your answer`
           : status === 'answered'
-            ? answers.join(', ') || 'Answered'
+            ? formatList(answers) || t`Answered`
             : status === 'cancelled'
               ? t`Cancelled`
               : status === 'expired'
@@ -223,7 +226,7 @@ export function withQuestionPresentation(
     });
   }
   if (answers.length)
-    blocks.unshift({ id: 'question-answer', type: 'text', text: answers.join(', ') });
+    blocks.unshift({ id: 'question-answer', type: 'text', text: formatList(answers) });
   return {
     ...tool,
     presentation: {

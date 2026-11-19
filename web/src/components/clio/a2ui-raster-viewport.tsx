@@ -13,23 +13,17 @@ import { buildZoneReference, type DataZoneReference } from './data-zone-referenc
 import { downloadBlob, filenameStemFromTitle } from './surface-export';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
-import { COLORMAP_STOPS, DATA_SCALE_EXEMPTION, type Colormap } from '@/theme/data-scales';
+import {
+  COLORMAP_STOPS,
+  DATA_SCALE_EXEMPTION,
+  colormapRgb,
+  type Colormap,
+} from '@/theme/data-scales';
 import { t, ph } from '@lingui/core/macro';
 
 type Extent = [number, number, number, number];
 type Box = { x0: number; y0: number; x1: number; y1: number };
-function colorAt(map: Colormap, fraction: number): [number, number, number] {
-  const scaled = Math.max(0, Math.min(0.9999, fraction)) * 4;
-  const index = Math.floor(scaled);
-  const position = scaled - index;
-  const from = COLORMAP_STOPS[map][index]!;
-  const to = COLORMAP_STOPS[map][index + 1]!;
-  return [1, 3, 5].map((offset) => {
-    const a = Number.parseInt(from.slice(offset, offset + 2), 16);
-    const b = Number.parseInt(to.slice(offset, offset + 2), 16);
-    return Math.round(a + (b - a) * position);
-  }) as [number, number, number];
-}
+const colorAt = colormapRgb;
 
 function drawRaster(
   canvas: HTMLCanvasElement,
@@ -67,6 +61,18 @@ function rangeForBox(extent: Extent, box: Box): Extent {
   ];
 }
 
+/**
+ * The first value of the shared selection, read along this view's `field` (a time,
+ * say). Like the chart and map, the view reads the shared values through its own
+ * field, whatever field name the view that wrote them used.
+ */
+function selectedFrame(selection: unknown, field: string | undefined): string | number | undefined {
+  if (!field || typeof selection !== 'object' || selection === null) return undefined;
+  const state = selection as { values?: unknown };
+  const first = Array.isArray(state.values) ? state.values[0] : undefined;
+  return typeof first === 'string' || typeof first === 'number' ? first : undefined;
+}
+
 /** Interactive registered-grid viewer with a bounded server sample per visible extent. */
 export function ClioRasterViewport({
   rasterUri,
@@ -74,6 +80,8 @@ export function ClioRasterViewport({
   title,
   variable,
   band = 1,
+  selection: sharedSelection,
+  selectionField,
   colormap = 'viridis',
   unit = '',
   weight,
@@ -84,6 +92,9 @@ export function ClioRasterViewport({
   title?: string;
   variable?: string;
   band?: number;
+  /** The shared selection's value; its first value picks the frame along `selectionField`. */
+  selection?: unknown;
+  selectionField?: string;
   colormap?: Colormap;
   unit?: string;
   weight?: number;
@@ -103,6 +114,9 @@ export function ClioRasterViewport({
   const [selectedExtent, setSelectedExtent] = useState<Extent>();
   const [draft, setDraft] = useState<Box>();
   const [hover, setHover] = useState<{ x: number; y: number; value: number | null }>();
+  const frameValue = selectedFrame(sharedSelection, selectionField);
+  const select =
+    selectionField && frameValue !== undefined ? { [selectionField]: frameValue } : undefined;
   const sample = useQuery({
     enabled: Boolean(artifactId),
     queryKey: queryKeys.key(
@@ -111,6 +125,7 @@ export function ClioRasterViewport({
       artifactId,
       variable,
       band,
+      frameValue,
       extent?.join(','),
       fullscreen,
     ),
@@ -123,6 +138,7 @@ export function ClioRasterViewport({
           ...(extent ? { extent } : {}),
           variable,
           band,
+          ...(select ? { select } : {}),
         },
         signal,
       ),
@@ -361,6 +377,16 @@ export function ClioRasterViewport({
         >
           {heading}
         </h3>
+        {data?.frame?.length ? (
+          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+            {data.frame
+              .map(
+                (part) =>
+                  t`${ph({ dimension: part.dim })} ${ph({ value: part.value })} (${ph({ position: part.index + 1 })} of ${ph({ count: part.count })})`,
+              )
+              .join(', ')}
+          </span>
+        ) : null}
         {controls(false)}
       </div>
       <SurfaceFullScreenHost

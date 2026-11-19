@@ -74,7 +74,10 @@ export function ToolsSettingsTabs({
     );
   };
   return (
-    <div className="@container/toolspage grid min-w-0 gap-2" data-settings-anchor={section}>
+    <div
+      className="@container/toolspage grid min-w-0 grid-cols-1 gap-2"
+      data-settings-anchor={section}
+    >
       <SettingsSectionHeading
         actions={
           <div className="flex min-w-0" ref={switcher}>

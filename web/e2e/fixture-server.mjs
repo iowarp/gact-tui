@@ -86,6 +86,8 @@ let mcpAppToolCalls = 0;
 let mcpAppModelContextUpdates = 0;
 let mcpAppMessages = 0;
 let mcpAppCloses = 0;
+let closedMcpApps = new Set();
+let offerListChoice = { include: [], exclude: [] };
 let resolvedInteractionIds = new Set();
 let streamedText = '';
 let streamStarted = false;
@@ -128,7 +130,7 @@ const mcpAppHtml = `<!doctype html>
         params: {
           protocolVersion: '2026-01-26',
           appInfo: { name: 'V2 exerciser', version: '1.0.0' },
-          appCapabilities: { availableDisplayModes: ['inline'] }
+          appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] }
         }
       });
     </script>
@@ -142,10 +144,40 @@ function mcpSandboxHtml() {
   <body style="margin:0">
     <script>
       let appFrame;
+      // CLIO's sandbox document answers the host's snapshot itself; the view never sees
+      // it. The fixture cannot read the sandboxed view's pixels, so it draws the panel's
+      // layout: a heading, a line of text, a button and the status line.
+      const snapshot = (params) => {
+        const width = appFrame?.clientWidth || 320;
+        const height = appFrame?.clientHeight || 300;
+        const scale = Math.min(params?.scale || 1, (params?.max_side || 4096) / Math.max(width, height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(width * scale));
+        canvas.height = Math.max(1, Math.round(height * scale));
+        const context = canvas.getContext('2d');
+        context.scale(scale, scale);
+        context.fillStyle = '#fff';
+        context.fillRect(0, 0, width, height);
+        context.fillStyle = '#171717';
+        context.fillRect(16, 16, 200, 18);
+        context.fillRect(16, 44, 280, 12);
+        context.fillRect(16, 68, 110, 24);
+        context.fillRect(16, 104, 48, 12);
+        return {
+          image: canvas.toDataURL('image/png'),
+          width: canvas.width,
+          height: canvas.height,
+          scale,
+          painted: { text: 3, controls: 1 },
+          skipped: [],
+        };
+      };
       addEventListener('message', (event) => {
         const message = event.data;
         if (event.source === parent) {
-          if (message?.method === 'ui/notifications/sandbox-resource-ready') {
+          if (message?.method === 'clio/view-snapshot') {
+            parent.postMessage({ jsonrpc: '2.0', id: message.id, result: snapshot(message.params) }, '*');
+          } else if (message?.method === 'ui/notifications/sandbox-resource-ready') {
             appFrame = document.createElement('iframe');
             appFrame.title = 'MCP App content';
             appFrame.sandbox = 'allow-scripts';
@@ -1243,6 +1275,108 @@ function commonHeaders(contentType = 'application/json') {
 function sendJson(response, body, status = 200) {
   response.writeHead(status, commonHeaders());
   response.end(JSON.stringify(body));
+}
+
+const offerListCap = 2;
+const offerListCandidates = [
+  { kind: 'plugin', id: 'fleet', name: 'Fleet', summary: 'Coordinate agent fleets.' },
+  { kind: 'plugin', id: 'science', name: 'Science', summary: 'Scientific data tools.' },
+  { kind: 'connector', id: 'github', name: 'GitHub', summary: 'Issues and pull requests.' },
+];
+
+/** `GET /v1/plugins/offer-list`: the default list is the first `cap` candidates. */
+function offerList(choice) {
+  const entries = offerListCandidates.map((candidate, index) => {
+    const key = `${candidate.kind}:${candidate.id}`;
+    const defaultListed = index < offerListCap;
+    const listed = defaultListed ? !choice.exclude.includes(key) : choice.include.includes(key);
+    return {
+      key,
+      ...candidate,
+      marketplace: candidate.kind === 'plugin' ? 'clio-builtin' : undefined,
+      enabled: true,
+      logo_url: null,
+      logo_dark_url: null,
+      default_listed: defaultListed,
+      listed,
+    };
+  });
+  return {
+    cap: offerListCap,
+    total: entries.length,
+    listed_count: entries.filter((entry) => entry.listed).length,
+    customized: choice.include.length > 0 || choice.exclude.length > 0,
+    include: choice.include,
+    exclude: choice.exclude,
+    entries,
+  };
+}
+
+/** `GET /v1/system/problem-report`: a small redacted report for this fixture. */
+function problemReport(query) {
+  const requested = Number(query.get('lines')) || 500;
+  const conversationId = query.get('session_id');
+  const client = query.get('client');
+  const lines = ['INFO fixture server started', 'INFO session opened'];
+  const health = 'ready: api, gateway, file_policy, arc';
+  return {
+    schema: 'clio.problem-report.v1',
+    generated_at: observedAt,
+    filename: 'clio-problem-report.txt',
+    text: ['CLIO problem report', `Health: ${health}`, ...lines].join('\n'),
+    about: {
+      version: '0.0.0',
+      os: 'fixture',
+      app_kind: client === 'desktop' || client === 'web' ? client : 'unknown',
+      app_version: query.get('client_version'),
+      provider: null,
+      model: null,
+    },
+    health: {
+      overall_status: 'ready',
+      ready_count: 4,
+      rows: ['api', 'gateway', 'file_policy', 'arc'].map((name) => ({
+        name,
+        status: 'ready',
+        summary: `${name} is ready`,
+        required: true,
+      })),
+      degradation: null,
+    },
+    logs: {
+      lines_requested: requested,
+      max_lines: 5000,
+      sources: [
+        {
+          role: 'server',
+          path: 'logs/server.log',
+          status: 'ok',
+          earlier_lines: false,
+          lines,
+        },
+      ],
+      searched: [],
+      degradation: null,
+    },
+    conversation: conversationId
+      ? {
+          id: conversationId,
+          title: null,
+          status: 'idle',
+          busy: false,
+          message_count: 0,
+          messages_included: query.get('include_messages') === 'true',
+          recent_replies: [],
+          degradation: null,
+        }
+      : null,
+    manifest: [
+      { section: 'about', title: 'About', contents: 'Version and system' },
+      { section: 'health', title: 'Health', contents: health },
+      { section: 'logs', title: 'Logs', contents: `${lines.length} lines` },
+    ],
+    redaction: [],
+  };
 }
 
 function initialFleetSettings() {
@@ -2589,6 +2723,8 @@ const server = createServer(async (request, response) => {
     mcpAppModelContextUpdates = 0;
     mcpAppMessages = 0;
     mcpAppCloses = 0;
+    closedMcpApps = new Set();
+    offerListChoice = { include: [], exclude: [] };
     resolvedInteractionIds = new Set();
     streamedText = '';
     streamStarted = false;
@@ -3142,6 +3278,10 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/system/problem-report') {
+    sendJson(response, problemReport(url.searchParams));
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/desktop/attach') {
     // A current CLIO's attach check (clio-agent#1478). This fixture enforces no
     // bearer token, so a desktop attaching without one is told it may proceed.
@@ -3209,6 +3349,26 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && url.pathname === '/v1/mcp/servers') {
     sendJson(response, { servers: [] });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/connectors') {
+    sendJson(response, { connectors: [] });
+    return;
+  }
+  if (url.pathname === '/v1/plugins/offer-list') {
+    if (request.method === 'PUT') {
+      const body = await readJson(request);
+      offerListChoice = {
+        include: Array.isArray(body?.include) ? body.include : [],
+        exclude: Array.isArray(body?.exclude) ? body.exclude : [],
+      };
+    } else if (request.method === 'DELETE') {
+      offerListChoice = { include: [], exclude: [] };
+    } else if (request.method !== 'GET') {
+      sendJson(response, { detail: 'method not allowed' }, 405);
+      return;
+    }
+    sendJson(response, offerList(offerListChoice));
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/mcp/configuration') {
@@ -4083,8 +4243,26 @@ const server = createServer(async (request, response) => {
       sendJson(response, { contents: [{ uri: body.uri, text: 'fixture resource' }] });
       return;
     }
+    if (request.method === 'GET' && suffix === 'live') {
+      sendJson(response, { live: !closedMcpApps.has(appInstanceId) });
+      return;
+    }
+    if (request.method === 'PUT' && suffix === 'app-tools') {
+      const body = await readJson(request);
+      const tools = Array.isArray(body?.tools) ? body.tools : [];
+      sendJson(response, {
+        offered: tools.map((tool) => tool?.name).filter((name) => typeof name === 'string'),
+      });
+      return;
+    }
+    if (request.method === 'PUT' && suffix === 'shown') {
+      const body = await readJson(request);
+      sendJson(response, { shown: body?.shown === true });
+      return;
+    }
     if (request.method === 'DELETE' && suffix === '') {
       mcpAppCloses += 1;
+      closedMcpApps.add(appInstanceId);
       sendJson(response, { closed: true });
       return;
     }
@@ -4312,6 +4490,16 @@ const server = createServer(async (request, response) => {
   if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/cancel`) {
     response.writeHead(204, commonHeaders());
     response.end();
+    return;
+  }
+  // Stop asks about started work only when some is open; the fixture has none.
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/stop-scope`) {
+    sendJson(response, { session_id: sessionId, open_children: [] });
+    return;
+  }
+  // A run card's selected step reads its input from the task index; the fixture has no runs.
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/tasks/query`) {
+    sendJson(response, { tasks: [], total: 0, cursor: null, revision: 0 });
     return;
   }
 

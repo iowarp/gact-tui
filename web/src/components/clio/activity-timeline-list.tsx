@@ -41,6 +41,7 @@ import { MetaValue } from './primitives/tag';
 import { backgroundTaskLink } from './script-run';
 import { clioStatusLabel } from './status';
 import { useWorkTaskFocus } from './work-task-focus';
+import { liveChipWord } from './workbench-activity-model';
 import { t, ph } from '@lingui/core/macro';
 
 type TimelineKind = 'tools' | 'agents' | 'questions' | 'runs' | 'outputs';
@@ -484,8 +485,7 @@ const TimelineRow = memo(function TimelineRow({
   const attention = CAUSAL_ATTENTION_STATES.has(item.state);
   const live = timelineLive(item);
   const status = clioStatusLabel(item.state);
-  const when =
-    live && !attention ? (item.state === 'queued' ? 'queued' : 'running') : (item.fact ?? '');
+  const when = live && !attention ? liveChipWord(item.state) : (item.fact ?? '');
   const hover = [
     item.label,
     lane.label,

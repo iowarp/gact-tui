@@ -67,7 +67,9 @@ function compactionSourceLabel(source: unknown) {
 function ValueRow({ title, value, info }: { title: string; value: string; info?: string }) {
   return (
     <SettingsRow info={info} inlineControl title={title}>
-      <span className="text-ui text-foreground tabular-nums">{value}</span>
+      <span className="text-ui text-foreground tabular-nums" data-slot="settings-value">
+        {value}
+      </span>
     </SettingsRow>
   );
 }
@@ -252,6 +254,7 @@ export function ContextHistorySettings({ initialSessionId }: { initialSessionId?
           kind="empty"
           size="row"
           title={t`Session retention unavailable`}
+          wrapDetail
         />
       )}
       {compactionOffered ? <SettingsGroupLabel>{t`Compaction history`}</SettingsGroupLabel> : null}

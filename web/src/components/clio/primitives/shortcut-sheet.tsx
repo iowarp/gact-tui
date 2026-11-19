@@ -23,8 +23,14 @@ import { useMenuAction } from '@/tauri/menu-actions';
 import { KeyCap, ShortcutKeys } from './key-chip';
 import { SegmentedControl } from './segmented-control';
 import { StateView } from './state-view';
-import { formatLocale } from '@/lib/locale-format';
+import { formatList, formatLocale } from '@/lib/locale-format';
 import { ph, t } from '@lingui/core/macro';
+
+/** What a screen reader hears after the visible name: ", when focused" (", " is "、" in Japanese). */
+function spokenSuffix(name: string, extras: readonly string[]): string {
+  const spoken = formatList([name, ...extras]);
+  return spoken.startsWith(name) ? spoken.slice(name.length) : ` ${formatList(extras)}`;
+}
 
 /** Column count by row count: the sheet grows to four columns only when it has the rows to fill them. */
 const ROWS_PER_COLUMN = 10;
@@ -114,7 +120,7 @@ function PairKeys({
     first.length === second.length && first.slice(0, -1).every((cap, i) => cap === second[i]);
   const chords = shared ? [[...first, second.at(-1) ?? '']] : [first, second];
   return (
-    <span data-slot="shortcut-keys" className="inline-flex shrink-0 items-center gap-1">
+    <span data-slot="shortcut-keys" className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
       {chords.map((caps, chordIndex) => (
         <span key={chordIndex} className="inline-flex items-center gap-1">
           {chordIndex > 0 ? <span className="px-0.5 text-caption text-faint">{t`or`}</span> : null}
@@ -225,14 +231,15 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
                       <li
                         key={row.id}
                         data-slot="shortcut-sheet-row"
-                        className="flex min-h-[30px] min-w-0 items-center gap-2 text-menu whitespace-nowrap"
+                        className="flex min-h-[30px] min-w-0 items-center gap-2 py-1 text-menu"
                       >
                         <span
                           aria-hidden="true"
                           className={cn('size-1.5 shrink-0 rounded-full', here && 'bg-primary')}
                         />
                         <span
-                          className="min-w-0 flex-1 truncate"
+                          // A long name (Greek) wraps whole; the keys keep their column.
+                          className="min-w-0 flex-1 leading-snug text-pretty break-words"
                           // Mid-line labels are case-folded; safe in every offered language.
                           title={
                             row.when
@@ -241,21 +248,19 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
                           }
                         >
                           {row.name}
-                          {row.when ? (
+                          {row.when || here ? (
                             <span className="sr-only">
-                              , {row.when.toLocaleLowerCase(formatLocale())}
-                            </span>
-                          ) : null}
-                          {here ? (
-                            <span className="sr-only">
-                              , {WORKS_HERE.toLocaleLowerCase(formatLocale())}
+                              {spokenSuffix(row.name, [
+                                ...(row.when ? [row.when.toLocaleLowerCase(formatLocale())] : []),
+                                ...(here ? [WORKS_HERE.toLocaleLowerCase(formatLocale())] : []),
+                              ])}
                             </span>
                           ) : null}
                         </span>
                         {row.pair ? (
                           <PairKeys pair={row.pair} platform={platform} />
                         ) : (
-                          <ShortcutKeys id={row.id} variant="caps" />
+                          <ShortcutKeys id={row.id} variant="caps" className="whitespace-nowrap" />
                         )}
                       </li>
                     );
