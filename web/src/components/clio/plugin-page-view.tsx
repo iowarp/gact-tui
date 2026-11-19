@@ -19,7 +19,11 @@ import {
   rereadPluginPages,
   usePluginPageState,
 } from '@/lib/a2ui/plugin-tab-store';
-import { useA2uiCatalogRegistry, useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
+import {
+  invalidateA2uiSessionCatalogs,
+  useA2uiCatalogRegistry,
+  useA2uiSessionRegistry,
+} from '@/lib/a2ui/processor-store';
 import { serverSurfaceReason } from '@/lib/a2ui/server-surface';
 import {
   dispatchServerSurfaceRefusalFrame,
@@ -71,7 +75,10 @@ function usePluginPageStream(contextSessionId: string | undefined) {
             dispatchPluginTabFrame(frame, contextSessionId);
             dispatchServerSurfaceRefusalFrame(frame, contextSessionId);
             if (frame.eventName === 'stream.gap') rereadPluginPages();
-            if (pluginsUpdatedByFrame(frame)) invalidatePluginPages(queryClient);
+            if (pluginsUpdatedByFrame(frame)) {
+              invalidatePluginPages(queryClient);
+              invalidateA2uiSessionCatalogs(queryClient, contextSessionId);
+            }
             if (frame.eventName?.startsWith('interaction.'))
               void queryClient.invalidateQueries({ queryKey: interactionsKey });
           }
@@ -115,6 +122,10 @@ export function PluginPageView({ page }: { page: PluginPage }) {
   }, [contextIsNew, queryClient]);
   // The page is its context's only view, so it owns that context's catalogs.
   useA2uiSessionRegistry(contextSessionId ? [contextSessionId] : []);
+  // A cached read can predate a plugin update made while the page was away.
+  useEffect(() => {
+    if (contextSessionId) invalidateA2uiSessionCatalogs(queryClient, contextSessionId);
+  }, [contextSessionId, queryClient]);
   const catalogRegistry = useA2uiCatalogRegistry(contextSessionId ?? '');
   const refusals = useServerSurfaceRefusals(contextSessionId);
   const interactionsKey = ['plugin-page-interactions', connectionScope(settings), contextSessionId];

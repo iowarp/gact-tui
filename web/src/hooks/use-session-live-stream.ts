@@ -34,6 +34,7 @@ import {
   rereadPluginTabs,
 } from '@/lib/a2ui/plugin-tab-store';
 import { invalidatePluginPages } from '@/lib/a2ui/plugin-pages';
+import { invalidateA2uiSessionCatalogs } from '@/lib/a2ui/processor-store';
 import { useRepository } from './use-repository';
 import { ph, t } from '@lingui/core/macro';
 
@@ -232,6 +233,7 @@ export function useSessionLiveStream({
                 predicate: (query) => query.queryKey[2] === sessionId,
               });
               invalidatePluginPages(queryClient);
+              invalidateA2uiSessionCatalogs(queryClient, sessionId);
             }
             if (frame.eventName === 'message.completed') {
               batcher.flush();

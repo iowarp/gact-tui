@@ -23,7 +23,11 @@ import {
 } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { A2uiSurface } from '@/lib/a2ui/kernel-catalog';
-import { useA2uiCatalogRegistry, useA2uiSurfaceModel } from '@/lib/a2ui/processor-store';
+import {
+  a2uiCatalogsKey,
+  useA2uiCatalogRegistry,
+  useA2uiSurfaceModel,
+} from '@/lib/a2ui/processor-store';
 import { A2uiReferenceSessionProvider } from '@/lib/a2ui/reference-session';
 import { AutoDatasetSelectionProvider } from '@/lib/a2ui/auto-dataset-selection';
 import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
@@ -206,7 +210,14 @@ function ClioA2UISurfaceContent({
     revision: number;
     message: string;
   }>();
-  const [validationNotice, setValidationNotice] = useState<{ revision: number; message: string }>();
+  const catalogsKey = a2uiCatalogsKey(catalogs);
+  // A notice belongs to the catalogs it was raised under: a catalog that resolves
+  // again with the missing component rebuilds the surface and retires it.
+  const [validationNotice, setValidationNotice] = useState<{
+    revision: number;
+    catalogs: string;
+    message: string;
+  }>();
   // A degraded update protocol is a producer detail, not the surface's
   // content: it stays under collapsed Technical details.
   const [protocolNotice, setProtocolNotice] = useState<string>();
@@ -403,7 +414,11 @@ function ClioA2UISurfaceContent({
         return;
       }
       if (validationError.code !== 'VALIDATION_FAILED') {
-        setValidationNotice({ revision: surface.revision, message: validationError.message });
+        setValidationNotice({
+          revision: surface.revision,
+          catalogs: catalogsKey,
+          message: validationError.message,
+        });
         return;
       }
       // A render-time report (the Image/Video/AudioPlayer URL-scheme guard)
@@ -415,11 +430,19 @@ function ClioA2UISurfaceContent({
       // worded here too — a blocked click must never look like it silently
       // did nothing (S8 gact-tui#409 item 1, adversarial finding).
       if (!validationError.path) {
-        setValidationNotice({ revision: surface.revision, message: validationError.message });
+        setValidationNotice({
+          revision: surface.revision,
+          catalogs: catalogsKey,
+          message: validationError.message,
+        });
       }
       setValidationPostFailure(undefined);
       if (readOnly) {
-        setValidationNotice({ revision: surface.revision, message: validationError.message });
+        setValidationNotice({
+          revision: surface.revision,
+          catalogs: catalogsKey,
+          message: validationError.message,
+        });
         return;
       }
       try {
@@ -442,7 +465,7 @@ function ClioA2UISurfaceContent({
         });
       }
     },
-    [repository, surface.id, surface.revision, surface.session_id, readOnly],
+    [repository, surface.id, surface.revision, surface.session_id, readOnly, catalogsKey],
   );
   const { model, failure } = useA2uiSurfaceModel(
     surface,
@@ -570,7 +593,8 @@ function ClioA2UISurfaceContent({
         </div>
       ) : null}
       {localNotice ? <p className="py-2 text-xs text-destructive">{localNotice}</p> : null}
-      {validationNotice?.revision === surface.revision ? (
+      {validationNotice?.revision === surface.revision &&
+      validationNotice.catalogs === catalogsKey ? (
         <p className="py-2 text-xs text-destructive">{validationNotice.message}</p>
       ) : null}
       {validationPostFailure?.revision === surface.revision ? (

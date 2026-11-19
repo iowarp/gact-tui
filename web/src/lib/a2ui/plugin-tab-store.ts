@@ -56,7 +56,10 @@ const opened = new Map<string, { repository: PluginTabRepository; controller?: A
  * meantime cancels it; an open after a close was sent waits for it.
  */
 const CLOSE_GRACE_MS = 400;
-const closing = new Map<string, { timer?: ReturnType<typeof setTimeout>; sent?: Promise<unknown> }>();
+const closing = new Map<
+  string,
+  { timer?: ReturnType<typeof setTimeout>; sent?: Promise<unknown> }
+>();
 
 /**
  * Plugin pages share the tab store under one scope of their own: they are

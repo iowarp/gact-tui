@@ -14,7 +14,7 @@ import {
   type SurfaceModel,
 } from '@a2ui/web_core/v0_9';
 import type { ReactComponentImplementation } from '@a2ui/react/v0_9';
-import { useQueries } from '@tanstack/react-query';
+import { useQueries, type QueryClient } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { loadSessionResource, type SessionResourceLoading } from '@/lib/session-resource-loading';
@@ -33,6 +33,24 @@ import {
   type A2uiRegistrySnapshot,
 } from './registry-store';
 import { t } from '@lingui/core/macro';
+
+/**
+ * Reads a session's catalogs again: a plugin update can change what its
+ * catalog declares while the cached read still holds the old components.
+ */
+export function invalidateA2uiSessionCatalogs(queryClient: QueryClient, sessionId: string): void {
+  void queryClient.invalidateQueries({ queryKey: ['a2ui-catalogs', sessionId] });
+  void queryClient.invalidateQueries({ queryKey: ['a2ui-capabilities', sessionId] });
+}
+
+/** The catalogs a processor was built from: their ids and the components each declares. */
+export function a2uiCatalogsKey(
+  catalogs: readonly Catalog<ReactComponentImplementation>[],
+): string {
+  return catalogs
+    .map((catalog) => `${catalog.id}[${[...catalog.components.keys()].join(' ')}]`)
+    .join(',');
+}
 
 /**
  * OWNER — call once from the session's own data hook
@@ -525,7 +543,9 @@ export function useA2uiSurfaceModel(
   const entryRef = useRef<ProcessorEntry | undefined>(undefined);
   const degradedProtocolReportedRef = useRef(false);
   const [result, setResult] = useState<A2uiProcessorResult>(EMPTY_RESULT);
-  const catalogIds = catalogs.map((catalog) => catalog.id).join(',');
+  // A catalog that resolves again under the same id with other components (a
+  // stale cached read, then the fresh one, or a plugin update) must rebuild.
+  const catalogIds = a2uiCatalogsKey(catalogs);
 
   useLayoutEffect(() => {
     return () => {
