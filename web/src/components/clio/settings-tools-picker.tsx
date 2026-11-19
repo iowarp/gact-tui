@@ -68,6 +68,48 @@ export interface PickerOption<Value extends string> {
   isDefault?: boolean;
 }
 
+/**
+ * Opens a picker's list at the top when its chosen option fits there, and
+ * otherwise at the first option or heading that still shows the chosen
+ * option whole. The list's own scroll-into-view stops mid-option and leaves
+ * the first visible one half under the search field.
+ */
+function useListOpensWhole(open: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        const list = ref.current?.querySelector<HTMLElement>('[cmdk-list]');
+        if (!list) return;
+        const box = list.getBoundingClientRect();
+        // The opening zoom scales the rects; offsetHeight is unscaled.
+        const scale = list.offsetHeight ? box.height / list.offsetHeight : 1;
+        const top = (el: Element) =>
+          (el.getBoundingClientRect().top - box.top) / scale + list.scrollTop;
+        const checked = list.querySelector<HTMLElement>('[data-checked="true"]');
+        const bottom = checked ? top(checked) + checked.offsetHeight : 0;
+        if (bottom <= list.clientHeight) {
+          list.scrollTop = 0;
+          return;
+        }
+        const padding = Number.parseFloat(getComputedStyle(list).paddingTop) || 0;
+        const stops = [...list.querySelectorAll('[cmdk-item], [cmdk-group-heading]')]
+          .map((el) => top(el) - padding)
+          .sort((a, b) => a - b);
+        const stop =
+          stops.find((stop) => stop >= bottom - list.clientHeight) ?? bottom - list.clientHeight;
+        const reach = list.scrollHeight - list.clientHeight;
+        // Room below the last option so a stop near the end is reachable.
+        if (stop > reach) list.style.paddingBottom = `${padding + stop - reach}px`;
+        list.scrollTop = stop;
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+  return ref;
+}
+
 /** A select-shaped field that opens a searchable list of explained choices. */
 export function ChoicePicker<Value extends string>({
   name,
@@ -107,6 +149,7 @@ export function ChoicePicker<Value extends string>({
 }) {
   const [open, setOpen] = useState(false);
   const current = options.find((option) => option.value === selected);
+  const content = useListOpensWhole(open);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -141,10 +184,10 @@ export function ChoicePicker<Value extends string>({
           }
         />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[19.5rem] gap-0 overflow-hidden p-0">
+      <PopoverContent align="start" className="w-[19.5rem] gap-0 overflow-hidden p-0" ref={content}>
         <Command className="rounded-none! p-0" defaultValue={current?.label} loop>
           <CommandInput aria-label={search} placeholder={search} />
-          <CommandList className="max-h-80 p-1">
+          <CommandList className="max-h-96 p-1">
             <CommandEmpty>{t`No choice matches.`}</CommandEmpty>
             {options.map((option) => (
               <OptionItem
@@ -239,6 +282,7 @@ export function SummaryPicker({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const content = useListOpensWhole(open);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -255,7 +299,7 @@ export function SummaryPicker({
           <ChevronRightIcon aria-hidden="true" className="size-4" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[19.5rem] gap-0 overflow-hidden p-0">
+      <PopoverContent align="end" className="w-[19.5rem] gap-0 overflow-hidden p-0" ref={content}>
         {detail ? (
           <div className="grid gap-1 border-b border-border px-3 py-2 text-xs text-muted-foreground">
             {detail}

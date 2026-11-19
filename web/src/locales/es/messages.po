@@ -1498,6 +1498,14 @@ msgstr "{code} en {computer}"
 msgid "{colormap} colour scale"
 msgstr "Escala de color {colormap}"
 
+#: src/components/clio/a2ui-choice-table.tsx
+msgid "{column} for {name}"
+msgstr "{column} de {name}"
+
+#: src/components/clio/a2ui-choice-table.tsx
+msgid "{column}: {name}"
+msgstr "{column}: {name}"
+
 #: src/components/clio/composer.tsx
 msgid "{command} is unavailable"
 msgstr "{command} no está disponible"
@@ -2354,6 +2362,10 @@ msgstr "{label} (tu elección)"
 msgid "{label} {shown}"
 msgstr "{label} {shown}"
 
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} actions"
+msgstr "Acciones de {label}"
+
 #: src/components/clio/settings-model-server-row.tsx
 msgid "{label} address"
 msgstr "Dirección de {label}"
@@ -2381,6 +2393,11 @@ msgstr "Columnas de {label}"
 #: src/components/clio/provenance-connections.tsx
 msgid "{label} connection"
 msgstr "Conexión de {label}"
+
+#: src/components/clio/plugin-page-view.tsx
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} could not be opened"
+msgstr "No se pudo abrir {label}"
 
 #: src/components/reui/date-selector.tsx
 msgid "{label} date"
@@ -2412,6 +2429,11 @@ msgstr "{label} del borrador {draft}"
 #: src/components/clio/document-source-view.tsx
 msgid "{label} for {name}"
 msgstr "{label} de {name}"
+
+#: src/components/clio/plugin-page-view.tsx
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} has nothing to show yet"
+msgstr "{label} aún no tiene nada que mostrar"
 
 #: src/lib/a2ui/kernel-catalog.tsx
 msgid "{label} indeterminate"
@@ -2452,6 +2474,21 @@ msgstr "{label} no se conoce en este equipo. Quítalo e impleméntalo de nuevo p
 #: src/lib/html-in-browser.ts
 msgid "{label} is outside the folders this conversation may read, so the browser can't open it."
 msgstr "{label} está fuera de las carpetas que esta conversación puede leer, así que el navegador no puede abrirlo."
+
+#: src/components/clio/plugin-page-view.tsx
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} is unavailable"
+msgstr "{label} no está disponible"
+
+#: src/components/clio/plugin-page-view.tsx
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} is unavailable, so this is its last view."
+msgstr "{label} no está disponible, así que esta es su última vista."
+
+#: src/components/clio/plugin-page-view.tsx
+#: src/components/clio/plugin-tab-view.tsx
+msgid "{label} is unavailable, so this is its last view. {reason}"
+msgstr "{label} no está disponible, así que esta es su última vista. {reason}"
 
 #: src/components/clio/service-management-panel.tsx
 msgid "{label} management"
@@ -2969,6 +3006,10 @@ msgstr "{name} no se está ejecutando. Inícialo y vuelve a comprobarlo."
 #: src/lib/settings-agent-name.ts
 msgid "{name} local"
 msgstr "{name} local"
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "{name} names this address as its own"
+msgstr "{name} declara esta dirección como propia"
 
 #: src/components/clio/new-conversation-draft.tsx
 msgid "{name} new conversation"
@@ -3555,9 +3596,33 @@ msgstr "{sent} de entrada, {received} de salida"
 msgid "{sentence}; {source} says {left} left"
 msgstr "{sentence}; {source} indica que quedan {left}"
 
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} couldn't complete this action"
+msgstr "{server} no pudo completar esta acción"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} does not let this view run that action."
+msgstr "{server} no permite que esta vista ejecute esa acción."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} finished without changing this view"
+msgstr "{server} terminó sin cambiar esta vista"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} is not running in this conversation, so this view is read-only."
+msgstr "{server} no se está ejecutando en esta conversación, así que esta vista es de solo lectura."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} is still working on it"
+msgstr "{server} sigue trabajando en ello"
+
 #: src/lib/command-table.ts
 msgid "{server} prompts"
 msgstr "Instrucciones de {server}"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "{server} sent a view that was refused. {reason}"
+msgstr "{server} envió una vista que se rechazó. {reason}"
 
 #: src/components/clio/settings-tool-detail.tsx
 msgid "{server} server"
@@ -3919,6 +3984,11 @@ msgid "{title}\n"
 msgstr "{title}\n"
 "Rama {branch}"
 
+#: src/components/clio/navigation-plugin-pages.tsx
+#: src/components/clio/use-workbench-strip.tsx
+msgid "{title} (unavailable)"
+msgstr "{title} (no disponible)"
+
 #: src/components/clio/archived-sessions-dialog.tsx
 msgid "{title} deleted"
 msgstr "Se eliminó {title}"
@@ -3926,6 +3996,10 @@ msgstr "Se eliminó {title}"
 #: src/components/clio/infrastructure-activity-row.tsx
 msgid "{title} details"
 msgstr "Detalles de {title}"
+
+#: src/components/clio/navigation-plugin-pages.tsx
+msgid "{title} is unavailable"
+msgstr "{title} no está disponible"
 
 #: src/components/clio/workbench-list-column.tsx
 msgid "{title} list"
@@ -4591,9 +4665,17 @@ msgstr "Una ejecución única usa la zona horaria de este dispositivo."
 msgid "A plugin folder containing plugin.json or .claude-plugin/plugin.json."
 msgstr "Una carpeta de complemento que contenga plugin.json o .claude-plugin/plugin.json."
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "A plugin names this address as its own"
+msgstr "Un complemento declara esta dirección como propia"
+
 #: src/components/clio/connector-plugin-contents.tsx
 msgid "A plugin with {kinds}. Adding it to a conversation brings both."
 msgstr "Un complemento con {kinds}. Al añadirlo a una conversación, aporta ambos."
+
+#: src/components/clio/server-surface-refusal-row.tsx
+msgid "A plugin's view was not shown"
+msgstr "No se mostró una vista de un complemento"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "A practice request is already typed in."
@@ -4695,6 +4777,10 @@ msgstr "La marca de solo lectura de una herramienta y su E/S predeterminada se c
 #: src/components/clio/settings-working-context.tsx
 msgid "A typed number of tokens"
 msgstr "Un número de tokens escrito"
+
+#: src/components/clio/server-surface-refusal-row.tsx
+msgid "A view from {name} was not shown"
+msgstr "No se mostró una vista de {name}"
 
 #: src/components/clio/document-workspace.tsx
 msgid "A working copy is open; stable saves become revisions."
@@ -5607,6 +5693,7 @@ msgstr "Carpetas adicionales"
 #: src/components/clio/mcp-connection-details.tsx
 #: src/components/clio/permission-operation-details.tsx
 #: src/components/clio/provenance-connections.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/service-management-facts.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
@@ -9189,6 +9276,7 @@ msgstr "Elección enviada"
 msgid "Choices for {group}"
 msgstr "Opciones de {group}"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "Choices for {name}"
 msgstr "Opciones de {name}"
@@ -9989,6 +10077,7 @@ msgstr "Los proveedores en la nube y por suscripción se configuran desde el sel
 
 #: src/components/clio/a2ui-presentation.ts
 #: src/components/clio/plugin-tool-settings-text.ts
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-folders-model.ts
 #: src/widget-gallery-demos.ts
 msgid "Code"
@@ -12290,6 +12379,10 @@ msgstr "No se pudo actualizar el cliente del proveedor."
 #: src/components/clio/attention-update-rows.tsx
 msgid "Couldn't check for updates"
 msgstr "No se pudo buscar actualizaciones"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Couldn't complete “{subject}”"
+msgstr "No se pudo completar «{subject}»"
 
 #: src/lib/provider-availability.ts
 msgid "Couldn't confirm the API key right now. Try Verify provider again."
@@ -16543,6 +16636,10 @@ msgstr "de {marketplace}"
 msgid "From {marketplace}"
 msgstr "De {marketplace}"
 
+#: src/components/clio/a2ui-surface.tsx
+msgid "From {name}"
+msgstr "De {name}"
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "from {profile}"
 msgstr "de {profile}"
@@ -18774,6 +18871,18 @@ msgstr "Sigue en segundo plano."
 msgid "It has not been checked yet."
 msgstr "Aún no se ha comprobado."
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "It is a trusted address in your settings"
+msgstr "Es una dirección de confianza en tu configuración"
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "It is on this computer, served by {name}"
+msgstr "Está en este equipo y la sirve {name}"
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "It is on this computer, served by a plugin"
+msgstr "Está en este equipo y la sirve un complemento"
+
 #: src/components/clio/known-service-actions.tsx
 msgid "It is removed from this device’s list. The service itself keeps running."
 msgstr "Se quita de la lista de este dispositivo. El servicio en sí sigue en ejecución."
@@ -18830,6 +18939,18 @@ msgstr "Se ejecuta cuando todos los miembros han respondido."
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "It took no input"
 msgstr "No recibió ninguna entrada"
+
+#: src/lib/a2ui/server-surface.ts
+msgid "It tried to change a view that another server owns."
+msgstr "Intentó cambiar una vista que pertenece a otro servidor."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "It uses a component catalog that is not installed."
+msgstr "Usa un catálogo de componentes que no está instalado."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "It uses an A2UI version this workspace does not support."
+msgstr "Usa una versión de A2UI que este espacio de trabajo no admite."
 
 #: src/lib/notebook.ts
 msgid "It’s a version 3 notebook. Only version 4 notebooks are shown as cells."
@@ -18895,6 +19016,10 @@ msgstr "Su propio índice web; filtra por fecha, sitio y sitios excluidos."
 msgid "Its own web index; filters by date, site and kind (papers, news, PDF)."
 msgstr "Su propio índice web; filtra por fecha, sitio y tipo (artículos, noticias, PDF)."
 
+#: src/lib/a2ui/server-surface.ts
+msgid "Its plugin does not declare the component catalog it uses."
+msgstr "Su complemento no declara el catálogo de componentes que usa."
+
 #: src/components/clio/marketplace-manager.tsx
 msgid "Its plugins and agents leave the + menu. Conversations already running keep their pinned plugins until they end."
 msgstr "Sus complementos y agentes desaparecen del menú +. Las conversaciones que ya están en curso conservan sus complementos fijados hasta que terminan."
@@ -18928,6 +19053,14 @@ msgstr "Sus respuestas están predefinidas. Tus conversaciones reales se abren e
 msgid "Its run is no longer in this conversation."
 msgstr "Su ejecución ya no está en esta conversación."
 
+#: src/lib/a2ui/server-surface.ts
+msgid "Its server could not provide the tab's content."
+msgstr "Su servidor no pudo proporcionar el contenido de la pestaña."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Its server is not running in this conversation."
+msgstr "Su servidor no se está ejecutando en esta conversación."
+
 #: src/components/clio/resource-states.tsx
 msgid "Its size isn't verified, so it wasn't loaded. {ways} {agentName} can still read all of it."
 msgstr "Su tamaño no está verificado, así que no se cargó. {ways} {agentName} aún puede leerlo entero."
@@ -18947,6 +19080,18 @@ msgstr "Su turno ha terminado"
 #: src/components/clio/plugin-explorer.tsx
 msgid "Its update can run commands and hooks. Trust only sources you know."
 msgstr "Su actualización puede ejecutar comandos y hooks. Confía solo en fuentes que conozcas."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Its view data is malformed."
+msgstr "Los datos de su vista tienen un formato incorrecto."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Its view did not pass validation."
+msgstr "Su vista no superó la validación."
+
+#: src/components/clio/plugin-tab-view.tsx
+msgid "Its view was not shown. {reason}"
+msgstr "Su vista no se mostró. {reason}"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "JPG image"
@@ -21739,6 +21884,7 @@ msgstr "Más opciones de {group}"
 msgid "More for {label}"
 msgstr "Más para {label}"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "More for {name}"
@@ -21965,6 +22111,10 @@ msgstr "indicado para esta llamada"
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "Named in the prompt; the agent loads their details with a tool search before using them."
 msgstr "Se nombran en la instrucción; el agente carga sus detalles con una búsqueda de herramientas antes de usarlos."
+
+#: src/components/clio/a2ui-surface.tsx
+msgid "Namespace"
+msgstr "Espacio de nombres"
 
 #: src/components/clio/ndp-source-picker.tsx
 #: src/components/clio/permission-operation-details.tsx
@@ -23965,6 +24115,7 @@ msgstr "no enviado"
 msgid "Not sent"
 msgstr "Sin enviar"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-runtime-control.tsx
 msgid "Not set"
@@ -24122,6 +24273,7 @@ msgstr "Nada dibujado"
 msgid "Nothing has run yet"
 msgstr "Aún no se ha ejecutado nada"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/command-menu.tsx
 msgid "Nothing here yet."
 msgstr "Aún no hay nada aquí."
@@ -25258,6 +25410,11 @@ msgstr "Se abrió una copia local del archivo."
 msgid "Opening"
 msgstr "Abriendo"
 
+#: src/components/clio/plugin-page-view.tsx
+#: src/components/clio/plugin-tab-view.tsx
+msgid "Opening {label}"
+msgstr "Abriendo {label}"
+
 #: src/components/clio/cad-file-view.tsx
 #: src/components/clio/resource-viewers.tsx
 msgid "Opening {name}"
@@ -25310,12 +25467,17 @@ msgstr "Abriendo la nota"
 
 #: src/components/clio/browser-new-page.tsx
 #: src/components/clio/workbench-tab-content.tsx
+#: src/routes/plugin-page.tsx
 msgid "Opening the page"
 msgstr "Abriendo la página"
 
 #: src/components/clio/command-menu.tsx
 msgid "Opening the search assistant"
 msgstr "Abriendo el asistente de búsqueda"
+
+#: src/components/clio/workbench-tab-content.tsx
+msgid "Opening the tab"
+msgstr "Abriendo la pestaña"
 
 #: src/components/clio/a2ui-mcp-app.tsx
 #: src/components/clio/workbench-tab-content.tsx
@@ -25472,6 +25634,7 @@ msgstr "Organizaciones no disponibles."
 msgid "organizing memories"
 msgstr "organizando memorias"
 
+#: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Origin"
 msgstr "Origen"
@@ -26373,11 +26536,13 @@ msgstr "Grafica el desplazamiento vertical en la estación BKL1."
 msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr "Los gráficos, tablas e informes aparecen como tarjetas de archivo en la conversación."
 
+#: src/components/clio/a2ui-surface.tsx
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/lib/agent-needs.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
@@ -26900,6 +27065,10 @@ msgstr "Catálogo de complementos local privado"
 #: src/components/clio/a2ui-surface.tsx
 msgid "Private sign-in is unavailable in this archive."
 msgstr "El inicio de sesión privado no está disponible en este archivo histórico."
+
+#: src/components/clio/a2ui-surface.tsx
+msgid "Private sign-in is unavailable in this workspace view."
+msgstr "El inicio de sesión privado no está disponible en esta vista del espacio de trabajo."
 
 #: src/components/clio/latex-list.tsx
 msgid "Problems"
@@ -28692,6 +28861,11 @@ msgstr "Publicado en los últimos 6 meses"
 msgid "Reload"
 msgstr "Recargar"
 
+#: src/components/clio/plugin-tab-view.tsx
+#: src/routes/plugin-page.tsx
+msgid "Reload {label}"
+msgstr "Recargar {label}"
+
 #: src/components/clio/settings-runtime.tsx
 msgid "Reload current settings"
 msgstr "Recargar ajustes actuales"
@@ -30048,6 +30222,7 @@ msgid "Retrieval"
 msgstr "Recuperación"
 
 #: src/components/clio/a2ui-mcp-app.tsx
+#: src/components/clio/a2ui-surface.tsx
 #: src/components/clio/agent-composition-view.tsx
 #: src/components/clio/agent-item-details.tsx
 #: src/components/clio/archived-sessions-dialog.tsx
@@ -30082,6 +30257,8 @@ msgstr "Recuperación"
 #: src/components/clio/ndp-organization-filter.tsx
 #: src/components/clio/pending-a2ui-response.tsx
 #: src/components/clio/plugin-explorer.tsx
+#: src/components/clio/plugin-page-view.tsx
+#: src/components/clio/plugin-tab-view.tsx
 #: src/components/clio/plugin-tool-settings.tsx
 #: src/components/clio/primitives/state-view.tsx
 #: src/components/clio/private-local-details.tsx
@@ -30503,11 +30680,6 @@ msgstr "las reglas se guardan juntas"
 msgid "Run"
 msgstr "Ejecutar"
 
-#: src/components/clio/tool-operation-contract.ts
-msgctxt "verb: tool action"
-msgid "Run"
-msgstr "Ejecutar"
-
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "Run {agent} on this computer or install it on a computer reached with SSH."
 msgstr "Ejecuta {agent} en este equipo o instálalo en un equipo accesible por SSH."
@@ -30565,10 +30737,6 @@ msgstr "Límite de ejecuciones: {max_fires}"
 #: src/components/clio/session-work.tsx
 msgid "Run limit: Unlimited"
 msgstr "Límite de ejecuciones: ilimitado"
-
-#: src/components/clio/tool-operation-contract.ts
-msgid "Run on"
-msgstr "Ejecutar en"
 
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/tool-operation-contract.ts
@@ -32452,6 +32620,11 @@ msgstr "Navegador independiente"
 msgid "Separate values with commas"
 msgstr "Separa los valores con comas"
 
+#: src/components/clio/a2ui-surface.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
+msgid "Server"
+msgstr "Servidor"
+
 #: src/components/clio/settings-add-server-dialog.tsx
 msgid "Server address"
 msgstr "Dirección del servidor"
@@ -33667,6 +33840,10 @@ msgstr "Falló el inicio de sesión."
 #: src/components/clio/a2ui-source-sign-in.tsx
 msgid "Sign-in for this provider is unavailable on this {agent}."
 msgstr "El inicio de sesión para este proveedor no está disponible en este {agent}."
+
+#: src/lib/a2ui/server-surface.ts
+msgid "Sign-in is not available here."
+msgstr "El inicio de sesión no está disponible aquí."
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 msgid "Sign-in is stored locally. Check the provider connection and its available models."
@@ -35588,6 +35765,7 @@ msgstr "Tareas y procesos"
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/plugin-review-dialog.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-model-server-details.tsx
 #: src/components/clio/settings-operations.tsx
@@ -36787,6 +36965,10 @@ msgstr "No se guardó el plan: {message}"
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "Los cambios de complementos ya están en la instrucción del sistema del agente."
 
+#: src/routes/plugin-page.tsx
+msgid "The plugin that added this page may have been removed."
+msgstr "Es posible que se haya quitado el complemento que añadió esta página."
+
 #: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "The plugin's default is known once a conversation loads the tool."
@@ -36934,6 +37116,7 @@ msgid "The report holds the {wordmark} version, its health checks and its recent
 msgstr "El informe contiene la versión de {wordmark}, sus comprobaciones de estado y su registro reciente. Las contraseñas, claves y tokens se quitan antes de que lo veas."
 
 #: src/components/clio/a2ui-surface.tsx
+#: src/lib/a2ui/server-surface.ts
 msgid "The request could not be completed."
 msgstr "No se pudo completar la solicitud."
 
@@ -37609,6 +37792,10 @@ msgstr "No se pudo abrir la vista: {reason}"
 msgid "The view could not open"
 msgstr "No se pudo abrir la vista"
 
+#: src/components/clio/server-surface-refusal-row.tsx
+msgid "The view did not meet the rules for plugin views."
+msgstr "La vista no cumplía las reglas de las vistas de complementos."
+
 #: src/components/clio/mcp-app-look-waiting-notice.tsx
 msgid "The view is not on screen. Show it so the agent can see it."
 msgstr "La vista no está en pantalla. Muéstrela para que el agente pueda verla."
@@ -38131,6 +38318,10 @@ msgstr "Cuenta de esta conversación"
 msgid "This conversation's menu"
 msgstr "Menú de esta conversación"
 
+#: src/lib/a2ui/server-surface.ts
+msgid "This conversation's plugins do not offer this tab."
+msgstr "Los complementos de esta conversación no ofrecen esta pestaña."
+
 #: src/components/clio/reply-failure.ts
 msgid "This conversation’s progress couldn’t be saved."
 msgstr "No se pudo guardar el progreso de esta conversación."
@@ -38323,6 +38514,10 @@ msgstr "Esta página está cerrada."
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "This page is in your own browser: proceed there if you trust it."
 msgstr "Esta página está en tu propio navegador: continúa allí si confías en ella."
+
+#: src/routes/plugin-page.tsx
+msgid "This page is not available"
+msgstr "Esta página no está disponible"
 
 #: src/components/clio/service-management-confirm-dialog.tsx
 msgid "This permanently deletes this deployment’s databases, environment cache, logs and captured evidence. Separately downloaded models are retained."
@@ -38619,6 +38814,10 @@ msgstr "Este servicio de soporte requiere atención."
 msgid "This surface's data is missing what incremental updates need (a per-message revision stamp or a lifecycle id), so it rebuilds fully on every change -- any input you have not submitted yet is lost each time."
 msgstr "A los datos de esta superficie les falta lo que necesitan las actualizaciones incrementales (una marca de revisión por mensaje o un id de ciclo de vida), así que se reconstruye por completo con cada cambio: cualquier entrada que aún no hayas enviado se pierde cada vez."
 
+#: src/lib/a2ui/server-surface.ts
+msgid "This tab was out of date and has been read again. Try once more."
+msgstr "Esta pestaña estaba desactualizada y se ha vuelto a leer. Inténtalo otra vez."
+
 #: src/components/clio/date-time-field.tsx
 msgid "This time does not exist in the local time zone. Choose another time."
 msgstr "Esta hora no existe en la zona horaria local. Elige otra hora."
@@ -38676,6 +38875,10 @@ msgstr "Esta vista no está vinculada a una conversación, así que no se pueden
 msgid "This view needs a registered artifact in a connected {agent} workspace."
 msgstr "Esta vista necesita un artefacto registrado en un espacio de trabajo de {agent} conectado."
 
+#: src/lib/a2ui/server-surface.ts
+msgid "This view no longer belongs to {server}, so the action was not sent."
+msgstr "Esta vista ya no pertenece a {server}, así que la acción no se envió."
+
 #: src/components/clio/a2ui-surface.tsx
 msgid "This view uses a catalog this workspace does not have installed."
 msgstr "Esta vista usa un catálogo que este espacio de trabajo no tiene instalado."
@@ -38705,6 +38908,10 @@ msgstr "Puede que esta ventana no pueda abrir la vista en directo de esta págin
 #: src/hooks/use-settings-workspace-name.ts
 msgid "This workspace"
 msgstr "Este espacio de trabajo"
+
+#: src/components/clio/a2ui-surface.tsx
+msgid "This workspace has no account owner to sign in."
+msgstr "Este espacio de trabajo no tiene un titular de cuenta para iniciar sesión."
 
 #: src/hooks/use-settings-workspace-name.ts
 msgid "This workspace is no longer available"
@@ -38932,6 +39139,7 @@ msgstr "Duración"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/tool-technical-details.tsx
@@ -39361,6 +39569,10 @@ msgstr "Confiar en la actualización…"
 #: src/lib/extension-library-entries.ts
 msgid "Trusted"
 msgstr "De confianza"
+
+#: src/components/clio/question-interaction-forms.tsx
+msgid "Trusted because"
+msgstr "De confianza porque"
 
 #: src/components/clio/settings-plugins.tsx
 msgid "Trusted by you"

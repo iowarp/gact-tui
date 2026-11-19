@@ -2,6 +2,7 @@ import type { SubagentRun } from '@clio/core/v3';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
 import { returnMcpAppToConversation } from './mcp-app-live-set';
+import { releasePluginTab } from '@/lib/a2ui/plugin-tab-store';
 import { forgetRememberedViews, rememberedViewScope } from './remembered-view';
 import { useScienceLogTab } from './science-log-tab-state';
 import { fileName, subagentTab, type WorkbenchTab } from './workbench-shared';
@@ -38,15 +39,19 @@ export function useWorkbenchTabState(
   }, [tabs, workspaceId]);
 
   const shown = useScienceLogTab(inStudy, sessionId, tabs, setTabs, activeTabId);
-  const shownActiveTabId = shown.activeTabId;
   const pinned = useMemo(() => new Set(pinnedIds), [pinnedIds]);
-  const orderedTabs = useMemo(
-    () => [
-      ...shown.tabs.filter((tab) => pinned.has(tab.id)),
-      ...shown.tabs.filter((tab) => !pinned.has(tab.id)),
-    ],
-    [pinned, shown.tabs],
-  );
+  // Plugin tabs are per conversation: another conversation's stay saved for
+  // when it is shown again, but are never live here.
+  const orderedTabs = useMemo(() => {
+    const here = shown.tabs.filter((tab) => tab.kind !== 'plugin' || tab.sessionId === sessionId);
+    return [
+      ...here.filter((tab) => pinned.has(tab.id)),
+      ...here.filter((tab) => !pinned.has(tab.id)),
+    ];
+  }, [pinned, sessionId, shown.tabs]);
+  const shownActiveTabId = orderedTabs.some((tab) => tab.id === shown.activeTabId)
+    ? shown.activeTabId
+    : (orderedTabs.at(-1)?.id ?? shown.activeTabId);
   const activeTab = orderedTabs.find((tab) => tab.id === shownActiveTabId);
 
   const openTab = useCallback((tab: WorkbenchTab) => {
@@ -126,6 +131,9 @@ export function useWorkbenchTabState(
       // Closing an App's tab returns the App to its card, or closes it (MA2, MA7).
       if (closing.has(tab.id) && tab.kind === 'mcp-app')
         returnMcpAppToConversation(tab.appInstanceId);
+      // Closing a plugin's tab drops its surfaces here and on the service.
+      if (closing.has(tab.id) && tab.kind === 'plugin')
+        releasePluginTab(tab.sessionId, tab.tabId);
     }
     if (closing.has(shownActiveTabId)) {
       const before = orderedTabs.slice(0, Math.max(0, index)).reverse();
@@ -142,7 +150,8 @@ export function useWorkbenchTabState(
     const next = [...orderedTabs];
     const [moved] = next.splice(index, 1);
     next.splice(target, 0, moved);
-    setTabs(next);
+    const shownIds = new Set(orderedTabs.map((tab) => tab.id));
+    setTabs([...next, ...tabs.filter((tab) => !shownIds.has(tab.id))]);
   };
   const stepTab = (delta: -1 | 1) => {
     if (orderedTabs.length < 2) return;

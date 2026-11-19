@@ -78,6 +78,7 @@ const ConnectionDialog = lazy(() =>
 );
 const RunsPage = lazyRoute('runs', (module) => module.RunsPage);
 const InfrastructurePage = lazyRoute('infrastructure', (module) => module.InfrastructurePage);
+const PluginPageRoute = lazyRoute('pluginPage', (module) => module.PluginPageRoute);
 
 function RouteFallback() {
   return (
@@ -213,6 +214,7 @@ export default function App() {
               <Route element={<NewConversationPage />} path="/workspaces/:workspaceId/new" />
               <Route element={<RunsPage />} path="/runs" />
               <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
+              <Route element={<PluginPageRoute />} path="/plugins/:plugin/:page" />
               {/* Settings is a window over the app; without a workspace behind it the
                   app area stays empty. */}
               <Route element={<div className="h-full bg-background" />} path="/settings/:section" />

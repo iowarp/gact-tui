@@ -40,6 +40,7 @@ import {
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useVariantTryTabLabels } from '@/lib/variant-try-tabs';
 import { useShortcut, useShortcutPresentation } from '@/lib/shortcuts/hooks';
+import { PluginTabIcon } from '@/lib/a2ui/plugin-tab-icons';
 import { ArtifactTypeIcon } from './artifact-type-icon';
 import { BrowserPageIcon } from './browser-page-icon';
 import { fileViewerReference } from './file-viewer-location';
@@ -85,6 +86,7 @@ export function WorkbenchTabIcon({ tab }: { tab: WorkbenchTab }) {
     return <AttachedFolderIcon aria-hidden="true" className="size-3.5" />;
   if (tab.kind === 'browser')
     return <BrowserPageIcon pageId={tab.pageId} sessionId={tab.sessionId} />;
+  if (tab.kind === 'plugin') return <PluginTabIcon className="size-3.5" name={tab.icon} />;
   const Icon = tab.kind === 'list' ? workbenchListTabIcons[tab.view] : workbenchTabIcons[tab.kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
 }

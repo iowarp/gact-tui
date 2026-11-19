@@ -30,6 +30,8 @@ export function isPrimarySession(session: Session): boolean {
   return (
     session.session_kind !== 'agent' &&
     session.session_kind !== 'lookup' &&
+    // A plugin page's host-owned context belongs to no conversation.
+    session.session_kind !== 'page' &&
     !isManagedChildSession(session)
   );
 }

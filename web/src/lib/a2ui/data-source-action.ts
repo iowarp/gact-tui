@@ -6,6 +6,25 @@ export interface DataSourceIntent {
   workspaceId: string;
 }
 
+/**
+ * HS2 step 1: on a plugin server's view, `data_source/login/<provider>` is the
+ * host's own sign-in, and the server sends it with an empty context: the
+ * workspace owner comes from the host, never from the server.
+ */
+export function serverDataSourceProvider(
+  action: A2uiClientAction,
+): DataSourceIntent['provider'] | undefined {
+  if (!action.name.startsWith('data_source/')) return undefined;
+  const provider = action.name.slice('data_source/login/'.length);
+  if (
+    !action.name.startsWith('data_source/login/') ||
+    !['github', 'google_drive', 'globus', 'ndp'].includes(provider)
+  ) {
+    throw new Error('This data-source action is not supported.');
+  }
+  return provider as DataSourceIntent['provider'];
+}
+
 /** Only declared source-login actions can enter trusted account UI. */
 export function dataSourceIntent(action: A2uiClientAction): DataSourceIntent | undefined {
   if (!action.name.startsWith('data_source/')) return undefined;

@@ -17,6 +17,7 @@ import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
 import { streamNoticeForFrame } from '@/lib/streaming/stream-notices';
+import { dispatchServerSurfaceRefusalFrame } from '@/lib/a2ui/server-surface-refusals';
 import { LiveSourceRefresher } from '@/lib/streaming/live-source-updates';
 import { ScienceEntryMerger } from '@/lib/streaming/science-log-updates';
 import { taskUpdateForFrame } from '@/lib/streaming/task-updates';
@@ -27,6 +28,13 @@ import { dispatchMcpAppClosedFrame } from '@/components/clio/mcp-app-live-set';
 import { dispatchMcpAppLookFrame } from '@/components/clio/mcp-app-look';
 import { dispatchFileViewLookFrame } from '@/components/clio/file-view-look';
 import { dispatchMcpAppToolCallFrame } from '@/components/clio/mcp-app-view-tools';
+import {
+  dispatchPluginTabFrame,
+  pluginsUpdatedByFrame,
+  rereadPluginTabs,
+} from '@/lib/a2ui/plugin-tab-store';
+import { invalidatePluginPages } from '@/lib/a2ui/plugin-pages';
+import { invalidateA2uiSessionCatalogs } from '@/lib/a2ui/processor-store';
 import { useRepository } from './use-repository';
 import { ph, t } from '@lingui/core/macro';
 
@@ -163,6 +171,8 @@ export function useSessionLiveStream({
         revisions: {},
       });
       resumeCursor = transcript.cursor ?? resumeCursor;
+      // Open plugin tabs may have missed updates while the stream was down.
+      rereadPluginTabs(sessionId);
       void Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: queryKeys.capabilities(settings.endpoint) }),
         queryClient.invalidateQueries({
@@ -214,6 +224,17 @@ export function useSessionLiveStream({
             dispatchMcpAppLookFrame(frame);
             dispatchFileViewLookFrame(frame);
             dispatchMcpAppClosedFrame(frame);
+            dispatchPluginTabFrame(frame, sessionId);
+            dispatchServerSurfaceRefusalFrame(frame, sessionId);
+            if (frame.eventName === 'stream.gap') rereadPluginTabs(sessionId);
+            if (pluginsUpdatedByFrame(frame)) {
+              void queryClient.invalidateQueries({
+                queryKey: ['plugin-tabs'],
+                predicate: (query) => query.queryKey[2] === sessionId,
+              });
+              invalidatePluginPages(queryClient);
+              invalidateA2uiSessionCatalogs(queryClient, sessionId);
+            }
             if (frame.eventName === 'message.completed') {
               batcher.flush();
             }

@@ -42,6 +42,9 @@ const KnowledgeSourceView = lazy(() =>
 const NdpBrowserTab = lazy(() =>
   import('./ndp-browser-tab').then((module) => ({ default: module.NdpBrowserTab })),
 );
+const PluginTabView = lazy(() =>
+  import('./plugin-tab-view').then((module) => ({ default: module.PluginTabView })),
+);
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 import type { WorkbenchTabListView } from './workbench-strip';
 import { StateView } from './primitives/state-view';
@@ -418,6 +421,12 @@ export function WorkbenchTabContent({
       return (
         <Suspense fallback={<CanvasLoading label={t`Opening the view`} />}>
           <McpAppTabPanel onReplaceTab={onReplaceTab} target={tab} />
+        </Suspense>
+      );
+    case 'plugin':
+      return (
+        <Suspense fallback={<CanvasLoading label={t`Opening the tab`} />}>
+          <PluginTabView key={tab.id} tab={tab} />
         </Suspense>
       );
     default:

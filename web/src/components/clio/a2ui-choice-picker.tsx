@@ -3,6 +3,7 @@ import { ChoicePickerApi } from '@a2ui/web_core/v0_9/basic_catalog';
 import { useId, useState } from 'react';
 import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FieldError } from '@/components/ui/field';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -25,9 +26,25 @@ export const ClioChoicePicker = createComponentImplementation(
       ...option,
       label: context.dataContext.resolveDynamicValue<string>(option.label),
     }));
+    const errors = (props.validationErrors ?? []).filter(
+      (message): message is string => typeof message === 'string',
+    );
+    const fieldError = errors.length ? (
+      <FieldError errors={errors.map((message) => ({ message }))} />
+    ) : null;
     if (options.length <= INLINE_OPTION_LIMIT) {
+      // The upstream picker ignores its failed `checks`; mark it and show them here.
       const Original = BasicChoicePicker.render;
-      return <Original context={context} buildChild={buildChild} />;
+      return (
+        <div
+          className="min-w-0 space-y-1.5"
+          data-slot="a2ui-choice-field"
+          data-invalid={errors.length ? 'true' : undefined}
+        >
+          <Original context={context} buildChild={buildChild} />
+          {fieldError}
+        </div>
+      );
     }
     const values = Array.isArray(props.value)
       ? props.value
@@ -41,7 +58,7 @@ export const ClioChoicePicker = createComponentImplementation(
         ? plural(selected.length, { one: '# selected', other: '# selected' })
         : selected.map((option) => option.label).join(', ') || t`Choose…`;
     return (
-      <div className="min-w-0 space-y-2" data-slot="a2ui-searchable-choice">
+      <div className="min-w-0 space-y-1.5" data-slot="a2ui-searchable-choice">
         {props.label ? <p className="text-sm font-medium">{props.label}</p> : null}
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
@@ -51,6 +68,7 @@ export const ClioChoicePicker = createComponentImplementation(
               aria-controls={open ? popupId : undefined}
               role="combobox"
               variant="outline"
+              aria-invalid={errors.length ? true : undefined}
               className="w-full justify-between"
             >
               <span className="truncate" title={selected.map((option) => option.label).join(', ')}>
@@ -109,11 +127,7 @@ export const ClioChoicePicker = createComponentImplementation(
             </Command>
           </PopoverContent>
         </Popover>
-        {props.validationErrors?.length ? (
-          <p role="alert" className="text-xs text-destructive">
-            {props.validationErrors.join(' ')}
-          </p>
-        ) : null}
+        {fieldError}
       </div>
     );
   },

@@ -1,5 +1,5 @@
 import type { InfrastructureInventory, InfrastructureTarget } from '@clio/core/v3';
-import { CpuIcon, LaptopIcon, MonitorIcon, PackageIcon, PlugIcon, ServerIcon } from 'lucide-react';
+import { CpuIcon, LaptopIcon, MonitorIcon, PackageIcon, ServerIcon } from 'lucide-react';
 import { memo, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -526,7 +526,6 @@ function sshHostFromTarget(host: InfrastructureTarget): SshHost {
 function serviceIcon(serviceId: string): ReactNode {
   const engine = serviceId.split('@', 1)[0];
   if (engine === 'vllm' || engine === 'llama_cpp' || engine === 'ollama') return <CpuIcon />;
-  if (engine === 'relay') return <PlugIcon />;
   return <PackageIcon />;
 }
 

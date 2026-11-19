@@ -104,7 +104,7 @@ export interface Session {
   branch?: string;
   parent_session_id?: string;
   /** Conversation ownership is distinct from provenance parentage. */
-  session_kind?: WireValue<'conversation' | 'branch' | 'agent' | 'lookup'>;
+  session_kind?: WireValue<'conversation' | 'branch' | 'agent' | 'lookup' | 'page'>;
   agent_id?: string;
   metadata?: Record<string, unknown>;
   mode: WireValue<'plan' | 'edit' | 'architect'>;
@@ -654,6 +654,18 @@ export interface A2UISurface {
   // See `a2uiSurfaceSchema` in `schemas.ts` for the contract.
   message_revisions?: number[];
   error?: string;
+  /** The MCP server that produced the surface (HS1); absent for CLIO's own. */
+  owner?: A2UISurfaceOwner;
+}
+
+/** A plugin's MCP server that owns a surface; its actions go to that server (HS2). */
+export interface A2UISurfaceOwner {
+  kind: WireValue<'server'>;
+  plugin: string;
+  /** The plugin's display name, when it declares one; else its id is read as words. */
+  plugin_title?: string;
+  server: string;
+  namespace: string;
 }
 
 export interface PermissionLedgerItem {

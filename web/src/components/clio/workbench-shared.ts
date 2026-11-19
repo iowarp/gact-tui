@@ -129,7 +129,29 @@ type WorkbenchTabKind =
       tryIndex: number;
       sessionId: string;
       workspaceId: string;
-    };
+    }
+  /** A plugin's own tab (HS3): its MCP server fills it, per conversation. */
+  | ({ id: `plugin:${string}`; kind: 'plugin' } & PluginTabTarget);
+
+/** What a `plugin` tab carries: the conversation and the plugin's `<plugin>/<tab>`. */
+export interface PluginTabTarget {
+  label: string;
+  sessionId: string;
+  tabId: string;
+  plugin: string;
+  /** The plugin's display name from the tab list; empty when it declares none. */
+  pluginTitle?: string;
+  /** A Lucide icon name from the plugin's manifest. */
+  icon: string;
+}
+
+export function pluginTab(target: PluginTabTarget): WorkbenchTab {
+  return {
+    ...target,
+    id: `plugin:${target.sessionId}:${target.tabId}` as const,
+    kind: 'plugin',
+  };
+}
 
 /** What an `mcp-app` tab carries: the App's identity and a label from its tool. */
 export interface McpAppTabTarget {

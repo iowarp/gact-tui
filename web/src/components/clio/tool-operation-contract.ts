@@ -88,10 +88,6 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   shell_bash: define(t`Run command`, 'declared', 'command'),
   // The script's name (its label, first comment or first statement) is the declared subject.
   run_code: define(t`Run script`),
-  ssh_execute: {
-    ...define(t`Run on`, 'declared', 'ssh_profile'),
-    standalone: t({ message: 'Run', context: 'verb: tool action' }),
-  },
   view_image: define(t`View image`, 'declared', 'path'),
   view_pdf: define(t`View PDF`, 'declared', 'path'),
   prepare_document: define(

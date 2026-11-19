@@ -23,7 +23,8 @@ export type WorkbenchListView =
 export type WorkbenchTabListView = WorkbenchListView;
 
 export interface WorkbenchStripItem {
-  id: WorkbenchListView | 'agent' | 'science-log';
+  /** A plugin's own tab launches as `plugin:<plugin>/<tab>`. */
+  id: WorkbenchListView | 'agent' | 'science-log' | `plugin:${string}`;
   label: string;
   icon: ReactNode;
   /** 1-based place on the strip; Ctrl+Shift+N (⌥⌘N on a Mac) reaches it. */
@@ -60,8 +61,12 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
   /** Controls pinned to the strip's foot (none yet; the gear is a follow-up). */
   trailing?: ReactNode;
 }) {
-  const lists = items.filter((item) => item.id !== 'terminal' && item.id !== 'browser');
-  const tools = items.filter((item) => item.id === 'terminal' || item.id === 'browser');
+  const isTool = (item: WorkbenchStripItem) => item.id === 'terminal' || item.id === 'browser';
+  const isPlugin = (item: WorkbenchStripItem) => item.id.startsWith('plugin:');
+  const lists = items.filter((item) => !isTool(item) && !isPlugin(item));
+  const tools = items.filter(isTool);
+  // The plugins' own tabs, after the host's: any plugin the conversation mounts.
+  const plugins = items.filter(isPlugin);
   const button = (item: WorkbenchStripItem) => (
     <IconButton
       key={item.id}
@@ -113,6 +118,10 @@ export const WorkbenchStrip = memo(function WorkbenchStrip({
         <span aria-hidden="true" className="my-[5px] h-px w-5 shrink-0 bg-border" />
       ) : null}
       {tools.map(tool)}
+      {plugins.length ? (
+        <span aria-hidden="true" className="my-[5px] h-px w-5 shrink-0 bg-border" />
+      ) : null}
+      {plugins.map(button)}
       {trailing ? <div className="mt-auto flex flex-col items-center gap-1">{trailing}</div> : null}
     </div>
   );

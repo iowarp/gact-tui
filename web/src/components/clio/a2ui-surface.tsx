@@ -1,17 +1,20 @@
 import {
   A2UI_VERSION,
+  TransportError,
   type A2UIActionLifecycle,
+  type A2uiActionReply,
   type A2UISurface as DomainSurface,
 } from '@clio/core/v3';
 import { renderMarkdown } from '@a2ui/markdown-it';
 import { MarkdownContext } from '@a2ui/react/v0_9';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangleIcon, Loader2Icon } from 'lucide-react';
+import { AlertTriangleIcon, Loader2Icon, PlugIcon } from 'lucide-react';
 import {
   Component,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -20,15 +23,28 @@ import {
 } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { A2uiSurface } from '@/lib/a2ui/kernel-catalog';
-import { useA2uiCatalogRegistry, useA2uiSurfaceModel } from '@/lib/a2ui/processor-store';
+import {
+  a2uiCatalogsKey,
+  useA2uiCatalogRegistry,
+  useA2uiSurfaceModel,
+} from '@/lib/a2ui/processor-store';
 import { A2uiReferenceSessionProvider } from '@/lib/a2ui/reference-session';
 import { AutoDatasetSelectionProvider } from '@/lib/a2ui/auto-dataset-selection';
 import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
 import { useOpenedViewSelection } from '@/lib/a2ui/open-view';
 import { cn } from '@/lib/utils';
 import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
-import { dataSourceIntent } from '@/lib/a2ui/data-source-action';
-import { useSourceSignIn } from '@/lib/a2ui/source-sign-in-context';
+import { dataSourceIntent, serverDataSourceProvider } from '@/lib/a2ui/data-source-action';
+import { useSourceSignIn, useSourceSignInWorkspace } from '@/lib/a2ui/source-sign-in-context';
+import {
+  isServerOwned,
+  serverActionFailure,
+  serverActionResult,
+  serverActionSubject,
+  serverOwnerName,
+  type ServerActionResult,
+} from '@/lib/a2ui/server-surface';
+import { StateView } from './primitives/state-view';
 import { vocab } from '@/lib/brand-vocabulary';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { TechnicalDetails } from './technical-details';
@@ -124,7 +140,7 @@ function surfaceStatusValue(state: DomainSurface['state']): ClioStatusValue {
 export type A2UIRemoteActionHandler = (message: {
   version: string;
   action: A2uiClientAction;
-}) => Promise<void>;
+}) => Promise<A2uiActionReply | void>;
 
 export type A2UILocalActionHandler = (
   action: A2uiClientAction,
@@ -132,16 +148,26 @@ export type A2UILocalActionHandler = (
 
 const LEGACY_LOCAL_ACTIONS = new Set(['artifact.open', 'data.select', 'workflow.focus']);
 
+/** One press sent to a surface's owner, kept so its result can name it and Retry resend it. */
+interface ServerSend {
+  action: A2uiClientAction;
+  /** The button that was pressed, held disabled while the server works on it. */
+  control?: HTMLButtonElement;
+  /** What the press does, for "Couldn't …" ("cancel train-ensemble"). */
+  subject?: string;
+}
+
 function ClioA2UISurfaceContent({
   actionLifecycle,
   onLocalAction,
   onRemoteAction,
   surface,
   viewport,
-  readOnly,
+  readOnly: archived,
   catalogRegistry,
   captureArtifactId,
   visualFeedback,
+  ownerAttribution,
 }: {
   /**
    * The server-truth footer's data (dispatcher slice S5,
@@ -160,16 +186,38 @@ function ClioA2UISurfaceContent({
   catalogRegistry?: A2uiRegistrySnapshot;
   captureArtifactId?: string;
   visualFeedback?: boolean;
+  ownerAttribution: boolean;
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
+  const serverOwner = isServerOwned(surface.owner) ? surface.owner : undefined;
+  const ownerName = serverOwner ? serverOwnerName(serverOwner) : '';
+  // HS2: once the owning server is gone the view stays, read-only.
+  const [serverGone, setServerGone] = useState(false);
+  const readOnly = archived || serverGone;
+  // A read-only server view sends nothing: its controls are drawn disabled.
+  const actionsOff = Boolean(serverOwner) && readOnly;
+  const [serverResult, setServerResult] = useState<
+    ServerActionResult & { revision: number; send: ServerSend }
+  >();
+  // The control the person last pressed, so a result can name it and a
+  // pending one can be held disabled until the server answers.
+  const pressedControl = useRef<HTMLButtonElement | null>(null);
+  const signInWorkspace = useSourceSignInWorkspace();
   const sessionRegistry = useA2uiCatalogRegistry(surface.session_id);
   const { registry, catalogs, isLoading: catalogsLoading } = catalogRegistry ?? sessionRegistry;
   const [validationPostFailure, setValidationPostFailure] = useState<{
     revision: number;
     message: string;
   }>();
-  const [validationNotice, setValidationNotice] = useState<{ revision: number; message: string }>();
+  const catalogsKey = a2uiCatalogsKey(catalogs);
+  // A notice belongs to the catalogs it was raised under: a catalog that resolves
+  // again with the missing component rebuilds the surface and retires it.
+  const [validationNotice, setValidationNotice] = useState<{
+    revision: number;
+    catalogs: string;
+    message: string;
+  }>();
   // A degraded update protocol is a producer detail, not the surface's
   // content: it stays under collapsed Technical details.
   const [protocolNotice, setProtocolNotice] = useState<string>();
@@ -177,22 +225,70 @@ function ClioA2UISurfaceContent({
   const [localActionPending, setLocalActionPending] = useState(false);
   const [localActionStatus, setLocalActionStatus] = useState<string>();
   const openSourceSignIn = useSourceSignIn();
-  const { error, isPending, mutateAsync } = useMutation({
-    mutationFn: async (clientAction: A2uiClientAction) => {
+  const { error, isPending, mutateAsync, variables: lastSend } = useMutation({
+    mutationFn: async (send: ServerSend): Promise<A2uiActionReply | void> => {
+      const clientAction = send.action;
       const message = { version: `v${A2UI_VERSION}`, action: clientAction };
-      if (onRemoteAction) {
-        await onRemoteAction(message);
-        return;
+      setServerResult(undefined);
+      try {
+        const reply = onRemoteAction
+          ? await onRemoteAction(message)
+          : await repository.a2uiAction(surface.session_id, message, {
+              run_id: surface.run_id,
+              message_id: surface.message_id,
+              part_id: surface.part_id,
+            });
+        if (serverOwner) {
+          const result = serverActionResult(reply, ownerName, send.subject);
+          if (result) setServerResult({ ...result, revision: surface.revision, send });
+        }
+        return reply;
+      } catch (actionError) {
+        if (!serverOwner) throw actionError;
+        const failure = serverActionFailure(actionError, ownerName);
+        if (failure.serverGone) setServerGone(true);
+        throw new Error(failure.message, { cause: actionError });
       }
-      await repository.a2uiAction(surface.session_id, message, {
-        run_id: surface.run_id,
-        message_id: surface.message_id,
-        part_id: surface.part_id,
-      });
     },
   });
   const handleAction = useCallback(
     async (clientAction: A2uiClientAction) => {
+      if (serverOwner && clientAction.name.startsWith('data_source/')) {
+        try {
+          const provider = serverDataSourceProvider(clientAction);
+          if (readOnly) {
+            setLocalNotice(t`Private sign-in is unavailable in this archive.`);
+            return;
+          }
+          if (!provider || !openSourceSignIn || !signInWorkspace) {
+            throw new Error(t`Private sign-in is unavailable in this workspace view.`);
+          }
+          // The host owns this sign-in: the server's empty context is filled
+          // with this workspace's owner, never with anything the server sent.
+          const message = { version: `v${A2UI_VERSION}`, action: clientAction };
+          const [owner] = await Promise.all([
+            repository.storageProviders(),
+            onRemoteAction
+              ? onRemoteAction(message)
+              : repository.a2uiAction(surface.session_id, message, {
+                  run_id: surface.run_id,
+                  message_id: surface.message_id,
+                  part_id: surface.part_id,
+                }),
+          ]);
+          if (!owner.clio_id) throw new Error(t`This workspace has no account owner to sign in.`);
+          openSourceSignIn({ provider, clioId: owner.clio_id, workspaceId: signInWorkspace });
+        } catch (sourceError) {
+          setLocalNotice(
+            sourceError instanceof TransportError && serverOwner
+              ? serverActionFailure(sourceError, ownerName).message
+              : sourceError instanceof Error
+                ? sourceError.message
+                : t`Sign-in is unavailable.`,
+          );
+        }
+        return;
+      }
       if (clientAction.name.startsWith('data_source/')) {
         try {
           const intent = dataSourceIntent(clientAction);
@@ -249,10 +345,65 @@ function ClioA2UISurfaceContent({
         }
         return;
       }
-      await mutateAsync(clientAction);
+      if (!serverOwner) {
+        await mutateAsync({ action: clientAction });
+        return;
+      }
+      if (actionsOff) return;
+      // The server is still working on this control's last press: a second
+      // press would submit it twice.
+      if (
+        serverResult?.kind === 'running' &&
+        serverResult.revision === surface.revision &&
+        serverResult.send.action.sourceComponentId === clientAction.sourceComponentId
+      )
+        return;
+      const control = pressedControl.current;
+      await mutateAsync({
+        action: clientAction,
+        control: control ?? undefined,
+        subject: serverActionSubject(control?.textContent ?? undefined, clientAction),
+      });
     },
-    [mutateAsync, onLocalAction, readOnly, registry, repository, surface, openSourceSignIn],
+    [
+      actionsOff,
+      mutateAsync,
+      onLocalAction,
+      onRemoteAction,
+      ownerName,
+      readOnly,
+      registry,
+      repository,
+      surface,
+      openSourceSignIn,
+      serverOwner,
+      serverResult,
+      signInWorkspace,
+    ],
   );
+  const pendingControl =
+    serverResult?.kind === 'running' && serverResult.revision === surface.revision
+      ? serverResult.send.control
+      : undefined;
+  // The processor keeps the handler it was built with; this one always runs
+  // the current handler, so a pending press or a read-only state is seen.
+  const handleActionRef = useRef(handleAction);
+  useLayoutEffect(() => {
+    handleActionRef.current = handleAction;
+  }, [handleAction]);
+  const latestHandleAction = useCallback(
+    (clientAction: A2uiClientAction) => handleActionRef.current(clientAction),
+    [],
+  );
+  useEffect(() => {
+    if (!pendingControl) return;
+    pendingControl.setAttribute('data-a2ui-pending', 'true');
+    pendingControl.setAttribute('aria-disabled', 'true');
+    return () => {
+      pendingControl.removeAttribute('data-a2ui-pending');
+      pendingControl.removeAttribute('aria-disabled');
+    };
+  }, [pendingControl]);
   const handleValidationFailed = useCallback(
     async (validationError: { code: string; path?: string; message: string }) => {
       // Only a real VALIDATION_FAILED belongs on the wire (owner decision
@@ -263,7 +414,11 @@ function ClioA2UISurfaceContent({
         return;
       }
       if (validationError.code !== 'VALIDATION_FAILED') {
-        setValidationNotice({ revision: surface.revision, message: validationError.message });
+        setValidationNotice({
+          revision: surface.revision,
+          catalogs: catalogsKey,
+          message: validationError.message,
+        });
         return;
       }
       // A render-time report (the Image/Video/AudioPlayer URL-scheme guard)
@@ -275,11 +430,19 @@ function ClioA2UISurfaceContent({
       // worded here too — a blocked click must never look like it silently
       // did nothing (S8 gact-tui#409 item 1, adversarial finding).
       if (!validationError.path) {
-        setValidationNotice({ revision: surface.revision, message: validationError.message });
+        setValidationNotice({
+          revision: surface.revision,
+          catalogs: catalogsKey,
+          message: validationError.message,
+        });
       }
       setValidationPostFailure(undefined);
       if (readOnly) {
-        setValidationNotice({ revision: surface.revision, message: validationError.message });
+        setValidationNotice({
+          revision: surface.revision,
+          catalogs: catalogsKey,
+          message: validationError.message,
+        });
         return;
       }
       try {
@@ -302,13 +465,13 @@ function ClioA2UISurfaceContent({
         });
       }
     },
-    [repository, surface.id, surface.revision, surface.session_id, readOnly],
+    [repository, surface.id, surface.revision, surface.session_id, readOnly, catalogsKey],
   );
   const { model, failure } = useA2uiSurfaceModel(
     surface,
     catalogs,
     catalogsLoading,
-    handleAction,
+    latestHandleAction,
     handleValidationFailed,
     !readOnly,
   );
@@ -388,6 +551,15 @@ function ClioA2UISurfaceContent({
       // div is the thing being moved in every case, so index.css scopes its
       // catalog-wide patches (ChoicePicker, TextField/Label) here instead.
       data-slot="a2ui-surface-root"
+      data-a2ui-actions={actionsOff ? 'off' : undefined}
+      onClickCapture={
+        serverOwner
+          ? (event) => {
+              pressedControl.current =
+                event.target instanceof Element ? event.target.closest('button') : null;
+            }
+          : undefined
+      }
       ref={visualRoot}
     >
       <MarkdownContext.Provider value={renderMarkdown}>
@@ -421,7 +593,8 @@ function ClioA2UISurfaceContent({
         </div>
       ) : null}
       {localNotice ? <p className="py-2 text-xs text-destructive">{localNotice}</p> : null}
-      {validationNotice?.revision === surface.revision ? (
+      {validationNotice?.revision === surface.revision &&
+      validationNotice.catalogs === catalogsKey ? (
         <p className="py-2 text-xs text-destructive">{validationNotice.message}</p>
       ) : null}
       {validationPostFailure?.revision === surface.revision ? (
@@ -429,8 +602,51 @@ function ClioA2UISurfaceContent({
           {t`The service could not record the rendering problem: ${ph({ message: validationPostFailure.message })}`}
         </p>
       ) : null}
-      {error ? <p className="py-2 text-xs text-destructive">{error.message}</p> : null}
-      {protocolNotice ? (
+      {error ? (
+        serverOwner ? (
+          <StateView
+            action={
+              lastSend && !actionsOff
+                ? { label: t`Retry`, onClick: () => void mutateAsync(lastSend).catch(() => {}) }
+                : undefined
+            }
+            className="py-1"
+            kind="error"
+            size="row"
+            title={error.message}
+          />
+        ) : (
+          <p className="py-2 text-xs text-destructive">{error.message}</p>
+        )
+      ) : null}
+      {serverResult?.revision === surface.revision ? (
+        serverResult.kind === 'error' ? (
+          <StateView
+            action={
+              actionsOff
+                ? undefined
+                : {
+                    label: t`Retry`,
+                    onClick: () => void mutateAsync(serverResult.send).catch(() => {}),
+                  }
+            }
+            className="py-1"
+            detail={serverResult.detail}
+            kind="error"
+            size="row"
+            title={serverResult.message}
+            wrapDetail
+          />
+        ) : (
+          <div aria-live="polite" className="py-2 text-xs">
+            <ClioStatus
+              label={serverResult.message}
+              value={serverResult.kind === 'running' ? 'running' : 'completed'}
+            />
+          </div>
+        )
+      ) : null}
+      {protocolNotice && !serverOwner ? (
         <TechnicalDetails
           className="py-1 text-xs text-muted-foreground"
           hint={t`Updates reset unsent input`}
@@ -458,6 +674,34 @@ function ClioA2UISurfaceContent({
       tabIndex={-1}
     >
       {statusNotice}
+      {serverOwner && ownerAttribution ? (
+        <TechnicalDetails
+          beside={
+            <span className="flex min-w-0 items-center gap-1.5">
+              <PlugIcon aria-hidden="true" className="size-3 shrink-0" />
+              <span className="truncate">{t`From ${ph({ name: ownerName })}`}</span>
+            </span>
+          }
+          className="mb-1.5 min-w-0 text-meta text-muted-foreground"
+          title={t`Technical details`}
+        >
+          <dl
+            className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5"
+            data-slot="a2ui-surface-owner"
+          >
+            <dt>{t`Plugin`}</dt>
+            <dd className="truncate font-mono">{serverOwner.plugin}</dd>
+            <dt>{t`Server`}</dt>
+            <dd className="truncate font-mono">{serverOwner.server}</dd>
+            {serverOwner.namespace ? (
+              <>
+                <dt>{t`Namespace`}</dt>
+                <dd className="truncate font-mono">{serverOwner.namespace}</dd>
+              </>
+            ) : null}
+          </dl>
+        </TechnicalDetails>
+      ) : null}
       {renderedSurface}
       {surfaceFeedback}
     </section>
@@ -474,6 +718,7 @@ export function ClioA2UISurface({
   catalogRegistry,
   captureArtifactId,
   visualFeedback,
+  ownerAttribution = true,
 }: {
   actionLifecycle?: A2UIActionLifecycle;
   onLocalAction?: A2UILocalActionHandler;
@@ -484,6 +729,8 @@ export function ClioA2UISurface({
   catalogRegistry?: A2uiRegistrySnapshot;
   captureArtifactId?: string;
   visualFeedback?: boolean;
+  /** Names a plugin server's view's owner; a plugin's own tab already says it. */
+  ownerAttribution?: boolean;
 }) {
   const target = useQuestionAnswer()?.surfaceTarget;
   const navigation = useMemo(
@@ -506,6 +753,7 @@ export function ClioA2UISurface({
           catalogRegistry={catalogRegistry}
           captureArtifactId={captureArtifactId}
           visualFeedback={visualFeedback}
+          ownerAttribution={ownerAttribution}
         />
       </SurfaceQuestionTabs.Provider>
     </SurfaceBoundary>

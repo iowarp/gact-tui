@@ -3,7 +3,13 @@ import type {
   PendingInteractionField,
   PendingInteractionResponse,
 } from '@clio/core/v3';
-import { AlertTriangleIcon, ExternalLinkIcon } from 'lucide-react';
+import {
+  AlertTriangleIcon,
+  ExternalLinkIcon,
+  GlobeIcon,
+  LinkIcon,
+  ShieldCheckIcon,
+} from 'lucide-react';
 import { useState, type ChangeEvent } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -21,6 +27,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { openExternalUrl } from '@/tauri/external-url';
+import { serverOwnerName } from '@/lib/a2ui/server-surface';
 import { AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
 import { useQuestionDraftValue } from './question-answer-context';
@@ -108,10 +115,41 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   );
 }
 
+/**
+ * HS5: why CLIO let this link through, in words. A plugin's own sign-in page,
+ * or a page its server serves on this computer, says which plugin vouched for it.
+ */
+function urlOriginTrust(payload: PendingInteraction['payload']): string | undefined {
+  // The plugin's one display name ("Demo scheduler"); its ids stay out of the sentence.
+  const name =
+    payload?.plugin || payload?.server
+      ? serverOwnerName({
+          plugin: payload.plugin ?? '',
+          plugin_title: payload.plugin_title,
+          server: payload.server ?? '',
+        })
+      : '';
+  switch (payload?.origin_trust) {
+    case 'configured':
+      return t`It is a trusted address in your settings`;
+    case 'plugin_origin':
+      return name
+        ? t`${ph({ name })} names this address as its own`
+        : t`A plugin names this address as its own`;
+    case 'plugin_loopback':
+      return name
+        ? t`It is on this computer, served by ${ph({ name })}`
+        : t`It is on this computer, served by a plugin`;
+    default:
+      return undefined;
+  }
+}
+
 /** Explicit URL consent; nothing is opened or fetched during render. */
 export function UrlConsentResponse(props: QuestionSurfaceProps) {
   const { interaction } = props;
   const url = interaction.payload?.url ?? '';
+  const originTrust = urlOriginTrust(interaction.payload);
   const [navigationError, setNavigationError] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -140,7 +178,7 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
   };
 
   return (
-    <QuestionFrame {...props}>
+    <QuestionFrame {...props} escapeAnswers>
       {interaction.payload?.punycode_warning ? (
         <AskSection
           className="mt-1 flex min-w-0 items-center gap-1.5 text-meta text-warning"
@@ -155,7 +193,21 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
       ) : null}
       <AskFacts
         facts={[
-          { label: t`Full URL`, value: url, title: url, mono: true },
+          { label: t`Full URL`, icon: <LinkIcon />, value: url, title: url, mono: true },
+          ...(interaction.payload?.origin
+            ? [
+                {
+                  label: t`Origin`,
+                  icon: <GlobeIcon />,
+                  value: interaction.payload.origin,
+                  title: interaction.payload.origin,
+                  mono: true,
+                },
+              ]
+            : []),
+          ...(originTrust
+            ? [{ label: t`Trusted because`, icon: <ShieldCheckIcon />, value: originTrust, wrap: true }]
+            : []),
           ...(interaction.payload?.punycode_host
             ? [{ label: t`Decoded host`, value: interaction.payload.punycode_host, mono: true }]
             : []),

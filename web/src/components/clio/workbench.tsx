@@ -452,7 +452,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         openInstance,
         openTab,
         previousTab,
+        sessionId,
         setActiveTabId,
+        setTabs,
         subagents,
         tabList,
       });

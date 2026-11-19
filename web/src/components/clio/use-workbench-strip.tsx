@@ -1,4 +1,5 @@
 import type { SubagentRun } from '@clio/core/v3';
+import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIcon,
   BotIcon,
@@ -9,11 +10,22 @@ import {
   PaperclipIcon,
   TerminalSquareIcon,
 } from 'lucide-react';
-import { useEffect, useEffectEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useEffectEvent,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from 'react';
+import { useRepository } from '@/hooks/use-repository';
+import { PluginTabIcon } from '@/lib/a2ui/plugin-tab-icons';
+import { usePluginPages } from '@/lib/a2ui/plugin-pages';
+import { connectionScope } from '@/lib/connection-scope';
 import { useShortcut } from '@/lib/shortcuts/hooks';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { scienceLogTab } from './science-log-tab-state';
 import type { useWorkbenchTabListSlot } from './use-workbench-tab-list-slot';
-import { loadResourceViewers, type WorkbenchTab } from './workbench-shared';
+import { loadResourceViewers, pluginTab, type WorkbenchTab } from './workbench-shared';
 import type { WorkbenchListView, WorkbenchStripItem } from './workbench-strip';
 import { agentTab, listTab, newBrowserPageTab } from './workbench-tab-storage';
 import {
@@ -39,7 +51,9 @@ export function useWorkbenchStrip({
   openInstance,
   openTab,
   previousTab,
+  sessionId,
   setActiveTabId,
+  setTabs,
   subagents,
   tabList,
 }: {
@@ -50,12 +64,57 @@ export function useWorkbenchStrip({
   openInstance: (tab: WorkbenchTab) => void;
   openTab: (tab: WorkbenchTab) => void;
   previousTab?: WorkbenchTab;
+  sessionId: string;
   setActiveTabId: (tabId: string) => void;
+  setTabs: Dispatch<SetStateAction<WorkbenchTab[]>>;
   subagents: readonly SubagentRun[];
   tabList: ReturnType<typeof useWorkbenchTabListSlot>;
 }) {
   const canvasVisible = useWorkspaceCanvasVisibility();
   const canvasControl = useWorkspaceCanvasControl();
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  // The tabs the conversation's plugins offer. A server without them (or an
+  // older one) has none, and the strip shows only its own lists.
+  const pluginTabs = useQuery({
+    queryKey: ['plugin-tabs', connectionScope(settings), sessionId],
+    queryFn: ({ signal }) => repository.pluginTabs(sessionId, signal),
+    enabled: Boolean(sessionId),
+    retry: false,
+    staleTime: 30_000,
+  }).data;
+  const pluginPages = usePluginPages();
+  // An open plugin tab follows the list: a plugin updated in place may rename
+  // its tab, its plugin or its icon.
+  useEffect(() => {
+    if (!pluginTabs) return;
+    const offeredById = new Map(pluginTabs.map((offered) => [offered.id, offered]));
+    setTabs((current) => {
+      let changed = false;
+      const next = current.map((tab) => {
+        if (tab.kind !== 'plugin' || tab.sessionId !== sessionId) return tab;
+        const offered = offeredById.get(tab.tabId);
+        if (!offered) return tab;
+        const pluginTitle = offered.plugin_title || undefined;
+        if (
+          tab.label === offered.title &&
+          (tab.pluginTitle || undefined) === pluginTitle &&
+          tab.icon === offered.icon &&
+          tab.plugin === offered.plugin
+        )
+          return tab;
+        changed = true;
+        return {
+          ...tab,
+          label: offered.title,
+          pluginTitle,
+          icon: offered.icon,
+          plugin: offered.plugin,
+        };
+      });
+      return changed ? next : current;
+    });
+  }, [pluginTabs, sessionId, setTabs]);
 
   const runningSubagents = subagents.filter((run) => RUNNING_STATES.has(run.state)).length;
   const listIsPressed = (id: WorkbenchListView) => {
@@ -97,6 +156,29 @@ export function useWorkbenchStrip({
   // Always on the strip: where terminals can't run, its list says so.
   listItem('terminal', t`Terminal`, <TerminalSquareIcon />);
   listItem('browser', t`Browser`, <GlobeIcon />);
+  const pluginTabFor = new Map<string, WorkbenchTab>();
+  // A plugin's page in the left bar already opens this resource; no strip launcher repeats it.
+  const onPages = new Set(pluginPages.map((page) => `${page.plugin}\u0000${page.resource}`));
+  for (const offered of pluginTabs ?? []) {
+    if (onPages.has(`${offered.plugin}\u0000${offered.resource}`)) continue;
+    const tab = pluginTab({
+      label: offered.title,
+      sessionId,
+      tabId: offered.id,
+      plugin: offered.plugin,
+      pluginTitle: offered.plugin_title,
+      icon: offered.icon,
+    });
+    const id = `plugin:${offered.id}` as const;
+    pluginTabFor.set(id, tab);
+    const title = offered.title;
+    stripItems.push({
+      id,
+      label: offered.available ? title : t`${title} (unavailable)`,
+      icon: <PluginTabIcon name={offered.icon} />,
+      pressed: activeTabId === tab.id,
+    });
+  }
 
   /** A launcher click: open or focus the tab; on the shown tab, go back to the one before. */
   const toggleTab = (tab: WorkbenchTab) => {
@@ -136,7 +218,12 @@ export function useWorkbenchStrip({
       openTab(scienceLogTab);
       return;
     }
-    toggleTab(listTab(id));
+    if (id.startsWith('plugin:')) {
+      const tab = pluginTabFor.get(id);
+      if (tab) toggleTab(tab);
+      return;
+    }
+    toggleTab(listTab(id as WorkbenchListView));
   };
 
   useShortcut('strip-position', (_event, position) => {

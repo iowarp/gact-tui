@@ -18,6 +18,18 @@ import { resolveSessionReference, readResolvedReferenceBytes } from './a2ui/refe
 import type { A2UISurface } from './domain.js';
 import { PresentationRepository } from './presentation-repository.js';
 import { a2uiSurfaceSchema } from './schemas.js';
+import {
+  a2uiActionReplySchema,
+  pluginTabListSchema,
+  pluginTabOpenedSchema,
+  pluginPageListSchema,
+  pluginPageOpenedSchema,
+  type A2uiActionReply,
+  type PluginPage,
+  type PluginPageOpened,
+  type PluginTab,
+  type PluginTabOpened,
+} from './plugin-tab-contract.js';
 import { captureSessionReview } from './session-export-snapshot.js';
 import type { SessionReviewSnapshot } from './session-export-snapshot.js';
 import {
@@ -26,6 +38,26 @@ import {
   type DashboardReport,
   type SavedDashboard,
 } from './dashboard-report.js';
+import { A2UI_VERSION } from './protocol-versions.js';
+
+/**
+ * Both action routes refuse (406) a request that does not name its A2UI version. The
+ * header is the bare negotiation version ("0.9.1"); only the message envelope spells it
+ * "v0.9.1", and the server refuses the envelope spelling here.
+ */
+const A2UI_ACTION_HEADERS = { 'x-a2ui-version': A2UI_VERSION } as const;
+
+/** `<plugin>/<tab>` keeps its slash: the route has a segment for each. */
+function pluginTabPath(sessionId: string, tabId: string): string {
+  const [plugin = '', tab = ''] = tabId.split('/', 2);
+  return `/v1/sessions/${encodeURIComponent(sessionId)}/plugin-tabs/${encodeURIComponent(plugin)}/${encodeURIComponent(tab)}`;
+}
+
+/** `<plugin>/<page>` keeps its slash: the route has a segment for each. */
+function pluginPagePath(pageId: string): string {
+  const [plugin = '', page = ''] = pageId.split('/', 2);
+  return `/v1/plugin-pages/${encodeURIComponent(plugin)}/${encodeURIComponent(page)}`;
+}
 
 /**
  * The A2UI transport doors (`docs/gact/a2ui-binding.md`): posting a client
@@ -40,7 +72,10 @@ export class A2uiRepository extends PresentationRepository {
       method: 'GET',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/surfaces`,
       decode: (value) =>
-        z.object({ surfaces: z.array(a2uiSurfaceSchema) }).passthrough().parse(value).surfaces,
+        z
+          .object({ surfaces: z.array(a2uiSurfaceSchema) })
+          .passthrough()
+          .parse(value).surfaces,
       signal,
     });
   }
@@ -133,25 +168,117 @@ export class A2uiRepository extends PresentationRepository {
     message: unknown,
     correlation?: { run_id?: string; message_id?: string; part_id?: string; question_id?: string },
     signal?: AbortSignal,
-  ): Promise<{ status: string; destination?: string; state?: string; delivery?: string }> {
+  ): Promise<A2uiActionReply> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/actions`,
+      headers: A2UI_ACTION_HEADERS,
       body: {
         message,
         correlation,
         metadata: mergeA2uiClientMetadata(sessionId, undefined, { includeDataModel: true }),
       },
-      decode: (value) =>
-        z
-          .object({
-            status: z.string(),
-            destination: z.string().optional(),
-            state: z.string().optional(),
-            delivery: z.string().optional(),
-          })
-          .passthrough()
-          .parse(value),
+      decode: (value) => a2uiActionReplySchema.parse(value),
+      signal,
+    });
+  }
+
+  /** HS3: the tabs the plugins mounted in this conversation offer. */
+  public pluginTabs(sessionId: string, signal?: AbortSignal): Promise<PluginTab[]> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/plugin-tabs`,
+      decode: (value) => pluginTabListSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Reads the tab's resource: its surfaces replace everything the tab held. */
+  public openPluginTab(
+    sessionId: string,
+    tabId: string,
+    signal?: AbortSignal,
+  ): Promise<PluginTabOpened> {
+    return this.transport.request({
+      method: 'POST',
+      path: `${pluginTabPath(sessionId, tabId)}/open`,
+      body: {},
+      decode: (value) => pluginTabOpenedSchema.parse(value),
+      signal,
+    });
+  }
+
+  public closePluginTab(sessionId: string, tabId: string): Promise<{ closed: boolean }> {
+    return this.transport.request({
+      method: 'POST',
+      path: `${pluginTabPath(sessionId, tabId)}/close`,
+      body: {},
+      decode: (value) => z.object({ closed: z.boolean() }).passthrough().parse(value),
+    });
+  }
+
+  /** HS2 on a tab's surface: the action goes to the server that owns the tab. */
+  public pluginTabAction(
+    sessionId: string,
+    tabId: string,
+    message: unknown,
+    signal?: AbortSignal,
+  ): Promise<A2uiActionReply> {
+    return this.transport.request({
+      method: 'POST',
+      path: `${pluginTabPath(sessionId, tabId)}/actions`,
+      headers: A2UI_ACTION_HEADERS,
+      body: {
+        message,
+        metadata: mergeA2uiClientMetadata(sessionId, undefined, { includeDataModel: true }),
+      },
+      decode: (value) => a2uiActionReplySchema.parse(value),
+      signal,
+    });
+  }
+
+  /** The primary navigation pages every installed plugin declares (global). */
+  public pluginPages(signal?: AbortSignal): Promise<PluginPage[]> {
+    return this.transport.request({
+      method: 'GET',
+      path: '/v1/plugin-pages',
+      decode: (value) => pluginPageListSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Reads the page's resource in its context, which the first open creates. */
+  public openPluginPage(pageId: string, signal?: AbortSignal): Promise<PluginPageOpened> {
+    return this.transport.request({
+      method: 'POST',
+      path: `${pluginPagePath(pageId)}/open`,
+      body: {},
+      decode: (value) => pluginPageOpenedSchema.parse(value),
+      signal,
+    });
+  }
+
+  public closePluginPage(pageId: string): Promise<{ closed: boolean }> {
+    return this.transport.request({
+      method: 'POST',
+      path: `${pluginPagePath(pageId)}/close`,
+      body: {},
+      decode: (value) => z.object({ closed: z.boolean() }).passthrough().parse(value),
+    });
+  }
+
+  /** HS2 on a page's surface: the action goes to the server that owns the page. */
+  public pluginPageAction(
+    pageId: string,
+    message: unknown,
+    signal?: AbortSignal,
+  ): Promise<A2uiActionReply> {
+    return this.transport.request({
+      method: 'POST',
+      path: `${pluginPagePath(pageId)}/actions`,
+      headers: A2UI_ACTION_HEADERS,
+      body: { message },
+      decode: (value) => a2uiActionReplySchema.parse(value),
       signal,
     });
   }
