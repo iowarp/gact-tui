@@ -24251,6 +24251,10 @@ msgstr "Τίποτα δεν ταιριάζει με {shown}"
 msgid "Nothing needs you."
 msgstr "Τίποτα δεν σας χρειάζεται."
 
+#: src/components/clio/pending-interaction-notices.tsx
+msgid "Nothing new can be recorded"
+msgstr "Δεν μπορεί να καταγραφεί τίποτα νέο"
+
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
 msgid "Nothing of its own"

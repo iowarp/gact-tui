@@ -24251,6 +24251,10 @@ msgstr "Nada coincide con {shown}"
 msgid "Nothing needs you."
 msgstr "Nada te necesita."
 
+#: src/components/clio/pending-interaction-notices.tsx
+msgid "Nothing new can be recorded"
+msgstr "No se puede registrar nada nuevo"
+
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
 msgid "Nothing of its own"

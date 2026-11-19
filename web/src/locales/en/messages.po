@@ -24250,6 +24250,10 @@ msgstr "Nothing matches {shown}"
 msgid "Nothing needs you."
 msgstr "Nothing needs you."
 
+#: src/components/clio/pending-interaction-notices.tsx
+msgid "Nothing new can be recorded"
+msgstr "Nothing new can be recorded"
+
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
 msgid "Nothing of its own"
