@@ -50,6 +50,15 @@ const usePluginTabStore = create<PluginTabStore>(() => ({ tabs: {} }));
 const opened = new Map<string, { repository: PluginTabRepository; controller?: AbortController }>();
 
 /**
+ * A view that unmounts and mounts again at once (React's development double
+ * effect, a route bounce) would send open, close, open, and the service could
+ * apply the close last. So a close waits this long and an open in the
+ * meantime cancels it; an open after a close was sent waits for it.
+ */
+const CLOSE_GRACE_MS = 400;
+const closing = new Map<string, { timer?: ReturnType<typeof setTimeout>; sent?: Promise<unknown> }>();
+
+/**
  * Plugin pages share the tab store under one scope of their own: they are
  * global, so no conversation keys them.
  */
@@ -84,6 +93,11 @@ export async function openPluginTab(
 ): Promise<void> {
   const entry = key(sessionId, tabId);
   opened.get(entry)?.controller?.abort();
+  const pending = closing.get(entry);
+  if (pending?.timer !== undefined) {
+    clearTimeout(pending.timer);
+    closing.delete(entry);
+  }
   const controller = new AbortController();
   opened.set(entry, { repository, controller });
   usePluginTabStore.setState((store) => ({
@@ -100,6 +114,8 @@ export async function openPluginTab(
     },
   }));
   try {
+    if (pending?.sent) await pending.sent;
+    if (controller.signal.aborted || !opened.has(entry)) return;
     const result = await repository.openPluginTab(sessionId, tabId, controller.signal);
     if (controller.signal.aborted || !opened.has(entry)) return;
     const owner: A2UISurfaceOwner = {
@@ -160,7 +176,18 @@ export function releasePluginTab(sessionId: string, tabId: string): void {
     const { [entry]: _closed, ...rest } = store.tabs;
     return { tabs: rest };
   });
-  void handle?.repository.closePluginTab(sessionId, tabId).catch(() => undefined);
+  if (!handle) return;
+  const pending: { timer?: ReturnType<typeof setTimeout>; sent?: Promise<unknown> } = {};
+  pending.timer = setTimeout(() => {
+    pending.timer = undefined;
+    pending.sent = handle.repository
+      .closePluginTab(sessionId, tabId)
+      .catch(() => undefined)
+      .finally(() => {
+        if (closing.get(entry) === pending) closing.delete(entry);
+      });
+  }, CLOSE_GRACE_MS);
+  closing.set(entry, pending);
 }
 
 /**
