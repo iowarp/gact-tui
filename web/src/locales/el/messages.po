@@ -21922,6 +21922,10 @@ msgstr "Μετακίνηση δεξιά"
 msgid "Moved to {label}"
 msgstr "Μετακινήθηκε σε {label}"
 
+#: src/components/clio/send-script-to-background.tsx
+msgid "Moved to the background"
+msgstr "Μεταφέρθηκε στο παρασκήνιο"
+
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "Moved to version {headVersion}"
 msgstr "Μετακινήθηκε στην έκδοση {headVersion}"
@@ -32383,6 +32387,10 @@ msgstr "Στείλτε και αυτό το αίτημα."
 msgid "Send to agent"
 msgstr "Αποστολή στον πράκτορα"
 
+#: src/components/clio/send-script-to-background.tsx
+msgid "Send to background"
+msgstr "Αποστολή στο παρασκήνιο"
+
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Send your saved NDP account token to this API. The Endpoint must accept your account and grant access."
 msgstr "Αποστολή του αποθηκευμένου token λογαριασμού NDP σε αυτό το API. Η διεύθυνση πρέπει να αποδέχεται τον λογαριασμό σας και να παραχωρεί πρόσβαση."
@@ -37134,6 +37142,10 @@ msgstr "Το σενάριο είχε ήδη επισυνάψει όσα αρχε
 #: src/components/clio/image-reach.ts
 msgid "The script had already attached as many files as one result may carry, so the model did not see this PDF."
 msgstr "Το σενάριο είχε ήδη επισυνάψει όσα αρχεία χωρούν σε ένα αποτέλεσμα, οπότε το μοντέλο δεν είδε αυτό το PDF."
+
+#: src/components/clio/send-script-to-background.tsx
+msgid "The script had already finished or moved."
+msgstr "Το σενάριο είχε ήδη τελειώσει ή μετακινηθεί."
 
 #: src/components/clio/injection-presentation.ts
 msgid "The script sent no text."
