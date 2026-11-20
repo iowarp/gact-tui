@@ -50,9 +50,114 @@ fn png_data_url(bytes: &[u8]) -> Option<String> {
     Some(format!("data:image/png;base64,{}", STANDARD.encode(bytes)))
 }
 
+/// File types whose system handler runs the file as a program or script on at
+/// least one desktop OS: Windows (cmd, Windows Script Host, mshta, PowerShell,
+/// installers, shortcuts), macOS (Terminal, Script Editor, installers, bundles)
+/// and Linux (desktop entries, shell scripts, AppImages), plus interpreters that
+/// register for their scripts. A file the model or a repository wrote must not
+/// be one double-click from running, so these types get no system application;
+/// "Reveal in folder" still works.
+const PROGRAM_EXTENSIONS: &[&str] = &[
+    // Windows
+    "bat",
+    "cmd",
+    "com",
+    "exe",
+    "msi",
+    "msp",
+    "mst",
+    "scr",
+    "pif",
+    "cpl",
+    "hta",
+    "js",
+    "jse",
+    "vbs",
+    "vbe",
+    "vb",
+    "wsf",
+    "wsh",
+    "wsc",
+    "ws",
+    "ps1",
+    "psm1",
+    "psd1",
+    "ps1xml",
+    "psc1",
+    "lnk",
+    "url",
+    "scf",
+    "reg",
+    "inf",
+    "msc",
+    "gadget",
+    "application",
+    "appref-ms",
+    "appx",
+    "appxbundle",
+    "msix",
+    "msixbundle",
+    "chm",
+    "diagcab",
+    "settingcontent-ms",
+    "library-ms",
+    "search-ms",
+    "xbap",
+    "jar",
+    "jnlp",
+    // macOS
+    "app",
+    "command",
+    "tool",
+    "terminal",
+    "scpt",
+    "scptd",
+    "applescript",
+    "workflow",
+    "action",
+    "pkg",
+    "mpkg",
+    "dmg",
+    "fileloc",
+    "inetloc",
+    "webloc",
+    // Linux and Unix
+    "desktop",
+    "sh",
+    "bash",
+    "zsh",
+    "csh",
+    "ksh",
+    "fish",
+    "run",
+    "appimage",
+    "bin",
+    "out",
+    // Interpreted scripts that interpreters register to run
+    "py",
+    "pyw",
+    "pyc",
+    "pyz",
+    "rb",
+    "pl",
+    "php",
+    "lua",
+    "tcl",
+];
+
+/// Whether a file of this (lower-case) extension is run, not shown, by its system handler.
+pub(crate) fn is_program_extension(extension: &str) -> bool {
+    PROGRAM_EXTENSIONS.contains(&extension)
+}
+
 /// Return unique named handlers, with the operating system's default first.
+///
+/// Program and script types get none (see [`PROGRAM_EXTENSIONS`]).
 pub(crate) fn discover(name: &str, mime_type: &str) -> Result<Vec<DocumentApplication>, String> {
     let extension = extension(name)?;
+    if is_program_extension(&extension) {
+        return Ok(Vec::new());
+    }
     let mut applications = platform::discover(&extension, mime_type)?;
     applications.retain(|app| !app.id.is_empty() && !app.name.trim().is_empty());
     applications.sort_by_key(|app| (!app.is_default, app.name.to_lowercase(), app.id.clone()));
@@ -67,6 +172,12 @@ pub fn open_in(application: &str, path: &Path) -> Result<(), String> {
         return Err("The file is no longer available.".into());
     }
     let extension = extension(&path.to_string_lossy())?;
+    if is_program_extension(&extension) {
+        return Err(format!(
+            "Program and script files (.{extension}) are not opened in a system application. \
+             Use Reveal in folder to find the file."
+        ));
+    }
     platform::open_in(application, path, &extension)
 }
 
@@ -196,6 +307,40 @@ mod tests {
             STANDARD.decode(encoded.split_once(',').unwrap().1).unwrap(),
             png
         );
+    }
+
+    #[test]
+    fn program_and_script_types_get_no_system_application() {
+        for name in [
+            "fix.BAT",
+            "plot.js",
+            "report.hta",
+            "setup.ps1",
+            "run.command",
+            "a.desktop",
+        ] {
+            assert!(discover(name, "").unwrap().is_empty(), "{name}");
+        }
+        assert!(!is_program_extension("pdf"));
+        assert!(!is_program_extension("png"));
+        assert!(!is_program_extension("xlsx"));
+    }
+
+    #[test]
+    fn program_and_script_types_are_not_opened() {
+        let root =
+            std::env::temp_dir().join(format!("clio-program-{:016x}", rand::random::<u64>()));
+        let result = open_file_bytes_in(&root, "fix.bat", b"echo hi", "anything");
+        let error = result.unwrap_err();
+        assert!(
+            error.contains("not opened in a system application"),
+            "{error}"
+        );
+        // Nothing is left behind for a refused file.
+        assert!(std::fs::read_dir(root.join("open-in"))
+            .map(|mut entries| entries.next().is_none())
+            .unwrap_or(true));
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
