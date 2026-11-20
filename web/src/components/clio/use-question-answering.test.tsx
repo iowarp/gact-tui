@@ -80,12 +80,42 @@ describe('useQuestionAnswering.submit (#1448)', () => {
     });
     expect(respond).not.toHaveBeenCalled();
   });
-  it('sends an ordinary message when no question was picked', async () => {
+  it('answers the one blocking question with typed text when none was picked', async () => {
     const { result, respond, send } = setup();
 
     await act(() => result.current.submit({ ...base, text: 'hello' }));
 
+    expect(respond).toHaveBeenCalledWith(expect.objectContaining({ id: 'question:q1' }), {
+      action: 'answer',
+      answer: 'hello',
+    });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('sends an ordinary message while only a background question waits', async () => {
+    const { result, respond, send } = setup('ask_user', 'async');
+
+    await act(() => result.current.submit({ ...base, text: 'hello' }));
+
     expect(send).toHaveBeenCalledWith({ ...base, text: 'hello' });
+    expect(respond).not.toHaveBeenCalled();
+  });
+
+  it('answers through the message route when a busy composer would queue the answer', async () => {
+    const { result, respond, send } = setup();
+    const files = [{ filename: 'stations.csv' }] as never;
+
+    await act(() =>
+      result.current.submit({ ...base, delivery: 'queued', text: 'attached', files }),
+    );
+
+    expect(send).toHaveBeenCalledWith({
+      ...base,
+      delivery: 'auto',
+      text: 'attached',
+      files,
+      answersQuestionId: 'q1',
+    });
     expect(respond).not.toHaveBeenCalled();
   });
 

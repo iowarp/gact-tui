@@ -19,8 +19,9 @@ interface BehaviorSelection {
 
 /**
  * The approval policy, execution mode and reasoning effort the next message is
- * sent with. The session's values apply until the person changes one here; a
- * later change from the session replaces a value the person has not touched.
+ * sent with. The session's values apply until the person changes one here; each
+ * later change from the session replaces the shown policy or mode, since a stored
+ * pick comes back as that change.
  * A policy or mode change is stored on the session, and a rejected change
  * returns to the previous behavior with an error toast.
  */
@@ -51,16 +52,34 @@ export function useComposerBehavior({
     authoritativeEffort: effort,
     effortPicked: false,
   }));
+  // Adopt each session change as it arrives (for example the service leaving
+  // plan mode once a plan is approved), so a pick that the session has since
+  // moved past is never compared against a stale snapshot and shown again.
+  let current = selection;
+  if (
+    selection.authoritativeExecutionMode !== executionMode ||
+    selection.authoritativeConfirmationPolicy !== confirmationPolicy
+  ) {
+    current = {
+      ...selection,
+      behavior: {
+        ...selection.behavior,
+        confirmation_policy:
+          selection.authoritativeConfirmationPolicy === confirmationPolicy
+            ? selection.behavior.confirmation_policy
+            : confirmationPolicy,
+        execution_mode:
+          selection.authoritativeExecutionMode === executionMode
+            ? selection.behavior.execution_mode
+            : executionMode,
+      },
+      authoritativeConfirmationPolicy: confirmationPolicy,
+      authoritativeExecutionMode: executionMode,
+    };
+    setSelection(current);
+  }
   const behavior: MessageBehavior = {
-    ...selection.behavior,
-    confirmation_policy:
-      selection.authoritativeConfirmationPolicy === confirmationPolicy
-        ? selection.behavior.confirmation_policy
-        : confirmationPolicy,
-    execution_mode:
-      selection.authoritativeExecutionMode === executionMode
-        ? selection.behavior.execution_mode
-        : executionMode,
+    ...current.behavior,
     reasoning_effort:
       selection.effortPicked || selection.authoritativeEffort === effort
         ? selection.behavior.reasoning_effort

@@ -37,9 +37,10 @@ interface QuestionAnswering {
   /** The notice over the composer, or `null` when no question is waiting. */
   notice: ReactNode;
   /**
-   * Submit the composer: the answer to the question picked with "Other answer"
-   * (text through its route, attachments as the answering message), plan
-   * feedback while a plan review waits, or an ordinary message.
+   * Submit the composer: the answer to the question picked with "Other answer",
+   * or else to the one ask_user question the turn waits on (text through its
+   * route, attachments as the answering message), plan feedback while a plan
+   * review waits, or an ordinary message.
    */
   submit: (value: SessionSendInput) => Promise<void>;
 }
@@ -47,8 +48,9 @@ interface QuestionAnswering {
 /**
  * The workspace's agent-question wiring: which pending questions sit in the
  * log, which one the composer is answering, and the notice that links to
- * them. A pending question never blocks the composer: an ordinary message is
- * still sent as a message, and the question stays open in the log.
+ * them. A pending question never blocks the composer. Typed text answers the
+ * question the turn waits on, and a message is still sent as a message while
+ * no such question (or more than one) is open.
  */
 export function useQuestionAnswering({
   interactions,
@@ -67,17 +69,24 @@ export function useQuestionAnswering({
   );
   // Read the live row: a question answered or expired elsewhere stops being a
   // target. A pick between drafts never is: it is answered in its tabs block.
+  const typedAnswerTarget = (question: PendingInteraction) =>
+    question.kind === 'question' &&
+    question.source.protocol === 'native' &&
+    !question.payload?.mode &&
+    question.status === 'pending' &&
+    question.requires_human_response !== false &&
+    question.source.tool_name !== 'plan_exit' &&
+    !isVariantPickInteraction(question);
   const answering = interactions.find(
-    (question) =>
-      question.id === answeringId &&
-      question.kind === 'question' &&
-      question.source.protocol === 'native' &&
-      !question.payload?.mode &&
-      question.status === 'pending' &&
-      question.requires_human_response !== false &&
-      question.source.tool_name !== 'plan_exit' &&
-      !isVariantPickInteraction(question),
+    (question) => question.id === answeringId && typedAnswerTarget(question),
   );
+  // With none picked, the one ask_user question the turn is blocked on takes the
+  // typed text: the agent reads it as the answer, so the card must close with it,
+  // whatever other cards (consents, plan reviews) wait beside it.
+  const blockingQuestions = questions.filter(
+    (question) => typedAnswerTarget(question) && question.payload?.response_mode !== 'async',
+  );
+  const implicitTarget = blockingQuestions.length === 1 ? blockingQuestions[0] : undefined;
   const stopAnswer = useCallback(() => setAnsweringId(undefined), []);
   const context = useMemo<QuestionAnswerState>(
     () => ({
@@ -109,24 +118,37 @@ export function useQuestionAnswering({
     ) : null;
   const submit = useCallback<QuestionAnswering['submit']>(
     async (value) => {
-      const answer = questionAnswerFromComposer(answering, sessionId, value);
+      const target = answering ?? implicitTarget;
+      let answer: ReturnType<typeof questionAnswerFromComposer>;
+      try {
+        answer = questionAnswerFromComposer(target, sessionId, value);
+      } catch (error) {
+        // An unpicked delegated question cannot take attachments: send them as a message.
+        if (answering) throw error;
+        answer = undefined;
+      }
       if (answer?.kind === 'response') await respond(answer.interaction, answer.response);
-      else if (answer)
+      else if (answer) {
+        const asyncTarget = target?.payload?.response_mode === 'async' && !target.payload.task_handle;
         await send({
           ...value,
-          ...(answering?.payload?.response_mode === 'async' && !answering.payload.task_handle
+          // The queued route refuses an answer (answers_question_id), so a busy
+          // composer's queued answer goes through the message route instead.
+          ...(asyncTarget
             ? { delivery: 'queued' as const }
-            : {}),
+            : value.delivery === 'queued' && !target?.payload?.task_handle
+              ? { delivery: 'auto' as const }
+              : {}),
           answersQuestionId: answer.questionId,
-          ...(answering?.payload?.task_handle ? { answersQuestionTask: true } : {}),
+          ...(target?.payload?.task_handle ? { answersQuestionTask: true } : {}),
         });
-      else {
+      } else {
         const revision = planRevisionFromComposer(interactions, value);
         await (revision ? respond(revision.interaction, revision.response) : send(value));
       }
       if (answer) stopAnswer();
     },
-    [answering, interactions, respond, send, sessionId, stopAnswer],
+    [answering, implicitTarget, interactions, respond, send, sessionId, stopAnswer],
   );
   return { context, notice, submit };
 }
