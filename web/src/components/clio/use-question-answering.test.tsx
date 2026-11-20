@@ -92,17 +92,31 @@ describe('useQuestionAnswering.submit (#1448)', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('sends an ordinary message while only a background question waits', async () => {
+  it('answers the one waiting question even when the service marks it async', async () => {
     const { result, respond, send } = setup('ask_user', 'async');
 
     await act(() => result.current.submit({ ...base, text: 'hello' }));
 
-    expect(send).toHaveBeenCalledWith({ ...base, text: 'hello' });
+    expect(respond).toHaveBeenCalledWith(expect.objectContaining({ id: 'question:q1' }), {
+      action: 'answer',
+      answer: 'hello',
+    });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('sends unpicked attachments as an ordinary message', async () => {
+    const { result, respond, send } = setup();
+    const files = [{ filename: 'notes.csv' }] as never;
+
+    await act(() => result.current.submit({ ...base, text: 'hello', files }));
+
+    expect(send).toHaveBeenCalledWith({ ...base, text: 'hello', files });
     expect(respond).not.toHaveBeenCalled();
   });
 
   it('answers through the message route when a busy composer would queue the answer', async () => {
     const { result, respond, send } = setup();
+    act(() => result.current.context.startAnswer('question:q1'));
     const files = [{ filename: 'stations.csv' }] as never;
 
     await act(() =>

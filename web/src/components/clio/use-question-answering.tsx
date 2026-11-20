@@ -37,10 +37,10 @@ interface QuestionAnswering {
   /** The notice over the composer, or `null` when no question is waiting. */
   notice: ReactNode;
   /**
-   * Submit the composer: the answer to the question picked with "Other answer",
-   * or else to the one ask_user question the turn waits on (text through its
-   * route, attachments as the answering message), plan feedback while a plan
-   * review waits, or an ordinary message.
+   * Submit the composer: the answer to the question picked with "Other answer"
+   * (text through its route, attachments as the answering message), else typed
+   * text answers the one ask_user question the turn waits on, plan feedback
+   * while a plan review waits, or an ordinary message.
    */
   submit: (value: SessionSendInput) => Promise<void>;
 }
@@ -82,10 +82,9 @@ export function useQuestionAnswering({
   );
   // With none picked, the one ask_user question the turn is blocked on takes the
   // typed text: the agent reads it as the answer, so the card must close with it,
-  // whatever other cards (consents, plan reviews) wait beside it.
-  const blockingQuestions = questions.filter(
-    (question) => typedAnswerTarget(question) && question.payload?.response_mode !== 'async',
-  );
+  // whatever other cards (consents, plan reviews) wait beside it. Every service
+  // question reports `response_mode: "async"`, so that is no sign it isn't blocking.
+  const blockingQuestions = questions.filter(typedAnswerTarget);
   const implicitTarget = blockingQuestions.length === 1 ? blockingQuestions[0] : undefined;
   const stopAnswer = useCallback(() => setAnsweringId(undefined), []);
   const context = useMemo<QuestionAnswerState>(
@@ -118,15 +117,11 @@ export function useQuestionAnswering({
     ) : null;
   const submit = useCallback<QuestionAnswering['submit']>(
     async (value) => {
-      const target = answering ?? implicitTarget;
-      let answer: ReturnType<typeof questionAnswerFromComposer>;
-      try {
-        answer = questionAnswerFromComposer(target, sessionId, value);
-      } catch (error) {
-        // An unpicked delegated question cannot take attachments: send them as a message.
-        if (answering) throw error;
-        answer = undefined;
-      }
+      // Attachments answer only a question picked with "Other answer"; unpicked,
+      // they are sent as a message.
+      const attached = (value.files?.length ?? 0) > 0 || (value.references?.length ?? 0) > 0;
+      const target = answering ?? (attached ? undefined : implicitTarget);
+      const answer = questionAnswerFromComposer(target, sessionId, value);
       if (answer?.kind === 'response') await respond(answer.interaction, answer.response);
       else if (answer) {
         const asyncTarget = target?.payload?.response_mode === 'async' && !target.payload.task_handle;

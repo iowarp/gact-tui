@@ -2,6 +2,10 @@
 import '@/lib/onboarding/install-snapshot';
 import { bootstrapLocale } from '@/i18n/runtime';
 
+if (import.meta.env.DEV) {
+  void import('@/lib/dev-performance-trim').then(({ installDevPerformanceTrim }) => installDevPerformanceTrim());
+}
+
 // The interface language is active before any application module loads, so
 // copy computed at module load is translated too. The language catalog is
 // one small chunk; English needs no download.
