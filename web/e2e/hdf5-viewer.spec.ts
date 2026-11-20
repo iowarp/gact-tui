@@ -161,18 +161,19 @@ test('opens an HDF5 file in h5web, reading only slices through the app', async (
   const shownImage = toolbar
     .getByRole('group', { name: 'Show as' })
     .getByRole('button', { name: 'Image', pressed: true });
-  if (!(await shownImage.isVisible())) {
-    await expect(async () => {
-      await page.keyboard.press('Escape');
-      await actions.click();
-      await expect(page.getByRole('menuitemradio', { name: 'Image' })).toHaveAttribute(
-        'aria-checked',
-        'true',
-        { timeout: 1_000 },
-      );
-    }).toPass({ timeout: 15_000 });
+  // The canvas can still be widening after the fold settles, moving the modes
+  // between the bar and the menu, so each attempt looks in both places.
+  await expect(async () => {
+    if (await shownImage.isVisible()) return;
     await page.keyboard.press('Escape');
-  }
+    await actions.click();
+    await expect(page.getByRole('menuitemradio', { name: 'Image' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+      { timeout: 1_000 },
+    );
+  }).toPass({ timeout: 15_000 });
+  if ((await actions.getAttribute('aria-expanded')) === 'true') await page.keyboard.press('Escape');
 
   expect(problems).toEqual([]);
   expect(errors).toEqual([]);
