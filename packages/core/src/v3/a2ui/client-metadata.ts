@@ -98,6 +98,32 @@ export const A2UI_ALLOWED_URL_SCHEMES = ['https:', 'artifact:', 'resource:'] as 
 
 export type A2uiUrlCheck = { ok: true } | { ok: false; reason: string };
 
+const A2UI_LOOPBACK_LINK_HOSTS = new Set(['127.0.0.1', '[::1]', 'localhost']);
+
+/**
+ * A link `openUrl` may open although it is plain `http:`: a loopback literal
+ * with a port and no credentials, the same rule the server's validator applies
+ * (`is_loopback_link`, clio-agent `a2ui_catalogs/validation.py`). Such a page
+ * runs on CLIO's own computer, so it opens in the shared in-app Browser, which
+ * loads pages from there, never in the person's browser.
+ */
+export function isA2uiLoopbackLink(value: string): boolean {
+  if (/[\s\\]/u.test(value)) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+  return (
+    parsed.protocol === 'http:' &&
+    parsed.port !== '' &&
+    parsed.username === '' &&
+    parsed.password === '' &&
+    A2UI_LOOPBACK_LINK_HOSTS.has(parsed.hostname.toLowerCase())
+  );
+}
+
 /**
  * Enforces the same URL scheme allowlist the server checks on literals
  * (owner decision 11, `docs/design/a2ui-compat-campaign-2026-09.md`) on a

@@ -9,6 +9,8 @@ import {
 } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import { A2uiSessionRegistryOwner } from '@/test-fixtures/a2ui/v0_9_1/test-harness';
 import { ClioA2UISurface } from '@/components/clio/a2ui-surface';
+import { OPEN_BROWSER_PAGE_EVENT } from '@/lib/html-in-browser';
+import { useA2uiBrowserLinkRuntime } from './browser-link-runtime';
 import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from './kernel-catalog';
 
 const repository = vi.hoisted(() => ({
@@ -229,5 +231,93 @@ describe('kernel openUrl allowlist — rendered card (owner decision 11)', () =>
         message: expect.stringContaining('"http:" is not an allowed URL scheme'),
       }),
     });
+  });
+});
+
+/**
+ * A loopback `http:` link (`isA2uiLoopbackLink`) names a page on CLIO's own
+ * computer, such as a local MCP server's sign-in page. It opens in the
+ * conversation's shared in-app Browser, never in the person's browser; every
+ * other `http:` link stays refused above.
+ */
+describe('kernel openUrl loopback links', () => {
+  afterEach(() => browserLinks.splice(0));
+  const browserLinks: string[] = [];
+
+  function BrowserLinkOwner({ sessionId }: { sessionId: string }) {
+    useA2uiBrowserLinkRuntime(
+      {
+        openBrowserPage: async (_session: string, url: string) => {
+          browserLinks.push(url);
+          return { id: 'page_1', title: 'Sign in', host: '127.0.0.1' } as never;
+        },
+      },
+      sessionId,
+    );
+    return null;
+  }
+
+  it.each([
+    'http://127.0.0.1:43123/relay/asks/a1?t=x',
+    'http://localhost:8080/sign-in',
+    'http://[::1]:9000/',
+  ])('opens %s in the in-app browser and reveals its tab', async (url) => {
+    const shown = vi.fn();
+    window.addEventListener(OPEN_BROWSER_PAGE_EVENT, shown);
+    render(
+      <>
+        <BrowserLinkOwner sessionId="sess_1" />
+        <A2uiSurface surface={buildOpenUrlSurface(url)} />
+      </>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+
+    await vi.waitFor(() => expect(shown).toHaveBeenCalled());
+    window.removeEventListener(OPEN_BROWSER_PAGE_EVENT, shown);
+    expect(browserLinks).toEqual([url]);
+    expect(external.openExternalUrl).not.toHaveBeenCalled();
+    expect((shown.mock.calls[0][0] as CustomEvent).detail).toEqual({
+      pageId: 'page_1',
+      sessionId: 'sess_1',
+      label: 'Sign in',
+    });
+  });
+
+  it.each([
+    'http://127.0.0.1/no-port',
+    'http://user@127.0.0.1:8080/',
+    'http://127.0.0.1.evil.example:8080/',
+    'http://10.0.0.5:8080/',
+  ])('still refuses %s', async (url) => {
+    const surface = buildOpenUrlSurface(url);
+    const onError = vi.fn();
+    surface.onError.subscribe(onError);
+    render(
+      <>
+        <BrowserLinkOwner sessionId="sess_1" />
+        <A2uiSurface surface={surface} />
+      </>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+
+    expect(browserLinks).toEqual([]);
+    expect(external.openExternalUrl).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: 'VALIDATION_FAILED' }));
+  });
+
+  it('says so when no conversation can show the page', async () => {
+    const surface = buildOpenUrlSurface('http://127.0.0.1:43123/relay/asks/a1');
+    const onError = vi.fn();
+    surface.onError.subscribe(onError);
+    render(<A2uiSurface surface={surface} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+
+    expect(external.openExternalUrl).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'VALIDATION_FAILED',
+        message: expect.stringContaining('needs a conversation with a browser'),
+      }),
+    );
   });
 });

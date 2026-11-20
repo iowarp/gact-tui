@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { isPendingInteractionEvent } from '@/hooks/use-session-live-stream';
 import { invalidatePluginPages } from '@/lib/a2ui/plugin-pages';
+import { useA2uiBrowserLinkRuntime } from '@/lib/a2ui/browser-link-runtime';
 import {
   cancelPluginPageOpen,
   dispatchPluginTabFrame,
@@ -37,6 +38,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ClioPendingInteractions } from './pending-interactions';
 import { PluginOpenWaitingLine, PluginOpenWaitingState } from './plugin-open-waiting';
+import { PluginPageBrowser } from './plugin-page-browser';
 import { StateView } from './primitives/state-view';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ServerSurfaceRefusalRow } from './server-surface-refusal-row';
@@ -123,6 +125,7 @@ export function PluginPageView({ page }: { page: PluginPage }) {
   useEffect(() => () => releasePluginPage(pageId), [pageId]);
   const contextSessionId = state?.contextSessionId ?? page.context_session_id ?? undefined;
   usePluginPageStream(contextSessionId);
+  useA2uiBrowserLinkRuntime(repository, contextSessionId);
   // The first open created the context: read the list again so the page's requests route here.
   const contextIsNew = Boolean(state?.contextSessionId) && !page.context_session_id;
   useEffect(() => {
@@ -281,6 +284,7 @@ export function PluginPageView({ page }: { page: PluginPage }) {
           />
         </div>
       ) : null}
+      <PluginPageBrowser sessionId={contextSessionId} />
     </div>
   );
 }

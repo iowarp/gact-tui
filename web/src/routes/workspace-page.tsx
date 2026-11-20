@@ -29,6 +29,7 @@ import { QuestionAnswerContext } from '@/components/clio/question-answer-context
 import { useWorkspaceQuestions } from '@/components/clio/use-workspace-questions';
 import { WorkspaceLiveStatusStrip } from '@/components/clio/workspace-live-projections';
 import { useA2uiOpenArtifactRuntime } from '@/lib/a2ui/kernel-runtime';
+import { useA2uiBrowserLinkRuntime } from '@/lib/a2ui/browser-link-runtime';
 import { useOpenViewRuntime } from '@/hooks/use-open-view-runtime';
 import { useDashboardReviewOpening } from '@/hooks/use-dashboard-review-opening';
 import { useA2uiCatalogRegistry } from '@/lib/a2ui/processor-store';
@@ -191,6 +192,7 @@ export function WorkspacePage() {
     [],
   );
   useA2uiOpenArtifactRuntime(entities.artifacts, sessionId, openArtifact);
+  useA2uiBrowserLinkRuntime(repository, sessionId);
   useOpenViewRuntime(repository, sessionId, openArtifact, revealWorkbench);
   useDashboardReviewOpening(
     entities.tools,

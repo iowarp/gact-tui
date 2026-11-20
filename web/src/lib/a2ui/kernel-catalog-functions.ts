@@ -1,9 +1,10 @@
 import { BASIC_FUNCTIONS, OpenUrlApi, createFunctionImplementation } from '@a2ui/web_core/v0_9';
 import type { FunctionImplementation } from '@a2ui/web_core/v0_9';
-import { checkA2uiUrlScheme } from '@clio/core/v3';
+import { checkA2uiUrlScheme, isA2uiLoopbackLink } from '@clio/core/v3';
 import { z } from 'zod';
 import type { SelectionState } from '@/components/clio/selection-state';
 import { openExternalUrl } from '@/tauri/external-url';
+import { activeA2uiBrowserLinkRuntime } from './browser-link-runtime';
 import { activeA2uiOpenArtifactRuntime } from './kernel-runtime';
 import { activeA2uiOpenViewRuntime } from './open-view';
 import { t } from '@lingui/core/macro';
@@ -55,21 +56,38 @@ const openArtifactFunction = createFunctionImplementation(
  * `window.open()` call (only anchor clicks), so it just silently did nothing
  * there; `openExternalUrl` is the one path every external open goes through.
  * A failed open reuses `VALIDATION_FAILED` too, since that is currently the
- * only wire-reportable error code the client-to-server schema defines.
+ * only wire-reportable error code the client-to-server schema defines. The
+ * one `http:` exception is a loopback link (`isA2uiLoopbackLink`): it names a
+ * page on CLIO's computer, so it opens in the conversation's in-app Browser.
  */
 const openUrlFunction = createFunctionImplementation(OpenUrlApi, (args, context) => {
-  const guard = checkA2uiUrlScheme(args.url);
-  if (!guard.ok) {
-    void context.surface.dispatchError({ code: 'VALIDATION_FAILED', message: guard.reason });
-    return;
-  }
-  openExternalUrl(args.url).catch((error: unknown) => {
+  const fail = (error: unknown) => {
     void context.surface.dispatchError({
       code: 'VALIDATION_FAILED',
       // i18n-ignore: a VALIDATION_FAILED message is posted to the agent
       message: error instanceof Error ? error.message : `Could not open ${args.url}.`,
     });
-  });
+  };
+  // A page on CLIO's own computer opens in the shared in-app Browser, which loads from there.
+  if (isA2uiLoopbackLink(args.url)) {
+    const runtime = activeA2uiBrowserLinkRuntime();
+    if (!runtime) {
+      void context.surface.dispatchError({
+        code: 'VALIDATION_FAILED',
+        // i18n-ignore: a VALIDATION_FAILED message is posted to the agent
+        message: `Opening ${args.url} needs a conversation with a browser.`,
+      });
+      return;
+    }
+    runtime.openLink(args.url).catch(fail);
+    return;
+  }
+  const guard = checkA2uiUrlScheme(args.url);
+  if (!guard.ok) {
+    void context.surface.dispatchError({ code: 'VALIDATION_FAILED', message: guard.reason });
+    return;
+  }
+  openExternalUrl(args.url).catch(fail);
 });
 
 /**

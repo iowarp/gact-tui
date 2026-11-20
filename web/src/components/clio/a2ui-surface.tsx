@@ -437,6 +437,10 @@ function ClioA2UISurfaceContent({
         });
       }
       setValidationPostFailure(undefined);
+      // A server-owned surface is not the agent's: the conversation's error
+      // door does not know it and the owning server's action route takes only
+      // actions, so the notice worded above is where its failure belongs.
+      if (serverOwner) return;
       if (readOnly) {
         setValidationNotice({
           revision: surface.revision,
@@ -465,7 +469,7 @@ function ClioA2UISurfaceContent({
         });
       }
     },
-    [repository, surface.id, surface.revision, surface.session_id, readOnly, catalogsKey],
+    [repository, surface.id, surface.revision, surface.session_id, readOnly, serverOwner, catalogsKey],
   );
   const { model, failure } = useA2uiSurfaceModel(
     surface,
