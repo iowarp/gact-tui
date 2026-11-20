@@ -1976,6 +1976,10 @@ msgstr "{edited, plural, one {επεξεργάστηκε # αρχείο} other {
 msgid "{elapsed} elapsed. Setup continues if you leave this page. {agent} will notify you when it finishes."
 msgstr "Πέρασαν {elapsed}. Η ρύθμιση συνεχίζεται αν φύγετε από αυτήν τη σελίδα. Ο {agent} θα σας ειδοποιήσει όταν ολοκληρωθεί."
 
+#: src/components/clio/desktop-title-bar.tsx
+msgid "{endpoints, plural, one {Stops the relay services on your site and this computer. Running jobs keep running.} other {Stops the relay services on your # sites and this computer. Running jobs keep running.}}"
+msgstr "{endpoints, plural, one {Σταματά τις υπηρεσίες αναμετάδοσης στην τοποθεσία σας και σε αυτόν τον υπολογιστή. Οι εργασίες που εκτελούνται συνεχίζουν.} other {Σταματά τις υπηρεσίες αναμετάδοσης στις # τοποθεσίες σας και σε αυτόν τον υπολογιστή. Οι εργασίες που εκτελούνται συνεχίζουν.}}"
+
 #: src/components/clio/composer.tsx
 msgid "{enteredId} is ambiguous; use {alternatives}"
 msgstr "Το {enteredId} είναι αμφίσημο· χρησιμοποιήστε {alternatives}"
@@ -6287,6 +6291,10 @@ msgstr "Διαθέσιμο επίσης ως"
 msgid "Also called"
 msgstr "Αλλιώς"
 
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Also close open relays"
+msgstr "Κλείσιμο και των ανοιχτών αναμεταδόσεων"
+
 #: src/components/clio/flow-step-details.tsx
 msgid "Also waits on its forks"
 msgstr "Περιμένει επίσης τις διακλαδώσεις του"
@@ -9997,6 +10005,10 @@ msgstr "Έκλεισε στις {when}· εμφανίζονται οι τελε�
 #: src/components/clio/table-query-rows.ts
 msgid "Closed; showing its last entries."
 msgstr "Έκλεισε· εμφανίζονται οι τελευταίες καταχωρίσεις του."
+
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Closing relays…"
+msgstr "Κλείσιμο αναμεταδόσεων…"
 
 #: src/components/clio/document-open-menu.tsx
 msgid "Closing…"

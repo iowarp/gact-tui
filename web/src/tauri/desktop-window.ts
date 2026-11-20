@@ -8,8 +8,7 @@ export type DesktopWindowAction =
 /** Execute a window action through Tauri without loading its API in web builds. */
 export async function runDesktopWindowAction(action: DesktopWindowAction): Promise<void> {
   if (action === 'quit') {
-    const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('quit_clio');
+    await quitDesktop();
     return;
   }
   const { getCurrentWindow } = await import('@tauri-apps/api/window');
@@ -19,6 +18,28 @@ export async function runDesktopWindowAction(action: DesktopWindowAction): Promi
     return;
   }
   await desktopWindow[action]();
+}
+
+/**
+ * Quit CLIO. `closeRelays` is the quit prompt's "Also close open relays" answer, which
+ * the host saves; without it the saved choice applies. With `true` the window stays
+ * up until the relays are closed, so the prompt can show that it is closing them.
+ */
+export async function quitDesktop(closeRelays?: boolean): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  if (closeRelays === undefined) await invoke('quit_clio');
+  else await invoke('quit_clio', { closeRelays });
+}
+
+/** What the quit prompt starts from; `relays` is null when there are none to close. */
+export type DesktopQuitPrompt = {
+  closeRelaysOnQuit: boolean;
+  relays: { available: boolean; endpoints: number } | null;
+};
+
+export async function readQuitPrompt(): Promise<DesktopQuitPrompt> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<DesktopQuitPrompt>('quit_preferences');
 }
 
 /**

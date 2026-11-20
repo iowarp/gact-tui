@@ -248,7 +248,8 @@ pub(crate) fn offer_move_to_applications<R: tauri::Runtime>(app: &tauri::AppHand
                             "app location: moved to {}; relaunching",
                             dest.display()
                         ));
-                        crate::request_quit(&handle);
+                        // The moved copy opens at once: keep the person's relays open.
+                        crate::request_quit_with(&handle, crate::QuitRelays::KeepOpen);
                     }
                     Err(error) => {
                         crate::supervisor_boot_log::boot_log_line(&format!(
