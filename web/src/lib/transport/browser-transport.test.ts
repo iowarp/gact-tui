@@ -2,6 +2,36 @@ import { describe, expect, it, vi } from 'vitest';
 import { BrowserClioTransport } from './browser-transport';
 
 describe('BrowserClioTransport', () => {
+  it('refuses a path that resolves to another origin, before sending the token', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}'));
+    const transport = new BrowserClioTransport({
+      endpoint: 'http://clio.test',
+      token: 'secret',
+      fetcher,
+    });
+
+    for (const path of ['https://attacker.example/x', 'http://clio.test:8080/x']) {
+      await expect(
+        transport.request({ method: 'GET', path, decode: (value) => value }),
+      ).rejects.toMatchObject({ code: 'path_outside_endpoint' });
+      const stream = transport.stream({ connection_id: 'c1', path })[Symbol.asyncIterator]();
+      await expect(stream.next()).rejects.toMatchObject({ code: 'path_outside_endpoint' });
+    }
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('still accepts an absolute URL on its own origin', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response('{"ok":true}'));
+    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test', fetcher });
+
+    await transport.request({
+      method: 'GET',
+      path: 'http://clio.test/v1/capabilities',
+      decode: (value) => value,
+    });
+    expect(fetcher.mock.calls[0]?.[0]).toBe('http://clio.test/v1/capabilities');
+  });
+
   it('decodes an empty 204 response without attempting JSON parsing', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
     const transport = new BrowserClioTransport({ endpoint: 'http://clio.test', fetcher });

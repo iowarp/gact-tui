@@ -45,7 +45,11 @@ export async function readArtifactWithCustodyFallback<T>(
   readPath: (path: string, signal?: AbortSignal) => Promise<T>,
   signal?: AbortSignal,
 ): Promise<T> {
-  const requestPath = fetchPath || `/v1/artifacts/${encodeURIComponent(artifactId)}/bytes`;
+  // Like `fetch_via` below, a recorded fetch path must be one of the service's own
+  // routes; anything else (an absolute URL from an imported record) is ignored.
+  const requestPath = fetchPath?.startsWith('/v1/')
+    ? fetchPath
+    : `/v1/artifacts/${encodeURIComponent(artifactId)}/bytes`;
   try {
     return await readPath(requestPath, signal);
   } catch (error) {
