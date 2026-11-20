@@ -31,6 +31,11 @@ export interface QuestionAnswerState {
   interactions?: readonly PendingInteraction[];
   /** The interaction id of the question the composer's next message answers. */
   answeringId?: string;
+  /**
+   * The question typed text answers on submit: the picked one, else the one
+   * question the turn is blocked on (that one takes text without attachments).
+   */
+  typedAnswerId?: string;
   openQuestion?: (interaction: PendingInteraction) => void;
   openSurfaceQuestion?: (interaction: PendingInteraction) => void;
   surfaceTarget?: SurfaceQuestionTarget;

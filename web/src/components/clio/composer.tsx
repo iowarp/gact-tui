@@ -680,6 +680,7 @@ export function ClioComposer({
             <ComposerSubmitControls
               state={state}
               hasContent={Boolean(input.trim() || selectedReferences.length || annotations.length)}
+              referenced={selectedReferences.length > 0 || annotations.length > 0}
               disabled={
                 controlsDisabled ||
                 offline ||

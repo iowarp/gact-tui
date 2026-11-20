@@ -90,6 +90,7 @@ export function useQuestionAnswering({
   const context = useMemo<QuestionAnswerState>(
     () => ({
       answeringId: answering?.id,
+      typedAnswerId: answering?.id ?? implicitTarget?.id,
       startAnswer: (interactionId) => {
         setAnsweringId(interactionId);
         focusComposer();
@@ -97,7 +98,7 @@ export function useQuestionAnswering({
       stopAnswer,
       questionLink: (question) => questionLink(messages, question),
     }),
-    [answering?.id, focusComposer, messages, stopAnswer],
+    [answering?.id, focusComposer, implicitTarget?.id, messages, stopAnswer],
   );
   const goToQuestion = useCallback(
     (question: PendingInteraction) => {

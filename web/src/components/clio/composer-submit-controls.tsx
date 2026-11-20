@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useComposerDelivery } from '@/hooks/use-composer-delivery';
 import { useShortcutPresentation } from '@/lib/shortcuts/hooks';
 import { IconButton } from './primitives/icon-button';
+import { useQuestionAnswer } from './question-answer-context';
 import { TOOLTIP_KEY } from './primitives/tooltip-key';
 import { StatusIndicator } from './primitives/status-indicator';
 import { clioStatusLabel } from './status';
@@ -23,25 +24,36 @@ const SQUARE =
 /**
  * The row's one square. With nothing typed while work runs it stops the run
  * (Esc); with text it queues (Enter), or steers while Ctrl/⌘ is held; with
- * nothing running it sends. The glyph follows the same rule as the keys.
+ * nothing running it sends. Text that answers the question the turn waits on
+ * is sent, not queued. The glyph follows the same rule as the keys.
  */
 export function ComposerSubmitControls({
   state,
   disabled,
   hasContent,
+  referenced = false,
   onSubmit,
   onStop,
 }: {
   state: RunState;
   disabled: boolean;
   hasContent: boolean;
+  /** Sources or comments are attached (they keep an unpicked answer a message). */
+  referenced?: boolean;
   onSubmit: (event: MouseEvent<HTMLButtonElement>) => void;
   onStop?: () => void;
 }) {
   const { delivery } = useComposerDelivery(state);
   const attachments = usePromptInputAttachments();
+  const question = useQuestionAnswer();
   const sendable = hasContent || attachments.files.length > 0;
   const stoppable = state === 'running' || state === 'queued';
+  // Mirrors useQuestionAnswering's submit: a picked question takes everything,
+  // the implicit one only text without attachments.
+  const answers = Boolean(
+    question?.answeringId ||
+      (question?.typedAnswerId && !referenced && attachments.files.length === 0),
+  );
   return (
     <>
       {state === 'waiting_permission' || state === 'waiting_user' ? (
@@ -64,7 +76,7 @@ export function ComposerSubmitControls({
           tooltipSide="top"
           type="button"
         />
-      ) : state !== 'running' ? (
+      ) : state !== 'running' || answers ? (
         <IconButton
           className={SQUARE}
           disabled={disabled || !sendable}
