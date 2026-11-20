@@ -30,6 +30,15 @@ gact-opencode-adapter --upstream http://localhost:4096 --port 7778
 GACT_BACKEND=http://localhost:7778 gact
 ```
 
+### Access
+
+The adapter listens on `127.0.0.1`, and every request except `GET /v1/health`
+must send `Authorization: Bearer <token>`. The token comes from `--token` or
+`$GACT_ADAPTER_TOKEN`; if neither is set, the adapter prints a new one when it
+starts. Connect to the adapter by address with that token. To serve other
+machines, pass `--host 0.0.0.0` and list the host names clients use with
+`--allowed-hosts`.
+
 ## v0.1 scope
 
 Implemented:

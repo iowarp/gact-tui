@@ -8,6 +8,7 @@ import sys
 
 import uvicorn
 
+from .access import TOKEN_ENV, AccessMiddleware, adapter_token
 from .server import make_app
 
 
@@ -43,6 +44,17 @@ def main() -> None:
         help="TCP port (default 7780).",
     )
     parser.add_argument(
+        "--token",
+        default=None,
+        help=f"Bearer token clients must send (default ${TOKEN_ENV}, else a new one "
+        "printed at startup).",
+    )
+    parser.add_argument(
+        "--allowed-hosts",
+        default="",
+        help="Comma-separated Host names to answer besides loopback (for access by name).",
+    )
+    parser.add_argument(
         "--log-level",
         default="info",
         choices=["critical", "error", "warning", "info", "debug", "trace"],
@@ -50,13 +62,24 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    app = make_app(cwd=args.cwd, cli_path=args.cli_path)
+    token, generated = adapter_token(args.token)
+    allowed = frozenset(h.strip() for h in args.allowed_hosts.split(",") if h.strip())
+    app = AccessMiddleware(
+        make_app(cwd=args.cwd, cli_path=args.cli_path), token=token, allowed_hosts=allowed
+    )
     print(
         f"claude-agent-sdk adapter on http://{args.host}:{args.port} "
         f"→ cwd={args.cwd} cli={args.cli_path or '(sdk auto)'}",
         file=sys.stderr,
         flush=True,
     )
+    if generated:
+        print(
+            f"clients connect with bearer token {token} "
+            f"(set --token or ${TOKEN_ENV} to choose one)",
+            file=sys.stderr,
+            flush=True,
+        )
     uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level)
 
 
