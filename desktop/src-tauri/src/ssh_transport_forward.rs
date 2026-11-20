@@ -1,7 +1,8 @@
 //! Loopback port forwards carried by the one authenticated OpenSSH session.
 //!
-//! Every transport session is started with `-D 127.0.0.1:<port>` (OpenSSH's
-//! built-in SOCKS5 server, see `ssh_transport_command::ssh_arguments`). A
+//! Every transport session is started with `-D <endpoint>` (OpenSSH's built-in
+//! SOCKS5 server on a private Unix socket, or a loopback port on Windows; see
+//! `ssh_transport_socks`). A
 //! forward is then a loopback listener here that relays each accepted
 //! connection through that SOCKS server with a `CONNECT <host>:<port>`; OpenSSH
 //! turns the CONNECT into a `direct-tcpip` channel on the session that is
@@ -18,6 +19,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+
+use crate::ssh_transport_socks::{accepted_from_this_user, SocksEndpoint, TunnelStream};
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -46,7 +49,8 @@ impl LocalForward {
     }
 }
 
-/// Reserve a free loopback port for OpenSSH's `-D` listener.
+/// Reserve a free loopback port (OpenSSH's `-D` listener on Windows).
+#[cfg_attr(all(unix, not(test)), allow(dead_code))]
 pub fn free_loopback_port() -> Result<u16, String> {
     TcpListener::bind(("127.0.0.1", 0))
         .and_then(|listener| listener.local_addr())
@@ -55,13 +59,12 @@ pub fn free_loopback_port() -> Result<u16, String> {
 }
 
 /// Open a SOCKS5 `CONNECT host:port` through OpenSSH's dynamic forward.
-pub fn socks5_connect(socks_port: u16, host: &str, port: u16) -> io::Result<TcpStream> {
-    let mut stream = TcpStream::connect_timeout(
-        &SocketAddr::from(([127, 0, 0, 1], socks_port)),
-        HANDSHAKE_TIMEOUT,
-    )?;
+pub fn socks5_connect(socks: &SocksEndpoint, host: &str, port: u16) -> io::Result<TunnelStream> {
+    let mut stream = socks.connect(HANDSHAKE_TIMEOUT)?;
     stream.set_read_timeout(Some(HANDSHAKE_TIMEOUT))?;
-    stream.set_nodelay(true)?;
+    if let TunnelStream::Tcp(tcp) = &stream {
+        tcp.set_nodelay(true)?;
+    }
     stream.write_all(&socks5_greeting())?;
     let mut choice = [0_u8; 2];
     stream.read_exact(&mut choice)?;
@@ -100,7 +103,8 @@ pub fn socks5_connect(socks_port: u16, host: &str, port: u16) -> io::Result<TcpS
 }
 
 fn socks5_greeting() -> [u8; 3] {
-    // Version 5, one method, "no authentication": the listener is loopback-only.
+    // Version 5, one method, "no authentication": OpenSSH's SOCKS server offers no
+    // other, which is why its listener is a private Unix socket where possible.
     [5, 1, 0]
 }
 
@@ -121,7 +125,7 @@ pub fn socks5_connect_request(host: &str, port: u16) -> io::Result<Vec<u8>> {
 /// every connection to `remote_host:remote_port` through the session's SOCKS
 /// listener.
 pub fn start_forward(
-    socks_port: u16,
+    socks: Arc<SocksEndpoint>,
     remote_host: &str,
     remote_port: u16,
     preferred_local_port: Option<u16>,
@@ -145,8 +149,14 @@ pub fn start_forward(
                 break;
             }
             let Ok(client) = incoming else { continue };
+            // Every account can reach a loopback port; serve only this user.
+            if !accepted_from_this_user(&client) {
+                let _ = client.shutdown(Shutdown::Both);
+                continue;
+            }
             let host = host.clone();
-            thread::spawn(move || relay(client, socks_port, &host, remote_port));
+            let socks = socks.clone();
+            thread::spawn(move || relay(client, &socks, &host, remote_port));
         }
     });
     Ok(LocalForward {
@@ -157,8 +167,8 @@ pub fn start_forward(
     })
 }
 
-fn relay(client: TcpStream, socks_port: u16, host: &str, port: u16) {
-    let Ok(upstream) = socks5_connect(socks_port, host, port) else {
+fn relay(client: TcpStream, socks: &SocksEndpoint, host: &str, port: u16) {
+    let Ok(upstream) = socks5_connect(socks, host, port) else {
         let _ = client.shutdown(Shutdown::Both);
         return;
     };
@@ -277,7 +287,13 @@ mod tests {
     fn forward_relays_through_socks_to_the_remote_loopback_and_verifies() {
         let service = fake_http_service();
         let (socks, targets) = fake_socks(service);
-        let forward = start_forward(socks, "127.0.0.1", 17800, None).unwrap();
+        let forward = start_forward(
+            Arc::new(SocksEndpoint::Tcp(socks)),
+            "127.0.0.1",
+            17800,
+            None,
+        )
+        .unwrap();
         verify_http(forward.local_port).unwrap();
         assert_eq!(targets.recv().unwrap(), ("127.0.0.1".to_string(), 17800));
         assert_eq!(
@@ -292,7 +308,13 @@ mod tests {
         let service = fake_http_service();
         let (socks, _targets) = fake_socks(service);
         let preferred = free_loopback_port().unwrap();
-        let forward = start_forward(socks, "127.0.0.1", 17800, Some(preferred)).unwrap();
+        let forward = start_forward(
+            Arc::new(SocksEndpoint::Tcp(socks)),
+            "127.0.0.1",
+            17800,
+            Some(preferred),
+        )
+        .unwrap();
         assert_eq!(forward.local_port, preferred);
         forward.stop();
     }
@@ -308,8 +330,57 @@ mod tests {
                 drop(incoming);
             }
         });
-        let forward = start_forward(socks, "127.0.0.1", 17800, None).unwrap();
+        let forward = start_forward(
+            Arc::new(SocksEndpoint::Tcp(socks)),
+            "127.0.0.1",
+            17800,
+            None,
+        )
+        .unwrap();
         assert!(verify_http(forward.local_port).is_err());
         forward.stop();
+    }
+
+    /// The same relay through a SOCKS server on a Unix socket, as OpenSSH's
+    /// `-D <path>` provides on Linux and macOS.
+    #[cfg(unix)]
+    #[test]
+    fn forward_relays_through_a_unix_socket_socks_server() {
+        use std::os::unix::net::UnixListener;
+
+        let service = fake_http_service();
+        let endpoint = SocksEndpoint::new().unwrap();
+        let SocksEndpoint::Unix { socket, .. } = &endpoint else {
+            panic!("expected a Unix endpoint");
+        };
+        let listener = UnixListener::bind(socket).unwrap();
+        thread::spawn(move || {
+            for incoming in listener.incoming() {
+                let mut client = incoming.unwrap();
+                thread::spawn(move || {
+                    let mut greeting = [0_u8; 3];
+                    client.read_exact(&mut greeting).unwrap();
+                    client.write_all(&[5, 0]).unwrap();
+                    let mut head = [0_u8; 5];
+                    client.read_exact(&mut head).unwrap();
+                    let mut rest = vec![0_u8; usize::from(head[4]) + 2];
+                    client.read_exact(&mut rest).unwrap();
+                    client.write_all(&[5, 0, 0, 1, 0, 0, 0, 0, 0, 0]).unwrap();
+                    let upstream = TcpStream::connect(("127.0.0.1", service)).unwrap();
+                    let mut up_read = upstream.try_clone().unwrap();
+                    let mut up_write = upstream;
+                    let mut client_read = client.try_clone().unwrap();
+                    thread::spawn(move || {
+                        let _ = io::copy(&mut client_read, &mut up_write);
+                    });
+                    let _ = io::copy(&mut up_read, &mut client);
+                });
+            }
+        });
+        let endpoint = Arc::new(endpoint);
+        let forward = start_forward(endpoint.clone(), "127.0.0.1", 17800, None).unwrap();
+        verify_http(forward.local_port).unwrap();
+        forward.stop();
+        endpoint.remove();
     }
 }

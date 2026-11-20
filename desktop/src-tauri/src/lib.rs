@@ -69,6 +69,7 @@ mod ssh_profiles;
 mod ssh_transport;
 mod ssh_transport_command;
 mod ssh_transport_forward;
+mod ssh_transport_socks;
 mod ssh_transport_output;
 mod ssh_transport_steps;
 mod startup_window;

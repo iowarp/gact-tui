@@ -26,10 +26,11 @@ use crate::ssh_transport_command::{
     compatible_route, posix_command, powershell_command, remote_shell_command, safe_host,
     ssh_arguments, validate_command, validate_route, SshTransportRoute, TransportCommand,
 };
-use crate::ssh_transport_forward::{free_loopback_port, start_forward, verify_http, LocalForward};
+use crate::ssh_transport_forward::{start_forward, verify_http, LocalForward};
 use crate::ssh_transport_output::{
     classify_prompt, clean_transport_log, last_meaningful_line, SshPrompt,
 };
+use crate::ssh_transport_socks::SocksEndpoint;
 use crate::ssh_transport_steps::{
     classify_command, epoch_ms, parse_marker_blocks, step_event, SshStepEvent,
 };
@@ -101,7 +102,7 @@ struct Capture {
 struct Session {
     id: String,
     route: SshTransportRoute,
-    socks_port: u16,
+    socks: Arc<SocksEndpoint>,
     pid: Option<u32>,
     exited: AtomicBool,
     writer: Mutex<Box<dyn Write + Send>>,
@@ -176,6 +177,7 @@ impl Session {
         if let Ok(mut master) = self.master.lock() {
             master.take();
         }
+        self.socks.remove();
     }
 }
 
@@ -383,9 +385,9 @@ fn ssh_transport_open_blocking(
         }
     };
 
-    let socks_port = free_loopback_port().inspect_err(|_| release_authentication())?;
+    let socks = Arc::new(SocksEndpoint::new().inspect_err(|_| release_authentication())?);
     let mut command = CommandBuilder::new("ssh");
-    for argument in ssh_arguments(&request.route, request.interactive, socks_port) {
+    for argument in ssh_arguments(&request.route, request.interactive, &socks.ssh_argument()) {
         command.arg(argument);
     }
     command.arg(remote_shell_command(&request.route.platform, READY_MARKER));
@@ -413,7 +415,7 @@ fn ssh_transport_open_blocking(
     let session = Arc::new(Session {
         id: id.clone(),
         route: request.route,
-        socks_port,
+        socks,
         pid: spawned.child.process_id(),
         exited: AtomicBool::new(false),
         writer: Mutex::new(spawned.writer),
@@ -732,7 +734,7 @@ fn ssh_transport_forward_blocking(
     };
     let destination = route_destination(&session.route);
     emit("running", String::new(), String::new());
-    let forward = start_forward(session.socks_port, &remote_host, remote_port, local_port)
+    let forward = start_forward(session.socks.clone(), &remote_host, remote_port, local_port)
         .inspect_err(|error| {
             emit(
                 "failed",
