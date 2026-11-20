@@ -36,6 +36,15 @@ gact-goose-adapter --upstream http://localhost:3001 --port 7781
 GACT_BACKEND=http://localhost:7781 gact
 ```
 
+### Access
+
+The adapter listens on `127.0.0.1`, and every request except `GET /v1/health`
+must send `Authorization: Bearer <token>`. The token comes from `--token` or
+`$GACT_ADAPTER_TOKEN`; if neither is set, the adapter prints a new one when it
+starts. Connect to the adapter by address with that token. To serve other
+machines, pass `--host 0.0.0.0` and list the host names clients use with
+`--allowed-hosts`.
+
 ## Status
 
 | Endpoint | Wired? | Notes |
