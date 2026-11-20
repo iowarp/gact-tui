@@ -8,6 +8,7 @@ import {
   type TransportRequest,
 } from '@clio/core/v3';
 import { GACT_HTTP_TIMEOUT_MS, GACT_HTTP_TRANSFER_TIMEOUT_MS } from '@/lib/runtime-limits';
+import { sameOriginUrl } from './endpoint-origin';
 import { headerValue, retryAfterMs } from './retry-after';
 
 interface RustHttpResponse {
@@ -77,7 +78,8 @@ export interface TauriTransportOptions {
 }
 
 function endpointUrl(endpoint: string, path: string): string {
-  return new URL(path, endpoint.endsWith('/') ? endpoint : `${endpoint}/`).toString();
+  const base = endpoint.endsWith('/') ? endpoint : `${endpoint}/`;
+  return sameOriginUrl(base, new URL(path, base).toString(), path);
 }
 
 function abortError(): DOMException {
@@ -105,12 +107,13 @@ export class TauriClioTransport implements ClioTransport {
   public async request<T>(request: TransportRequest<T>): Promise<T> {
     if (request.signal?.aborted) throw abortError();
     const requestBody = encodeRequestBody(request);
+    const url = endpointUrl(this.endpoint, request.path);
     let response: RustHttpResponse;
     try {
       response = await this.bridge.invoke<RustHttpResponse>('gact_http', {
         req: {
           method: request.method,
-          url: endpointUrl(this.endpoint, request.path),
+          url,
           headers: {
             ...this.headers('application/json'),
             ...request.headers,

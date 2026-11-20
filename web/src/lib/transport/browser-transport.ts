@@ -7,6 +7,7 @@ import {
   type TransportFrame,
   type TransportRequest,
 } from '@clio/core/v3';
+import { sameOriginUrl } from './endpoint-origin';
 import { retryAfterMs } from './retry-after';
 
 const GACT_ACCEPT = PROTOCOL_VERSION;
@@ -21,7 +22,7 @@ export interface BrowserTransportOptions {
 
 function endpointUrl(endpoint: string, path: string): string {
   const base = endpoint.endsWith('/') ? endpoint : `${endpoint}/`;
-  return new URL(path.replace(/^\/+/, ''), base).toString();
+  return sameOriginUrl(base, new URL(path.replace(/^\/+/, ''), base).toString(), path);
 }
 
 function eventBoundary(buffer: string): { end: number; next: number } | undefined {
@@ -76,9 +77,10 @@ export class BrowserClioTransport implements ClioTransport {
       headers.set(name, value);
     }
     const rawBody = request.rawBody ? Uint8Array.from(request.rawBody).buffer : undefined;
+    const url = endpointUrl(this.endpoint, request.path);
     let response: Response;
     try {
-      response = await this.fetcher(endpointUrl(this.endpoint, request.path), {
+      response = await this.fetcher(url, {
         method: request.method,
         signal: request.signal,
         headers,
@@ -126,9 +128,10 @@ export class BrowserClioTransport implements ClioTransport {
     const headers = this.headers('text/event-stream');
     if (cursor) headers.set('Last-Event-ID', cursor);
 
+    const url = endpointUrl(this.endpoint, path);
     let response: Response;
     try {
-      response = await this.fetcher(endpointUrl(this.endpoint, path), { headers, signal });
+      response = await this.fetcher(url, { headers, signal });
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') throw error;
       throw new TransportError(
