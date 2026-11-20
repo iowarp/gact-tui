@@ -58,12 +58,17 @@ pub fn compatible_route(left: &SshTransportRoute, right: &SshTransportRoute) -> 
 
 /// The `ssh` arguments for one transport session.
 ///
-/// `-D 127.0.0.1:<socks_port>` starts OpenSSH's SOCKS listener on the same
-/// connection, so any later port forward rides this one authenticated session
+/// `-D <dynamic_forward>` starts OpenSSH's SOCKS listener on the same
+/// connection (a private Unix socket path, or `127.0.0.1:<port>` on Windows; see
+/// `ssh_transport_socks`), so any later port forward rides this one authenticated session
 /// (through every `-J` jump) instead of needing a second login. With
 /// `ExitOnForwardFailure`, a listener that cannot bind ends the session with
 /// OpenSSH's own error rather than leaving a session that can never forward.
-pub fn ssh_arguments(route: &SshTransportRoute, interactive: bool, socks_port: u16) -> Vec<String> {
+pub fn ssh_arguments(
+    route: &SshTransportRoute,
+    interactive: bool,
+    dynamic_forward: &str,
+) -> Vec<String> {
     let mut args = vec![
         "-tt".to_string(),
         "-o".to_string(),
@@ -73,7 +78,7 @@ pub fn ssh_arguments(route: &SshTransportRoute, interactive: bool, socks_port: u
         "-o".to_string(),
         "ExitOnForwardFailure=yes".to_string(),
         "-D".to_string(),
-        format!("127.0.0.1:{socks_port}"),
+        dynamic_forward.to_string(),
     ];
     if !interactive {
         args.extend(["-o".to_string(), "BatchMode=yes".to_string()]);
@@ -238,7 +243,7 @@ mod tests {
     #[test]
     fn ssh_arguments_open_the_tunnel_on_the_session_through_jump_hosts() {
         assert_eq!(
-            ssh_arguments(&route(), true, 50123),
+            ssh_arguments(&route(), true, "127.0.0.1:50123"),
             vec![
                 "-tt",
                 "-o",
@@ -262,14 +267,14 @@ mod tests {
 
     #[test]
     fn ssh_arguments_never_use_the_escape_command_line() {
-        let arguments = ssh_arguments(&route(), true, 1).join(" ");
+        let arguments = ssh_arguments(&route(), true, "127.0.0.1:1").join(" ");
         assert!(!arguments.contains("EnableEscapeCommandline"));
         assert!(!arguments.contains("-L"));
         // The tunnel listener is loopback-only and precedes the destination.
         let mut saved = route();
         saved.profile = "ares-compute".to_string();
         saved.jump_hosts = vec!["ares".to_string()];
-        let args = ssh_arguments(&saved, true, 40000);
+        let args = ssh_arguments(&saved, true, "127.0.0.1:40000");
         let socks = args.iter().position(|arg| arg == "-D").unwrap();
         assert_eq!(args[socks + 1], "127.0.0.1:40000");
         assert_eq!(args.last().unwrap(), "ares-compute");
@@ -294,7 +299,7 @@ mod tests {
 
     #[test]
     fn silent_recovery_disables_interactive_prompts() {
-        let arguments = ssh_arguments(&route(), false, 1);
+        let arguments = ssh_arguments(&route(), false, "127.0.0.1:1");
         assert!(arguments
             .windows(2)
             .any(|value| value == ["-o", "BatchMode=yes"]));
@@ -485,7 +490,7 @@ mod live {
     fn run(route: &SshTransportRoute) -> (bool, String) {
         let port = crate::ssh_transport_forward::free_loopback_port().unwrap();
         let mut command = CommandBuilder::new("ssh");
-        for argument in ssh_arguments(route, false, port) {
+        for argument in ssh_arguments(route, false, &format!("127.0.0.1:{port}")) {
             command.arg(argument);
         }
         command.arg("sh -lc \"stty -echo; printf '__CLIO_SSH_READY__\\n'; hostname; exit 0\"");
@@ -569,7 +574,7 @@ mod live {
         };
         let port = crate::ssh_transport_forward::free_loopback_port().unwrap();
         let mut command = CommandBuilder::new("ssh");
-        for argument in ssh_arguments(&route, false, port) {
+        for argument in ssh_arguments(&route, false, &format!("127.0.0.1:{port}")) {
             command.arg(argument);
         }
         command.arg(remote_shell_command("linux", "__CLIO_SSH_READY__"));
