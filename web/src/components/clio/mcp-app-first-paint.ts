@@ -10,11 +10,18 @@ import type { TakeSnapshot } from './mcp-app-look';
  * size, a few times while it settles. The probes stop at the first answer that shows
  * something, or that cannot be read; they never close, expire or reload the view
  * (rule 6). A frame that resizes, or a view that reports a new state, is looked at again.
+ *
+ * A view rendered remotely (ParaView on a cluster) can take 8–21 s for its first frame, so
+ * a blank look stays `pending` until the last probe: only a view still blank then is
+ * `blank`.
  */
 export type PaintVerdict = 'pending' | 'drawn' | 'blank' | 'unknown';
 
-/** When the host looks after `initialized`, in milliseconds: the view's settling time. */
-export const FIRST_PAINT_PROBES_MS = [800, 2500, 6000] as const;
+/**
+ * When the host looks, in milliseconds after `initialized`: soon for a local view, then
+ * backing off for a remote one. A view still blank at the last look has drawn nothing.
+ */
+export const FIRST_PAINT_PROBES_MS = [800, 2500, 6000, 10_000, 16_000, 23_000, 30_000] as const;
 /** How long after a resize a view the host saw blank is looked at again. */
 export const RESIZE_RECHECK_MS = 800;
 
@@ -88,15 +95,32 @@ export async function pictureCoverage(image: string): Promise<number | undefined
   }
 }
 
-/** Watch one mounted view's first paint; returns `recheck` (on resize) and `stop`. */
+/**
+ * Watch one mounted view's first paint; returns `recheck` (on resize or a new state) and
+ * `stop`. A recheck inside the probe window looks sooner but keeps the window, so a view
+ * that reports state before its first frame is not called blank early.
+ */
 export function watchFirstPaint(
   take: TakeSnapshot,
   onVerdict: (verdict: PaintVerdict) => void,
 ): { recheck: () => void; stop: () => void } {
+  const started = Date.now();
   let stopped = false;
   let settled = false;
+  let looking = false;
+  let again = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const look = async (remaining: readonly number[]) => {
+  const at = (offset: number) => {
+    if (timer !== undefined) clearTimeout(timer);
+    timer = setTimeout(() => void look(), Math.max(0, offset - (Date.now() - started)));
+  };
+  const nextProbe = () => {
+    const elapsed = Date.now() - started;
+    return FIRST_PAINT_PROBES_MS.find((offset) => offset > elapsed);
+  };
+  const look = async () => {
+    timer = undefined;
+    looking = true;
     let verdict: Exclude<PaintVerdict, 'pending'>;
     try {
       const snapshot = await take({ scale: 0.25, maxSide: 256 });
@@ -105,26 +129,38 @@ export function watchFirstPaint(
     } catch {
       verdict = 'unknown';
     }
+    looking = false;
     if (stopped) return;
-    if (verdict !== 'blank' || remaining.length === 0) {
-      settled = verdict !== 'blank';
+    if (verdict !== 'blank') {
+      settled = true;
       onVerdict(verdict);
       return;
     }
-    schedule(remaining);
-  };
-  const schedule = (delays: readonly number[]) => {
-    const [first, ...rest] = delays;
-    if (first === undefined || stopped) return;
-    timer = setTimeout(() => void look(rest), first);
+    const elapsed = Date.now() - started;
+    if (again) {
+      again = false;
+      at(elapsed + RESIZE_RECHECK_MS);
+      return;
+    }
+    const next = nextProbe();
+    if (next === undefined) {
+      onVerdict('blank');
+      return;
+    }
+    at(next);
   };
   onVerdict('pending');
-  schedule(FIRST_PAINT_PROBES_MS);
+  at(FIRST_PAINT_PROBES_MS[0]);
   return {
     recheck: () => {
       if (stopped || settled) return;
-      if (timer !== undefined) clearTimeout(timer);
-      schedule([RESIZE_RECHECK_MS]);
+      if (looking) {
+        again = true;
+        return;
+      }
+      const soon = Date.now() - started + RESIZE_RECHECK_MS;
+      const next = nextProbe();
+      at(next === undefined ? soon : Math.min(soon, next));
     },
     stop: () => {
       stopped = true;
