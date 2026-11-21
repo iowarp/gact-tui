@@ -85,6 +85,8 @@ export function NavigationAgentMenu({
           aria-label={`${brand.name}: ${line.text}`}
           className="h-auto min-h-11 min-w-0 flex-1 gap-2.5 px-1.5 py-1"
           data-connection-state={stream}
+          // The name's hint opens under the whole button, clear of the status line.
+          data-truncation-place=""
           size="lg"
           tooltip={tooltip}
         >
