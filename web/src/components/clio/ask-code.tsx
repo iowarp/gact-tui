@@ -91,6 +91,11 @@ export function AskCode({
       return;
     }
     const update = () => {
+      // Folded (no room for a line), every line is hidden.
+      if (pre.getClientRects().length === 0) {
+        setFitting(0);
+        return;
+      }
       const bottom = pre.getBoundingClientRect().top + pre.clientHeight + 0.5;
       let count = 0;
       for (const line of pre.querySelectorAll('code')) {
@@ -151,7 +156,7 @@ export function AskCode({
       <pre
         ref={preRef}
         className={cn(
-          'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90',
+          'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90 in-data-code-folded:hidden',
           clipped
             ? 'max-h-[140px] overflow-y-hidden [mask-image:linear-gradient(#000_62%,transparent)]'
             : 'max-h-[min(24rem,40dvh)] overflow-y-auto',
