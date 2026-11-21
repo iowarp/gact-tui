@@ -39,7 +39,9 @@ beforeEach(() => {
   setWideViewport(true);
   // jsdom has no layout; give the unchanged virtualizer a real scroll window.
   vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(320);
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(320);
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(480);
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(480);
   repository.languageModelConfiguration.mockResolvedValue({ ...defaultConfiguration, presets: [] });
   repository.providerCatalog.mockResolvedValue({ authoritative: 'live_handshake', providers: [] });
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {

@@ -47,6 +47,7 @@ export function DateTimeField({
   const generatedId = useId();
   const id = suppliedId ?? generatedId;
   const [open, setOpen] = useState(false);
+  const [thisYear] = useState(() => new Date().getFullYear());
   if (!enableDate && !enableTime) return null;
   const parts = value.split('T');
   const day = /^\d{4}-\d{2}-\d{2}$/u.test(parts[0] ?? '') ? parts[0]! : '';
@@ -65,7 +66,7 @@ export function DateTimeField({
     compact && validDay
       ? new Intl.DateTimeFormat(
           formatLocale(),
-          parsed.getFullYear() === new Date().getFullYear()
+          parsed.getFullYear() === thisYear
             ? { month: 'short', day: 'numeric' }
             : { dateStyle: 'medium' },
         ).format(parsed)
@@ -169,6 +170,7 @@ function DateTimePanel({
     day ? { period: 'day', operator: 'is', startDate: day } : undefined,
   );
   const [draftTime, setDraftTime] = useState<string | null>(time || (enableTime ? '09:00' : null));
+  const [thisYear] = useState(() => new Date().getFullYear());
   const selected = draft?.startDate;
   const dateText =
     selected && !Number.isNaN(selected.getTime()) ? format(selected, 'yyyy-MM-dd') : '';
@@ -182,7 +184,7 @@ function DateTimePanel({
     (!Number.isNaN(candidate.getTime()) &&
       format(candidate, "yyyy-MM-dd'T'HH:mm:ss") === withSeconds(next));
   const valid = Boolean(dateText && (!enableTime || draftTime) && withinBounds && localExists);
-  const year = day?.getFullYear() ?? new Date().getFullYear();
+  const year = day?.getFullYear() ?? thisYear;
   return (
     <>
       <div className="grid min-h-0 gap-3 overflow-y-auto p-3">
@@ -199,7 +201,7 @@ function DateTimePanel({
           dayDateFormat="yyyy-MM-dd"
           dayDateFormats={['yyyy-MM-dd', 'MM/dd/yyyy']}
           minYear={Math.min(1900, year - 10)}
-          maxYear={Math.max(new Date().getFullYear() + 20, year + 10)}
+          maxYear={Math.max(thisYear + 20, year + 10)}
         />
         {enableTime ? (
           <div className="grid gap-2">

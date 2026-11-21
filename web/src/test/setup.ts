@@ -31,6 +31,24 @@ if (!URL.revokeObjectURL) {
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
+// jsdom's Blob has no stream(); browsers do, and Shiki decompresses its inlined
+// Oniguruma WASM through Blob.stream().pipeThrough(DecompressionStream).
+if (typeof Blob !== 'undefined' && !Blob.prototype.stream) {
+  Object.defineProperty(Blob.prototype, 'stream', {
+    configurable: true,
+    writable: true,
+    value(this: Blob): ReadableStream<Uint8Array> {
+      const blob = this;
+      return new ReadableStream<Uint8Array>({
+        async start(controller) {
+          controller.enqueue(new Uint8Array(await blob.arrayBuffer()));
+          controller.close();
+        },
+      });
+    },
+  });
+}
+
 if (!globalThis.ResizeObserver) {
   globalThis.ResizeObserver = class ResizeObserver {
     public disconnect() {}

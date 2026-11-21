@@ -181,6 +181,11 @@ it('mounts only the rows in view when a paged folder holds thousands of files', 
   ) {
     return this.dataset.slot === 'scroll-area-viewport' ? 600 : 0;
   });
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.dataset.slot === 'scroll-area-viewport' ? 600 : 0;
+  });
   render(
     <QueryClientProvider client={new QueryClient()}>
       <div data-slot="scroll-area-viewport">

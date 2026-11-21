@@ -46,6 +46,11 @@ it('mounts only the rows in view for a large table', () => {
   ) {
     return this.dataset.slot === 'dense-grid' ? 600 : 0;
   });
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.dataset.slot === 'dense-grid' ? 600 : 0;
+  });
   const rows = Array.from({ length: 50_000 }, (_, index) => ({
     site_id: index,
     lat: index / 100,

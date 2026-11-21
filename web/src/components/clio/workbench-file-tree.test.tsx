@@ -49,6 +49,11 @@ it('mounts only the rows in view when a folder holds thousands of files', () => 
   ) {
     return this.dataset.slot === 'scroll-area-viewport' ? 600 : 0;
   });
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.dataset.slot === 'scroll-area-viewport' ? 600 : 0;
+  });
   render(
     <div data-slot="scroll-area-viewport">
       <WorkbenchFileTree nodes={buildFileTree(entries)} onSelect={() => {}} />

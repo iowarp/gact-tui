@@ -20,6 +20,11 @@ it('shows a bounded CSV as one windowed grid with its row count in the frame bar
   ) {
     return this.dataset.slot === 'dense-grid' ? 600 : 0;
   });
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.dataset.slot === 'dense-grid' ? 600 : 0;
+  });
   const register = vi.fn();
   const { container } = render(
     <FileViewerFactsRegistry.Provider value={register}>
