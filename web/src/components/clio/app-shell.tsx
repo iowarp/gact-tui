@@ -115,9 +115,11 @@ function DesktopNavigationLayout({
   const openRef = useRef(open);
   const separatorRef = useRef<HTMLDivElement>(null);
   const previousCollapseRef = useRef(false);
-  // Set when the window, not the person, folded an open bar. It reopens once neither
-  // the window nor the workbench needs the room, even if the canvas opened meanwhile.
+  // Set when the window or the canvas, not the person, folded an open bar. It reopens
+  // once neither needs the room, unless the person opened or folded it meanwhile.
   const reopenOnWidenRef = useRef(false);
+  // The width the person last dragged the open bar to; folds and reopens keep it.
+  const personWidthRef = useRef<number | null>(null);
   // Below 1024px the bar shrinks to its icon strip by itself; the panel icon still reopens it.
   const narrow = useMediaQuery('(max-width: 1023px)');
   const collapse = collapseForWorkbench || narrow;
@@ -128,7 +130,7 @@ function DesktopNavigationLayout({
 
     if (collapse && !wasCollapsed) {
       if (open) {
-        reopenOnWidenRef.current = narrow;
+        reopenOnWidenRef.current = true;
         setOpen(false, { remember: false });
       }
       return;
@@ -141,7 +143,7 @@ function DesktopNavigationLayout({
     }
     // The person opened the folded bar; whatever they choose next is theirs.
     if (collapse && open) reopenOnWidenRef.current = false;
-  }, [collapse, narrow, open, setOpen]);
+  }, [collapse, open, setOpen]);
 
   useEffect(() => {
     openRef.current = open;
@@ -153,8 +155,18 @@ function DesktopNavigationLayout({
     }
     panel.expand();
     // With no remembered width the library expands to its 216 px minimum.
-    if (panel.getSize().inPixels <= 216) panel.resize(`${OPEN_NAVIGATION_WIDTH}px`);
+    const width = personWidthRef.current;
+    const size = panel.getSize().inPixels;
+    if (width !== null ? Math.abs(size - width) > 1 : size <= 216) {
+      panel.resize(`${width ?? OPEN_NAVIGATION_WIDTH}px`);
+    }
   }, [open]);
+
+  const rememberPersonWidth = (_layout: unknown, meta: { isUserInteraction: boolean }) => {
+    if (!meta.isUserInteraction || !openRef.current) return;
+    const size = panelRef.current?.getSize().inPixels ?? 0;
+    if (size > 64) personWidthRef.current = Math.round(size);
+  };
 
   const synchronizeCollapsedState = (
     size: PanelSize,
@@ -186,7 +198,11 @@ function DesktopNavigationLayout({
 
   return (
     <main className="h-full min-h-0 min-w-0 flex-1">
-      <ResizablePanelGroup className="h-full min-h-0 w-full" orientation="horizontal">
+      <ResizablePanelGroup
+        className="h-full min-h-0 w-full"
+        onLayoutChanged={rememberPersonWidth}
+        orientation="horizontal"
+      >
         <ResizablePanel
           collapsedSize="56px"
           collapsible
