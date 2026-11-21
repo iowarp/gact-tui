@@ -113,9 +113,10 @@ function DesktopNavigationLayout({
   const panelRef = useRef<PanelImperativeHandle>(null);
   // Resize callbacks can arrive before a fold commits; they read the latest request.
   const openRef = useRef(open);
+  const separatorRef = useRef<HTMLDivElement>(null);
   const previousCollapseRef = useRef(false);
-  const previousNarrowRef = useRef(false);
-  // Set when the window, not the person, folded an open bar; widening reopens it.
+  // Set when the window, not the person, folded an open bar. It reopens once neither
+  // the window nor the workbench needs the room, even if the canvas opened meanwhile.
   const reopenOnWidenRef = useRef(false);
   // Below 1024px the bar shrinks to its icon strip by itself; the panel icon still reopens it.
   const narrow = useMediaQuery('(max-width: 1023px)');
@@ -123,9 +124,7 @@ function DesktopNavigationLayout({
 
   useEffect(() => {
     const wasCollapsed = previousCollapseRef.current;
-    const wasNarrow = previousNarrowRef.current;
     previousCollapseRef.current = collapse;
-    previousNarrowRef.current = narrow;
 
     if (collapse && !wasCollapsed) {
       if (open) {
@@ -134,8 +133,8 @@ function DesktopNavigationLayout({
       }
       return;
     }
-    if (wasNarrow && !narrow) {
-      const reopen = reopenOnWidenRef.current && !collapse && !open;
+    if (!collapse && wasCollapsed) {
+      const reopen = reopenOnWidenRef.current && !open;
       reopenOnWidenRef.current = false;
       if (reopen) setOpen(true, { remember: false });
       return;
@@ -165,7 +164,17 @@ function DesktopNavigationLayout({
     if (!previous) return;
     if (size.inPixels <= 64 !== previous.inPixels <= 64) onFoldChange?.();
     if (size.inPixels <= 64) {
-      if (openRef.current) setOpen((openRef.current = false));
+      if (!openRef.current) return;
+      // Only the person folds an open bar by its separator. A re-layout (the
+      // canvas closing as the bar reopens) can pass through the strip for a
+      // frame; it must not fold the bar or replace the person's choice.
+      const separator = separatorRef.current;
+      const personResizing =
+        separator !== null &&
+        (separator.getAttribute('data-separator') === 'active' ||
+          document.activeElement === separator);
+      if (personResizing) setOpen((openRef.current = false));
+      else panelRef.current?.expand();
       return;
     }
     if (openRef.current) return;
@@ -195,6 +204,7 @@ function DesktopNavigationLayout({
         <ResizableHandle
           aria-label={t`Resize navigation`}
           className="z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60"
+          elementRef={separatorRef}
         />
         {/* The conversation keeps 400 px, so at 768 the open bar keeps its full 292 px. */}
         <ResizablePanel id="workspace-content" minSize={`${MIN_CONVERSATION_WIDTH}px`}>
