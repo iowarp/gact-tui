@@ -24,7 +24,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { openExternalUrl } from '@/tauri/external-url';
 import { serverOwnerName } from '@/lib/a2ui/server-surface';
@@ -53,16 +52,20 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     initialValues(interaction),
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [sending, setSending] = useState(false);
+  const [sending, setSending] = useState<boolean | 'yes' | 'no'>(false);
   const serverErrors = fieldErrorsFromMessage(props.responseError?.message, fields);
   const errors = { ...serverErrors, ...fieldErrors };
+  const loneBoolean = loneBooleanField(fields);
 
-  const submit = async () => {
-    const validation = validateFields(fields, values);
+  const submit = async (override?: Record<string, unknown>) => {
+    const current = override ? { ...values, ...override } : values;
+    const validation = validateFields(fields, current);
     setFieldErrors(validation);
     if (Object.keys(validation).length > 0) return;
-    const submissionValues = normalizedSubmissionValues(fields, values);
-    setSending(true);
+    const submissionValues = normalizedSubmissionValues(fields, current);
+    setSending(
+      loneBoolean && override ? (override[loneBoolean.name] === true ? 'yes' : 'no') : true,
+    );
     try {
       await props.onResponse(interaction, {
         action: 'answer',
@@ -80,6 +83,39 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     }
   };
 
+  if (loneBoolean) {
+    // A yes/no approval is answered only by choosing Yes or No. Nothing is
+    // preselected, so no stray Send can submit a default for the person.
+    const busy = props.disabled || sending !== false;
+    return (
+      <QuestionFrame {...props}>
+        <AskError error={props.responseError} />
+        {loneBoolean.description ? (
+          <AskSection className="text-meta text-muted-foreground">
+            {loneBoolean.description}
+          </AskSection>
+        ) : null}
+        {errors[loneBoolean.name] ? (
+          <AskSection className="text-meta text-destructive" role="alert">
+            {errors[loneBoolean.name]}
+          </AskSection>
+        ) : null}
+        <AskOptions aria-label={loneBoolean.title || t`Answer`}>
+          <AskButton
+            disabled={busy}
+            onClick={() => void submit({ [loneBoolean.name]: true })}
+            primary
+          >
+            {sending === 'yes' ? t`Sending…` : t`Yes`}
+          </AskButton>
+          <AskButton disabled={busy} onClick={() => void submit({ [loneBoolean.name]: false })}>
+            {sending === 'no' ? t`Sending…` : t`No`}
+          </AskButton>
+        </AskOptions>
+      </QuestionFrame>
+    );
+  }
+
   return (
     <QuestionFrame {...props}>
       <AskError error={props.responseError} />
@@ -88,7 +124,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
           {fields.map((field) => (
             <SchemaField
               prefix={interaction.id}
-              disabled={props.disabled || sending}
+              disabled={props.disabled || sending !== false}
               error={errors[field.name]}
               field={field}
               key={field.name}
@@ -107,7 +143,11 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
         </FieldGroup>
       </AskSection>
       <AskOptions aria-label={t`Answer`}>
-        <AskButton disabled={props.disabled || sending} onClick={() => void submit()} primary>
+        <AskButton
+          disabled={props.disabled || sending !== false}
+          onClick={() => void submit()}
+          primary
+        >
           {sending ? t`Sending…` : t`Send response`}
         </AskButton>
       </AskOptions>
@@ -340,20 +380,32 @@ function SchemaField({
     );
   }
   if (field.type === 'boolean') {
+    // Yes and No are separate choices so an unanswered field never reads as "no".
     return (
-      <Field data-invalid={Boolean(error)} orientation="horizontal">
-        <Switch
+      <Field className="!w-full" data-invalid={Boolean(error)}>
+        <FieldTitle id={`${id}-title`}>{field.title}</FieldTitle>
+        {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
+        <RadioGroup
           aria-invalid={Boolean(error)}
-          checked={value === true}
+          // i18n-ignore: element id, not copy
+          aria-labelledby={`${id}-title`}
+          className="flex flex-wrap gap-x-4 gap-y-1"
           disabled={disabled}
-          id={id}
-          onCheckedChange={onChange}
-        />
-        <FieldContent>
-          <FieldLabel htmlFor={id}>{field.title}</FieldLabel>
-          {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
-          <FieldError>{error}</FieldError>
-        </FieldContent>
+          onValueChange={(next) => onChange(next === 'yes')}
+          value={value === true ? 'yes' : value === false ? 'no' : ''}
+        >
+          {(['yes', 'no'] as const).map((option) => (
+            <Label
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50"
+              htmlFor={`${id}-${option}`}
+              key={option}
+            >
+              <RadioGroupItem id={`${id}-${option}`} value={option} />
+              <span>{option === 'yes' ? t`Yes` : t`No`}</span>
+            </Label>
+          ))}
+        </RadioGroup>
+        <FieldError>{error}</FieldError>
       </Field>
     );
   }
@@ -393,11 +445,22 @@ function initialValues(interaction: PendingInteraction): Record<string, unknown>
   return Object.fromEntries(
     fields.map((field) => [
       field.name,
-      prefills[field.name] ??
-        field.default ??
-        (field.multi ? [] : field.type === 'boolean' ? false : undefined),
+      // A yes/no answer is never preselected: the server's default (often
+      // `false`) would otherwise be submitted as if the person had chosen it.
+      field.type === 'boolean' && !field.multi && !field.enum?.length
+        ? undefined
+        : (prefills[field.name] ?? field.default ?? (field.multi ? [] : undefined)),
     ]),
   );
+}
+
+function loneBooleanField(
+  fields: readonly PendingInteractionField[],
+): PendingInteractionField | undefined {
+  const [only] = fields;
+  return fields.length === 1 && only.type === 'boolean' && !only.multi && !only.enum?.length
+    ? only
+    : undefined;
 }
 
 function validateFields(
@@ -421,7 +484,8 @@ function validateFields(
       field.required &&
       (value === undefined || value === '' || (Array.isArray(value) && value.length === 0))
     ) {
-      errors[field.name] = t`This field is required.`;
+      errors[field.name] =
+        field.type === 'boolean' ? t`Choose Yes or No.` : t`This field is required.`;
       continue;
     }
     if (typeof value === 'string') {
