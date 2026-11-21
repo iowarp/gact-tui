@@ -49,6 +49,8 @@ import { ph, t } from '@lingui/core/macro';
 /** Approve choices: the confirmation policy to run in, then older cards' modes. */
 const APPROVALS: readonly string[] = SESSION_APPROVAL_OPTIONS.map((option) => option.value);
 const LEGACY_MODES = ['interactive', 'auto'];
+/** The agent recommends an older posture; the service runs it as this policy. */
+const RECOMMENDED_POLICY: Record<string, string> = { interactive: 'ask', auto: 'auto-edits' };
 const MODES = [...APPROVALS, ...LEGACY_MODES, 'exit_only'];
 const KNOWN_OPTIONS = new Set([...MODES, 'reject', 'clear_context']);
 const KNOWN_ACTIONS = new Set(['answer', 'cancel']);
@@ -234,18 +236,23 @@ function PlanDecisionControlsView({
   const modes = MODES.filter((value) => values.includes(value));
   const runModes = modes.filter((value) => value !== 'exit_only' && !unavailable.has(value));
   const plan = interaction.payload?.plan_exit;
-  const recommended = plan?.recommended_mode;
+  const hint = plan?.recommended_mode;
+  // Shown beside the row it means; on an older card that is the mode itself.
+  const recommended =
+    hint && !modes.includes(hint) && modes.includes(RECOMMENDED_POLICY[hint] ?? '')
+      ? RECOMMENDED_POLICY[hint]
+      : hint;
   // The plan runs in the conversation's own confirmation policy unless the person picks another.
   const prior = useLiveStore(
     (state) => state.entities.sessions[interaction.owner_session_id]?.approval_mode,
   );
-  // A conversation already bypassing checks keeps doing so; a recommendation never
-  // chooses Bypass for the person.
+  // The card starts in the mode the conversation had before planning (the service's
+  // default_option, else the session's own). The agent's recommendation only picks between
+  // an older card's Interactive and Auto-execute; it never chooses Bypass for the person.
   const defaultMode =
+    runModes.find((value) => value === plan?.default_option) ??
     runModes.find((value) => value === prior) ??
-    [...runModes, 'exit_only'].find(
-      (value) => value === recommended && value !== 'bypass' && modes.includes(value),
-    ) ??
+    runModes.find((value) => LEGACY_MODES.includes(value) && value === hint) ??
     runModes.find((value) => value === 'ask' || value === 'interactive') ??
     runModes.find((value) => value !== 'bypass') ??
     modes.find((value) => !unavailable.has(value)) ??

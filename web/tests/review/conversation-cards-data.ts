@@ -389,7 +389,8 @@ function plan(status: 'complete' | 'truncated', content = PLAN) {
       question_kind: 'choice',
       plan_exit: {
         summary: 'Regrid SMAP L3 for 2020–2023 to 0.25° and check the 14 Opal sites.',
-        recommended_mode: 'ask',
+        recommended_mode: 'interactive',
+        default_option: 'ask',
         risk_notes: 'Two sites sit on a grid edge. 2020 granules use the older QC flags.',
         plan_file: 'plans/soil-regrid.md',
         plan_content: content,
