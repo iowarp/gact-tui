@@ -27,7 +27,8 @@ export function AskRows({ className, ...props }: ComponentProps<'div'>) {
     <AskSection
       className={cn(
         // Rows keep their height (their min-h would otherwise let them shrink): the region scrolls.
-        'clio-scrollbar mt-2 ml-[19px] flex min-h-0 flex-col gap-0.5 overflow-y-auto overscroll-contain [scrollbar-gutter:auto]! *:shrink-0 @max-[420px]/ask:ml-0 has-[[data-slot=ask-row]~[data-slot=ask-row]]:min-h-[62px] data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
+        // At its end the wheel passes to the card and the dock, which contains it.
+        'clio-scrollbar mt-2 ml-[19px] flex min-h-0 flex-col gap-0.5 overflow-y-auto [scrollbar-gutter:auto]! *:shrink-0 @max-[420px]/ask:ml-0 has-[[data-slot=ask-row]~[data-slot=ask-row]]:min-h-[62px] data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
         className,
       )}
       data-slot="ask-rows"

@@ -25,9 +25,8 @@ export function useScrollClipped(ref: RefObject<HTMLElement | null>, mounted?: b
 }
 
 /**
- * Marks `data-overflows` while the element has content to scroll. Overscroll containment keys on
- * it: a scroller with nothing to scroll that still contains overscroll swallows the wheel instead
- * of passing it to the scroller around it.
+ * Marks `data-overflows` while the element has content to scroll. A capped card becomes a scroller
+ * only then: a card that fits leaves the wheel, and its sticky header, to the scroller around it.
  */
 export function useOverflowMark(ref: RefObject<HTMLElement | null>) {
   useLayoutEffect(() => {

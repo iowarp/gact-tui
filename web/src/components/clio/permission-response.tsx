@@ -143,7 +143,10 @@ function spokenToolCall(
     if (values.length) {
       const list = formatList(values);
       return clip(
-        t({ message: `${toolName}: ${list}`, comment: 'Spoken tool call: tool name, then its arguments' }),
+        t({
+          message: `${toolName}: ${list}`,
+          comment: 'Spoken tool call: tool name, then its arguments',
+        }),
       );
     }
   }
@@ -245,11 +248,16 @@ export function PermissionResponse({
         )}
       </AskBody>
       {script ? (
-        // Under a cap the script gives up height first, down to two lines with its fade and
-        // footer, so the facts above stay whole. The script stands in for the command line.
-        // A script of one or two lines keeps its own height: the floor would only pad it.
+        // Under a cap the script gives up height first, so the facts above stay whole. Its floor
+        // counts its header and footer (a translated footer wraps to two lines when narrow), so
+        // the code itself keeps about three lines. A script of one or two lines keeps its own
+        // height: the floor would only pad it. The script stands in for the command line.
         <AskCode
-          className={cn('flex flex-col', scriptLines > 2 && 'min-h-20 shrink-[100]')}
+          className={cn(
+            'flex flex-col',
+            scriptLines > 2 &&
+              'min-h-[calc(64px+4.5rem)] shrink-[100] @max-[420px]/ask:min-h-[calc(70px+4.5rem)]',
+          )}
           code={script.code}
           copyLabel={t`Copy script`}
           icon={FileCode2Icon}
