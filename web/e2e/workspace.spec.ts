@@ -1124,11 +1124,11 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
 test('scrolls pending responses and queued messages independently at a narrow viewport', async ({
   page,
 }) => {
-  // Short as well as narrow. The queue has its own 136 px bound and the
-  // pending-response stack has a responsive viewport bound, so both must keep
-  // wheel and keyboard scrolling local when they compete for composer space.
-  // A card gives up body height before its options, so the stack itself only
-  // overflows once the header, options and details line exceed 45dvh.
+  // Short as well as narrow. The queue has its own 136 px bound and a docked
+  // card is capped to the room the composer's column leaves it, so both must
+  // keep wheel and keyboard scrolling local when they compete for composer
+  // space. The queue yields first; a card still past that room scrolls itself,
+  // so the stack around it never scrolls its header away.
   await page.setViewportSize({ height: 400, width: 848 });
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
   expect(seeded.ok()).toBe(true);
@@ -1140,14 +1140,21 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   // cross-fade briefly mounts twice. Settle on one of each before measuring.
   await expect(pendingResponses).toHaveCount(1);
   await expect(queue).toHaveCount(1);
-  const responseViewport = pendingResponses.getByRole('region', { name: '2 pending responses' });
+  const responseStack = pendingResponses.getByRole('region', { name: '2 pending responses' });
+  const responseCard = responseStack.locator('[data-slot="ask-card"]:visible');
   const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
-  for (const viewport of [responseViewport, queueViewport]) {
+  await expect(responseStack).toBeVisible();
+  await expect(responseCard).toHaveCount(1);
+  await expect(responseCard).toHaveAttribute('data-overflows', '');
+  const stackOverflow = () =>
+    responseStack.evaluate((element) => element.scrollHeight - element.clientHeight);
+  expect(await stackOverflow()).toBe(0);
+  for (const viewport of [responseCard, queueViewport]) {
     await expect(viewport).toBeVisible();
     expect(
       await viewport.evaluate((element) => element.scrollHeight - element.clientHeight),
     ).toBeGreaterThan(0);
-    // Over the sticky header rather than the centre: a capped card body is its own
+    // Over the card's header rather than its centre: a capped card body is its own
     // scroller and would take the wheel.
     await viewport.hover({ position: { x: 24, y: 8 } });
     await page.mouse.wheel(0, 500);
@@ -1167,7 +1174,7 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   let previousResponseScroll = -1;
   await expect
     .poll(async () => {
-      const current = await responseViewport.evaluate((element) => element.scrollTop);
+      const current = await responseCard.evaluate((element) => element.scrollTop);
       const settled = current === previousResponseScroll;
       previousResponseScroll = current;
       return settled;
@@ -1176,7 +1183,7 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   // Park the responses a third of the way down: once the queue scrolls, the
   // composer gives both panels a few more pixels, which would clamp an offset
   // parked at the end without anything having chained into it.
-  previousResponseScroll = await responseViewport.evaluate((element) => {
+  previousResponseScroll = await responseCard.evaluate((element) => {
     element.scrollTop = Math.floor((element.scrollHeight - element.clientHeight) / 3);
     return element.scrollTop;
   });
@@ -1189,9 +1196,8 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   await expect
     .poll(() => queueViewport.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(0);
-  expect(await responseViewport.evaluate((element) => element.scrollTop)).toBe(
-    previousResponseScroll,
-  );
+  expect(await responseCard.evaluate((element) => element.scrollTop)).toBe(previousResponseScroll);
+  expect(await responseStack.evaluate((element) => element.scrollTop)).toBe(0);
 });
 
 test('shows summarization as one quiet line and discloses its exact received text', async ({
