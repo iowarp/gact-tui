@@ -168,9 +168,12 @@ export function ClioPendingInteractions({
       : null;
     const column = stack?.parentElement;
     const update = () => {
-      dock.style.setProperty('--conversation-h', `${conversation.clientHeight}px`);
-      if (!stack || !column) return;
-      dock.style.setProperty('--dock-room', `${dockRoom(dock, stack, column)}px`);
+      const conversationHeight = conversation.clientHeight;
+      dock.style.setProperty('--conversation-h', `${conversationHeight}px`);
+      const room = stack && column ? dockRoom(dock, stack, column) : Infinity;
+      if (Number.isFinite(room)) dock.style.setProperty('--dock-room', `${room}px`);
+      // The ceiling in pixels, so a card can fit its parts to it (see AskCard).
+      dock.style.setProperty('--dock-ceiling', `${Math.min(conversationHeight * 0.75, room)}px`);
     };
     update();
     if (typeof ResizeObserver === 'undefined') return;
@@ -318,7 +321,7 @@ export function ClioPendingInteractions({
           // room. The stack holds a card up to that ceiling. A visual answer gets more.
           hasInteractiveSurface
             ? 'max-h-[calc(100dvh-12rem)]'
-            : 'max-h-(--ask-card-ceiling) [--ask-card-ceiling:min(calc(var(--conversation-h,100dvh)*0.75),var(--dock-room,100dvh))]',
+            : 'max-h-(--ask-card-ceiling) [--ask-card-ceiling:var(--dock-ceiling,min(calc(var(--conversation-h,100dvh)*0.75),var(--dock-room,100dvh)))]',
         )}
         scrollHideDelay={500}
         // No scrollbar chrome at rest; it shows only while the card scrolls.
