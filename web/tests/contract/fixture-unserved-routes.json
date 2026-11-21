@@ -169,6 +169,7 @@
   "POST /v1/sessions/:id/queued-messages/:id/promote",
   "POST /v1/sessions/:id/rewind",
   "POST /v1/sessions/:id/schedules",
+  "POST /v1/sessions/:id/scripts/foreground/background",
   "POST /v1/sessions/:id/share",
   "POST /v1/sessions/:id/side-sessions",
   "POST /v1/sessions/:id/spotter/quarantine/lift",
