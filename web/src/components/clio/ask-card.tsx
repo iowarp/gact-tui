@@ -35,6 +35,7 @@ import {
 } from './ask-card-keys';
 import { jsonLine, useHighlightedLines, WRAP_MARKS } from './ask-code-lines';
 import { TechnicalDetails } from './technical-details';
+import { publishAskBodyContent, publishAskCardNeed } from './ask-card-fit';
 import { useOverflowMark, useScrollClipped } from './use-scroll-clipped';
 import { composerFailureReason } from './composer-failure';
 import { plural, t } from '@lingui/core/macro';
@@ -160,32 +161,6 @@ function identifierBreaks(text: string): ReactNode {
       {part}
     </Fragment>
   ));
-}
-
-/**
- * The height a capped card needs with every part that gives up height at its floor (a scrolling
- * body or option list at none, a script at its few lines). The dock lets a card past its 45% cap
- * up to that, so the parts that keep their height (a permission's options) stay in view.
- */
-function publishAskCardNeed(card: HTMLElement) {
-  let slack = 0;
-  for (const child of card.children) {
-    if (!(child instanceof HTMLElement)) continue;
-    const style = getComputedStyle(child);
-    if (style.position === 'absolute' || style.position === 'fixed' || style.flexShrink === '0')
-      continue;
-    const floor = Number.parseFloat(style.minHeight);
-    if (Number.isFinite(floor)) slack += Math.max(0, child.offsetHeight - floor);
-  }
-  const need = card.offsetHeight + card.scrollHeight - card.clientHeight - slack;
-  card.style.setProperty('--ask-card-need', `${Math.ceil(need)}px`);
-}
-
-/** A body's content height, so its floor never exceeds what it holds. */
-function publishAskBodyContent(body: HTMLElement) {
-  const content = `${body.scrollHeight}px`;
-  if (body.style.getPropertyValue('--ask-body-content') !== content)
-    body.style.setProperty('--ask-body-content', content);
 }
 
 /** The frame: kind edge, header, and a 25px content indent shared by every part. */
@@ -678,6 +653,11 @@ export function AskCode({
       return;
     }
     const update = () => {
+      // Folded (no room for a line), every line is hidden.
+      if (pre.getClientRects().length === 0) {
+        setFitting(0);
+        return;
+      }
       const bottom = pre.getBoundingClientRect().top + pre.clientHeight + 0.5;
       let count = 0;
       for (const line of pre.querySelectorAll('code')) {
@@ -738,7 +718,7 @@ export function AskCode({
       <pre
         ref={preRef}
         className={cn(
-          'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90',
+          'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90 in-data-code-folded:hidden',
           clipped
             ? 'max-h-[140px] overflow-y-hidden [mask-image:linear-gradient(#000_62%,transparent)]'
             : 'max-h-[min(24rem,40dvh)] overflow-y-auto',

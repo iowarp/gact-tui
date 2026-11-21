@@ -268,13 +268,15 @@ export function PermissionResponse({
       {script ? (
         // Under a cap the script gives up height first, so the facts above stay whole. Its floor
         // counts its header and footer (a translated footer wraps to two lines when narrow), so
-        // the code itself keeps about three lines. A script of one or two lines keeps its own
-        // height: the floor would only pad it. The script stands in for the command line.
+        // the code itself keeps about three lines. At a card's ceiling it keeps only the whole
+        // lines that leave the first option in view (--ask-code-fit). A script of one or two
+        // lines keeps its own height: the floor would only pad it. The script stands in for the
+        // command line.
         <AskCode
           className={cn(
             'flex flex-col',
             scriptLines > 2 &&
-              'min-h-[calc(64px+4.5rem)] shrink-[100] @max-[420px]/ask:min-h-[calc(70px+4.5rem)]',
+              'min-h-[min(calc(64px+4.5rem),var(--ask-code-fit,100dvh))] shrink-[100] @max-[420px]/ask:min-h-[min(calc(70px+4.5rem),var(--ask-code-fit,100dvh))]',
           )}
           code={script.code}
           copyLabel={t`Copy script`}
