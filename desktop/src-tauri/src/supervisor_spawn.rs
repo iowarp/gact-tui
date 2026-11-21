@@ -4,7 +4,6 @@
 //! launcher (teeing output to the boot log), then calls the probe; maps
 //! the launcher's exit-2 to `NeedsInstall` for the first-run flow.
 
-use rand::RngCore;
 use std::{
     io::{BufRead, BufReader},
     path::Path,
@@ -133,7 +132,7 @@ pub(crate) fn spawn_and_probe(
 
 fn generate_token() -> String {
     let mut buf = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut buf);
+    rand::fill(&mut buf);
     hex::encode(buf)
 }
 

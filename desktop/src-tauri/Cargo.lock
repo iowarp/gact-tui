@@ -590,7 +590,7 @@ dependencies = [
  "objc2-user-notifications",
  "png",
  "portable-pty",
- "rand 0.8.8",
+ "rand 0.10.4",
  "serde",
  "serde_json",
  "sha2 0.10.9",
