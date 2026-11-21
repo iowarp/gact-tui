@@ -18,6 +18,7 @@ const ANSWERED_STATUS = {
 export function AskAnsweredRow({
   icon: Icon,
   verb,
+  label,
   detail,
   outcome,
   tone = 'ok',
@@ -30,6 +31,8 @@ export function AskAnsweredRow({
 }: Omit<ComponentProps<'div'>, 'children' | 'title'> & {
   icon: LucideIcon;
   verb: string;
+  /** Shown in place of `verb` when the name needs structure; `verb` still names the disclosure. */
+  label?: ReactNode;
   detail?: ReactNode;
   /** Who decided, beside the detail ("you denied it"); warning-toned when denied. */
   outcome?: string;
@@ -58,7 +61,7 @@ export function AskAnsweredRow({
         ) : null
       }
       icon={<Icon aria-hidden="true" />}
-      name={verb}
+      name={label ?? verb}
       argument={detail}
       argumentTitle={title}
       outcome={outcome}

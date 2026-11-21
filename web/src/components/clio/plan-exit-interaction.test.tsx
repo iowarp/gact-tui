@@ -500,10 +500,13 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
       />,
     );
     // The decided plan folds into one activity row; its chevron shows the plan again.
-    // One phrase: a narrow row cuts "context cleared" before the mode.
-    const row = screen
-      .getByText('Approved in Workspace edits, context cleared')
-      .closest('[data-plan-decision]');
+    // One phrase on hover; a narrow row cuts "context cleared", then the lead-in, before the mode.
+    const phrase = screen.getByTitle('Approved in Workspace edits, context cleared');
+    expect(phrase).toHaveTextContent('Approved in Workspace edits, context cleared');
+    expect(phrase.querySelector('[data-slot="plan-mode-name"]')).toHaveTextContent(
+      /^Workspace edits$/,
+    );
+    const row = phrase.closest('[data-plan-decision]');
     expect(row?.querySelector('[data-slot="activity-outcome"]')).toBeNull();
     expect(row).toHaveAttribute('data-plan-decision', 'auto-edits');
     expect(screen.getByRole('img', { name: 'Done' })).toBeInTheDocument();
@@ -529,7 +532,7 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
         showOwner={false}
       />,
     );
-    expect(screen.getByText('Approved in Interactive')).toBeVisible();
+    expect(screen.getByTitle('Approved in Interactive')).toBeVisible();
   });
 
   it('keeps the requested changes on the folded row', () => {
