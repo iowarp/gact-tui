@@ -181,6 +181,13 @@ function publishAskCardNeed(card: HTMLElement) {
   card.style.setProperty('--ask-card-need', `${Math.ceil(need)}px`);
 }
 
+/** A body's content height, so its floor never exceeds what it holds. */
+function publishAskBodyContent(body: HTMLElement) {
+  const content = `${body.scrollHeight}px`;
+  if (body.style.getPropertyValue('--ask-body-content') !== content)
+    body.style.setProperty('--ask-body-content', content);
+}
+
 /** The frame: kind edge, header, and a 25px content indent shared by every part. */
 export function AskCard({
   kind,
@@ -335,13 +342,16 @@ export function AskSection({ className, ...props }: ComponentProps<'div'>) {
 export function AskBody({ className, onScroll, ...props }: ComponentProps<'div'>) {
   const ref = useRef<HTMLDivElement>(null);
   useScrollClipped(ref);
+  useOverflowMark(ref, publishAskBodyContent);
   return (
     <div
       ref={ref}
       className={cn(
         // No reserved gutter (over .clio-scrollbar's): body blocks end on the header's edge.
         // Content past either edge fades there; scrolled, the header draws its hairline.
-        'clio-scrollbar min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:auto]! data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)] data-scrolled:[mask-image:linear-gradient(transparent,#000_16px)] data-clipped:data-scrolled:[mask-image:linear-gradient(transparent,#000_16px,#000_calc(100%-24px),transparent)]',
+        // In a capped card the body keeps about two fact rows (or all of a shorter body), so a
+        // card scrolling itself still shows what the person answers; the card's need counts it.
+        'clio-scrollbar min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:auto]! in-data-ask-capped:min-h-[min(var(--ask-body-content,0px),3.5rem)] data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)] data-scrolled:[mask-image:linear-gradient(transparent,#000_16px)] data-clipped:data-scrolled:[mask-image:linear-gradient(transparent,#000_16px,#000_calc(100%-24px),transparent)]',
         className,
       )}
       data-slot="ask-body"
