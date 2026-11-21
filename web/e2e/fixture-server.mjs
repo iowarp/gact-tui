@@ -941,7 +941,14 @@ function mcpV2Interactions() {
             enum_names: ['Station table', 'Displacement plot'],
             default: 'table',
           },
-          { name: 'provenance', type: 'boolean', title: 'Keep provenance visible', default: true },
+          // Required and never preselected: Send fails until the person picks Yes or No.
+          {
+            name: 'provenance',
+            type: 'boolean',
+            title: 'Keep provenance visible',
+            default: true,
+            required: true,
+          },
           {
             name: 'views',
             type: 'array',
