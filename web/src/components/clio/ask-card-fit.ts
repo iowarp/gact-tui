@@ -71,34 +71,39 @@ function fitAskCode(card: HTMLElement, code: HTMLElement) {
   const others =
     option.getBoundingClientRect().bottom - top - code.offsetHeight - bodyOver + OPTION_FADE_ROOM;
   const room = ceiling - borderTop - borderBottom - others;
-  const preStyle = getComputedStyle(pre);
-  const line = Number.parseFloat(preStyle.lineHeight);
-  const padding =
-    Number.parseFloat(preStyle.paddingTop) + Number.parseFloat(preStyle.paddingBottom);
+  // Each logical line's bottom in the preview, padding included: a wrapped line counts whole.
+  // A folded preview keeps its layout out of flow, so its lines still measure.
+  const preTop = pre.getBoundingClientRect().top;
+  const padBottom = Number.parseFloat(getComputedStyle(pre).paddingBottom);
+  const ends = [...pre.querySelectorAll('code')].map(
+    (line) => line.getBoundingClientRect().bottom - preTop + padBottom,
+  );
   const codeStyle = getComputedStyle(code);
   let chrome =
     Number.parseFloat(codeStyle.borderTopWidth) + Number.parseFloat(codeStyle.borderBottomWidth);
   for (const part of code.children)
     if (part !== pre && part instanceof HTMLElement) chrome += part.offsetHeight;
-  const linesFor = (space: number) =>
-    line > 0 ? Math.max(0, Math.floor((space - chrome - padding) / line)) : 0;
+  const linesFor = (space: number) => {
+    let count = 0;
+    while (count < ends.length && chrome + (ends[count] ?? 0) <= space + 0.5) count += 1;
+    return count;
+  };
   let lines = linesFor(room);
+  const inner = ceiling - borderTop - borderBottom;
+  const last = [...card.children].findLast(
+    (child): child is HTMLElement =>
+      child instanceof HTMLElement && !/^(absolute|fixed)$/.test(getComputedStyle(child).position),
+  );
+  const content = last
+    ? last.getBoundingClientRect().bottom +
+      Number.parseFloat(getComputedStyle(last).marginBottom) -
+      top +
+      Number.parseFloat(style.paddingBottom)
+    : card.scrollHeight;
   // When only the facts would be clipped to fit the ceiling, the script gives that up instead.
   // Measured against the code's own floor, not its fitted one, so the answer cannot feed back.
   if (body) {
     const bodyContent = body.scrollHeight;
-    const inner = ceiling - borderTop - borderBottom;
-    const last = [...card.children].findLast(
-      (child): child is HTMLElement =>
-        child instanceof HTMLElement &&
-        !/^(absolute|fixed)$/.test(getComputedStyle(child).position),
-    );
-    const content = last
-      ? last.getBoundingClientRect().bottom +
-        Number.parseFloat(getComputedStyle(last).marginBottom) -
-        top +
-        Number.parseFloat(style.paddingBottom)
-      : card.scrollHeight;
     const rest = content - code.offsetHeight - body.offsetHeight + bodyContent;
     const shortfall = rest + codeFloor(code) - inner;
     if (shortfall > 0 && shortfall <= bodyContent - bodyFloor) {
@@ -106,9 +111,13 @@ function fitAskCode(card: HTMLElement, code: HTMLElement) {
       if (whole > 0) lines = Math.min(lines, whole);
     }
   }
+  // A card that scrolls even with its script folded keeps the script's first line, so nothing is
+  // approved unseen, while the first option stays whole (its fade room given up).
+  if (lines === 0 && content - code.offsetHeight - bodyOver + chrome > inner + 0.5)
+    lines = Math.min(1, linesFor(room + OPTION_FADE_ROOM));
   // Without room for one line the preview keeps its name and Open bar, not a sliver of code.
   code.toggleAttribute('data-code-folded', lines === 0);
-  const fit = `${Math.floor(chrome + (lines > 0 ? padding + lines * line : 0))}px`;
+  const fit = `${Math.ceil(chrome + (lines > 0 ? (ends[lines - 1] ?? 0) : 0))}px`;
   if (code.style.getPropertyValue('--ask-code-fit') !== fit)
     code.style.setProperty('--ask-code-fit', fit);
 }
