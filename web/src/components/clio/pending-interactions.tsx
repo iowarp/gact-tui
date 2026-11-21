@@ -279,6 +279,7 @@ export function ClioPendingInteractions({
       >
         <AskPagerContext.Provider value={pager}>
           <div
+            data-ask-capped={hasInteractiveSurface ? undefined : ''}
             className={cn(
               '@container/dock flex min-w-0 flex-col gap-2',
               // A card past the cap scrolls its body; its options stay in view.

@@ -145,6 +145,8 @@ describe('ClioPendingInteractions', () => {
     await user.click(screen.getByRole('button', { name: 'Send response' }));
     expect(screen.getByText('Choose at least 1.')).toBeVisible();
     expect(onResponse).not.toHaveBeenCalled();
+    // The field to fix takes focus, so it is in view even under the card's cap.
+    expect(screen.getByRole('checkbox', { name: 'table' })).toHaveFocus();
 
     await user.click(screen.getByRole('checkbox', { name: 'table' }));
     await user.click(screen.getByRole('radio', { name: 'Yes' }));
@@ -179,12 +181,28 @@ describe('ClioPendingInteractions', () => {
       },
     });
     const onResponse = renderPending([approval]);
+    const approvalCard = () =>
+      screen.getByRole('button', { name: 'Yes' }).closest<HTMLElement>('[data-slot="ask-card"]')!;
 
     // The incident: a click aimed at a prior card's "Send response" landed on this one.
     expect(screen.queryByRole('button', { name: 'Send response' })).not.toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    approvalCard().focus();
     await user.keyboard('{Enter}');
     expect(onResponse).not.toHaveBeenCalled();
+
+    // 1 and 2 are the person's explicit Yes and No.
+    await user.keyboard('2');
+    expect(onResponse).toHaveBeenLastCalledWith(approval, {
+      action: 'answer',
+      metadata: { approve: false },
+    });
+    approvalCard().focus();
+    await user.keyboard('1');
+    expect(onResponse).toHaveBeenLastCalledWith(approval, {
+      action: 'answer',
+      metadata: { approve: true },
+    });
 
     await user.click(screen.getByRole('button', { name: 'No' }));
     expect(onResponse).toHaveBeenLastCalledWith(approval, {

@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useContext,
   useEffect,
   useId,
@@ -138,6 +139,21 @@ export interface AskCardProps extends Omit<ComponentProps<'section'>, 'title'> {
   spokenDetail?: string;
 }
 
+/**
+ * A wrapped title may name a tool (clio_jarvis.xcompact3d): it may break after a `.`, `_` or `/`
+ * between letters, so a narrow card wraps it at a word part before cutting inside one.
+ */
+function identifierBreaks(text: string): ReactNode {
+  const parts = text.split(/(?<=[\p{L}\d][._/])(?=\p{L})/u);
+  if (parts.length < 2) return text;
+  return parts.map((part, index) => (
+    <Fragment key={index}>
+      {index ? <wbr /> : null}
+      {part}
+    </Fragment>
+  ));
+}
+
 /** The frame: kind edge, header, and a 25px content indent shared by every part. */
 export function AskCard({
   kind,
@@ -154,6 +170,7 @@ export function AskCard({
   children,
   className,
   onKeyDown,
+  onScroll,
   ...props
 }: AskCardProps) {
   const id = useId();
@@ -175,10 +192,21 @@ export function AskCard({
         onKeyDown?.(event);
         handleAskCardKeys(event);
       }}
+      onScroll={(event) => {
+        // Content under the sticky header draws its hairline (see the dock's viewport).
+        if (event.target === event.currentTarget)
+          event.currentTarget.toggleAttribute(
+            'data-ask-scrolled',
+            event.currentTarget.scrollTop > 0,
+          );
+        onScroll?.(event);
+      }}
       className={cn(
         // A surface may cap the card (--ask-card-max): AskBody and a long AskCode give up height
-        // and the options stay. Open Technical details scroll inside it, so the cap holds.
-        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-menu text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring',
+        // and the options stay. Open Technical details scroll inside it, so the cap holds. When
+        // the parts that keep their height still pass the cap (stacked options at a large
+        // interface size), the capped card scrolls as a whole instead of painting past its frame.
+        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-menu text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring clio-scrollbar [scrollbar-gutter:auto]! in-data-ask-capped:overflow-x-hidden in-data-ask-capped:overflow-y-auto in-data-ask-capped:overscroll-contain',
         EDGE[kind],
         className,
       )}
@@ -190,7 +218,8 @@ export function AskCard({
           bottom border, so the kind edge does not mitre into a notch where the header ends. */}
       <header
         className={cn(
-          'sticky top-0 z-[1] -mt-[10px] -mr-[11px] -ml-[15px] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-b-0 border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:shadow-[inset_0_-1px_0_var(--color-border)] group-focus-visible/ask:border-t-ring group-focus-visible/ask:border-r-ring',
+          // A scrolling card pins its sticky header inside its padding; -10px keeps it at rest.
+          'sticky top-0 z-[1] -mt-[10px] in-data-ask-capped:-top-[10px] -mr-[11px] -ml-[15px] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-b-0 border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:shadow-[inset_0_-1px_0_var(--color-border)] group-focus-visible/ask:border-t-ring group-focus-visible/ask:border-r-ring',
           EDGE[kind],
         )}
       >
@@ -204,14 +233,15 @@ export function AskCard({
         <h2
           className={cn(
             'min-w-0 shrink text-[0.84375rem] leading-5 font-medium',
-            // A question is what the person answers: it reads whole and wraps, never cut.
-            wrapTitle ? 'py-1 whitespace-normal' : 'truncate',
+            // A question is what the person answers: it reads whole and wraps, never cut. A long
+            // token (a tool id) breaks inside its column rather than running under ✕.
+            wrapTitle ? 'py-1 whitespace-normal wrap-anywhere' : 'truncate',
           )}
           data-slot="pending-interaction-title"
           id={`${id}-title`}
           title={titleText}
         >
-          {title}
+          {wrapTitle && typeof title === 'string' ? identifierBreaks(title) : title}
         </h2>
         {spokenDetail ? (
           <span className="sr-only" id={`${id}-detail`}>
@@ -324,7 +354,9 @@ export function AskOptions({ className, ...props }: ComponentProps<'div'>) {
   return (
     <AskSection
       className={cn(
-        'mt-2.5 flex shrink-0 flex-wrap items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch',
+        // Stacked, one unwrapped column holds every button to the card's width (a wrapping
+        // column sizes each line to its widest label instead).
+        'mt-2.5 flex shrink-0 flex-wrap items-center gap-1.5 @max-[420px]/ask:flex-col @max-[420px]/ask:flex-nowrap @max-[420px]/ask:items-stretch',
         className,
       )}
       data-slot="ask-options"
@@ -342,7 +374,7 @@ export interface AskButtonProps extends Omit<ComponentProps<typeof Button>, 'siz
   primary?: boolean;
 }
 
-/** One 28px option button with its keys inside; it never shrinks or cuts its label. */
+/** One 28px option button with its keys inside; it never shrinks or cuts its label (stacked, a long one wraps). */
 export function AskButton({
   number,
   hint,
@@ -356,7 +388,7 @@ export function AskButton({
     <Button
       {...askKeyAttributes(keys)}
       className={cn(
-        'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-menu font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:justify-start',
+        'h-7 shrink-0 gap-[7px] rounded-[7px] px-2.5 text-menu font-medium whitespace-nowrap focus-visible:border-ring focus-visible:ring-0 focus-visible:[box-shadow:inset_0_0_0_1px_var(--ring)] @max-[420px]/ask:h-auto @max-[420px]/ask:min-h-7 @max-[420px]/ask:justify-start @max-[420px]/ask:py-1',
         !primary && 'border-input bg-transparent text-foreground',
         // A filled button waiting on a choice keeps the 1px edge of every other option.
         primary && 'disabled:border-input',
@@ -369,7 +401,9 @@ export function AskButton({
     >
       {number ? <AskKeyChip askKey={String(number)} /> : null}
       {/* Stacked, the label fills: number key left, ↵/Esc at the right edge. */}
-      <span className="min-w-0 truncate text-left @max-[420px]/ask:flex-1">{children}</span>
+      <span className="min-w-0 truncate text-left @max-[420px]/ask:flex-1 @max-[420px]/ask:whitespace-normal">
+        {children}
+      </span>
       {hint ? <AskKeyChip askKey={hint} /> : null}
     </Button>
   );
