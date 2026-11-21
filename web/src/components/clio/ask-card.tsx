@@ -217,21 +217,22 @@ export function AskCard({
         // and the options stay. Open Technical details scroll inside it, so the cap holds. When
         // the parts that keep their height still pass the cap (stacked options at a large
         // interface size), the capped card scrolls as a whole instead of painting past its frame.
-        // Only then does it keep the wheel; a card that fits passes it to the dock.
-        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-menu text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring clio-scrollbar [scrollbar-gutter:auto]! in-data-ask-capped:overflow-x-hidden in-data-ask-capped:overflow-y-auto in-data-ask-capped:data-overflows:overscroll-contain',
+        // Only then is it a scroller that keeps the wheel. A card that fits is no scroller, so the
+        // wheel passes to the dock and its sticky header stays at the top of the dock.
+        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-menu text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring clio-scrollbar [scrollbar-gutter:auto]! in-data-ask-capped:data-overflows:overflow-x-hidden in-data-ask-capped:data-overflows:overflow-y-auto in-data-ask-capped:data-overflows:overscroll-contain',
         EDGE[kind],
         className,
       )}
       {...props}
     >
-      {/* When the dock scrolls an uncapped card, the title and pager stay. The
+      {/* When the dock scrolls a card that is not its own scroller, the title and pager stay. The
           header repeats the card's top edge (border, radius, kind edge) so it stays with them, and
           shows a hairline once content scrolls under it. The hairline is an inset shadow, not a
           bottom border, so the kind edge does not mitre into a notch where the header ends. */}
       <header
         className={cn(
           // A scrolling card pins its sticky header inside its padding; -10px keeps it at rest.
-          'group/ask-head sticky top-0 z-[1] -mt-[10px] in-data-ask-capped:-top-[10px] -mr-[calc(var(--spacing)*2.5+1px)] -ml-[calc(var(--spacing)*3+3px)] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-b-0 border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:shadow-[inset_0_-1px_0_var(--color-border)] in-data-ask-body-scrolled:shadow-[inset_0_-1px_0_var(--color-border)] group-focus-visible/ask:border-t-ring group-focus-visible/ask:border-r-ring',
+          'group/ask-head sticky top-0 z-[1] -mt-[10px] in-data-ask-capped:group-data-overflows/ask:-top-[10px] -mr-[calc(var(--spacing)*2.5+1px)] -ml-[calc(var(--spacing)*3+3px)] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-b-0 border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:shadow-[inset_0_-1px_0_var(--color-border)] in-data-ask-body-scrolled:shadow-[inset_0_-1px_0_var(--color-border)] group-focus-visible/ask:border-t-ring group-focus-visible/ask:border-r-ring',
           // Narrow, a paged question has no room beside its pager and ✕: it takes its own line.
           wrapTitle && WRAP_PAGED_HEADER,
           EDGE[kind],
