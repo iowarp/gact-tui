@@ -3,6 +3,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { McpAppSurface } from './mcp-app-surface';
+import { FIRST_PAINT_PROBES_MS, RESIZE_RECHECK_MS } from './mcp-app-first-paint';
 
 const descriptor = {
   protocol_version: '2026-01-26',
@@ -65,6 +66,7 @@ const props = {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -371,6 +373,8 @@ describe('McpAppSurface', () => {
         appCapabilities: {},
       },
     });
+    // The probe window is about 30 s: let the test jump through it.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     fromView({ method: 'ui/notifications/initialized', params: {} });
     const answered = new Set<string>();
     const answerLooks = (canvas: number) =>
@@ -399,11 +403,23 @@ describe('McpAppSurface', () => {
         },
         { timeout: 8000 },
       );
-    // The scene starts empty: every first-paint look reads blank.
-    for (let probe = 0; probe < 3; probe += 1) await answerLooks(0);
+    // The scene starts empty, as a remote view's does before its first frame: the header
+    // stays at Drawing through the probe window, with no failure banner.
+    let previous = 0;
+    for (const offset of FIRST_PAINT_PROBES_MS.slice(0, -1)) {
+      await act(() => vi.advanceTimersByTimeAsync(offset - previous));
+      previous = offset;
+      await answerLooks(0);
+    }
+    expect(screen.getByText('Drawing')).toBeVisible();
+    expect(screen.queryByText('Nothing drawn')).not.toBeInTheDocument();
+    // Still blank at the last look: that is a view that drew nothing.
+    await act(() => vi.advanceTimersByTimeAsync(FIRST_PAINT_PROBES_MS.at(-1)! - previous));
+    await answerLooks(0);
     expect(await screen.findByText('Nothing drawn')).toBeVisible();
     // The view draws later and says so through its model context: the host looks again.
     fromView({ id: 'ctx', method: 'ui/update-model-context', params: { content: [] } });
+    await act(() => vi.advanceTimersByTimeAsync(RESIZE_RECHECK_MS));
     await answerLooks(1);
     expect(await screen.findByText('Ready')).toBeVisible();
   }, 30_000);
