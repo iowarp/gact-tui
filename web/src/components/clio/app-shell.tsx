@@ -113,22 +113,36 @@ function DesktopNavigationLayout({
   const panelRef = useRef<PanelImperativeHandle>(null);
   // Resize callbacks can arrive before a fold commits; they read the latest request.
   const openRef = useRef(open);
-  const previousCollapseForWorkbenchRef = useRef(false);
+  const previousCollapseRef = useRef(false);
+  const previousNarrowRef = useRef(false);
+  // Set when the window, not the person, folded an open bar; widening reopens it.
+  const reopenOnWidenRef = useRef(false);
   // Below 1024px the bar shrinks to its icon strip by itself; the panel icon still reopens it.
   const narrow = useMediaQuery('(max-width: 1023px)');
   const collapse = collapseForWorkbench || narrow;
 
   useEffect(() => {
-    const wasCollapsedForWorkbench = previousCollapseForWorkbenchRef.current;
-    previousCollapseForWorkbenchRef.current = collapse;
+    const wasCollapsed = previousCollapseRef.current;
+    const wasNarrow = previousNarrowRef.current;
+    previousCollapseRef.current = collapse;
+    previousNarrowRef.current = narrow;
 
-    if (collapse && !wasCollapsedForWorkbench) {
+    if (collapse && !wasCollapsed) {
       if (open) {
-        setOpen(false);
+        reopenOnWidenRef.current = narrow;
+        setOpen(false, { remember: false });
       }
       return;
     }
-  }, [collapse, open, setOpen]);
+    if (wasNarrow && !narrow) {
+      const reopen = reopenOnWidenRef.current && !collapse && !open;
+      reopenOnWidenRef.current = false;
+      if (reopen) setOpen(true, { remember: false });
+      return;
+    }
+    // The person opened the folded bar; whatever they choose next is theirs.
+    if (collapse && open) reopenOnWidenRef.current = false;
+  }, [collapse, narrow, open, setOpen]);
 
   useEffect(() => {
     openRef.current = open;

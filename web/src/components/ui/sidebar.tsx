@@ -37,7 +37,8 @@ const SIDEBAR_WIDTH_ICON = '3rem';
 type SidebarContextProps = {
   state: 'expanded' | 'collapsed';
   open: boolean;
-  setOpen: (open: boolean) => void;
+  /** `remember: false` folds or opens for the layout without replacing the person's stored choice. */
+  setOpen: (open: boolean, options?: { remember?: boolean }) => void;
   openMobile: boolean;
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
@@ -77,7 +78,7 @@ function SidebarProvider({
   const [_open, _setOpen] = React.useState(defaultOpen);
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
-    (value: boolean | ((value: boolean) => boolean)) => {
+    (value: boolean | ((value: boolean) => boolean), options?: { remember?: boolean }) => {
       const openState = typeof value === 'function' ? value(open) : value;
       if (setOpenProp) {
         setOpenProp(openState);
@@ -85,6 +86,7 @@ function SidebarProvider({
         _setOpen(openState);
       }
 
+      if (options?.remember === false) return;
       // This sets the cookie to keep the sidebar state.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
     },
