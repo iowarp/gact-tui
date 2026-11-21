@@ -139,7 +139,7 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
       'Workspace editsEdit files without asking.',
       'AI reviewLet AI review each action.',
       'SPOTTER reviewAn AI agent watches the session.',
-      'Bypass checksRun without asking.',
+      'Bypass checks…Run without asking.',
       'Exit Plan mode only',
     ]);
     await user.click(screen.getByRole('menuitemradio', { name: /^Workspace edits/u }));
@@ -202,17 +202,83 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
     );
     await user.click(screen.getByRole('button', { name: 'Execution mode, Interactive' }));
     expect(screen.queryByText('Confirmation policy')).not.toBeInTheDocument();
+    // Interactive leads, as on the cards these modes come from; the menu fits its words.
     expect(screen.getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual([
-      'Auto-execute',
       'InteractiveRecommended',
+      'Auto-execute',
       'Exit Plan mode only',
     ]);
+    expect(screen.getByRole('menu')).not.toHaveClass('w-[24rem]');
     await user.click(screen.getByRole('menuitemradio', { name: 'Auto-execute' }));
     await user.click(screen.getByRole('button', { name: 'Execute plan' }));
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
       selected_options: ['auto'],
     });
+  });
+
+  it('asks before running with checks bypassed, as the composer does', async () => {
+    const user = userEvent.setup();
+    const interaction = planInteraction({
+      payload: {
+        ...planInteraction().payload,
+        // A recommendation never picks Bypass for the person.
+        plan_exit: { ...planInteraction().payload!.plan_exit, recommended_mode: 'bypass' },
+      },
+    });
+    const onResponse = vi.fn(async () => undefined);
+    render(
+      <PlanExitResponse interaction={interaction} onResponse={onResponse} showOwner={false} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Execution mode, Ask first' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /^Bypass checks…/u }));
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Bypass protected-action checks?',
+    });
+    expect(onResponse).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Keep asking' }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Execution mode, Ask first' })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Execution mode, Ask first' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /^Bypass checks…/u }));
+    await user.click(await screen.findByRole('button', { name: 'Bypass checks' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Execute plan' })).toHaveFocus());
+    expect(screen.getByRole('button', { name: 'Execution mode, Bypass checks' })).toBeVisible();
+    expect(onResponse).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Execute plan' }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'answer',
+      selected_options: ['bypass'],
+    });
+  });
+
+  it('offers SPOTTER review only where the service can arm it', async () => {
+    const user = userEvent.setup();
+    useLiveStore.getState().replaceSnapshots({
+      sessions: { sess_root: { id: 'sess_root', approval_mode: 'spotter-ai' } as Session },
+    });
+    const interaction = planInteraction();
+    render(
+      <PlanExitResponse
+        interaction={interaction}
+        onResponse={vi.fn(async () => undefined)}
+        showOwner={false}
+        spotterAvailability={{
+          available: false,
+          reason: 'watcher_missing',
+          message: 'No SPOTTER watcher is installed.',
+          remedy: '',
+          verified: 'static',
+        }}
+      />,
+    );
+    // The conversation's SPOTTER review cannot run here, so Ask first stands in.
+    await user.click(screen.getByRole('button', { name: 'Execution mode, Ask first' }));
+    const spotter = screen.getByRole('menuitemradio', { name: /^SPOTTER review/u });
+    expect(spotter).toHaveAttribute('aria-disabled', 'true');
+    expect(spotter).toHaveTextContent('SPOTTER reviewNot available here.');
+    expect(spotter).toHaveAttribute('title', 'No SPOTTER watcher is installed.');
   });
 
   it('requests changes with a one-line note that survives closing it', async () => {
@@ -405,12 +471,17 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
       />,
     );
     // The decided plan folds into one activity row; its chevron shows the plan again.
-    const row = screen.getByText('Approved in Workspace edits').closest('[data-plan-decision]');
-    expect(row).toHaveTextContent('Approved in Workspace editscontext cleared');
+    // One phrase: a narrow row cuts "context cleared" before the mode.
+    const row = screen
+      .getByText('Approved in Workspace edits, context cleared')
+      .closest('[data-plan-decision]');
+    expect(row?.querySelector('[data-slot="activity-outcome"]')).toBeNull();
     expect(row).toHaveAttribute('data-plan-decision', 'auto-edits');
     expect(screen.getByRole('img', { name: 'Done' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Execute plan' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Expand Approved in Workspace edits' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Expand Approved in Workspace edits, context cleared' }),
+    );
     expect(
       await screen.findByRole('heading', { name: 'Soil moisture regrid' }, { timeout: 10_000 }),
     ).toBeVisible();

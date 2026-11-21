@@ -6822,6 +6822,10 @@ msgstr "権限リクエストを承認しました"
 msgid "Approved in {mode}"
 msgstr "{mode}で承認しました"
 
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}, context cleared"
+msgstr "{mode}で承認しました、コンテキストをクリア済み"
+
 #: src/lib/plan-status.ts
 msgid "Approved, being worked on"
 msgstr "承認済み、作業中"
@@ -8136,12 +8140,14 @@ msgstr "モデル別"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/session-behavior-options.ts
 msgid "Bypass checks"
 msgstr "確認をスキップ"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Bypass protected-action checks?"
 msgstr "保護された操作の確認をスキップしますか？"
 
@@ -11135,10 +11141,6 @@ msgstr "コンテキストと圧縮"
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Context agent"
 msgstr "コンテキストのエージェント"
-
-#: src/components/clio/plan-decision-controls.tsx
-msgid "context cleared"
-msgstr "コンテキストをクリア済み"
 
 #: src/hooks/use-session-context.ts
 msgid "Context controls could not be updated"
@@ -19096,6 +19098,7 @@ msgstr "会話の保存とは別にトランスクリプトファイルを保持
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Keep asking"
 msgstr "引き続き確認する"
 
@@ -35946,6 +35949,7 @@ msgstr "エージェントが新しいバージョンを作成しました。"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "The agent may perform supported actions without asking first. Workspace boundaries and unavailable capabilities still apply, but individual changes will not wait for review."
 msgstr "エージェントは、サポートされている操作を事前に確認せずに実行できます。ワークスペースの境界と利用できない機能の制限は引き続き適用されますが、個々の変更はレビューを待ちません。"
 

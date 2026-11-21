@@ -6813,6 +6813,10 @@ msgstr ""
 msgid "Approved in {mode}"
 msgstr ""
 
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}, context cleared"
+msgstr ""
+
 #: src/lib/plan-status.ts
 msgid "Approved, being worked on"
 msgstr ""
@@ -8127,12 +8131,14 @@ msgstr ""
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/session-behavior-options.ts
 msgid "Bypass checks"
 msgstr ""
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Bypass protected-action checks?"
 msgstr ""
 
@@ -11125,10 +11131,6 @@ msgstr ""
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Context agent"
-msgstr ""
-
-#: src/components/clio/plan-decision-controls.tsx
-msgid "context cleared"
 msgstr ""
 
 #: src/hooks/use-session-context.ts
@@ -19078,6 +19080,7 @@ msgstr ""
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Keep asking"
 msgstr ""
 
@@ -35927,6 +35930,7 @@ msgstr ""
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "The agent may perform supported actions without asking first. Workspace boundaries and unavailable capabilities still apply, but individual changes will not wait for review."
 msgstr ""
 
