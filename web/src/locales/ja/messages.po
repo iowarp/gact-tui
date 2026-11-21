@@ -21934,6 +21934,10 @@ msgstr "右へ移動"
 msgid "Moved to {label}"
 msgstr "{label}に移動しました"
 
+#: src/components/clio/send-script-to-background.tsx
+msgid "Moved to the background"
+msgstr "バックグラウンドに移動しました"
+
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "Moved to version {headVersion}"
 msgstr "バージョン{headVersion}に移動"
@@ -32395,6 +32399,10 @@ msgstr "このリクエストも送信してください。"
 msgid "Send to agent"
 msgstr "エージェントに送信"
 
+#: src/components/clio/send-script-to-background.tsx
+msgid "Send to background"
+msgstr "バックグラウンドへ送る"
+
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Send your saved NDP account token to this API. The Endpoint must accept your account and grant access."
 msgstr "保存済みのNDPアカウントトークンをこのAPIに送信します。アドレス側があなたのアカウントを受け入れ、アクセスを許可する必要があります。"
@@ -37147,6 +37155,10 @@ msgstr "スクリプトは1つの結果に添付できる上限までファイ�
 #: src/components/clio/image-reach.ts
 msgid "The script had already attached as many files as one result may carry, so the model did not see this PDF."
 msgstr "スクリプトは1つの結果に添付できる上限までファイルを添付済みだったため、モデルはこのPDFを見ていません。"
+
+#: src/components/clio/send-script-to-background.tsx
+msgid "The script had already finished or moved."
+msgstr "スクリプトはすでに終了したか、移動済みでした。"
 
 #: src/components/clio/injection-presentation.ts
 msgid "The script sent no text."

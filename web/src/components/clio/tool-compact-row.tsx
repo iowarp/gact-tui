@@ -40,6 +40,7 @@ export function ToolCompactRow({
   onExpandedChange,
   info,
   waiting,
+  control,
   recapTitle,
   recapLeads,
 }: {
@@ -52,6 +53,8 @@ export function ToolCompactRow({
   attention?: ReactNode;
   /** The call is paused on the user: the "waiting for you" outcome that jumps to the card. */
   waiting?: ReactNode;
+  /** A control the person can use on the running call, in its outcome's place. */
+  control?: ReactNode;
   /** The 58px badge column: Sandbox or Blocked. */
   badge?: ReactNode;
   duration?: number;
@@ -161,9 +164,10 @@ export function ToolCompactRow({
         : (exitCodeOf(tool) ?? outcomeWord(status))
       : undefined;
   const outcome =
-    waiting || failureWord || denied ? (
+    waiting || failureWord || denied || control ? (
       <>
         {waiting}
+        {control}
         {denied ? (
           <span data-slot="tool-outcome" className="text-warning">
             {tool.presentation?.blocks.find((block) => block.id === 'permission-decision')?.text ||
