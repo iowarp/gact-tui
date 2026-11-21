@@ -2717,10 +2717,6 @@ msgstr ""
 msgid "{mode}, {messageCount}, {toolCount}, {skillCount}"
 msgstr ""
 
-#: src/components/clio/plan-decision-controls.tsx
-msgid "{mode}, context cleared"
-msgstr ""
-
 #: src/lib/flow-run-usage.ts
 msgid "{model} ({why})"
 msgstr ""
@@ -6788,6 +6784,14 @@ msgstr ""
 msgid "Approved a permission request"
 msgstr ""
 
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}"
+msgstr ""
+
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}, context cleared"
+msgstr ""
+
 #: src/lib/plan-status.ts
 msgid "Approved, being worked on"
 msgstr ""
@@ -8106,12 +8110,14 @@ msgstr ""
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/session-behavior-options.ts
 msgid "Bypass checks"
 msgstr ""
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Bypass protected-action checks?"
 msgstr ""
 
@@ -10631,6 +10637,7 @@ msgid "Confirm this code on NDP:"
 msgstr ""
 
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/lib/onboarding/tour-script.ts
 msgid "Confirmation policy"
 msgstr ""
@@ -19071,6 +19078,7 @@ msgstr ""
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Keep asking"
 msgstr ""
 
@@ -25334,7 +25342,6 @@ msgid "Opening the note"
 msgstr ""
 
 #: src/components/clio/browser-new-page.tsx
-#: src/components/clio/plugin-page-browser.tsx
 #: src/components/clio/workbench-tab-content.tsx
 msgid "Opening the page"
 msgstr ""
@@ -26278,7 +26285,6 @@ msgid "plan {status}"
 msgstr ""
 
 #: src/components/clio/injection-presentation.ts
-#: src/components/clio/plan-decision-controls.tsx
 msgid "Plan approved"
 msgstr ""
 
@@ -35960,6 +35966,7 @@ msgstr ""
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "The agent may perform supported actions without asking first. Workspace boundaries and unavailable capabilities still apply, but individual changes will not wait for review."
 msgstr ""
 

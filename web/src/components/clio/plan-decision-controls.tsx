@@ -1,28 +1,62 @@
-import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
-import { useId, useRef, type ReactNode } from 'react';
+import type {
+  PendingInteraction,
+  PendingInteractionResponse,
+  SpotterAvailability,
+} from '@clio/core/v3';
+import { Fragment, useId, useRef, useState, type ReactNode } from 'react';
 import {
   CheckIcon,
   CircleAlertIcon,
   LoaderCircleIcon,
+  LogOutIcon,
   NotebookTextIcon,
   TriangleAlertIcon,
   type LucideIcon,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { cn } from '@/lib/utils';
+import { useHasConnection } from '@/providers/connection-provider';
+import { useLiveStore } from '@/store/live-store';
+import { approvalOptionViews } from './approval-option-availability';
 import { AskAnsweredRow, AskButton, AskKeyChip, AskSection } from './ask-card';
 import { askKeyAttributes } from './ask-card-keys';
 import { useAttentionDraft } from './attention-drafts';
 import { respondFromControl } from './interaction-control';
-import { planModeLabel } from './plan-mode-label';
+import { planApprovalOption, planModeLabel } from './plan-mode-label';
+import { MenuRow } from './primitives/menu-row';
 import { SplitButton } from './primitives/split-button';
+import { SESSION_APPROVAL_OPTIONS } from './session-behavior-options';
 import { ph, t } from '@lingui/core/macro';
 
-const MODES = ['auto', 'interactive', 'exit_only'];
+/** Approve choices: the confirmation policy to run in, then older cards' modes. */
+const APPROVALS: readonly string[] = SESSION_APPROVAL_OPTIONS.map((option) => option.value);
+const LEGACY_MODES = ['interactive', 'auto'];
+/** The agent recommends an older posture; the service runs it as this policy. */
+const RECOMMENDED_POLICY: Record<string, string> = { interactive: 'ask', auto: 'auto-edits' };
+const MODES = [...APPROVALS, ...LEGACY_MODES, 'exit_only'];
 const KNOWN_OPTIONS = new Set([...MODES, 'reject', 'clear_context']);
 const KNOWN_ACTIONS = new Set(['answer', 'cancel']);
+/** One 30px line per row, as in the composer's confirmation menu. */
+const MENU_ITEM =
+  'min-h-[30px] py-0 text-menu [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:size-[13px]! [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:text-accent-foreground!';
 
 type PlanExit = NonNullable<NonNullable<PendingInteraction['payload']>['plan_exit']>;
 
@@ -80,35 +114,164 @@ function optionValue(option: { value?: string; label: string }) {
 }
 
 /**
- * The decision under the plan: Execute in a mode (the mode reads inside the
- * filled button), Request changes with a one-line note, and Clear context
- * first. Nothing executes until a button is pressed.
+ * The Execute menu: the confirmation policies the plan can run in, named and
+ * drawn as in the composer, with Bypass checks set apart; older cards'
+ * Auto-execute and Interactive; then Exit Plan mode only.
  */
-export function PlanDecisionControls({
-  interaction,
-  disabled,
-  onResponse,
+function PlanModeMenu({
+  modes,
+  value,
+  recommended,
+  unavailable,
+  onChange,
 }: {
+  modes: readonly string[];
+  value: string;
+  recommended?: string;
+  /** Policies the service cannot honour here, with its reason. */
+  unavailable: ReadonlyMap<string, { description: string; detail: string }>;
+  onChange: (value: string) => void;
+}) {
+  const approvals = modes.filter((mode) => planApprovalOption(mode));
+  const recommendedTag =
+    recommended && modes.includes(recommended) ? (
+      <span className="shrink-0 text-label text-muted-foreground">{t`Recommended`}</span>
+    ) : null;
+  return (
+    <DropdownMenuRadioGroup onValueChange={onChange} value={value}>
+      {approvals.length ? (
+        <DropdownMenuLabel className="px-2 pt-1.5 pb-1 text-caption font-normal text-muted-foreground">
+          {t`Confirmation policy`}
+        </DropdownMenuLabel>
+      ) : null}
+      {modes.map((mode, index) => {
+        const approval = planApprovalOption(mode);
+        const bypass = mode === 'bypass';
+        const exit = mode === 'exit_only';
+        const Icon = approval?.icon ?? (exit && approvals.length ? LogOutIcon : undefined);
+        const off = unavailable.get(mode);
+        return (
+          <Fragment key={mode}>
+            {(bypass || exit) && index > 0 ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuRadioItem
+              className={cn(
+                MENU_ITEM,
+                bypass && 'focus:bg-destructive/10 dark:focus:bg-destructive/20',
+              )}
+              disabled={Boolean(off)}
+              title={off?.detail || undefined}
+              value={mode}
+            >
+              <MenuRow
+                detail={off?.description ?? approval?.description}
+                icon={Icon ? <Icon className={bypass ? 'text-destructive' : undefined} /> : null}
+                // Bypass asks before it is chosen, as in the composer.
+                label={bypass && approval ? `${planModeLabel(mode)}…` : planModeLabel(mode)}
+                wrapDetail
+              />
+              {mode === recommended ? recommendedTag : null}
+            </DropdownMenuRadioItem>
+          </Fragment>
+        );
+      })}
+    </DropdownMenuRadioGroup>
+  );
+}
+
+type PlanDecisionControlsProps = {
   interaction: PendingInteraction;
   disabled?: boolean;
   onResponse: (
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
   ) => Promise<void>;
-}) {
+  /** What the service reports about SPOTTER review; read from the service when omitted. */
+  spotterAvailability?: SpotterAvailability;
+};
+
+/**
+ * The decision under the plan: Execute in a mode (the mode reads inside the
+ * filled button), Request changes with a one-line note, and Clear context
+ * first. Nothing executes until a button is pressed.
+ */
+export function PlanDecisionControls(props: PlanDecisionControlsProps) {
+  const offersSpotter = (props.interaction.payload?.options ?? []).some(
+    (option) => optionValue(option) === 'spotter-ai',
+  );
+  // A bare card (no connection, as in a test) cannot ask the service.
+  const connected = useHasConnection();
+  return offersSpotter && connected && !props.spotterAvailability ? (
+    <SpotterAwarePlanDecisionControls {...props} />
+  ) : (
+    <PlanDecisionControlsView {...props} />
+  );
+}
+
+/** SPOTTER review is offered as the composer offers it: disabled where it cannot be armed. */
+function SpotterAwarePlanDecisionControls(props: PlanDecisionControlsProps) {
+  const workspaceId = useLiveStore(
+    (state) => state.entities.sessions[props.interaction.owner_session_id]?.workspace_id ?? '',
+  );
+  const spotterAvailability = useSpotterAvailability(workspaceId);
+  return <PlanDecisionControlsView {...props} spotterAvailability={spotterAvailability} />;
+}
+
+function PlanDecisionControlsView({
+  interaction,
+  disabled,
+  onResponse,
+  spotterAvailability,
+}: PlanDecisionControlsProps) {
   const id = interaction.id;
   const options = interaction.payload?.options ?? [];
   const values = options.map(optionValue);
-  const modes = values.filter((value) => MODES.includes(value));
+  const unavailable = new Map(
+    approvalOptionViews(SESSION_APPROVAL_OPTIONS, spotterAvailability)
+      .filter((option) => option.disabled)
+      .map((option) => [
+        option.value as string,
+        { description: option.description, detail: option.unavailableDetail },
+      ]),
+  );
+  const modes = MODES.filter((value) => values.includes(value));
+  const runModes = modes.filter((value) => value !== 'exit_only' && !unavailable.has(value));
   const plan = interaction.payload?.plan_exit;
-  const recommended = plan?.recommended_mode;
+  const hint = plan?.recommended_mode;
+  // Shown beside the row it means; on an older card that is the mode itself.
+  const recommended =
+    hint && !modes.includes(hint) && modes.includes(RECOMMENDED_POLICY[hint] ?? '')
+      ? RECOMMENDED_POLICY[hint]
+      : hint;
+  // The plan runs in the conversation's own confirmation policy unless the person picks another.
+  const prior = useLiveStore(
+    (state) => state.entities.sessions[interaction.owner_session_id]?.approval_mode,
+  );
+  // The card starts in the mode the conversation had before planning (the service's
+  // default_option, else the session's own). The agent's recommendation only picks between
+  // an older card's Interactive and Auto-execute; it never chooses Bypass for the person.
   const defaultMode =
-    modes.find((value) => value === recommended) ??
-    modes.find((value) => value === 'interactive') ??
-    modes[0] ??
+    runModes.find((value) => value === plan?.default_option) ??
+    runModes.find((value) => value === prior) ??
+    runModes.find((value) => LEGACY_MODES.includes(value) && value === hint) ??
+    runModes.find((value) => value === 'ask' || value === 'interactive') ??
+    runModes.find((value) => value !== 'bypass') ??
+    modes.find((value) => !unavailable.has(value)) ??
     '';
-  const [draftMode, setMode] = useAttentionDraft(`${id}:plan-mode`, defaultMode);
-  const mode = modes.includes(draftMode) ? draftMode : defaultMode;
+  // Empty until the person picks, so the default follows the conversation once it loads.
+  const [draftMode, setMode] = useAttentionDraft(`${id}:plan-mode`, '');
+  const mode = modes.includes(draftMode) && !unavailable.has(draftMode) ? draftMode : defaultMode;
+  const [confirmBypass, setConfirmBypass] = useState(false);
+  const executeRef = useRef<HTMLButtonElement>(null);
+  const confirmedRef = useRef(false);
+  const chooseMode = (value: string) => {
+    if (unavailable.has(value)) return;
+    // Bypass checks is confirmed first, with the composer's own question.
+    if (value === 'bypass' && planApprovalOption(value) && value !== mode) {
+      setConfirmBypass(true);
+      return;
+    }
+    setMode(value);
+  };
   const [clearContext, setClearContext] = useAttentionDraft(`${id}:plan-clear-context`, false);
   const [feedback, setFeedback] = useAttentionDraft(`${id}:plan-feedback`, '');
   const [changesOpen, setChangesOpen] = useAttentionDraft(`${id}:plan-changes-open`, false);
@@ -155,6 +318,7 @@ export function PlanDecisionControls({
             disabled={disabled || !canExecute}
             faceProps={{
               ...askKeyAttributes([String(executeNumber), 'Enter']),
+              ref: executeRef,
               'aria-label': exitOnly ? t`Leave Plan mode` : t`Execute plan`,
               // Stacked, the label takes the first line; when the mode chip and ↵
               // don't fit beside it they wrap to the right of a second line.
@@ -165,6 +329,12 @@ export function PlanDecisionControls({
             }}
             label={exitOnly ? t`Leave Plan mode` : t`Execute`}
             leading={<AskKeyChip askKey={String(executeNumber)} />}
+            // Policy rows carry a description line; older cards' modes fit their words.
+            menuClassName={
+              modes.some((value) => planApprovalOption(value))
+                ? 'w-[24rem] max-w-[calc(100vw-1rem)]'
+                : undefined
+            }
             menuDisabled={disabled || modes.length < 2}
             menuLabel={t`Execution mode, ${ph({ mode: planModeLabel(mode) })}`}
             menuValue={planModeLabel(mode)}
@@ -173,16 +343,13 @@ export function PlanDecisionControls({
             variant="default"
             wrap
           >
-            <DropdownMenuRadioGroup onValueChange={setMode} value={mode}>
-              {modes.map((value) => (
-                <DropdownMenuRadioItem className="text-menu" key={value} value={value}>
-                  {planModeLabel(value)}
-                  {value === recommended ? (
-                    <span className="text-label text-muted-foreground">{t`Recommended`}</span>
-                  ) : null}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
+            <PlanModeMenu
+              modes={modes}
+              onChange={chooseMode}
+              recommended={recommended}
+              unavailable={unavailable}
+              value={mode}
+            />
           </SplitButton>
         ) : null}
         {canReject ? (
@@ -256,6 +423,37 @@ export function PlanDecisionControls({
           </form>
         </AskSection>
       ) : null}
+      <AlertDialog onOpenChange={setConfirmBypass} open={confirmBypass}>
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => {
+            // Confirming returns to Execute, now in Bypass checks; keeping asking
+            // returns to the mode menu's button.
+            if (!confirmedRef.current) return;
+            confirmedRef.current = false;
+            event.preventDefault();
+            executeRef.current?.focus();
+          }}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t`Bypass protected-action checks?`}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t`The agent may perform supported actions without asking first. Workspace boundaries and unavailable capabilities still apply, but individual changes will not wait for review.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t`Keep asking`}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                confirmedRef.current = true;
+                setMode('bypass');
+              }}
+              variant="destructive"
+            >
+              {t`Bypass checks`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -279,7 +477,7 @@ function answerNote(interaction: PendingInteraction): string | undefined {
   return typeof note === 'string' && note.trim() ? note : undefined;
 }
 
-/** Once decided, the plan folds into one row: "Plan approved  Interactive, context cleared". */
+/** Once decided, the plan folds into one row: "Approved in Workspace edits, context cleared". */
 export function PlanDecision({
   interaction,
   actions,
@@ -299,24 +497,36 @@ export function PlanDecision({
   const decision = selected.find((value) => value !== 'clear_context');
   const cleared = selected.includes('clear_context');
   const note = answerNote(interaction);
-  const [verb, detail, tone]: [string, string | undefined, 'ok' | 'neutral'] =
+  const [verb, detail, tone, outcome]: [
+    string,
+    string | undefined,
+    'ok' | 'neutral',
+    string | undefined,
+  ] =
     decision === 'reject'
-      ? [t`Changes requested`, note, 'neutral']
+      ? [t`Changes requested`, note, 'neutral', undefined]
       : decision === 'exit_only'
-        ? [t`Left Plan mode`, cleared ? t`not executed, context cleared` : t`not executed`, 'ok']
+        ? [
+            t`Left Plan mode`,
+            cleared ? t`not executed, context cleared` : t`not executed`,
+            'ok',
+            undefined,
+          ]
         : decision
           ? [
-              t`Plan approved`,
+              // One phrase, so a narrow row cuts "context cleared" and keeps the mode whole.
               cleared
-                ? t`${ph({ mode: planModeLabel(decision) })}, context cleared`
-                : planModeLabel(decision),
+                ? t`Approved in ${ph({ mode: planModeLabel(decision) })}, context cleared`
+                : t`Approved in ${ph({ mode: planModeLabel(decision) })}`,
+              undefined,
               'ok',
+              undefined,
             ]
           : interaction.status === 'cancelled'
-            ? [t`Plan review cancelled`, undefined, 'neutral']
+            ? [t`Plan review cancelled`, undefined, 'neutral', undefined]
             : interaction.status === 'expired'
-              ? [t`Plan review expired`, undefined, 'neutral']
-              : [t`Plan decision recorded`, undefined, 'neutral'];
+              ? [t`Plan review expired`, undefined, 'neutral', undefined]
+              : [t`Plan decision recorded`, undefined, 'neutral', undefined];
   return (
     <AskAnsweredRow
       actions={actions}
@@ -326,6 +536,7 @@ export function PlanDecision({
       icon={NotebookTextIcon}
       onOpenChange={onOpenChange}
       open={open}
+      outcome={outcome}
       title={detail}
       tone={tone}
       verb={verb}

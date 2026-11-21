@@ -2718,10 +2718,6 @@ msgstr "{minutes} min"
 msgid "{mode}, {messageCount}, {toolCount}, {skillCount}"
 msgstr "{mode}, {messageCount}, {toolCount}, {skillCount}"
 
-#: src/components/clio/plan-decision-controls.tsx
-msgid "{mode}, context cleared"
-msgstr "{mode}, contexto borrado"
-
 #: src/lib/flow-run-usage.ts
 msgid "{model} ({why})"
 msgstr "{model} ({why})"
@@ -6797,6 +6793,14 @@ msgstr "Aprobado: {actionText}"
 msgid "Approved a permission request"
 msgstr "Se aprobó una solicitud de permiso"
 
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}"
+msgstr "Aprobado: {mode}"
+
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}, context cleared"
+msgstr "Aprobado: {mode}, contexto borrado"
+
 #: src/lib/plan-status.ts
 msgid "Approved, being worked on"
 msgstr "Aprobado, en curso"
@@ -8115,12 +8119,14 @@ msgstr "Por modelo"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/session-behavior-options.ts
 msgid "Bypass checks"
 msgstr "Omitir comprobaciones"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Bypass protected-action checks?"
 msgstr "¿Omitir las comprobaciones de acciones protegidas?"
 
@@ -10640,6 +10646,7 @@ msgid "Confirm this code on NDP:"
 msgstr "Confirma este código en NDP:"
 
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/lib/onboarding/tour-script.ts
 msgid "Confirmation policy"
 msgstr "Política de confirmación"
@@ -19089,6 +19096,7 @@ msgstr "Guarda un archivo de transcripción aparte junto al almacenamiento de co
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Keep asking"
 msgstr "Seguir preguntando"
 
@@ -25352,7 +25360,6 @@ msgid "Opening the note"
 msgstr "Abriendo la nota"
 
 #: src/components/clio/browser-new-page.tsx
-#: src/components/clio/plugin-page-browser.tsx
 #: src/components/clio/workbench-tab-content.tsx
 msgid "Opening the page"
 msgstr "Abriendo la página"
@@ -26296,7 +26303,6 @@ msgid "plan {status}"
 msgstr "plan {status}"
 
 #: src/components/clio/injection-presentation.ts
-#: src/components/clio/plan-decision-controls.tsx
 msgid "Plan approved"
 msgstr "Plan aprobado"
 
@@ -35979,6 +35985,7 @@ msgstr "El agente creó una nueva versión."
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "The agent may perform supported actions without asking first. Workspace boundaries and unavailable capabilities still apply, but individual changes will not wait for review."
 msgstr "El agente puede realizar las acciones admitidas sin preguntar antes. Los límites del espacio de trabajo y las capacidades no disponibles siguen aplicándose, pero los cambios individuales no esperarán revisión."
 

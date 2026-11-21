@@ -49,7 +49,7 @@ Compare the 14 flat-NDP stations against the derived displacement series for 202
 
 ## Execution recommendation
 
-Interactive. Step 2 holds four ranks for about 40 minutes.
+Ask first. Step 2 holds four ranks for about 40 minutes.
 
 ## Risks
 
@@ -166,6 +166,7 @@ export function decisionCardInteractions(card, context) {
       plan_exit: {
         summary: 'Compare the 14 flat-NDP stations against the displacement series.',
         recommended_mode: 'interactive',
+        default_option: 'ask',
         risk_notes: 'Two stations sit on a network edge. 2020 series use older flags.',
         plan_file: 'plans/displacement-review.md',
         plan_content: PLAN,
@@ -173,8 +174,11 @@ export function decisionCardInteractions(card, context) {
         artifact_ref: { artifact_id: PLAN_ARTIFACT_ID },
       },
       options: [
-        { label: 'Approve — interactive', value: 'interactive' },
-        { label: 'Approve — auto-execute', value: 'auto' },
+        { label: 'Approve — ask first', value: 'ask' },
+        { label: 'Approve — workspace edits', value: 'auto-edits' },
+        { label: 'Approve — AI review', value: 'ai-review' },
+        { label: 'Approve — SPOTTER review', value: 'spotter-ai' },
+        { label: 'Approve — bypass checks', value: 'bypass' },
         { label: 'Approve — exit only', value: 'exit_only' },
         { label: 'Request changes — keep planning', value: 'reject' },
         { label: 'Also clear context (modifier)', value: 'clear_context' },

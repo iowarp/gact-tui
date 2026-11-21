@@ -2718,10 +2718,6 @@ msgstr "{minutes}分"
 msgid "{mode}, {messageCount}, {toolCount}, {skillCount}"
 msgstr "{mode}、{messageCount}、{toolCount}、{skillCount}"
 
-#: src/components/clio/plan-decision-controls.tsx
-msgid "{mode}, context cleared"
-msgstr "{mode}、コンテキストをクリア済み"
-
 #: src/lib/flow-run-usage.ts
 msgid "{model} ({why})"
 msgstr "{model}（{why}）"
@@ -6797,6 +6793,14 @@ msgstr "承認: {actionText}"
 msgid "Approved a permission request"
 msgstr "権限リクエストを承認しました"
 
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}"
+msgstr "{mode}で承認しました"
+
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}, context cleared"
+msgstr "{mode}で承認しました、コンテキストをクリア済み"
+
 #: src/lib/plan-status.ts
 msgid "Approved, being worked on"
 msgstr "承認済み、作業中"
@@ -8115,12 +8119,14 @@ msgstr "モデル別"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/session-behavior-options.ts
 msgid "Bypass checks"
 msgstr "確認をスキップ"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Bypass protected-action checks?"
 msgstr "保護された操作の確認をスキップしますか？"
 
@@ -10640,6 +10646,7 @@ msgid "Confirm this code on NDP:"
 msgstr "NDPでこのコードを確認してください:"
 
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/lib/onboarding/tour-script.ts
 msgid "Confirmation policy"
 msgstr "確認ポリシー"
@@ -19089,6 +19096,7 @@ msgstr "会話の保存とは別にトランスクリプトファイルを保持
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Keep asking"
 msgstr "引き続き確認する"
 
@@ -25352,7 +25360,6 @@ msgid "Opening the note"
 msgstr "ノートを開いています"
 
 #: src/components/clio/browser-new-page.tsx
-#: src/components/clio/plugin-page-browser.tsx
 #: src/components/clio/workbench-tab-content.tsx
 msgid "Opening the page"
 msgstr "ページを開いています"
@@ -26296,7 +26303,6 @@ msgid "plan {status}"
 msgstr "計画{status}"
 
 #: src/components/clio/injection-presentation.ts
-#: src/components/clio/plan-decision-controls.tsx
 msgid "Plan approved"
 msgstr "プランを承認しました"
 
@@ -35979,6 +35985,7 @@ msgstr "エージェントが新しいバージョンを作成しました。"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "The agent may perform supported actions without asking first. Workspace boundaries and unavailable capabilities still apply, but individual changes will not wait for review."
 msgstr "エージェントは、サポートされている操作を事前に確認せずに実行できます。ワークスペースの境界と利用できない機能の制限は引き続き適用されますが、個々の変更はレビューを待ちません。"
 

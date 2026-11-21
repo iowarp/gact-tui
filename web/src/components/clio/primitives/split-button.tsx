@@ -48,6 +48,8 @@ export interface SplitButtonProps {
   /** Extra face attributes: card keys, an accessible name, a hover reason. */
   faceProps?: Omit<ComponentProps<'button'>, 'onClick' | 'disabled' | 'children'> &
     Partial<Record<`data-${string}`, string>>;
+  /** The menu's width, when its rows carry descriptions. */
+  menuClassName?: string;
   className?: string;
 }
 
@@ -73,6 +75,7 @@ export const SplitButton = memo(function SplitButton({
   trailing,
   wrap = false,
   faceProps,
+  menuClassName,
   className,
 }: SplitButtonProps) {
   const presentation = useShortcutPresentation(shortcut);
@@ -152,7 +155,7 @@ export const SplitButton = memo(function SplitButton({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align={valued ? 'start' : 'end'}
-        className="min-w-48"
+        className={cn('min-w-48', menuClassName)}
         onKeyDown={menuAcceleratorKeyDown}
       >
         {children}

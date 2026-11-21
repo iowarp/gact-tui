@@ -1,4 +1,9 @@
-import type { Artifact, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
+import type {
+  Artifact,
+  PendingInteraction,
+  PendingInteractionResponse,
+  SpotterAvailability,
+} from '@clio/core/v3';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NotebookTextIcon, PanelRightIcon } from 'lucide-react';
 import { MessageResponse } from '@/components/ai-elements/message';
@@ -409,6 +414,7 @@ export function PlanExitResponse({
   ownerLabel,
   responseError,
   showOwner,
+  spotterAvailability,
 }: {
   artifact?: Artifact;
   interaction: PendingInteraction;
@@ -421,6 +427,8 @@ export function PlanExitResponse({
   ownerLabel?: string;
   responseError?: Error;
   showOwner: boolean;
+  /** What the service reports about SPOTTER review; read from the service when omitted. */
+  spotterAvailability?: SpotterAvailability;
 }) {
   if (interaction.status !== 'pending')
     return (
@@ -459,6 +467,7 @@ export function PlanExitResponse({
           disabled={disabled}
           interaction={interaction}
           onResponse={onResponse}
+          spotterAvailability={spotterAvailability}
         />
       ) : (
         <AskSection className="mt-2.5 text-meta text-muted-foreground">
