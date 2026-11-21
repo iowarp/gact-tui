@@ -21944,6 +21944,10 @@ msgstr "Move to Right"
 msgid "Moved to {label}"
 msgstr "Moved to {label}"
 
+#: src/components/clio/send-script-to-background.tsx
+msgid "Moved to the background"
+msgstr "Moved to the background"
+
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "Moved to version {headVersion}"
 msgstr "Moved to version {headVersion}"
@@ -32409,6 +32413,10 @@ msgstr "Send this request too."
 msgid "Send to agent"
 msgstr "Send to agent"
 
+#: src/components/clio/send-script-to-background.tsx
+msgid "Send to background"
+msgstr "Send to background"
+
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Send your saved NDP account token to this API. The Endpoint must accept your account and grant access."
 msgstr "Send your saved NDP account token to this API. The Endpoint must accept your account and grant access."
@@ -37165,6 +37173,10 @@ msgstr "The script had already attached as many files as one result may carry, s
 #: src/components/clio/image-reach.ts
 msgid "The script had already attached as many files as one result may carry, so the model did not see this PDF."
 msgstr "The script had already attached as many files as one result may carry, so the model did not see this PDF."
+
+#: src/components/clio/send-script-to-background.tsx
+msgid "The script had already finished or moved."
+msgstr "The script had already finished or moved."
 
 #: src/components/clio/injection-presentation.ts
 msgid "The script sent no text."

@@ -42,6 +42,8 @@ import { TechnicalDetailsLink, ToolTechnicalDetailsDialog } from './tool-technic
 import { useToolDuration } from './use-tool-duration';
 import { sandboxBoundary } from './sandbox-boundary';
 import { SandboxBoundaryBadge } from './sandbox-boundary-notice';
+import { SendScriptToBackground } from './send-script-to-background';
+import { useOfflineArchive } from '@/providers/connection-provider';
 import { withTaskWaitInterruption } from './task-wait-presentation';
 import { withTodoPresentation } from './todo-tool-presentation';
 import { withStorageToolPresentation } from './storage-tool-presentation';
@@ -117,6 +119,7 @@ export function ClioToolInvocation({
   );
   const duration = useToolDuration(tool);
   const scriptRecap = useScriptCallsRecap(tool?.name === 'run_code' ? tool.id : undefined);
+  const offlineArchive = useOfflineArchive();
   const boundary = sandboxBoundary(tool?.output);
   useEffect(() => {
     let frame = 0;
@@ -281,6 +284,17 @@ export function ClioToolInvocation({
     !flow?.handle &&
     !waitingFor &&
     isScriptBody(contentBlocks);
+  // A running foreground script the person can send to the background (its session);
+  // an offline archive has no live agent to move it in.
+  const movableScript =
+    !offlineArchive &&
+    tool.name === 'run_code' &&
+    status === 'running' &&
+    !waitingFor &&
+    surface !== 'evidence' &&
+    !asRecord(tool.input)?.background
+      ? sessionId || tool.session_id || undefined
+      : undefined;
   const questionReading =
     surface !== 'evidence' ? answeredQuestionReading(tool, interactions) : undefined;
   return (
@@ -311,6 +325,7 @@ export function ClioToolInvocation({
           }
           // A call the sandbox blocked says so before it is opened (#1905).
           badge={boundary ? <SandboxBoundaryBadge boundary={boundary} /> : undefined}
+          control={movableScript ? <SendScriptToBackground sessionId={movableScript} /> : undefined}
           attention={
             attention ? (
               <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} />
