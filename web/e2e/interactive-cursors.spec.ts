@@ -87,8 +87,12 @@ for (const theme of ['light', 'dark'] as const) {
     await resize.hover();
     await expect(resize).not.toHaveCSS('cursor', 'pointer');
     await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
-    // The left bar folds for the workbench at 1280 and stays folded; reopen it.
-    await page.locator('[data-slot="sidebar-trigger"]').click();
+    // The canvas folded the left bar at 1280; closing it gives the room back.
+    await expect(
+      page
+        .locator('[data-slot="sidebar"]')
+        .filter({ has: page.getByRole('navigation', { name: 'Workspace navigation' }) }),
+    ).toHaveAttribute('data-state', 'expanded');
 
     const sessionLink = page.getByRole('link', { name: /^EarthScope NDP evidence review/ });
     await expect(sessionLink).toHaveCSS('cursor', 'pointer');
