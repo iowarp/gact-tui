@@ -1,6 +1,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { useSidebar } from '@/components/ui/sidebar';
 import { ClioAppShell } from './app-shell';
 
 vi.mock('@/tauri/menu-actions', () => ({
@@ -26,6 +27,35 @@ function installMatchMedia(matches: (query: string) => boolean) {
     ),
     writable: true,
   });
+}
+
+function installResizableMatchMedia(matches: (query: string, wide: boolean) => boolean) {
+  let wide = true;
+  const listeners = new Set<() => void>();
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: vi.fn(
+      (query: string): MediaQueryList =>
+        ({
+          get matches() {
+            return matches(query, wide);
+          },
+          media: query,
+          onchange: null,
+          addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+          removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          dispatchEvent: vi.fn(() => false),
+        }) as unknown as MediaQueryList,
+    ),
+  });
+  return (next: boolean) =>
+    act(() => {
+      wide = next;
+      for (const listener of [...listeners]) listener();
+    });
 }
 
 function renderShell() {
@@ -125,33 +155,9 @@ describe('ClioAppShell responsive workbench', () => {
   });
 
   it('does not turn an open pocket into a sheet over the conversation when the window narrows', () => {
-    let wide = true;
-    const listeners = new Set<() => void>();
-    Object.defineProperty(window, 'matchMedia', {
-      configurable: true,
-      writable: true,
-      value: vi.fn(
-        (query: string): MediaQueryList =>
-          ({
-            get matches() {
-              return query.startsWith('(min-width:') && (wide || query === '(min-width: 768px)');
-            },
-            media: query,
-            onchange: null,
-            addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
-            removeEventListener: (_type: string, listener: () => void) =>
-              listeners.delete(listener),
-            addListener: vi.fn(),
-            removeListener: vi.fn(),
-            dispatchEvent: vi.fn(() => false),
-          }) as unknown as MediaQueryList,
-      ),
-    });
-    const resize = (next: boolean) =>
-      act(() => {
-        wide = next;
-        for (const listener of [...listeners]) listener();
-      });
+    const resize = installResizableMatchMedia(
+      (query, wide) => query.startsWith('(min-width:') && (wide || query === '(min-width: 768px)'),
+    );
 
     renderShell();
     expect(screen.getByRole('separator', { name: 'Resize workspace canvas' })).toBeVisible();
@@ -162,5 +168,75 @@ describe('ClioAppShell responsive workbench', () => {
 
     resize(true);
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBeVisible();
+  });
+
+  it('reopens the person’s open left bar when the window widens after folding it', () => {
+    document.cookie = 'sidebar_state=true; path=/';
+    const resize = installResizableMatchMedia((query, wide) =>
+      query === '(max-width: 1023px)'
+        ? !wide
+        : query.startsWith('(min-width:') && (wide || query === '(min-width: 768px)'),
+    );
+    function NavigationProbe() {
+      return <nav>{useSidebar().open ? 'Bar open' : 'Bar folded'}</nav>;
+    }
+    render(
+      <TooltipProvider>
+        <ClioAppShell
+          contextBar={<span>Context</span>}
+          navigation={<NavigationProbe />}
+          statusStrip={null}
+          workbench={null}
+        >
+          <span>Conversation</span>
+        </ClioAppShell>
+      </TooltipProvider>,
+    );
+    expect(screen.getByText('Bar open')).toBeInTheDocument();
+
+    resize(false);
+    expect(screen.getByText('Bar folded')).toBeInTheDocument();
+    // The window's fold is not the person's choice, so a reload keeps the open bar.
+    expect(document.cookie).toContain('sidebar_state=true');
+
+    resize(true);
+    expect(screen.getByText('Bar open')).toBeInTheDocument();
+  });
+
+  it('keeps the left bar folded after widening when the person folded it while narrow', () => {
+    document.cookie = 'sidebar_state=true; path=/';
+    const resize = installResizableMatchMedia((query, wide) =>
+      query === '(max-width: 1023px)'
+        ? !wide
+        : query.startsWith('(min-width:') && (wide || query === '(min-width: 768px)'),
+    );
+    function NavigationProbe() {
+      const { open, setOpen } = useSidebar();
+      return (
+        <nav>
+          <button onClick={() => setOpen(!open)} type="button">
+            {open ? 'Bar open' : 'Bar folded'}
+          </button>
+        </nav>
+      );
+    }
+    render(
+      <TooltipProvider>
+        <ClioAppShell
+          contextBar={<span>Context</span>}
+          navigation={<NavigationProbe />}
+          statusStrip={null}
+          workbench={null}
+        >
+          <span>Conversation</span>
+        </ClioAppShell>
+      </TooltipProvider>,
+    );
+
+    resize(false);
+    act(() => screen.getByText('Bar folded').click());
+    act(() => screen.getByText('Bar open').click());
+    resize(true);
+    expect(screen.getByText('Bar folded')).toBeInTheDocument();
   });
 });
