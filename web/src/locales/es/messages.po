@@ -6797,6 +6797,10 @@ msgstr "Se aprobó una solicitud de permiso"
 msgid "Approved in {mode}"
 msgstr "Aprobado en modo {mode}"
 
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}, context cleared"
+msgstr "Aprobado en modo {mode}, contexto borrado"
+
 #: src/lib/plan-status.ts
 msgid "Approved, being worked on"
 msgstr "Aprobado, en curso"
@@ -8115,12 +8119,14 @@ msgstr "Por modelo"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/session-behavior-options.ts
 msgid "Bypass checks"
 msgstr "Omitir comprobaciones"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Bypass protected-action checks?"
 msgstr "¿Omitir las comprobaciones de acciones protegidas?"
 
@@ -11144,10 +11150,6 @@ msgstr "Contexto y compactación"
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Context agent"
 msgstr "Agente del contexto"
-
-#: src/components/clio/plan-decision-controls.tsx
-msgid "context cleared"
-msgstr "contexto borrado"
 
 #: src/hooks/use-session-context.ts
 msgid "Context controls could not be updated"
@@ -19094,6 +19096,7 @@ msgstr "Guarda un archivo de transcripción aparte junto al almacenamiento de co
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Keep asking"
 msgstr "Seguir preguntando"
 
@@ -35982,6 +35985,7 @@ msgstr "El agente creó una nueva versión."
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "The agent may perform supported actions without asking first. Workspace boundaries and unavailable capabilities still apply, but individual changes will not wait for review."
 msgstr "El agente puede realizar las acciones admitidas sin preguntar antes. Los límites del espacio de trabajo y las capacidades no disponibles siguen aplicándose, pero los cambios individuales no esperarán revisión."
 

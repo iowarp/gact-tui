@@ -504,7 +504,7 @@ export const SCENARIOS: Record<string, CardScenario> = {
     closest: true,
     interactions: [],
     view: 'answered-rows',
-    open: 'Expand Approved in Workspace edits',
+    open: 'Expand Approved in Workspace edits, context cleared',
   },
   'narrow-third': {
     spec: 'A third of the window',
