@@ -1,28 +1,10 @@
 import type { A2UISurface, PendingInteraction } from '@clio/core/v3';
-import { compileMessage } from '@lingui/message-utils/compileMessage';
-import { generateMessageId } from '@lingui/message-utils/generateMessageId';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
-import { i18n } from '@/i18n/instance';
 import { ClioPendingInteractions } from './pending-interactions';
-
-/** Load the shipped announcement joins of a locale's catalog (vitest has no .po loader). */
-function loadShippedJoins(locale: string) {
-  const po = readFileSync(`src/locales/${locale}/messages.po`, 'utf8');
-  const messages: Record<string, ReturnType<typeof compileMessage>> = {};
-  for (const [, context, id, message] of po.matchAll(
-    /(?:msgctxt "([^"]*)"\n)?msgid "([^"]*)"\nmsgstr "([^"]*)"/g,
-  )) {
-    if (message && (id.startsWith('{text}') || id === '{position} of {total}'))
-      messages[generateMessageId(id, context)] = compileMessage(message);
-  }
-  i18n.load(locale, messages);
-  i18n.activate(locale);
-}
 
 const repository = vi.hoisted(() => ({
   a2uiAction: vi.fn().mockResolvedValue({ status: 'accepted' }),
@@ -123,6 +105,13 @@ describe('ClioPendingInteractions', () => {
     expect(
       screen.getByRole('button', { name: /Allow searches through the literature sources/u }),
     ).toBeVisible();
+    // Like yes/no, Enter gives no consent the person did not choose.
+    screen
+      .getByRole('button', { name: /Allow searches through the literature sources/u })
+      .closest<HTMLElement>('[data-slot="ask-card"]')!
+      .focus();
+    await user.keyboard('{Enter}');
+    expect(onResponse).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: /Don't use the literature sources/u }));
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
@@ -178,12 +167,17 @@ describe('ClioPendingInteractions', () => {
 
     expect(screen.getByLabelText('Sample count')).toHaveValue(3);
     expect(screen.getByRole('radio', { name: 'Robust' })).toBeChecked();
-    expect(screen.getByRole('switch', { name: 'Include uncertain samples' })).toBeChecked();
+    // The server's prefill must not answer a yes/no field for the person.
+    expect(screen.getByRole('radio', { name: 'Yes' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'No' })).not.toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Send response' }));
     expect(screen.getByText('Choose at least 1.')).toBeVisible();
     expect(onResponse).not.toHaveBeenCalled();
+    // The field to fix takes focus, so it is in view even under the card's cap.
+    expect(screen.getByRole('checkbox', { name: 'table' })).toHaveFocus();
 
     await user.click(screen.getByRole('checkbox', { name: 'table' }));
+    await user.click(screen.getByRole('radio', { name: 'Yes' }));
     await user.clear(screen.getByLabelText('Sample count'));
     await user.type(screen.getByLabelText('Sample count'), '7');
     await user.click(screen.getByRole('button', { name: 'Send response' }));
@@ -195,6 +189,58 @@ describe('ClioPendingInteractions', () => {
         include_uncertain: true,
         outputs: ['table'],
       },
+    });
+  });
+
+  it('never answers a yes/no approval until the person chooses Yes or No', async () => {
+    const user = userEvent.setup();
+    const approval = pending('question', {
+      source: { protocol: 'mcp', tool_name: 'mcp_elicitation' },
+      prompt: 'Start the pipeline as a service? It may use up to 1 node-hours.',
+      requires_human_response: true,
+      actions: ['answer', 'cancel'],
+      payload: {
+        mode: 'form',
+        question_kind: 'confirmation',
+        answer_metadata: { approve: false },
+        fields: [
+          { name: 'approve', type: 'boolean', title: 'Approve', default: false, required: true },
+        ],
+      },
+    });
+    const onResponse = renderPending([approval]);
+    const approvalCard = () =>
+      screen.getByRole('button', { name: 'Yes' }).closest<HTMLElement>('[data-slot="ask-card"]')!;
+
+    // The incident: a click aimed at a prior card's "Send response" landed on this one.
+    expect(screen.queryByRole('button', { name: 'Send response' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    approvalCard().focus();
+    await user.keyboard('{Enter}');
+    expect(onResponse).not.toHaveBeenCalled();
+
+    // 1 and 2 are the person's explicit Yes and No.
+    await user.keyboard('2');
+    expect(onResponse).toHaveBeenLastCalledWith(approval, {
+      action: 'answer',
+      metadata: { approve: false },
+    });
+    approvalCard().focus();
+    await user.keyboard('1');
+    expect(onResponse).toHaveBeenLastCalledWith(approval, {
+      action: 'answer',
+      metadata: { approve: true },
+    });
+
+    await user.click(screen.getByRole('button', { name: 'No' }));
+    expect(onResponse).toHaveBeenLastCalledWith(approval, {
+      action: 'answer',
+      metadata: { approve: false },
+    });
+    await user.click(screen.getByRole('button', { name: 'Yes' }));
+    expect(onResponse).toHaveBeenLastCalledWith(approval, {
+      action: 'answer',
+      metadata: { approve: true },
     });
   });
 
@@ -499,67 +545,6 @@ describe('ClioPendingInteractions', () => {
     // rides along as the status detail so the reader can go find it.
     expect(screen.getByText('Session not listed yet')).toBeVisible();
     expect(screen.queryByText('Specialist')).not.toBeInTheDocument();
-  });
-
-  it('announces a question once, without a second stop after its own punctuation', () => {
-    renderPending([
-      pending('question', {
-        id: 'question:q-asks',
-        prompt: 'Run it on flat-ndp?',
-        title: 'Run it on flat-ndp?',
-      }),
-      pending('question', { id: 'question:q-plain', prompt: 'Pick a mesh', title: 'Pick a mesh' }),
-    ]);
-
-    const live = document.querySelector('p[aria-live="polite"]');
-    expect(live).toHaveTextContent(/^Question: Run it on flat-ndp\? 1 of 2$/);
-
-    cleanup();
-    renderPending([
-      pending('question', { id: 'question:q-plain', prompt: 'Pick a mesh', title: 'Pick a mesh' }),
-      pending('question', {
-        id: 'question:q-asks',
-        prompt: 'Run it on flat-ndp?',
-        title: 'Run it on flat-ndp?',
-      }),
-    ]);
-    expect(document.querySelector('p[aria-live="polite"]')).toHaveTextContent(
-      /^Question: Pick a mesh\. 1 of 2$/,
-    );
-  });
-
-  function announced(title: string): string | null | undefined {
-    cleanup();
-    renderPending([
-      pending('question', { id: 'question:q-first', prompt: title, title }),
-      pending('question', { id: 'question:q-next', prompt: 'Pick a mesh', title: 'Pick a mesh' }),
-    ]);
-    return document.querySelector('p[aria-live="polite"]')?.textContent;
-  }
-
-  it('takes the Greek question mark, a semicolon and an ellipsis as sentence ends', () => {
-    expect(announced('Να το τρέξω στο flat-ndp\u037e')).toBe(
-      'Question: Να το τρέξω στο flat-ndp\u037e 1 of 2',
-    );
-    expect(announced('Να το τρέξω στο flat-ndp;')).toBe(
-      'Question: Να το τρέξω στο flat-ndp; 1 of 2',
-    );
-    expect(announced('Run it on flat-ndp…')).toBe('Question: Run it on flat-ndp… 1 of 2');
-  });
-
-  it('keeps a gap after half-width punctuation in Japanese, and none after full-width', () => {
-    loadShippedJoins('ja');
-    try {
-      const after = (title: string) => announced(title)?.split('flat-ndp')[1];
-      // Half-width "?" ends Latin text: a full-width space, not a run-on "?2件中…".
-      expect(after('Run it on flat-ndp?')).toMatch(/^\?\u3000\S/);
-      // Full-width "？" ends Japanese text: no space.
-      expect(after('flat-ndpで実行しますか？')).toMatch(/^で実行しますか？\S/);
-      // No punctuation: the ja full stop joins, with no space.
-      expect(after('flat-ndpで実行')).toMatch(/^で実行。\S/);
-    } finally {
-      i18n.activate('en');
-    }
   });
 
   it('allows choices and a free-form answer in the same child question', async () => {

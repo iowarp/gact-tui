@@ -80,10 +80,13 @@ export function QuestionCard({
       {body ? (
         <AskSection
           className={cn(
-            // The prompt has its own cap; under the card's cap the options give up height.
-            'mt-1 shrink-0 text-foreground/85 [&_.text-sm]:text-menu',
-            !showFullPrompt &&
-              'clio-scrollbar max-h-28 overflow-y-auto pr-1 data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
+            // The question is what the person answers: it reads whole up to its own cap (about
+            // eight lines), and only a longer one scrolls in its block. Under the card's cap the
+            // options give up height instead; past that the card scrolls under its header.
+            'mt-1 text-foreground/85 [&_.text-sm]:text-menu',
+            showFullPrompt
+              ? 'shrink-0'
+              : 'clio-scrollbar max-h-40 shrink-0 overflow-y-auto pr-1 data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
             promptClassName,
           )}
           data-slot="question-prompt"

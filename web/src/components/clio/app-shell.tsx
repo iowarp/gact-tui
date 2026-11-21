@@ -108,27 +108,60 @@ function DesktopNavigationLayout({
   /** Runs once the bar has folded or unfolded, when the content's width has changed. */
   onFoldChange?: () => void;
 }) {
-  const { open, setOpen, toggleSidebar } = useSidebar();
+  const { open, readLayoutMemory, setOpen, toggleSidebar, updateLayoutMemory } = useSidebar();
   useMenuAction('toggle-left-bar', toggleSidebar);
   const panelRef = useRef<PanelImperativeHandle>(null);
   // Resize callbacks can arrive before a fold commits; they read the latest request.
   const openRef = useRef(open);
-  const previousCollapseForWorkbenchRef = useRef(false);
+  const separatorRef = useRef<HTMLDivElement>(null);
+  // Until this time a re-layout of the reopened bar is put back to the person's width.
+  const restoreUntilRef = useRef(0);
+  const keyInputRef = useRef(false);
+  // The remembered width before a run of shrinking key presses; undefined outside a run.
+  const keyShrinkStartRef = useRef<number | null | undefined>(undefined);
   // Below 1024px the bar shrinks to its icon strip by itself; the panel icon still reopens it.
   const narrow = useMediaQuery('(max-width: 1023px)');
   const collapse = collapseForWorkbench || narrow;
 
-  useEffect(() => {
-    const wasCollapsedForWorkbench = previousCollapseForWorkbenchRef.current;
-    previousCollapseForWorkbenchRef.current = collapse;
+  const restorePersonWidth = useCallback(() => {
+    const panel = panelRef.current;
+    if (!panel || !openRef.current) return;
+    const width = readLayoutMemory().personWidth ?? OPEN_NAVIGATION_WIDTH;
+    if (Math.abs(panel.getSize().inPixels - width) > 1) panel.resize(`${width}px`);
+  }, [readLayoutMemory]);
 
-    if (collapse && !wasCollapsedForWorkbench) {
+  /** The person is dragging the separator or working it from the keyboard. */
+  const personOnSeparator = () => {
+    const separator = separatorRef.current;
+    return (
+      separator !== null &&
+      (separator.getAttribute('data-separator') === 'active' ||
+        document.activeElement === separator)
+    );
+  };
+
+  // The fold flag lives in the provider: below 768px the phone layout replaces this one.
+  useEffect(() => {
+    const memory = readLayoutMemory();
+    const wasCollapsed = memory.collapsed;
+    updateLayoutMemory({ collapsed: collapse });
+
+    if (collapse && !wasCollapsed) {
       if (open) {
-        setOpen(false);
+        updateLayoutMemory({ reopenOnWiden: true });
+        setOpen(false, { remember: false });
       }
       return;
     }
-  }, [collapse, open, setOpen]);
+    if (!collapse && wasCollapsed) {
+      const reopen = memory.reopenOnWiden && !open;
+      updateLayoutMemory({ reopenOnWiden: false });
+      if (reopen) setOpen(true, { remember: false });
+      return;
+    }
+    // The person opened the folded bar; whatever they choose next is theirs.
+    if (collapse && open) updateLayoutMemory({ reopenOnWiden: false });
+  }, [collapse, open, readLayoutMemory, setOpen, updateLayoutMemory]);
 
   useEffect(() => {
     openRef.current = open;
@@ -138,10 +171,39 @@ function DesktopNavigationLayout({
       panel.collapse();
       return;
     }
+    // The library expands to a width it clamped while folded, and the window's own
+    // re-layout lands after this effect (1440 -> 768 -> 1440 scaled the strip and then
+    // clamped the bar to 216 px). Until that settles, the open bar is held at the
+    // person's width, or 292 px if they never set one.
+    restoreUntilRef.current = performance.now() + RESTORE_WIDTH_MS;
     panel.expand();
-    // With no remembered width the library expands to its 216 px minimum.
-    if (panel.getSize().inPixels <= 216) panel.resize(`${OPEN_NAVIGATION_WIDTH}px`);
-  }, [open]);
+    restorePersonWidth();
+  }, [open, restorePersonWidth]);
+
+  // The width comes from the committed layout, as the library computes it: the DOM
+  // can still show the previous pointer step or key press when this reports.
+  const rememberPersonWidth = (
+    layout: Record<string, number>,
+    meta: { isUserInteraction: boolean },
+  ) => {
+    if (!meta.isUserInteraction) return;
+    restoreUntilRef.current = 0;
+    const separator = separatorRef.current;
+    const share = layout['workspace-navigation'];
+    if (!separator || share === undefined) return;
+    const panels = [separator.previousElementSibling, separator.nextElementSibling];
+    const groupWidth = panels.reduce(
+      (total, panel) => total + (panel instanceof HTMLElement ? panel.offsetWidth : 0),
+      0,
+    );
+    const size = Math.round((share / 100) * groupWidth);
+    if (!openRef.current) return;
+    const remembered = readLayoutMemory().personWidth;
+    if (!keyInputRef.current) keyShrinkStartRef.current = undefined;
+    else if (size >= (remembered ?? OPEN_NAVIGATION_WIDTH)) keyShrinkStartRef.current = undefined;
+    else if (keyShrinkStartRef.current === undefined) keyShrinkStartRef.current = remembered;
+    if (size >= 216) updateLayoutMemory({ personWidth: size });
+  };
 
   const synchronizeCollapsedState = (
     size: PanelSize,
@@ -151,10 +213,27 @@ function DesktopNavigationLayout({
     if (!previous) return;
     if (size.inPixels <= 64 !== previous.inPixels <= 64) onFoldChange?.();
     if (size.inPixels <= 64) {
-      if (openRef.current) setOpen((openRef.current = false));
+      if (!openRef.current) return;
+      // Only the person folds an open bar by its separator. A re-layout (the
+      // canvas closing as the bar reopens) can pass through the strip for a
+      // frame; it must not fold the bar or replace the person's choice.
+      if (personOnSeparator()) {
+        // Arrow keys reach the strip through the 216 px minimum; the person
+        // chose the fold, not that step, so reopen at the width before the presses.
+        if (keyInputRef.current && keyShrinkStartRef.current !== undefined) {
+          updateLayoutMemory({ personWidth: keyShrinkStartRef.current });
+        }
+        keyShrinkStartRef.current = undefined;
+        setOpen((openRef.current = false));
+      } else panelRef.current?.expand();
       return;
     }
-    if (openRef.current) return;
+    if (openRef.current) {
+      if (performance.now() < restoreUntilRef.current && !personOnSeparator()) {
+        restorePersonWidth();
+      }
+      return;
+    }
     // Only a drag out of the strip reopens the bar. A viewport resize scales
     // the panel too, and must not undo the fold below 1024px.
     if (previous.inPixels <= 64 && size.inPixels >= 216) setOpen((openRef.current = true));
@@ -163,7 +242,11 @@ function DesktopNavigationLayout({
 
   return (
     <main className="h-full min-h-0 min-w-0 flex-1">
-      <ResizablePanelGroup className="h-full min-h-0 w-full" orientation="horizontal">
+      <ResizablePanelGroup
+        className="h-full min-h-0 w-full"
+        onLayoutChanged={rememberPersonWidth}
+        orientation="horizontal"
+      >
         <ResizablePanel
           collapsedSize="56px"
           collapsible
@@ -181,6 +264,22 @@ function DesktopNavigationLayout({
         <ResizableHandle
           aria-label={t`Resize navigation`}
           className="z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60"
+          elementRef={separatorRef}
+          // The library owns onBlur; capture still sees the person leave the separator.
+          onBlurCapture={() => (keyShrinkStartRef.current = undefined)}
+          // Capture runs before the library's own key and pointer handlers.
+          onKeyDownCapture={() => (keyInputRef.current = true)}
+          onPointerDownCapture={() => {
+            keyInputRef.current = false;
+            keyShrinkStartRef.current = undefined;
+          }}
+          // A double-click reset or a drag is the person's; stop holding the old width.
+          onPointerDown={() => (restoreUntilRef.current = 0)}
+          // The library resets to 292 px through its own API, which is not reported
+          // as the person's change.
+          onDoubleClick={() => {
+            if (openRef.current) updateLayoutMemory({ personWidth: OPEN_NAVIGATION_WIDTH });
+          }}
         />
         {/* The conversation keeps 400 px, so at 768 the open bar keeps its full 292 px. */}
         <ResizablePanel id="workspace-content" minSize={`${MIN_CONVERSATION_WIDTH}px`}>
@@ -198,6 +297,8 @@ const MIN_WORKBENCH_WIDTH = 320;
 const MIN_CONVERSATION_WIDTH = 400;
 /** The left bar's open width; folded, it is the 56 px icon column. */
 const OPEN_NAVIGATION_WIDTH = 292;
+/** How long after reopening the window's re-layout may still move the bar. */
+const RESTORE_WIDTH_MS = 400;
 
 /** The workbench width as a share of the window: 40% to start, then what the user dragged. */
 function storedWorkbenchShare(): number {
@@ -255,6 +356,19 @@ export function ClioAppShell({
   );
   const [workbenchPreference, setWorkbenchPreference] = useState<boolean>();
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string>();
+  // Under the split the workbench is a sheet the person slides over the
+  // conversation, so a docked pocket never becomes one: narrowing the window
+  // closes the sheet and drops the reveal that opened the pocket, keeping the
+  // docked preference for when it widens. A sheet open when it widens docks.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [layoutSplit, setLayoutSplit] = useState(desktopWorkbench);
+  if (layoutSplit !== desktopWorkbench) {
+    setLayoutSplit(desktopWorkbench);
+    if (desktopWorkbench) {
+      if (sheetOpen) setWorkbenchPreference(true);
+    } else if (workbenchRevealKey) setDismissedRevealKey(workbenchRevealKey);
+    setSheetOpen(false);
+  }
   const revealRequested = Boolean(workbenchRevealKey && workbenchRevealKey !== dismissedRevealKey);
   // A pocket a reference opened stays open across conversations, like one the
   // canvas button opened. A phone sheet still closes when you leave.
@@ -267,7 +381,9 @@ export function ClioAppShell({
   // user asked to open it. Explicit resource requests still reveal it, and an
   // open/closed choice survives route changes while this shell stays mounted.
   const hasWorkbench = Boolean(workbench);
-  const workbenchOpen = hasWorkbench && (revealRequested || (workbenchPreference ?? false));
+  const workbenchOpen =
+    hasWorkbench &&
+    (revealRequested || (desktopWorkbench ? (workbenchPreference ?? false) : sheetOpen));
   const collapseNavigationForWorkbench = workbenchOpen && conversationCrowded;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
@@ -302,10 +418,11 @@ export function ClioAppShell({
   }, []);
   const setWorkbenchOpen = useCallback(
     (open: boolean) => {
-      setWorkbenchPreference(open);
+      if (desktopWorkbench) setWorkbenchPreference(open);
+      else setSheetOpen(open);
       if (!open && workbenchRevealKey) setDismissedRevealKey(workbenchRevealKey);
     },
-    [workbenchRevealKey],
+    [desktopWorkbench, workbenchRevealKey],
   );
 
   const toggleWorkbench = useCallback(

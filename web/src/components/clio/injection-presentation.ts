@@ -182,7 +182,9 @@ function planDecision(envelope: string): InjectionPresentation | null {
     return {
       label: t`Plan approved`,
       attribution:
-        /prompted to approve each action/u.test(text) || meta?.plan_exit_mode === 'interactive'
+        /prompted to approve each action/u.test(text) ||
+        meta?.plan_exit_mode === 'interactive' ||
+        meta?.plan_exit_mode === 'ask'
           ? t`You approved the plan. The agent may now change files, asking before each action.`
           : t`You approved the plan. The agent may now change files to carry it out.`,
       text:

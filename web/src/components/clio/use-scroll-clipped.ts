@@ -23,3 +23,38 @@ export function useScrollClipped(ref: RefObject<HTMLElement | null>, mounted?: b
     };
   }, [ref, mounted]);
 }
+
+/**
+ * Marks `data-overflows` while the element has content to scroll. A capped card becomes a scroller
+ * only then: a card that fits leaves the wheel, and its sticky header, to the scroller around it.
+ * `onMeasure` runs on the same observations.
+ */
+export function useOverflowMark(
+  ref: RefObject<HTMLElement | null>,
+  onMeasure?: (element: HTMLElement) => void,
+) {
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const update = () => {
+      element.toggleAttribute('data-overflows', element.scrollHeight > element.clientHeight + 1);
+      onMeasure?.(element);
+    };
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const resize = new ResizeObserver(update);
+    const observeChildren = () => {
+      resize.disconnect();
+      resize.observe(element);
+      for (const child of element.children) resize.observe(child);
+      update();
+    };
+    observeChildren();
+    const children = new MutationObserver(observeChildren);
+    children.observe(element, { childList: true });
+    return () => {
+      resize.disconnect();
+      children.disconnect();
+    };
+  }, [ref, onMeasure]);
+}

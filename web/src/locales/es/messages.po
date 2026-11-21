@@ -2194,7 +2194,7 @@ msgstr "{hidden, plural, one {# conversación más} other {# conversaciones más
 msgid "{hidden, plural, one {# more file} other {# more files}}"
 msgstr "{hidden, plural, one {# archivo más} other {# archivos más}}"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "{hidden, plural, one {# more line} other {# more lines}}"
 msgstr "{hidden, plural, one {# línea más} other {# líneas más}}"
@@ -2726,10 +2726,6 @@ msgstr "{minutes} min"
 #: src/offline-review.tsx
 msgid "{mode}, {messageCount}, {toolCount}, {skillCount}"
 msgstr "{mode}, {messageCount}, {toolCount}, {skillCount}"
-
-#: src/components/clio/plan-decision-controls.tsx
-msgid "{mode}, context cleared"
-msgstr "{mode}, contexto borrado"
 
 #: src/lib/flow-run-usage.ts
 msgid "{model} ({why})"
@@ -6806,6 +6802,14 @@ msgstr "Aprobado: {actionText}"
 msgid "Approved a permission request"
 msgstr "Se aprobó una solicitud de permiso"
 
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}"
+msgstr "Aprobado: {mode}"
+
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}, context cleared"
+msgstr "Aprobado: {mode}, contexto borrado"
+
 #: src/lib/plan-status.ts
 msgid "Approved, being worked on"
 msgstr "Aprobado, en curso"
@@ -8124,12 +8128,14 @@ msgstr "Por modelo"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/session-behavior-options.ts
 msgid "Bypass checks"
 msgstr "Omitir comprobaciones"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Bypass protected-action checks?"
 msgstr "¿Omitir las comprobaciones de acciones protegidas?"
 
@@ -9648,6 +9654,10 @@ msgstr "Elige si quieres conectarte al {agent} en ejecución o reemplazarlo."
 msgid "Choose which new and updated memories save automatically. Retirement needs review."
 msgstr "Elige qué recuerdos nuevos y actualizados se guardan automáticamente. Retirar uno requiere revisión."
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "Choose Yes or No."
+msgstr "Elige Sí o No."
+
 #: src/components/clio/a2ui-choice-picker.tsx
 #: src/components/clio/capability-picker.tsx
 #: src/components/clio/desktop-folder-upload.tsx
@@ -10645,6 +10655,7 @@ msgid "Confirm this code on NDP:"
 msgstr "Confirma este código en NDP:"
 
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/lib/onboarding/tour-script.ts
 msgid "Confirmation policy"
 msgstr "Política de confirmación"
@@ -11575,7 +11586,7 @@ msgstr "Cocina hasta que esté al dente y reserva un chorrito del agua."
 msgid "Cool"
 msgstr "Frío"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/settings-report-problem.tsx
@@ -12085,7 +12096,7 @@ msgstr "No se pudo copiar el texto del archivo."
 msgid "Could not copy the reference"
 msgstr "No se pudo copiar la referencia"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 msgid "Could not copy to the clipboard."
 msgstr "No se pudo copiar al portapapeles."
 
@@ -19095,6 +19106,7 @@ msgstr "Guarda un archivo de transcripción aparte junto al almacenamiento de co
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Keep asking"
 msgstr "Seguir preguntando"
 
@@ -22485,6 +22497,7 @@ msgstr "Región siguiente, anterior"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
+#: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "No"
@@ -24992,7 +25005,7 @@ msgstr "Abrir en Mail"
 msgid "Open in system terminal"
 msgstr "Abrir en el terminal del sistema"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/mcp-app-card.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
@@ -26305,7 +26318,6 @@ msgid "plan {status}"
 msgstr "plan {status}"
 
 #: src/components/clio/injection-presentation.ts
-#: src/components/clio/plan-decision-controls.tsx
 msgid "Plan approved"
 msgstr "Plan aprobado"
 
@@ -33097,7 +33109,7 @@ msgstr "Mostrar {remaining} más"
 msgid "Show {title}"
 msgstr "Mostrar {title}"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/conversation-list-groups.tsx
@@ -34883,7 +34895,7 @@ msgstr "¿Detener el trabajo que inició esta conversación?"
 msgid "Stop this run?"
 msgstr "¿Detener esta ejecución?"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Stop wrapping long lines"
 msgstr "No ajustar líneas largas"
@@ -35988,6 +36000,7 @@ msgstr "El agente creó una nueva versión."
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "The agent may perform supported actions without asking first. Workspace boundaries and unavailable capabilities still apply, but individual changes will not wait for review."
 msgstr "El agente puede realizar las acciones admitidas sin preguntar antes. Los límites del espacio de trabajo y las capacidades no disponibles siguen aplicándose, pero los cambios individuales no esperarán revisión."
 
@@ -42245,7 +42258,7 @@ msgstr "Espacios de trabajo no listados"
 msgid "Workspaces not listed. Retry"
 msgstr "No se listaron los espacios de trabajo. Reintentar"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/file-source-view.tsx
 #: src/components/clio/file-text-view.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
@@ -42325,6 +42338,7 @@ msgstr "Año"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
+#: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx

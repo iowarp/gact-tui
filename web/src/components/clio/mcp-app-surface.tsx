@@ -398,6 +398,8 @@ const McpAppSurfaceInstance = forwardRef<
         if (typeof height === 'number' && Number.isFinite(height)) {
           setRequestedHeight(Math.round(height));
         }
+        // A view that resizes itself has often just drawn its first frame.
+        firstPaint?.recheck();
         return;
       }
       if (message.method === 'notifications/message') return;

@@ -2194,7 +2194,7 @@ msgstr "{hidden, plural, one {# ακόμη συνομιλία} other {# ακόμ
 msgid "{hidden, plural, one {# more file} other {# more files}}"
 msgstr "{hidden, plural, one {# ακόμη αρχείο} other {# ακόμη αρχεία}}"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "{hidden, plural, one {# more line} other {# more lines}}"
 msgstr "{hidden, plural, one {# ακόμη γραμμή} other {# ακόμη γραμμές}}"
@@ -2726,10 +2726,6 @@ msgstr "{minutes} λ."
 #: src/offline-review.tsx
 msgid "{mode}, {messageCount}, {toolCount}, {skillCount}"
 msgstr "{mode}, {messageCount}, {toolCount}, {skillCount}"
-
-#: src/components/clio/plan-decision-controls.tsx
-msgid "{mode}, context cleared"
-msgstr "{mode}, το πλαίσιο εκκαθαρίστηκε"
 
 #: src/lib/flow-run-usage.ts
 msgid "{model} ({why})"
@@ -6806,6 +6802,14 @@ msgstr "Εγκρίθηκε: {actionText}"
 msgid "Approved a permission request"
 msgstr "Εγκρίθηκε αίτημα δικαιωμάτων"
 
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}"
+msgstr "Εγκρίθηκε με {mode}"
+
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}, context cleared"
+msgstr "Εγκρίθηκε με {mode}, το πλαίσιο εκκαθαρίστηκε"
+
 #: src/lib/plan-status.ts
 msgid "Approved, being worked on"
 msgstr "Εγκρίθηκε, σε εξέλιξη"
@@ -8124,12 +8128,14 @@ msgstr "Ανά μοντέλο"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/session-behavior-options.ts
 msgid "Bypass checks"
 msgstr "Παράκαμψη ελέγχων"
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Bypass protected-action checks?"
 msgstr "Παράκαμψη ελέγχων προστατευμένων ενεργειών;"
 
@@ -9648,6 +9654,10 @@ msgstr "Επιλέξτε αν θα συνδεθείτε στον {agent} που 
 msgid "Choose which new and updated memories save automatically. Retirement needs review."
 msgstr "Επιλέξτε ποιες νέες και ενημερωμένες αναμνήσεις αποθηκεύονται αυτόματα. Η απόσυρση χρειάζεται έλεγχο."
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "Choose Yes or No."
+msgstr "Επιλέξτε Ναι ή Όχι."
+
 #: src/components/clio/a2ui-choice-picker.tsx
 #: src/components/clio/capability-picker.tsx
 #: src/components/clio/desktop-folder-upload.tsx
@@ -10645,6 +10655,7 @@ msgid "Confirm this code on NDP:"
 msgstr "Επιβεβαιώστε αυτόν τον κωδικό στο NDP:"
 
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/lib/onboarding/tour-script.ts
 msgid "Confirmation policy"
 msgstr "Πολιτική επιβεβαίωσης"
@@ -11575,7 +11586,7 @@ msgstr "Βράστε μέχρι να γίνουν al dente και κρατήστ
 msgid "Cool"
 msgstr "Ψυχρό"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/settings-report-problem.tsx
@@ -12085,7 +12096,7 @@ msgstr "Δεν ήταν δυνατή η αντιγραφή του κειμένο
 msgid "Could not copy the reference"
 msgstr "Δεν ήταν δυνατή η αντιγραφή της αναφοράς"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 msgid "Could not copy to the clipboard."
 msgstr "Δεν ήταν δυνατή η αντιγραφή στο πρόχειρο."
 
@@ -19095,6 +19106,7 @@ msgstr "Διατήρηση ξεχωριστού αρχείου πρακτικώ�
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "Keep asking"
 msgstr "Συνέχιση ερωτήσεων"
 
@@ -22485,6 +22497,7 @@ msgstr "Επόμενη, προηγούμενη περιοχή"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
+#: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "No"
@@ -24992,7 +25005,7 @@ msgstr "Άνοιγμα στο Mail"
 msgid "Open in system terminal"
 msgstr "Άνοιγμα στο τερματικό του συστήματος"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/mcp-app-card.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
@@ -26305,7 +26318,6 @@ msgid "plan {status}"
 msgstr "σχέδιο {status}"
 
 #: src/components/clio/injection-presentation.ts
-#: src/components/clio/plan-decision-controls.tsx
 msgid "Plan approved"
 msgstr "Το σχέδιο εγκρίθηκε"
 
@@ -33097,7 +33109,7 @@ msgstr "Εμφάνιση {remaining} ακόμη"
 msgid "Show {title}"
 msgstr "Εμφάνιση {title}"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/conversation-list-groups.tsx
@@ -34883,7 +34895,7 @@ msgstr "Διακοπή της εργασίας που ξεκίνησε αυτή 
 msgid "Stop this run?"
 msgstr "Διακοπή αυτής της εκτέλεσης;"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Stop wrapping long lines"
 msgstr "Διακοπή αναδίπλωσης μεγάλων γραμμών"
@@ -35988,6 +36000,7 @@ msgstr "Ο πράκτορας δημιούργησε νέα έκδοση."
 
 #: src/components/clio/agent-tab-run-settings.tsx
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 msgid "The agent may perform supported actions without asking first. Workspace boundaries and unavailable capabilities still apply, but individual changes will not wait for review."
 msgstr "Ο πράκτορας μπορεί να εκτελεί υποστηριζόμενες ενέργειες χωρίς να ρωτά πρώτα. Τα όρια του χώρου εργασίας και οι μη διαθέσιμες δυνατότητες εξακολουθούν να ισχύουν, αλλά οι μεμονωμένες αλλαγές δεν θα περιμένουν έλεγχο."
 
@@ -42245,7 +42258,7 @@ msgstr "Οι χώροι εργασίας δεν παρατέθηκαν"
 msgid "Workspaces not listed. Retry"
 msgstr "Οι χώροι εργασίας δεν εμφανίστηκαν. Επανάληψη"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/file-source-view.tsx
 #: src/components/clio/file-text-view.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
@@ -42325,6 +42338,7 @@ msgstr "Έτος"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
+#: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx

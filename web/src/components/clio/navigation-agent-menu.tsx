@@ -85,6 +85,8 @@ export function NavigationAgentMenu({
           aria-label={`${brand.name}: ${line.text}`}
           className="h-auto min-h-11 min-w-0 flex-1 gap-2.5 px-1.5 py-1"
           data-connection-state={stream}
+          // The name's hint opens under the whole button, clear of the status line.
+          data-truncation-place=""
           size="lg"
           tooltip={tooltip}
         >
@@ -104,9 +106,9 @@ export function NavigationAgentMenu({
           </span>
           <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
             <span className="flex min-w-0 items-center gap-1">
-              {/* The wordmark is never cut: in a narrow bar (phone at 150% zoom) it wraps
-                  and the header row grows. */}
-              <span className="min-w-0 font-heading text-h3 font-semibold text-balance whitespace-normal break-words">
+              {/* One line: in a narrow bar the wordmark ends in an ellipsis and the
+                  truncation hint reads it whole, rather than breaking mid-word. */}
+              <span className="min-w-0 truncate font-heading text-h3 font-semibold">
                 {brand.wordmark}
               </span>
               <ChevronsUpDownIcon aria-hidden="true" className="size-3.5 shrink-0 text-faint" />

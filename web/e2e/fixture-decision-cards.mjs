@@ -10,6 +10,7 @@ export const DECISION_CARDS = [
   'question',
   'question-long',
   'question-multi',
+  'approval',
 ];
 
 const COMMAND = 'python qc_stations.py --strict --out results/qc';
@@ -48,7 +49,7 @@ Compare the 14 flat-NDP stations against the derived displacement series for 202
 
 ## Execution recommendation
 
-Interactive. Step 2 holds four ranks for about 40 minutes.
+Ask first. Step 2 holds four ranks for about 40 minutes.
 
 ## Risks
 
@@ -165,6 +166,7 @@ export function decisionCardInteractions(card, context) {
       plan_exit: {
         summary: 'Compare the 14 flat-NDP stations against the displacement series.',
         recommended_mode: 'interactive',
+        default_option: 'ask',
         risk_notes: 'Two stations sit on a network edge. 2020 series use older flags.',
         plan_file: 'plans/displacement-review.md',
         plan_content: PLAN,
@@ -172,8 +174,11 @@ export function decisionCardInteractions(card, context) {
         artifact_ref: { artifact_id: PLAN_ARTIFACT_ID },
       },
       options: [
-        { label: 'Approve — interactive', value: 'interactive' },
-        { label: 'Approve — auto-execute', value: 'auto' },
+        { label: 'Approve — ask first', value: 'ask' },
+        { label: 'Approve — workspace edits', value: 'auto-edits' },
+        { label: 'Approve — AI review', value: 'ai-review' },
+        { label: 'Approve — SPOTTER review', value: 'spotter-ai' },
+        { label: 'Approve — bypass checks', value: 'bypass' },
         { label: 'Approve — exit only', value: 'exit_only' },
         { label: 'Request changes — keep planning', value: 'reject' },
         { label: 'Also clear context (modifier)', value: 'clear_context' },
@@ -260,6 +265,30 @@ export function decisionCardInteractions(card, context) {
     },
   });
   // The script ask pages with a second request, so the ‹ 1/2 › pager shows.
+  // A relay spend approval: one required yes/no field whose server default is
+  // `false`. The card offers Yes and No and preselects neither.
+  const approval = make('question:decision-approval', {
+    kind: 'question',
+    title: 'Relay: Start the pipeline clio_jarvis.pvserver then clio_jarvis.xcompact3d',
+    prompt:
+      'Start the pipeline clio_jarvis.pvserver then clio_jarvis.xcompact3d as a service on Ares? It may use up to 1 node-hours.\n\n- Nodes: 2, 32 ranks per node\n- Time limit: 30 minutes',
+    source: { protocol: 'mcp', tool_name: 'mcp_elicitation', server: 'clio-relay' },
+    actions: ['answer', 'cancel'],
+    payload: {
+      question_id: 'decision-approval',
+      question_kind: 'confirmation',
+      mode: 'form',
+      allow_freeform: true,
+      options: [
+        { label: 'Yes', value: 'yes' },
+        { label: 'No', value: 'no' },
+      ],
+      answer_metadata: { approve: false },
+      fields: [
+        { name: 'approve', type: 'boolean', title: 'Approve', default: false, required: true },
+      ],
+    },
+  });
   return (
     {
       script: [script, facts],
@@ -268,6 +297,7 @@ export function decisionCardInteractions(card, context) {
       question: [question],
       'question-long': [longQuestion],
       'question-multi': [multi],
+      approval: [approval],
     }[card] ?? []
   );
 }

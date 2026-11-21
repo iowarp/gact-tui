@@ -36,6 +36,8 @@ interface Hint {
  * (a compact label) names it in `data-full-text`; a line whose parts are one
  * text (a state and a name) is marked `data-truncation-scope` and reads whole;
  * parts spaced as one phrase read with plain spaces under `data-truncation-gap="space"`.
+ * The hint sits under the cut text, or under its nearest `data-truncation-place`
+ * ancestor, so it does not cover a line that sits beneath the cut one (a state).
  */
 export function TruncationHints() {
   const [hint, setHint] = useState<Hint | null>(null);
@@ -78,7 +80,11 @@ export function TruncationHints() {
         return;
       }
       if (shownRef.current) setHint(null);
-      schedule(cut, () => fullTextOf(cut));
+      schedule(
+        cut,
+        () => fullTextOf(cut),
+        cut.closest<HTMLElement>('[data-truncation-place]') ?? cut,
+      );
     };
     const onPointerOut = (event: PointerEvent) => {
       if (!current) return;

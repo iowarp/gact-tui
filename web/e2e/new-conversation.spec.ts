@@ -86,8 +86,12 @@ test('entry composer and Settings navigation never allocate sessions', async ({ 
   await expect(composer).toHaveText('This is a temporary draft');
   expect(warmups).toHaveLength(1);
 
-  // The left bar folded for the workbench at 1280 and stays folded; reopen it.
-  await page.locator('[data-slot="sidebar-trigger"]').click();
+  // The canvas folded the left bar at 1280; closing it gave the room back.
+  await expect(
+    page
+      .locator('[data-slot="sidebar"]')
+      .filter({ has: page.getByRole('navigation', { name: 'Workspace navigation' }) }),
+  ).toHaveAttribute('data-state', 'expanded');
   await page.getByRole('link', { name: /^EarthScope NDP evidence review/ }).click();
   await expect(page).toHaveURL(new RegExp(`${sessionRoute}$`));
   // URL changes precede session hydration. Settings must leave a validated

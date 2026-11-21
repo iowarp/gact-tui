@@ -32,6 +32,48 @@ import { planArtifact } from './plan-artifact';
 import { plainQuestionText, questionPrompt } from './question-card-model';
 import { plural, t } from '@lingui/core/macro';
 
+/** An element's height with its vertical margins, as the composer stack lays it out. */
+function outerHeight(element: HTMLElement, height = element.offsetHeight) {
+  const style = getComputedStyle(element);
+  return height + Number.parseFloat(style.marginTop) + Number.parseFloat(style.marginBottom);
+}
+
+/** The queue yields to a card down to its count line, one row and its "N more" line. */
+function queueFloor(queue: HTMLElement) {
+  const viewport = queue.querySelector<HTMLElement>('[data-slot=scroll-area-viewport]');
+  const row = viewport?.querySelector<HTMLElement>('li');
+  if (!viewport || !row) return queue.offsetHeight;
+  const chrome = queue.offsetHeight - viewport.offsetHeight;
+  const more = viewport.scrollHeight - row.offsetHeight > 1;
+  // The "more" line (22px and its 2px margin) shows only once the rows overflow.
+  const moreLine = more && viewport.scrollHeight - viewport.clientHeight <= 1 ? 24 : 0;
+  return chrome + Math.min(viewport.scrollHeight, row.offsetHeight) + moreLine;
+}
+
+/**
+ * The height a docked card may take above the composer: the composer column, less the stack's
+ * padding, the composer box and a queue at its floor. Neither the card nor the queue's current
+ * height enters it, so capping a card to it never shrinks it again, and the queue gives up its
+ * rows before the card gives up its options.
+ */
+function dockRoom(dock: HTMLElement, stack: HTMLElement, column: HTMLElement) {
+  const style = getComputedStyle(stack);
+  let room =
+    column.clientHeight -
+    Number.parseFloat(style.paddingTop) -
+    Number.parseFloat(style.paddingBottom) -
+    outerHeight(dock, 0);
+  for (const child of stack.children) {
+    if (child === dock || !(child instanceof HTMLElement)) continue;
+    const position = getComputedStyle(child).position;
+    if (position === 'absolute' || position === 'fixed' || !child.offsetParent) continue;
+    room -= child.matches('[data-slot=composer-queue]')
+      ? outerHeight(child, queueFloor(child))
+      : outerHeight(child);
+  }
+  return Math.max(0, room);
+}
+
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
   surfaces?: Readonly<Record<string, A2UISurface>>;
@@ -118,13 +160,35 @@ export function ClioPendingInteractions({
     const dock = dockRef.current;
     const conversation = dock?.closest<HTMLElement>('[data-slot=session-transcript]');
     if (!dock || !conversation) return;
-    const update = () =>
+    // Above the composer the dock also gets only the room the composer's column leaves it (see
+    // dockRoom), so a card capped to it never makes the dock scroll its header away, and the cap
+    // grows back with the window.
+    const stack = dock.parentElement?.matches('[data-slot=clio-composer-stack]')
+      ? dock.parentElement
+      : null;
+    const column = stack?.parentElement;
+    const update = () => {
       dock.style.setProperty('--conversation-h', `${conversation.clientHeight}px`);
+      if (!stack || !column) return;
+      dock.style.setProperty('--dock-room', `${dockRoom(dock, stack, column)}px`);
+    };
     update();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(update);
-    observer.observe(conversation);
-    return () => observer.disconnect();
+    const observe = () => {
+      observer.disconnect();
+      for (const element of [conversation, dock, column, ...(stack?.children ?? [])])
+        if (element) observer.observe(element);
+      update();
+    };
+    observe();
+    // A queue or picker mounting beside the dock changes the room.
+    const siblings = new MutationObserver(observe);
+    if (stack) siblings.observe(stack, { childList: true });
+    return () => {
+      observer.disconnect();
+      siblings.disconnect();
+    };
   }, [docked]);
   useEffect(() => {
     // Synchronize the conversation-owned draft store with server removals.
@@ -237,8 +301,9 @@ export function ClioPendingInteractions({
     <section
       ref={dockRef}
       aria-label={t`Agent needs your attention`}
-      // A separate card docked 8px above the composer, at the composer's width.
-      className="relative z-10 mx-auto mb-2 flex min-h-0 w-full max-w-4xl shrink flex-col"
+      // A separate card docked 8px above the composer, at the composer's width. Above the
+      // composer it keeps its height and a queue beside it shrinks instead (see dockRoom).
+      className="relative z-10 mx-auto mb-2 flex min-h-0 w-full max-w-4xl shrink flex-col [[data-slot=clio-composer-stack]>&]:shrink-0"
       data-slot="pending-interactions"
       role="region"
     >
@@ -248,11 +313,12 @@ export function ClioPendingInteractions({
       <ScrollArea
         className={cn(
           'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
-          // The card stops at 45% of the conversation's height, but never below 20rem (its
-          // options grow with the interface size) nor past 75%. A visual answer gets more.
+          // A card stops at 45% of the conversation's height (see --ask-card-max), but one whose
+          // kept parts need more grows to the ceiling: 75% of the conversation, within the dock's
+          // room. The stack holds a card up to that ceiling. A visual answer gets more.
           hasInteractiveSurface
             ? 'max-h-[calc(100dvh-12rem)]'
-            : 'max-h-[min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75))]',
+            : 'max-h-(--ask-card-ceiling) [--ask-card-ceiling:min(calc(var(--conversation-h,100dvh)*0.75),var(--dock-room,100dvh))]',
         )}
         scrollHideDelay={500}
         // No scrollbar chrome at rest; it shows only while the card scrolls.
@@ -279,11 +345,13 @@ export function ClioPendingInteractions({
       >
         <AskPagerContext.Provider value={pager}>
           <div
+            data-ask-capped={hasInteractiveSurface ? undefined : ''}
             className={cn(
               '@container/dock flex min-w-0 flex-col gap-2',
-              // A card past the cap scrolls its body; its options stay in view.
+              // A card past the cap scrolls its body; its options stay in view. Above the
+              // composer it also stops at the dock's room, so the dock itself never scrolls it.
               !hasInteractiveSurface &&
-                '[--ask-card-max:min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75))]',
+                '[--ask-card-max:min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75),var(--dock-room,100dvh))]',
             )}
           >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
