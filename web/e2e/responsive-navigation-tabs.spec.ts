@@ -81,7 +81,10 @@ for (const width of [1100, 1600]) {
     await expect(sidebar).not.toHaveAttribute('data-preview');
     await page.getByRole('button', { name: 'Close workspace canvas', exact: true }).click();
     await page.mouse.move(width - 20, 850);
-    await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+    // A fold the person made stays; one the canvas made ends with the canvas.
+    // Previewing the folded bar is not the person opening it.
+    await expect(sidebar).toHaveAttribute('data-state', width === 1600 ? 'collapsed' : 'expanded');
+    expect(await page.evaluate(() => document.cookie)).toBe(cookie);
     await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
     await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
     await sidebar.hover();
