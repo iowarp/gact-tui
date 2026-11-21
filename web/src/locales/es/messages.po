@@ -6820,11 +6820,11 @@ msgstr "Se aprobó una solicitud de permiso"
 
 #: src/components/clio/plan-decision-controls.tsx
 msgid "Approved in {mode}"
-msgstr "Aprobado en modo {mode}"
+msgstr "Aprobado: {mode}"
 
 #: src/components/clio/plan-decision-controls.tsx
 msgid "Approved in {mode}, context cleared"
-msgstr "Aprobado en modo {mode}, contexto borrado"
+msgstr "Aprobado: {mode}, contexto borrado"
 
 #: src/lib/plan-status.ts
 msgid "Approved, being worked on"
