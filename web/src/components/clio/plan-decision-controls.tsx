@@ -138,9 +138,10 @@ function PlanModeMenu({
               value={mode}
             >
               <MenuRow
-                description={approval?.description}
+                detail={approval?.description}
                 icon={Icon ? <Icon className={bypass ? 'text-destructive' : undefined} /> : null}
                 label={planModeLabel(mode)}
+                wrapDetail
               />
               {mode === recommended ? recommendedTag : null}
             </DropdownMenuRadioItem>
@@ -371,22 +372,33 @@ export function PlanDecision({
   const decision = selected.find((value) => value !== 'clear_context');
   const cleared = selected.includes('clear_context');
   const note = answerNote(interaction);
-  const [verb, detail, tone]: [string, string | undefined, 'ok' | 'neutral'] =
+  const [verb, detail, tone, outcome]: [
+    string,
+    string | undefined,
+    'ok' | 'neutral',
+    string | undefined,
+  ] =
     decision === 'reject'
-      ? [t`Changes requested`, note, 'neutral']
+      ? [t`Changes requested`, note, 'neutral', undefined]
       : decision === 'exit_only'
-        ? [t`Left Plan mode`, cleared ? t`not executed, context cleared` : t`not executed`, 'ok']
+        ? [
+            t`Left Plan mode`,
+            cleared ? t`not executed, context cleared` : t`not executed`,
+            'ok',
+            undefined,
+          ]
         : decision
           ? [
               t`Approved in ${ph({ mode: planModeLabel(decision) })}`,
-              cleared ? t`context cleared` : undefined,
+              undefined,
               'ok',
+              cleared ? t`context cleared` : undefined,
             ]
           : interaction.status === 'cancelled'
-            ? [t`Plan review cancelled`, undefined, 'neutral']
+            ? [t`Plan review cancelled`, undefined, 'neutral', undefined]
             : interaction.status === 'expired'
-              ? [t`Plan review expired`, undefined, 'neutral']
-              : [t`Plan decision recorded`, undefined, 'neutral'];
+              ? [t`Plan review expired`, undefined, 'neutral', undefined]
+              : [t`Plan decision recorded`, undefined, 'neutral', undefined];
   return (
     <AskAnsweredRow
       actions={actions}
@@ -396,6 +408,7 @@ export function PlanDecision({
       icon={NotebookTextIcon}
       onOpenChange={onOpenChange}
       open={open}
+      outcome={outcome}
       title={detail}
       tone={tone}
       verb={verb}
