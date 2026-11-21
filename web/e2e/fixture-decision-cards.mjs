@@ -10,6 +10,7 @@ export const DECISION_CARDS = [
   'question',
   'question-long',
   'question-multi',
+  'approval',
 ];
 
 const COMMAND = 'python qc_stations.py --strict --out results/qc';
@@ -260,6 +261,30 @@ export function decisionCardInteractions(card, context) {
     },
   });
   // The script ask pages with a second request, so the ‹ 1/2 › pager shows.
+  // A relay spend approval: one required yes/no field whose server default is
+  // `false`. The card offers Yes and No and preselects neither.
+  const approval = make('question:decision-approval', {
+    kind: 'question',
+    title: 'Relay: Start the pipeline clio_jarvis.pvserver then clio_jarvis.xcompact3d',
+    prompt:
+      'Start the pipeline clio_jarvis.pvserver then clio_jarvis.xcompact3d as a service on Ares? It may use up to 1 node-hours.\n\n- Nodes: 2, 32 ranks per node\n- Time limit: 30 minutes',
+    source: { protocol: 'mcp', tool_name: 'mcp_elicitation', server: 'clio-relay' },
+    actions: ['answer', 'cancel'],
+    payload: {
+      question_id: 'decision-approval',
+      question_kind: 'confirmation',
+      mode: 'form',
+      allow_freeform: true,
+      options: [
+        { label: 'Yes', value: 'yes' },
+        { label: 'No', value: 'no' },
+      ],
+      answer_metadata: { approve: false },
+      fields: [
+        { name: 'approve', type: 'boolean', title: 'Approve', default: false, required: true },
+      ],
+    },
+  });
   return (
     {
       script: [script, facts],
@@ -268,6 +293,7 @@ export function decisionCardInteractions(card, context) {
       question: [question],
       'question-long': [longQuestion],
       'question-multi': [multi],
+      approval: [approval],
     }[card] ?? []
   );
 }

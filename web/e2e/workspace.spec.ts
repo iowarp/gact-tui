@@ -445,7 +445,9 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await expect(form.getByLabel('Review brief')).toHaveValue('NDP evidence');
   await expect(form.getByLabel('Iterations')).toHaveValue('3');
   await expect(form.getByRole('radio', { name: 'Station table' })).toBeChecked();
-  await expect(form.getByRole('switch', { name: 'Keep provenance visible' })).toBeChecked();
+  // A yes/no field is never preselected from the server's default.
+  await expect(form.getByRole('radio', { name: 'Yes' })).not.toBeChecked();
+  await expect(form.getByRole('radio', { name: 'No' })).not.toBeChecked();
   await expect(form.getByRole('checkbox', { name: 'Coverage' })).toBeChecked();
   await form.getByLabel('Review brief').fill('');
   await form.getByRole('button', { name: 'Send response' }).click();
@@ -455,6 +457,7 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await expect(form.getByText('Enter at least 3 characters.')).toBeVisible();
   await form.getByLabel('Review brief').fill('Station evidence');
   await form.getByRole('checkbox', { name: 'Quality' }).check();
+  await form.getByRole('radio', { name: 'Yes' }).check();
   await form.getByRole('button', { name: 'Send response' }).click();
   await expect(form).toHaveCount(0);
 

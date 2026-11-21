@@ -139,12 +139,15 @@ describe('ClioPendingInteractions', () => {
 
     expect(screen.getByLabelText('Sample count')).toHaveValue(3);
     expect(screen.getByRole('radio', { name: 'Robust' })).toBeChecked();
-    expect(screen.getByRole('switch', { name: 'Include uncertain samples' })).toBeChecked();
+    // The server's prefill must not answer a yes/no field for the person.
+    expect(screen.getByRole('radio', { name: 'Yes' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'No' })).not.toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Send response' }));
     expect(screen.getByText('Choose at least 1.')).toBeVisible();
     expect(onResponse).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('checkbox', { name: 'table' }));
+    await user.click(screen.getByRole('radio', { name: 'Yes' }));
     await user.clear(screen.getByLabelText('Sample count'));
     await user.type(screen.getByLabelText('Sample count'), '7');
     await user.click(screen.getByRole('button', { name: 'Send response' }));
@@ -156,6 +159,42 @@ describe('ClioPendingInteractions', () => {
         include_uncertain: true,
         outputs: ['table'],
       },
+    });
+  });
+
+  it('never answers a yes/no approval until the person chooses Yes or No', async () => {
+    const user = userEvent.setup();
+    const approval = pending('question', {
+      source: { protocol: 'mcp', tool_name: 'mcp_elicitation' },
+      prompt: 'Start the pipeline as a service? It may use up to 1 node-hours.',
+      requires_human_response: true,
+      actions: ['answer', 'cancel'],
+      payload: {
+        mode: 'form',
+        question_kind: 'confirmation',
+        answer_metadata: { approve: false },
+        fields: [
+          { name: 'approve', type: 'boolean', title: 'Approve', default: false, required: true },
+        ],
+      },
+    });
+    const onResponse = renderPending([approval]);
+
+    // The incident: a click aimed at a prior card's "Send response" landed on this one.
+    expect(screen.queryByRole('button', { name: 'Send response' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    await user.keyboard('{Enter}');
+    expect(onResponse).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'No' }));
+    expect(onResponse).toHaveBeenLastCalledWith(approval, {
+      action: 'answer',
+      metadata: { approve: false },
+    });
+    await user.click(screen.getByRole('button', { name: 'Yes' }));
+    expect(onResponse).toHaveBeenLastCalledWith(approval, {
+      action: 'answer',
+      metadata: { approve: true },
     });
   });
 
