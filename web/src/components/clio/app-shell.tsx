@@ -108,42 +108,57 @@ function DesktopNavigationLayout({
   /** Runs once the bar has folded or unfolded, when the content's width has changed. */
   onFoldChange?: () => void;
 }) {
-  const { open, setOpen, toggleSidebar } = useSidebar();
+  const { open, readLayoutMemory, setOpen, toggleSidebar, updateLayoutMemory } = useSidebar();
   useMenuAction('toggle-left-bar', toggleSidebar);
   const panelRef = useRef<PanelImperativeHandle>(null);
   // Resize callbacks can arrive before a fold commits; they read the latest request.
   const openRef = useRef(open);
   const separatorRef = useRef<HTMLDivElement>(null);
-  const previousCollapseRef = useRef(false);
-  // Set when the window or the canvas, not the person, folded an open bar. It reopens
-  // once neither needs the room, unless the person opened or folded it meanwhile.
-  const reopenOnWidenRef = useRef(false);
-  // The width the person last dragged the open bar to; folds and reopens keep it.
-  const personWidthRef = useRef<number | null>(null);
+  // Until this time a re-layout of the reopened bar is put back to the person's width.
+  const restoreUntilRef = useRef(0);
   // Below 1024px the bar shrinks to its icon strip by itself; the panel icon still reopens it.
   const narrow = useMediaQuery('(max-width: 1023px)');
   const collapse = collapseForWorkbench || narrow;
 
+  const restorePersonWidth = useCallback(() => {
+    const panel = panelRef.current;
+    if (!panel || !openRef.current) return;
+    const width = readLayoutMemory().personWidth ?? OPEN_NAVIGATION_WIDTH;
+    if (Math.abs(panel.getSize().inPixels - width) > 1) panel.resize(`${width}px`);
+  }, [readLayoutMemory]);
+
+  /** The person is dragging the separator or working it from the keyboard. */
+  const personOnSeparator = () => {
+    const separator = separatorRef.current;
+    return (
+      separator !== null &&
+      (separator.getAttribute('data-separator') === 'active' ||
+        document.activeElement === separator)
+    );
+  };
+
+  // The fold flag lives in the provider: below 768px the phone layout replaces this one.
   useEffect(() => {
-    const wasCollapsed = previousCollapseRef.current;
-    previousCollapseRef.current = collapse;
+    const memory = readLayoutMemory();
+    const wasCollapsed = memory.collapsed;
+    updateLayoutMemory({ collapsed: collapse });
 
     if (collapse && !wasCollapsed) {
       if (open) {
-        reopenOnWidenRef.current = true;
+        updateLayoutMemory({ reopenOnWiden: true });
         setOpen(false, { remember: false });
       }
       return;
     }
     if (!collapse && wasCollapsed) {
-      const reopen = reopenOnWidenRef.current && !open;
-      reopenOnWidenRef.current = false;
+      const reopen = memory.reopenOnWiden && !open;
+      updateLayoutMemory({ reopenOnWiden: false });
       if (reopen) setOpen(true, { remember: false });
       return;
     }
     // The person opened the folded bar; whatever they choose next is theirs.
-    if (collapse && open) reopenOnWidenRef.current = false;
-  }, [collapse, open, setOpen]);
+    if (collapse && open) updateLayoutMemory({ reopenOnWiden: false });
+  }, [collapse, open, readLayoutMemory, setOpen, updateLayoutMemory]);
 
   useEffect(() => {
     openRef.current = open;
@@ -153,19 +168,33 @@ function DesktopNavigationLayout({
       panel.collapse();
       return;
     }
+    // The library expands to a width it clamped while folded, and the window's own
+    // re-layout lands after this effect (1440 -> 768 -> 1440 scaled the strip and then
+    // clamped the bar to 216 px). Until that settles, the open bar is held at the
+    // person's width, or 292 px if they never set one.
+    restoreUntilRef.current = performance.now() + RESTORE_WIDTH_MS;
     panel.expand();
-    // With no remembered width the library expands to its 216 px minimum.
-    const width = personWidthRef.current;
-    const size = panel.getSize().inPixels;
-    if (width !== null ? Math.abs(size - width) > 1 : size <= 216) {
-      panel.resize(`${width ?? OPEN_NAVIGATION_WIDTH}px`);
-    }
-  }, [open]);
+    restorePersonWidth();
+  }, [open, restorePersonWidth]);
 
-  const rememberPersonWidth = (_layout: unknown, meta: { isUserInteraction: boolean }) => {
-    if (!meta.isUserInteraction || !openRef.current) return;
-    const size = panelRef.current?.getSize().inPixels ?? 0;
-    if (size > 64) personWidthRef.current = Math.round(size);
+  // The width comes from the committed layout, as the library computes it: the DOM
+  // can still show the previous pointer step or key press when this reports.
+  const rememberPersonWidth = (
+    layout: Record<string, number>,
+    meta: { isUserInteraction: boolean },
+  ) => {
+    if (!meta.isUserInteraction) return;
+    restoreUntilRef.current = 0;
+    const separator = separatorRef.current;
+    const share = layout['workspace-navigation'];
+    if (!separator || share === undefined) return;
+    const panels = [separator.previousElementSibling, separator.nextElementSibling];
+    const groupWidth = panels.reduce(
+      (total, panel) => total + (panel instanceof HTMLElement ? panel.offsetWidth : 0),
+      0,
+    );
+    const size = Math.round((share / 100) * groupWidth);
+    if (openRef.current && size >= 216) updateLayoutMemory({ personWidth: size });
   };
 
   const synchronizeCollapsedState = (
@@ -180,16 +209,16 @@ function DesktopNavigationLayout({
       // Only the person folds an open bar by its separator. A re-layout (the
       // canvas closing as the bar reopens) can pass through the strip for a
       // frame; it must not fold the bar or replace the person's choice.
-      const separator = separatorRef.current;
-      const personResizing =
-        separator !== null &&
-        (separator.getAttribute('data-separator') === 'active' ||
-          document.activeElement === separator);
-      if (personResizing) setOpen((openRef.current = false));
+      if (personOnSeparator()) setOpen((openRef.current = false));
       else panelRef.current?.expand();
       return;
     }
-    if (openRef.current) return;
+    if (openRef.current) {
+      if (performance.now() < restoreUntilRef.current && !personOnSeparator()) {
+        restorePersonWidth();
+      }
+      return;
+    }
     // Only a drag out of the strip reopens the bar. A viewport resize scales
     // the panel too, and must not undo the fold below 1024px.
     if (previous.inPixels <= 64 && size.inPixels >= 216) setOpen((openRef.current = true));
@@ -221,6 +250,13 @@ function DesktopNavigationLayout({
           aria-label={t`Resize navigation`}
           className="z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60"
           elementRef={separatorRef}
+          // A double-click reset or a drag is the person's; stop holding the old width.
+          onPointerDown={() => (restoreUntilRef.current = 0)}
+          // The library resets to 292 px through its own API, which is not reported
+          // as the person's change.
+          onDoubleClick={() => {
+            if (openRef.current) updateLayoutMemory({ personWidth: OPEN_NAVIGATION_WIDTH });
+          }}
         />
         {/* The conversation keeps 400 px, so at 768 the open bar keeps its full 292 px. */}
         <ResizablePanel id="workspace-content" minSize={`${MIN_CONVERSATION_WIDTH}px`}>
@@ -238,6 +274,8 @@ const MIN_WORKBENCH_WIDTH = 320;
 const MIN_CONVERSATION_WIDTH = 400;
 /** The left bar's open width; folded, it is the 56 px icon column. */
 const OPEN_NAVIGATION_WIDTH = 292;
+/** How long after reopening the window's re-layout may still move the bar. */
+const RESTORE_WIDTH_MS = 400;
 
 /** The workbench width as a share of the window: 40% to start, then what the user dragged. */
 function storedWorkbenchShare(): number {
