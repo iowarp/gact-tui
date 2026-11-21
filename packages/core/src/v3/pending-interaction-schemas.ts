@@ -190,6 +190,7 @@ export const pendingInteractionSchema = z.object({
             .optional(),
           summary: z.string().optional(),
           recommended_mode: z.string().optional(),
+          default_option: z.string().optional(),
           risk_notes: z.string().optional(),
           plan_file: z.string().optional(),
           plan_content: z.string().optional(),

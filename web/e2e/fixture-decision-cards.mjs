@@ -165,7 +165,8 @@ export function decisionCardInteractions(card, context) {
       question_kind: 'choice',
       plan_exit: {
         summary: 'Compare the 14 flat-NDP stations against the displacement series.',
-        recommended_mode: 'ask',
+        recommended_mode: 'interactive',
+        default_option: 'ask',
         risk_notes: 'Two stations sit on a network edge. 2020 series use older flags.',
         plan_file: 'plans/displacement-review.md',
         plan_content: PLAN,

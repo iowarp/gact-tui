@@ -100,7 +100,10 @@ export interface PendingInteractionPayload {
       sha256?: string;
     };
     summary?: string;
+    /** The agent's posture hint (auto, interactive, exit_only); shown, never preselected. */
     recommended_mode?: string;
+    /** The approve option the card preselects: the session's approval mode before planning. */
+    default_option?: string;
     risk_notes?: string;
     plan_file?: string;
     plan_content?: string;

@@ -64,7 +64,8 @@ function planInteraction(overrides: Partial<PendingInteraction> = {}): PendingIn
         { label: 'Also clear context (modifier)', value: 'clear_context' },
       ],
       plan_exit: {
-        recommended_mode: 'ask',
+        recommended_mode: 'interactive',
+        default_option: 'ask',
         plan_file: 'D:/workspace/plans/soil-regrid.md',
         plan_content: PLAN,
         plan_content_status: 'complete',
@@ -171,12 +172,19 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
     });
   });
 
-  it("preselects the conversation's own confirmation policy", async () => {
+  it("falls back to the conversation's own confirmation policy", async () => {
     const user = userEvent.setup();
     useLiveStore.getState().replaceSnapshots({
       sessions: { sess_root: { id: 'sess_root', approval_mode: 'ai-review' } as Session },
     });
-    const interaction = planInteraction();
+    // A card from a service that does not name the pre-plan mode.
+    const base = planInteraction();
+    const interaction = planInteraction({
+      payload: {
+        ...base.payload,
+        plan_exit: { ...base.payload!.plan_exit, default_option: undefined },
+      },
+    });
     const onResponse = vi.fn(async () => undefined);
     render(
       <PlanExitResponse interaction={interaction} onResponse={onResponse} showOwner={false} />,
@@ -188,6 +196,33 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
       action: 'answer',
       selected_options: ['ai-review'],
     });
+  });
+
+  it('starts in the mode the conversation had before planning, not the hint', async () => {
+    const user = userEvent.setup();
+    useLiveStore.getState().replaceSnapshots({
+      sessions: { sess_root: { id: 'sess_root', approval_mode: 'ask' } as Session },
+    });
+    const base = planInteraction();
+    const interaction = planInteraction({
+      payload: {
+        ...base.payload,
+        plan_exit: {
+          ...base.payload!.plan_exit,
+          default_option: 'auto-edits',
+          recommended_mode: 'exit_only',
+        },
+      },
+    });
+    const onResponse = vi.fn(async () => undefined);
+    render(
+      <PlanExitResponse interaction={interaction} onResponse={onResponse} showOwner={false} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Execution mode, Workspace edits' }));
+    // The agent's hint is shown where it points, and never chosen for the person.
+    expect(screen.getByRole('menuitemradio', { name: /^Exit Plan mode only/u })).toHaveTextContent(
+      'Exit Plan mode onlyRecommended',
+    );
   });
 
   it("keeps an older card's Auto-execute and Interactive modes", async () => {
@@ -219,13 +254,7 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
 
   it('asks before running with checks bypassed, as the composer does', async () => {
     const user = userEvent.setup();
-    const interaction = planInteraction({
-      payload: {
-        ...planInteraction().payload,
-        // A recommendation never picks Bypass for the person.
-        plan_exit: { ...planInteraction().payload!.plan_exit, recommended_mode: 'bypass' },
-      },
-    });
+    const interaction = planInteraction();
     const onResponse = vi.fn(async () => undefined);
     render(
       <PlanExitResponse interaction={interaction} onResponse={onResponse} showOwner={false} />,
