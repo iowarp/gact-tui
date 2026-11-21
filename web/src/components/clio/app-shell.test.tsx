@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ClioAppShell } from './app-shell';
@@ -121,6 +121,46 @@ describe('ClioAppShell responsive workbench', () => {
 
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByRole('separator', { name: 'Resize workspace canvas' })).toBeVisible();
+    expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBeVisible();
+  });
+
+  it('does not turn an open pocket into a sheet over the conversation when the window narrows', () => {
+    let wide = true;
+    const listeners = new Set<() => void>();
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: vi.fn(
+        (query: string): MediaQueryList =>
+          ({
+            get matches() {
+              return query.startsWith('(min-width:') && (wide || query === '(min-width: 768px)');
+            },
+            media: query,
+            onchange: null,
+            addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+            removeEventListener: (_type: string, listener: () => void) =>
+              listeners.delete(listener),
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            dispatchEvent: vi.fn(() => false),
+          }) as unknown as MediaQueryList,
+      ),
+    });
+    const resize = (next: boolean) =>
+      act(() => {
+        wide = next;
+        for (const listener of [...listeners]) listener();
+      });
+
+    renderShell();
+    expect(screen.getByRole('separator', { name: 'Resize workspace canvas' })).toBeVisible();
+
+    resize(false);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText('Conversation')).toBeVisible();
+
+    resize(true);
     expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBeVisible();
   });
 });
