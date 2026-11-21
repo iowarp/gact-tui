@@ -83,6 +83,19 @@ describe('watchFirstPaint', () => {
     expect(verdicts).toEqual(['pending', 'drawn']);
   });
 
+  it('notices a late first frame within 3 s of it landing', async () => {
+    const late = FIRST_PAINT_PROBES_MS.filter((offset) => offset >= 10_000);
+    expect(late.slice(1).every((offset, i) => offset - late[i]! <= 3_000)).toBe(true);
+    vi.useFakeTimers();
+    const take = vi.fn().mockResolvedValue(shot({}));
+    const verdicts: PaintVerdict[] = [];
+    watchFirstPaint(take, (verdict) => verdicts.push(verdict));
+    await vi.advanceTimersByTimeAsync(20_000);
+    take.mockResolvedValue(shot({ canvas: 1 }));
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(verdicts).toEqual(['pending', 'drawn']);
+  });
+
   it('reports blank after its last look, and looks again after a resize', async () => {
     vi.useFakeTimers();
     const take = vi.fn().mockResolvedValue(shot({}));

@@ -346,9 +346,10 @@ describe('McpAppSurface', () => {
     expect(client.closeMcpApp).not.toHaveBeenCalled();
   });
 
-  it('looks again when a view that read blank reports a new state (FP-D9)', async () => {
+  /** Mount a view, initialize it under fake timers, and answer its paint looks. */
+  async function mountPaintView(appInstanceId: string) {
     const client = repository();
-    render(<McpAppSurface {...props} appInstanceId="app_paint" repository={client} />);
+    render(<McpAppSurface {...props} appInstanceId={appInstanceId} repository={client} />);
     const iframe = await screen.findByTitle<HTMLIFrameElement>(
       'vigil_open_viewer, interactive view',
     );
@@ -403,6 +404,11 @@ describe('McpAppSurface', () => {
         },
         { timeout: 8000 },
       );
+    return { fromView, answerLooks };
+  }
+
+  it('looks again when a view that read blank reports a new state (FP-D9)', async () => {
+    const { fromView, answerLooks } = await mountPaintView('app_paint');
     // The scene starts empty, as a remote view's does before its first frame: the header
     // stays at Drawing through the probe window, with no failure banner.
     let previous = 0;
@@ -419,6 +425,22 @@ describe('McpAppSurface', () => {
     expect(await screen.findByText('Nothing drawn')).toBeVisible();
     // The view draws later and says so through its model context: the host looks again.
     fromView({ id: 'ctx', method: 'ui/update-model-context', params: { content: [] } });
+    await act(() => vi.advanceTimersByTimeAsync(RESIZE_RECHECK_MS));
+    await answerLooks(1);
+    expect(await screen.findByText('Ready')).toBeVisible();
+  }, 30_000);
+
+  it('looks again while drawing when the view resizes itself (FP-D9)', async () => {
+    const { fromView, answerLooks } = await mountPaintView('app_paint_resize');
+    let previous = 0;
+    for (const offset of FIRST_PAINT_PROBES_MS.slice(0, 4)) {
+      await act(() => vi.advanceTimersByTimeAsync(offset - previous));
+      previous = offset;
+      await answerLooks(0);
+    }
+    expect(screen.getByText('Drawing')).toBeVisible();
+    // A remote frame lands and the view grows to fit it, between two probes.
+    fromView({ method: 'ui/notifications/size-changed', params: { height: 420 } });
     await act(() => vi.advanceTimersByTimeAsync(RESIZE_RECHECK_MS));
     await answerLooks(1);
     expect(await screen.findByText('Ready')).toBeVisible();
