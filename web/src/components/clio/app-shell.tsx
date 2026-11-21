@@ -116,6 +116,9 @@ function DesktopNavigationLayout({
   const separatorRef = useRef<HTMLDivElement>(null);
   // Until this time a re-layout of the reopened bar is put back to the person's width.
   const restoreUntilRef = useRef(0);
+  const keyInputRef = useRef(false);
+  // The remembered width before a run of shrinking key presses; undefined outside a run.
+  const keyShrinkStartRef = useRef<number | null | undefined>(undefined);
   // Below 1024px the bar shrinks to its icon strip by itself; the panel icon still reopens it.
   const narrow = useMediaQuery('(max-width: 1023px)');
   const collapse = collapseForWorkbench || narrow;
@@ -194,7 +197,12 @@ function DesktopNavigationLayout({
       0,
     );
     const size = Math.round((share / 100) * groupWidth);
-    if (openRef.current && size >= 216) updateLayoutMemory({ personWidth: size });
+    if (!openRef.current) return;
+    const remembered = readLayoutMemory().personWidth;
+    if (!keyInputRef.current) keyShrinkStartRef.current = undefined;
+    else if (size >= (remembered ?? OPEN_NAVIGATION_WIDTH)) keyShrinkStartRef.current = undefined;
+    else if (keyShrinkStartRef.current === undefined) keyShrinkStartRef.current = remembered;
+    if (size >= 216) updateLayoutMemory({ personWidth: size });
   };
 
   const synchronizeCollapsedState = (
@@ -209,8 +217,15 @@ function DesktopNavigationLayout({
       // Only the person folds an open bar by its separator. A re-layout (the
       // canvas closing as the bar reopens) can pass through the strip for a
       // frame; it must not fold the bar or replace the person's choice.
-      if (personOnSeparator()) setOpen((openRef.current = false));
-      else panelRef.current?.expand();
+      if (personOnSeparator()) {
+        // Arrow keys reach the strip through the 216 px minimum; the person
+        // chose the fold, not that step, so reopen at the width before the presses.
+        if (keyInputRef.current && keyShrinkStartRef.current !== undefined) {
+          updateLayoutMemory({ personWidth: keyShrinkStartRef.current });
+        }
+        keyShrinkStartRef.current = undefined;
+        setOpen((openRef.current = false));
+      } else panelRef.current?.expand();
       return;
     }
     if (openRef.current) {
@@ -250,6 +265,14 @@ function DesktopNavigationLayout({
           aria-label={t`Resize navigation`}
           className="z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60"
           elementRef={separatorRef}
+          // The library owns onBlur; capture still sees the person leave the separator.
+          onBlurCapture={() => (keyShrinkStartRef.current = undefined)}
+          // Capture runs before the library's own key and pointer handlers.
+          onKeyDownCapture={() => (keyInputRef.current = true)}
+          onPointerDownCapture={() => {
+            keyInputRef.current = false;
+            keyShrinkStartRef.current = undefined;
+          }}
           // A double-click reset or a drag is the person's; stop holding the old width.
           onPointerDown={() => (restoreUntilRef.current = 0)}
           // The library resets to 292 px through its own API, which is not reported
