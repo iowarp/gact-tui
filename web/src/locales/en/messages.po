@@ -2724,10 +2724,6 @@ msgstr "{minutes}m"
 msgid "{mode}, {messageCount}, {toolCount}, {skillCount}"
 msgstr "{mode}, {messageCount}, {toolCount}, {skillCount}"
 
-#: src/components/clio/plan-decision-controls.tsx
-msgid "{mode}, context cleared"
-msgstr "{mode}, context cleared"
-
 #: src/lib/flow-run-usage.ts
 msgid "{model} ({why})"
 msgstr "{model} ({why})"
@@ -6821,6 +6817,10 @@ msgstr "Approved {actionText}"
 msgid "Approved a permission request"
 msgstr "Approved a permission request"
 
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}"
+msgstr "Approved in {mode}"
+
 #: src/lib/plan-status.ts
 msgid "Approved, being worked on"
 msgstr "Approved, being worked on"
@@ -10630,6 +10630,7 @@ msgid "Confirm this code on NDP:"
 msgstr "Confirm this code on NDP:"
 
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/lib/onboarding/tour-script.ts
 msgid "Confirmation policy"
 msgstr "Confirmation policy"
@@ -11133,6 +11134,10 @@ msgstr "Context & compaction"
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Context agent"
 msgstr "Context agent"
+
+#: src/components/clio/plan-decision-controls.tsx
+msgid "context cleared"
+msgstr "context cleared"
 
 #: src/hooks/use-session-context.ts
 msgid "Context controls could not be updated"
@@ -25339,7 +25344,6 @@ msgid "Opening the note"
 msgstr "Opening the note"
 
 #: src/components/clio/browser-new-page.tsx
-#: src/components/clio/plugin-page-browser.tsx
 #: src/components/clio/workbench-tab-content.tsx
 #: src/routes/plugin-page.tsx
 msgid "Opening the page"
@@ -26281,7 +26285,6 @@ msgid "plan {status}"
 msgstr "plan {status}"
 
 #: src/components/clio/injection-presentation.ts
-#: src/components/clio/plan-decision-controls.tsx
 msgid "Plan approved"
 msgstr "Plan approved"
 

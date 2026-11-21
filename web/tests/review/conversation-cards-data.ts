@@ -369,7 +369,7 @@ Regrid SMAP L3 for 2020–2023 to 0.25° and check the 14 Opal sites against the
 
 ## Execution recommendation
 
-Interactive. Step 2 holds four ranks for about 40 minutes.
+Ask first. Step 2 holds four ranks for about 40 minutes.
 
 ## Risks
 
@@ -389,15 +389,18 @@ function plan(status: 'complete' | 'truncated', content = PLAN) {
       question_kind: 'choice',
       plan_exit: {
         summary: 'Regrid SMAP L3 for 2020–2023 to 0.25° and check the 14 Opal sites.',
-        recommended_mode: 'interactive',
+        recommended_mode: 'ask',
         risk_notes: 'Two sites sit on a grid edge. 2020 granules use the older QC flags.',
         plan_file: 'plans/soil-regrid.md',
         plan_content: content,
         plan_content_status: status,
       },
       options: [
-        { label: 'Approve — interactive', value: 'interactive' },
-        { label: 'Approve — auto-execute', value: 'auto' },
+        { label: 'Approve — ask first', value: 'ask' },
+        { label: 'Approve — workspace edits', value: 'auto-edits' },
+        { label: 'Approve — AI review', value: 'ai-review' },
+        { label: 'Approve — SPOTTER review', value: 'spotter-ai' },
+        { label: 'Approve — bypass checks', value: 'bypass' },
         { label: 'Approve — exit only', value: 'exit_only' },
         { label: 'Request changes — keep planning', value: 'reject' },
         { label: 'Also clear context (modifier)', value: 'clear_context' },
@@ -501,7 +504,7 @@ export const SCENARIOS: Record<string, CardScenario> = {
     closest: true,
     interactions: [],
     view: 'answered-rows',
-    open: 'Expand Plan approved',
+    open: 'Expand Approved in Workspace edits',
   },
   'narrow-third': {
     spec: 'A third of the window',
@@ -526,6 +529,6 @@ export const APPROVED_PLAN: PendingInteraction = {
   status: 'resolved',
   payload: {
     ...plan('complete').payload,
-    answer_metadata: { selected_options: ['interactive', 'clear_context'] },
+    answer_metadata: { selected_options: ['auto-edits', 'clear_context'] },
   },
 };
