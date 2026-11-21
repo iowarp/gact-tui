@@ -118,12 +118,24 @@ export function ClioPendingInteractions({
     const dock = dockRef.current;
     const conversation = dock?.closest<HTMLElement>('[data-slot=session-transcript]');
     if (!dock || !conversation) return;
-    const update = () =>
+    // Above the composer the dock also gets only the room left in the composer's column: its own
+    // height plus that column's free space. Neither depends on the card, so a card capped to it
+    // never makes the dock scroll its header away, and the cap grows back with the window.
+    const stack = dock.parentElement?.matches('[data-slot=clio-composer-stack]')
+      ? dock.parentElement
+      : null;
+    const column = stack?.parentElement;
+    const update = () => {
       dock.style.setProperty('--conversation-h', `${conversation.clientHeight}px`);
+      if (!stack || !column) return;
+      const room = dock.offsetHeight + Math.max(0, column.clientHeight - stack.offsetHeight);
+      dock.style.setProperty('--dock-room', `${room}px`);
+    };
     update();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(update);
-    observer.observe(conversation);
+    for (const element of [conversation, dock, stack, column])
+      if (element) observer.observe(element);
     return () => observer.disconnect();
   }, [docked]);
   useEffect(() => {
@@ -248,11 +260,12 @@ export function ClioPendingInteractions({
       <ScrollArea
         className={cn(
           'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
-          // The card stops at 45% of the conversation's height, but never below 20rem (its
-          // options grow with the interface size) nor past 75%. A visual answer gets more.
+          // A card stops at 45% of the conversation's height (see --ask-card-max), but one whose
+          // kept parts need more grows to the ceiling: 75% of the conversation, within the dock's
+          // room. The stack holds a card up to that ceiling. A visual answer gets more.
           hasInteractiveSurface
             ? 'max-h-[calc(100dvh-12rem)]'
-            : 'max-h-[min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75))]',
+            : 'max-h-(--ask-card-ceiling) [--ask-card-ceiling:min(calc(var(--conversation-h,100dvh)*0.75),var(--dock-room,100dvh))]',
         )}
         scrollHideDelay={500}
         // No scrollbar chrome at rest; it shows only while the card scrolls.
@@ -282,9 +295,10 @@ export function ClioPendingInteractions({
             data-ask-capped={hasInteractiveSurface ? undefined : ''}
             className={cn(
               '@container/dock flex min-w-0 flex-col gap-2',
-              // A card past the cap scrolls its body; its options stay in view.
+              // A card past the cap scrolls its body; its options stay in view. Above the
+              // composer it also stops at the dock's room, so the dock itself never scrolls it.
               !hasInteractiveSurface &&
-                '[--ask-card-max:min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75))]',
+                '[--ask-card-max:min(max(calc(var(--conversation-h,100dvh)*0.45),20rem),calc(var(--conversation-h,100dvh)*0.75),var(--dock-room,100dvh))]',
             )}
           >
             <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
