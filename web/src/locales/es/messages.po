@@ -9639,6 +9639,10 @@ msgstr "Elige si quieres conectarte al {agent} en ejecución o reemplazarlo."
 msgid "Choose which new and updated memories save automatically. Retirement needs review."
 msgstr "Elige qué recuerdos nuevos y actualizados se guardan automáticamente. Retirar uno requiere revisión."
 
+#: src/components/clio/question-interaction-forms.tsx
+msgid "Choose Yes or No."
+msgstr "Elija Sí o No."
+
 #: src/components/clio/a2ui-choice-picker.tsx
 #: src/components/clio/capability-picker.tsx
 #: src/components/clio/desktop-folder-upload.tsx
@@ -22474,6 +22478,7 @@ msgstr "Región siguiente, anterior"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
+#: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "No"
@@ -25347,6 +25352,7 @@ msgid "Opening the note"
 msgstr "Abriendo la nota"
 
 #: src/components/clio/browser-new-page.tsx
+#: src/components/clio/plugin-page-browser.tsx
 #: src/components/clio/workbench-tab-content.tsx
 msgid "Opening the page"
 msgstr "Abriendo la página"
@@ -42306,6 +42312,7 @@ msgstr "Año"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
+#: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
