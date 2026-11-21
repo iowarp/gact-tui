@@ -2170,7 +2170,7 @@ msgstr "{hidden, plural, one {# more conversation} other {# more conversations}}
 msgid "{hidden, plural, one {# more file} other {# more files}}"
 msgstr "{hidden, plural, one {# more file} other {# more files}}"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "{hidden, plural, one {# more line} other {# more lines}}"
 msgstr "{hidden, plural, one {# more line} other {# more lines}}"
@@ -11567,7 +11567,7 @@ msgstr "Cook until al dente and reserve a splash of water."
 msgid "Cool"
 msgstr "Cool"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/settings-report-problem.tsx
@@ -12077,7 +12077,7 @@ msgstr "Could not copy the file text."
 msgid "Could not copy the reference"
 msgstr "Could not copy the reference"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 msgid "Could not copy to the clipboard."
 msgstr "Could not copy to the clipboard."
 
@@ -24972,7 +24972,7 @@ msgstr "Open in Mail"
 msgid "Open in system terminal"
 msgstr "Open in system terminal"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/mcp-app-card.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
@@ -33050,7 +33050,7 @@ msgstr "Show {remaining} more"
 msgid "Show {title}"
 msgstr "Show {title}"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/conversation-list-groups.tsx
@@ -34846,7 +34846,7 @@ msgstr "Stop the work this conversation started?"
 msgid "Stop this run?"
 msgstr "Stop this run?"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Stop wrapping long lines"
 msgstr "Stop wrapping long lines"
@@ -42204,7 +42204,7 @@ msgstr "Workspaces not listed"
 msgid "Workspaces not listed. Retry"
 msgstr "Workspaces not listed. Retry"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/file-source-view.tsx
 #: src/components/clio/file-text-view.tsx
 #: src/components/clio/transcript-tool-bodies.tsx

@@ -2171,7 +2171,7 @@ msgstr "{hidden, plural, one {# conversación más} other {# conversaciones más
 msgid "{hidden, plural, one {# more file} other {# more files}}"
 msgstr "{hidden, plural, one {# archivo más} other {# archivos más}}"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "{hidden, plural, one {# more line} other {# more lines}}"
 msgstr "{hidden, plural, one {# línea más} other {# líneas más}}"
@@ -11568,7 +11568,7 @@ msgstr "Cocina hasta que esté al dente y reserva un chorrito del agua."
 msgid "Cool"
 msgstr "Frío"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/settings-report-problem.tsx
@@ -12078,7 +12078,7 @@ msgstr "No se pudo copiar el texto del archivo."
 msgid "Could not copy the reference"
 msgstr "No se pudo copiar la referencia"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 msgid "Could not copy to the clipboard."
 msgstr "No se pudo copiar al portapapeles."
 
@@ -24973,7 +24973,7 @@ msgstr "Abrir en Mail"
 msgid "Open in system terminal"
 msgstr "Abrir en el terminal del sistema"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/mcp-app-card.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
@@ -33051,7 +33051,7 @@ msgstr "Mostrar {remaining} más"
 msgid "Show {title}"
 msgstr "Mostrar {title}"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/conversation-list-groups.tsx
@@ -34847,7 +34847,7 @@ msgstr "¿Detener el trabajo que inició esta conversación?"
 msgid "Stop this run?"
 msgstr "¿Detener esta ejecución?"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Stop wrapping long lines"
 msgstr "No ajustar líneas largas"
@@ -42205,7 +42205,7 @@ msgstr "Espacios de trabajo no listados"
 msgid "Workspaces not listed. Retry"
 msgstr "No se listaron los espacios de trabajo. Reintentar"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/file-source-view.tsx
 #: src/components/clio/file-text-view.tsx
 #: src/components/clio/transcript-tool-bodies.tsx

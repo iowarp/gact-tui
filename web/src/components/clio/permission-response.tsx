@@ -6,13 +6,13 @@ import {
   AskBody,
   AskButton,
   AskCard,
-  AskCode,
   AskDetails,
   AskError,
   AskOptions,
   AskSection,
   type AskFact,
 } from './ask-card';
+import { AskCode } from './ask-code';
 import { FlowTrustDetails } from './flow-trust-details';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import type { ClioPendingInteractionsProps } from './pending-interactions';

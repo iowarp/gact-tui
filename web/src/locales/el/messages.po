@@ -2171,7 +2171,7 @@ msgstr "{hidden, plural, one {# ακόμη συνομιλία} other {# ακόμ
 msgid "{hidden, plural, one {# more file} other {# more files}}"
 msgstr "{hidden, plural, one {# ακόμη αρχείο} other {# ακόμη αρχεία}}"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "{hidden, plural, one {# more line} other {# more lines}}"
 msgstr "{hidden, plural, one {# ακόμη γραμμή} other {# ακόμη γραμμές}}"
@@ -11568,7 +11568,7 @@ msgstr "Βράστε μέχρι να γίνουν al dente και κρατήστ
 msgid "Cool"
 msgstr "Ψυχρό"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/settings-report-problem.tsx
@@ -12078,7 +12078,7 @@ msgstr "Δεν ήταν δυνατή η αντιγραφή του κειμένο
 msgid "Could not copy the reference"
 msgstr "Δεν ήταν δυνατή η αντιγραφή της αναφοράς"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 msgid "Could not copy to the clipboard."
 msgstr "Δεν ήταν δυνατή η αντιγραφή στο πρόχειρο."
 
@@ -24973,7 +24973,7 @@ msgstr "Άνοιγμα στο Mail"
 msgid "Open in system terminal"
 msgstr "Άνοιγμα στο τερματικό του συστήματος"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/mcp-app-card.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
@@ -33051,7 +33051,7 @@ msgstr "Εμφάνιση {remaining} ακόμη"
 msgid "Show {title}"
 msgstr "Εμφάνιση {title}"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/conversation-list-groups.tsx
@@ -34847,7 +34847,7 @@ msgstr "Διακοπή της εργασίας που ξεκίνησε αυτή 
 msgid "Stop this run?"
 msgstr "Διακοπή αυτής της εκτέλεσης;"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Stop wrapping long lines"
 msgstr "Διακοπή αναδίπλωσης μεγάλων γραμμών"
@@ -42205,7 +42205,7 @@ msgstr "Οι χώροι εργασίας δεν παρατέθηκαν"
 msgid "Workspaces not listed. Retry"
 msgstr "Οι χώροι εργασίας δεν εμφανίστηκαν. Επανάληψη"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/file-source-view.tsx
 #: src/components/clio/file-text-view.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
