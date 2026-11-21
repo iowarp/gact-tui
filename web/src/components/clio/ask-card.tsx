@@ -35,7 +35,7 @@ import {
 } from './ask-card-keys';
 import { jsonLine, useHighlightedLines, WRAP_MARKS } from './ask-code-lines';
 import { TechnicalDetails } from './technical-details';
-import { useScrollClipped } from './use-scroll-clipped';
+import { useOverflowMark, useScrollClipped } from './use-scroll-clipped';
 import { composerFailureReason } from './composer-failure';
 import { plural, t } from '@lingui/core/macro';
 
@@ -182,6 +182,8 @@ export function AskCard({
   ...props
 }: AskCardProps) {
   const id = useId();
+  const ref = useRef<HTMLElement>(null);
+  useOverflowMark(ref);
   const labelledBy = [
     `${id}-title`,
     meta ? `${id}-meta` : undefined,
@@ -191,6 +193,7 @@ export function AskCard({
     .join(' ');
   return (
     <section
+      ref={ref}
       aria-labelledby={props['aria-label'] ? undefined : labelledBy}
       data-slot="ask-card"
       data-ask-kind={kind}
@@ -214,7 +217,8 @@ export function AskCard({
         // and the options stay. Open Technical details scroll inside it, so the cap holds. When
         // the parts that keep their height still pass the cap (stacked options at a large
         // interface size), the capped card scrolls as a whole instead of painting past its frame.
-        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-menu text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring clio-scrollbar [scrollbar-gutter:auto]! in-data-ask-capped:overflow-x-hidden in-data-ask-capped:overflow-y-auto in-data-ask-capped:overscroll-contain',
+        // Only then does it keep the wheel; a card that fits passes it to the dock.
+        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-menu text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring clio-scrollbar [scrollbar-gutter:auto]! in-data-ask-capped:overflow-x-hidden in-data-ask-capped:overflow-y-auto in-data-ask-capped:data-overflows:overscroll-contain',
         EDGE[kind],
         className,
       )}
