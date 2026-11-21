@@ -19,9 +19,12 @@ export type PaintVerdict = 'pending' | 'drawn' | 'blank' | 'unknown';
 
 /**
  * When the host looks, in milliseconds after `initialized`: soon for a local view, then
- * backing off for a remote one. A view still blank at the last look has drawn nothing.
+ * every 3 s for a remote one, so a view that draws late reads Ready within about 3 s. A
+ * view still blank at the last look has drawn nothing.
  */
-export const FIRST_PAINT_PROBES_MS = [800, 2500, 6000, 10_000, 16_000, 23_000, 30_000] as const;
+export const FIRST_PAINT_PROBES_MS = [
+  800, 2500, 6000, 10_000, 13_000, 16_000, 19_000, 22_000, 25_000, 28_000, 30_000,
+] as const;
 /** How long after a resize a view the host saw blank is looked at again. */
 export const RESIZE_RECHECK_MS = 800;
 
