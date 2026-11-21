@@ -493,13 +493,26 @@ function ModePhrase({ phrase, mode }: { phrase: string; mode: string }) {
   }
   const lead = phrase.slice(0, at);
   const rest = phrase.slice(at + mode.length);
+  // The lead-in and mode never shrink, only cap at the row's width, so the rest
+  // collapses to nothing before the lead-in loses a pixel. Proportional shrink
+  // would take a sliver from the lead-in early and show its ellipsis.
   return (
     <span data-slot="plan-mode-phrase" className="flex min-w-0" title={phrase}>
-      {lead ? <span className={cn(PHRASE_PART, 'shrink')}>{lead}</span> : null}
-      <span data-slot="plan-mode-name" className={cn(PHRASE_PART, 'max-w-full shrink-0')}>
-        {mode}
+      <span className="flex max-w-full shrink-0">
+        {lead ? (
+          <span data-slot="plan-mode-lead" className={cn(PHRASE_PART, 'shrink')}>
+            {lead}
+          </span>
+        ) : null}
+        <span data-slot="plan-mode-name" className={cn(PHRASE_PART, 'max-w-full shrink-0')}>
+          {mode}
+        </span>
       </span>
-      {rest ? <span className={cn(PHRASE_PART, 'shrink-[1000]')}>{rest}</span> : null}
+      {rest ? (
+        <span data-slot="plan-mode-rest" className={cn(PHRASE_PART, 'shrink')}>
+          {rest}
+        </span>
+      ) : null}
     </span>
   );
 }
