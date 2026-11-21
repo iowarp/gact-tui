@@ -203,6 +203,38 @@ describe('ClioAppShell responsive workbench', () => {
     expect(screen.getByText('Bar open')).toBeInTheDocument();
   });
 
+  it('reopens the left bar after the phone layout replaced it, when the window folded it', () => {
+    document.cookie = 'sidebar_state=true; path=/';
+    // Narrow is a phone here: under 768px the shell swaps out the desktop layout.
+    const resize = installResizableMatchMedia((query, wide) =>
+      query.startsWith('(max-width:') ? !wide : query.startsWith('(min-width:') && wide,
+    );
+    function NavigationProbe() {
+      return <nav>{useSidebar().open ? 'Bar open' : 'Bar folded'}</nav>;
+    }
+    render(
+      <TooltipProvider>
+        <ClioAppShell
+          contextBar={<span>Context</span>}
+          navigation={<NavigationProbe />}
+          statusStrip={null}
+          workbench={null}
+        >
+          <span>Conversation</span>
+        </ClioAppShell>
+      </TooltipProvider>,
+    );
+    expect(screen.getByText('Bar open')).toBeInTheDocument();
+
+    resize(false);
+    expect(screen.queryByRole('separator', { name: 'Resize navigation' })).toBeNull();
+
+    resize(true);
+    expect(screen.getByRole('separator', { name: 'Resize navigation' })).toBeInTheDocument();
+    expect(screen.getByText('Bar open')).toBeInTheDocument();
+    expect(document.cookie).toContain('sidebar_state=true');
+  });
+
   it('keeps the left bar folded after widening when the person folded it while narrow', () => {
     document.cookie = 'sidebar_state=true; path=/';
     const resize = installResizableMatchMedia((query, wide) =>
