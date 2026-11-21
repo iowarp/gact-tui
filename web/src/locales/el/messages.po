@@ -2718,10 +2718,6 @@ msgstr "{minutes} λ."
 msgid "{mode}, {messageCount}, {toolCount}, {skillCount}"
 msgstr "{mode}, {messageCount}, {toolCount}, {skillCount}"
 
-#: src/components/clio/plan-decision-controls.tsx
-msgid "{mode}, context cleared"
-msgstr "{mode}, το πλαίσιο εκκαθαρίστηκε"
-
 #: src/lib/flow-run-usage.ts
 msgid "{model} ({why})"
 msgstr "{model} ({why})"
@@ -6797,6 +6793,10 @@ msgstr "Εγκρίθηκε: {actionText}"
 msgid "Approved a permission request"
 msgstr "Εγκρίθηκε αίτημα δικαιωμάτων"
 
+#: src/components/clio/plan-decision-controls.tsx
+msgid "Approved in {mode}"
+msgstr "Εγκρίθηκε με {mode}"
+
 #: src/lib/plan-status.ts
 msgid "Approved, being worked on"
 msgstr "Εγκρίθηκε, σε εξέλιξη"
@@ -10640,6 +10640,7 @@ msgid "Confirm this code on NDP:"
 msgstr "Επιβεβαιώστε αυτόν τον κωδικό στο NDP:"
 
 #: src/components/clio/composer-behavior-controls.tsx
+#: src/components/clio/plan-decision-controls.tsx
 #: src/lib/onboarding/tour-script.ts
 msgid "Confirmation policy"
 msgstr "Πολιτική επιβεβαίωσης"
@@ -11143,6 +11144,10 @@ msgstr "Πλαίσιο και συμπύκνωση"
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Context agent"
 msgstr "Πράκτορας πλαισίου"
+
+#: src/components/clio/plan-decision-controls.tsx
+msgid "context cleared"
+msgstr "το πλαίσιο εκκαθαρίστηκε"
 
 #: src/hooks/use-session-context.ts
 msgid "Context controls could not be updated"
@@ -25352,7 +25357,6 @@ msgid "Opening the note"
 msgstr "Άνοιγμα της σημείωσης"
 
 #: src/components/clio/browser-new-page.tsx
-#: src/components/clio/plugin-page-browser.tsx
 #: src/components/clio/workbench-tab-content.tsx
 msgid "Opening the page"
 msgstr "Άνοιγμα της σελίδας"
@@ -26296,7 +26300,6 @@ msgid "plan {status}"
 msgstr "σχέδιο {status}"
 
 #: src/components/clio/injection-presentation.ts
-#: src/components/clio/plan-decision-controls.tsx
 msgid "Plan approved"
 msgstr "Το σχέδιο εγκρίθηκε"
 

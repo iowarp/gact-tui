@@ -1,28 +1,43 @@
 import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
-import { useId, useRef, type ReactNode } from 'react';
+import { Fragment, useId, useRef, type ReactNode } from 'react';
 import {
   CheckIcon,
   CircleAlertIcon,
   LoaderCircleIcon,
+  LogOutIcon,
   NotebookTextIcon,
   TriangleAlertIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { useLiveStore } from '@/store/live-store';
 import { AskAnsweredRow, AskButton, AskKeyChip, AskSection } from './ask-card';
 import { askKeyAttributes } from './ask-card-keys';
 import { useAttentionDraft } from './attention-drafts';
 import { respondFromControl } from './interaction-control';
-import { planModeLabel } from './plan-mode-label';
+import { planApprovalOption, planModeLabel } from './plan-mode-label';
+import { MenuRow } from './primitives/menu-row';
 import { SplitButton } from './primitives/split-button';
+import { SESSION_APPROVAL_OPTIONS } from './session-behavior-options';
 import { ph, t } from '@lingui/core/macro';
 
-const MODES = ['auto', 'interactive', 'exit_only'];
+/** Approve choices: the confirmation policy to run in, then older cards' modes. */
+const APPROVALS: readonly string[] = SESSION_APPROVAL_OPTIONS.map((option) => option.value);
+const LEGACY_MODES = ['auto', 'interactive'];
+const MODES = [...APPROVALS, ...LEGACY_MODES, 'exit_only'];
 const KNOWN_OPTIONS = new Set([...MODES, 'reject', 'clear_context']);
 const KNOWN_ACTIONS = new Set(['answer', 'cancel']);
+/** One 30px line per row, as in the composer's confirmation menu. */
+const MENU_ITEM =
+  'min-h-[30px] py-0 text-menu [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:size-[13px]! [&_[data-slot=dropdown-menu-radio-item-indicator]_svg]:text-accent-foreground!';
 
 type PlanExit = NonNullable<NonNullable<PendingInteraction['payload']>['plan_exit']>;
 
@@ -80,6 +95,63 @@ function optionValue(option: { value?: string; label: string }) {
 }
 
 /**
+ * The Execute menu: the confirmation policies the plan can run in, named and
+ * drawn as in the composer, with Bypass checks set apart; older cards'
+ * Auto-execute and Interactive; then Exit Plan mode only.
+ */
+function PlanModeMenu({
+  modes,
+  value,
+  recommended,
+  onChange,
+}: {
+  modes: readonly string[];
+  value: string;
+  recommended?: string;
+  onChange: (value: string) => void;
+}) {
+  const approvals = modes.filter((mode) => planApprovalOption(mode));
+  const recommendedTag =
+    recommended && modes.includes(recommended) ? (
+      <span className="shrink-0 text-label text-muted-foreground">{t`Recommended`}</span>
+    ) : null;
+  return (
+    <DropdownMenuRadioGroup onValueChange={onChange} value={value}>
+      {approvals.length ? (
+        <DropdownMenuLabel className="px-2 pt-1.5 pb-1 text-caption font-normal text-muted-foreground">
+          {t`Confirmation policy`}
+        </DropdownMenuLabel>
+      ) : null}
+      {modes.map((mode, index) => {
+        const approval = planApprovalOption(mode);
+        const bypass = mode === 'bypass';
+        const exit = mode === 'exit_only';
+        const Icon = approval?.icon ?? (exit && approvals.length ? LogOutIcon : undefined);
+        return (
+          <Fragment key={mode}>
+            {(bypass || exit) && index > 0 ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuRadioItem
+              className={cn(
+                MENU_ITEM,
+                bypass && 'focus:bg-destructive/10 dark:focus:bg-destructive/20',
+              )}
+              value={mode}
+            >
+              <MenuRow
+                description={approval?.description}
+                icon={Icon ? <Icon className={bypass ? 'text-destructive' : undefined} /> : null}
+                label={planModeLabel(mode)}
+              />
+              {mode === recommended ? recommendedTag : null}
+            </DropdownMenuRadioItem>
+          </Fragment>
+        );
+      })}
+    </DropdownMenuRadioGroup>
+  );
+}
+
+/**
  * The decision under the plan: Execute in a mode (the mode reads inside the
  * filled button), Request changes with a one-line note, and Clear context
  * first. Nothing executes until a button is pressed.
@@ -99,15 +171,23 @@ export function PlanDecisionControls({
   const id = interaction.id;
   const options = interaction.payload?.options ?? [];
   const values = options.map(optionValue);
-  const modes = values.filter((value) => MODES.includes(value));
+  const modes = MODES.filter((value) => values.includes(value));
+  const runModes = modes.filter((value) => value !== 'exit_only');
   const plan = interaction.payload?.plan_exit;
   const recommended = plan?.recommended_mode;
+  // The plan runs in the conversation's own confirmation policy unless the person picks another.
+  const prior = useLiveStore(
+    (state) => state.entities.sessions[interaction.owner_session_id]?.approval_mode,
+  );
   const defaultMode =
+    runModes.find((value) => value === prior) ??
     modes.find((value) => value === recommended) ??
-    modes.find((value) => value === 'interactive') ??
+    runModes.find((value) => value === 'ask' || value === 'interactive') ??
+    runModes.find((value) => value !== 'bypass') ??
     modes[0] ??
     '';
-  const [draftMode, setMode] = useAttentionDraft(`${id}:plan-mode`, defaultMode);
+  // Empty until the person picks, so the default follows the conversation once it loads.
+  const [draftMode, setMode] = useAttentionDraft(`${id}:plan-mode`, '');
   const mode = modes.includes(draftMode) ? draftMode : defaultMode;
   const [clearContext, setClearContext] = useAttentionDraft(`${id}:plan-clear-context`, false);
   const [feedback, setFeedback] = useAttentionDraft(`${id}:plan-feedback`, '');
@@ -165,6 +245,7 @@ export function PlanDecisionControls({
             }}
             label={exitOnly ? t`Leave Plan mode` : t`Execute`}
             leading={<AskKeyChip askKey={String(executeNumber)} />}
+            menuClassName="w-[24rem] max-w-[calc(100vw-1rem)]"
             menuDisabled={disabled || modes.length < 2}
             menuLabel={t`Execution mode, ${ph({ mode: planModeLabel(mode) })}`}
             menuValue={planModeLabel(mode)}
@@ -173,16 +254,7 @@ export function PlanDecisionControls({
             variant="default"
             wrap
           >
-            <DropdownMenuRadioGroup onValueChange={setMode} value={mode}>
-              {modes.map((value) => (
-                <DropdownMenuRadioItem className="text-menu" key={value} value={value}>
-                  {planModeLabel(value)}
-                  {value === recommended ? (
-                    <span className="text-label text-muted-foreground">{t`Recommended`}</span>
-                  ) : null}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
+            <PlanModeMenu modes={modes} onChange={setMode} recommended={recommended} value={mode} />
           </SplitButton>
         ) : null}
         {canReject ? (
@@ -279,7 +351,7 @@ function answerNote(interaction: PendingInteraction): string | undefined {
   return typeof note === 'string' && note.trim() ? note : undefined;
 }
 
-/** Once decided, the plan folds into one row: "Plan approved  Interactive, context cleared". */
+/** Once decided, the plan folds into one row: "Approved in Workspace edits  context cleared". */
 export function PlanDecision({
   interaction,
   actions,
@@ -306,10 +378,8 @@ export function PlanDecision({
         ? [t`Left Plan mode`, cleared ? t`not executed, context cleared` : t`not executed`, 'ok']
         : decision
           ? [
-              t`Plan approved`,
-              cleared
-                ? t`${ph({ mode: planModeLabel(decision) })}, context cleared`
-                : planModeLabel(decision),
+              t`Approved in ${ph({ mode: planModeLabel(decision) })}`,
+              cleared ? t`context cleared` : undefined,
               'ok',
             ]
           : interaction.status === 'cancelled'
