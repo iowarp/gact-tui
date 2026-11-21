@@ -32,6 +32,48 @@ import { planArtifact } from './plan-artifact';
 import { plainQuestionText, questionPrompt } from './question-card-model';
 import { plural, t } from '@lingui/core/macro';
 
+/** An element's height with its vertical margins, as the composer stack lays it out. */
+function outerHeight(element: HTMLElement, height = element.offsetHeight) {
+  const style = getComputedStyle(element);
+  return height + Number.parseFloat(style.marginTop) + Number.parseFloat(style.marginBottom);
+}
+
+/** The queue yields to a card down to its count line, one row and its "N more" line. */
+function queueFloor(queue: HTMLElement) {
+  const viewport = queue.querySelector<HTMLElement>('[data-slot=scroll-area-viewport]');
+  const row = viewport?.querySelector<HTMLElement>('li');
+  if (!viewport || !row) return queue.offsetHeight;
+  const chrome = queue.offsetHeight - viewport.offsetHeight;
+  const more = viewport.scrollHeight - row.offsetHeight > 1;
+  // The "more" line (22px and its 2px margin) shows only once the rows overflow.
+  const moreLine = more && viewport.scrollHeight - viewport.clientHeight <= 1 ? 24 : 0;
+  return chrome + Math.min(viewport.scrollHeight, row.offsetHeight) + moreLine;
+}
+
+/**
+ * The height a docked card may take above the composer: the composer column, less the stack's
+ * padding, the composer box and a queue at its floor. Neither the card nor the queue's current
+ * height enters it, so capping a card to it never shrinks it again, and the queue gives up its
+ * rows before the card gives up its options.
+ */
+function dockRoom(dock: HTMLElement, stack: HTMLElement, column: HTMLElement) {
+  const style = getComputedStyle(stack);
+  let room =
+    column.clientHeight -
+    Number.parseFloat(style.paddingTop) -
+    Number.parseFloat(style.paddingBottom) -
+    outerHeight(dock, 0);
+  for (const child of stack.children) {
+    if (child === dock || !(child instanceof HTMLElement)) continue;
+    const position = getComputedStyle(child).position;
+    if (position === 'absolute' || position === 'fixed' || !child.offsetParent) continue;
+    room -= child.matches('[data-slot=composer-queue]')
+      ? outerHeight(child, queueFloor(child))
+      : outerHeight(child);
+  }
+  return Math.max(0, room);
+}
+
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
   surfaces?: Readonly<Record<string, A2UISurface>>;
@@ -118,9 +160,9 @@ export function ClioPendingInteractions({
     const dock = dockRef.current;
     const conversation = dock?.closest<HTMLElement>('[data-slot=session-transcript]');
     if (!dock || !conversation) return;
-    // Above the composer the dock also gets only the room left in the composer's column: its own
-    // height plus that column's free space. Neither depends on the card, so a card capped to it
-    // never makes the dock scroll its header away, and the cap grows back with the window.
+    // Above the composer the dock also gets only the room the composer's column leaves it (see
+    // dockRoom), so a card capped to it never makes the dock scroll its header away, and the cap
+    // grows back with the window.
     const stack = dock.parentElement?.matches('[data-slot=clio-composer-stack]')
       ? dock.parentElement
       : null;
@@ -128,15 +170,25 @@ export function ClioPendingInteractions({
     const update = () => {
       dock.style.setProperty('--conversation-h', `${conversation.clientHeight}px`);
       if (!stack || !column) return;
-      const room = dock.offsetHeight + Math.max(0, column.clientHeight - stack.offsetHeight);
-      dock.style.setProperty('--dock-room', `${room}px`);
+      dock.style.setProperty('--dock-room', `${dockRoom(dock, stack, column)}px`);
     };
     update();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(update);
-    for (const element of [conversation, dock, stack, column])
-      if (element) observer.observe(element);
-    return () => observer.disconnect();
+    const observe = () => {
+      observer.disconnect();
+      for (const element of [conversation, dock, column, ...(stack?.children ?? [])])
+        if (element) observer.observe(element);
+      update();
+    };
+    observe();
+    // A queue or picker mounting beside the dock changes the room.
+    const siblings = new MutationObserver(observe);
+    if (stack) siblings.observe(stack, { childList: true });
+    return () => {
+      observer.disconnect();
+      siblings.disconnect();
+    };
   }, [docked]);
   useEffect(() => {
     // Synchronize the conversation-owned draft store with server removals.
@@ -249,8 +301,9 @@ export function ClioPendingInteractions({
     <section
       ref={dockRef}
       aria-label={t`Agent needs your attention`}
-      // A separate card docked 8px above the composer, at the composer's width.
-      className="relative z-10 mx-auto mb-2 flex min-h-0 w-full max-w-4xl shrink flex-col"
+      // A separate card docked 8px above the composer, at the composer's width. Above the
+      // composer it keeps its height and a queue beside it shrinks instead (see dockRoom).
+      className="relative z-10 mx-auto mb-2 flex min-h-0 w-full max-w-4xl shrink flex-col [[data-slot=clio-composer-stack]>&]:shrink-0"
       data-slot="pending-interactions"
       role="region"
     >
