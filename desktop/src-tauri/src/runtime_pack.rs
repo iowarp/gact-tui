@@ -690,10 +690,7 @@ mod tests {
         let encoder = builder.into_inner().expect("finish tar");
         encoder.finish().expect("finish zstd");
 
-        let hash = format!(
-            "{:x}",
-            Sha256::digest(fs::read(&archive_path).expect("read pack"))
-        );
+        let hash = hex::encode(Sha256::digest(fs::read(&archive_path).expect("read pack")));
         let manifest = serde_json::json!({
             "schema": 1,
             "archive": "gact-runtime.tar.zst",

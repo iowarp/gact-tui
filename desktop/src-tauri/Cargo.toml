@@ -38,7 +38,7 @@ ureq = { version = "2.10", default-features = false, features = ["tls"] }
 hex = "0.4"
 libc = "0.2"
 base64 = "0.22"
-sha2 = "0.10"
+sha2 = "0.11"
 # Embedded workspace terminal (Wave B9): ConPTY on Windows, real ptys on
 # macOS/Linux, behind one cross-platform API.
 portable-pty = "0.8"

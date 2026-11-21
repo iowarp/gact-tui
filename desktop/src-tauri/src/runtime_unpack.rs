@@ -81,7 +81,7 @@ fn finish_hash(path: &Path, hasher: &RefCell<Sha256>, consumed: u64) -> Result<S
         }
         hasher.update(&buffer[..read]);
     }
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(hex::encode(hasher.finalize()))
 }
 
 /// Where a Windows runtime pack's bytes come from.
@@ -457,7 +457,7 @@ fn unpack_runtime_with_system_tar(
             consumed.get()
         ));
     }
-    let sha256 = format!("{:x}", hasher.borrow().clone().finalize());
+    let sha256 = hex::encode(hasher.borrow().clone().finalize());
     Ok(UnpackReport {
         files,
         bytes,
