@@ -477,6 +477,36 @@ function answerNote(interaction: PendingInteraction): string | undefined {
   return typeof note === 'string' && note.trim() ? note : undefined;
 }
 
+/**
+ * "Approved in Workspace edits, context cleared" in a narrow row: "context cleared"
+ * gives way first, then the lead-in, so the mode stays whole in any word order. The
+ * full phrase is on hover.
+ */
+function ModePhrase({ phrase, mode }: { phrase: string; mode: string }) {
+  const at = phrase.indexOf(mode);
+  if (at < 0) {
+    return (
+      <span className="block truncate" title={phrase}>
+        {phrase}
+      </span>
+    );
+  }
+  const lead = phrase.slice(0, at);
+  const rest = phrase.slice(at + mode.length);
+  return (
+    <span data-slot="plan-mode-phrase" className="flex min-w-0" title={phrase}>
+      {lead ? <span className={cn(PHRASE_PART, 'shrink')}>{lead}</span> : null}
+      <span data-slot="plan-mode-name" className={cn(PHRASE_PART, 'max-w-full shrink-0')}>
+        {mode}
+      </span>
+      {rest ? <span className={cn(PHRASE_PART, 'shrink-[1000]')}>{rest}</span> : null}
+    </span>
+  );
+}
+
+// `whitespace-pre`, not `truncate`: the lead-in keeps its trailing space.
+const PHRASE_PART = 'min-w-0 overflow-hidden text-ellipsis whitespace-pre';
+
 /** Once decided, the plan folds into one row: "Approved in Workspace edits, context cleared". */
 export function PlanDecision({
   interaction,
@@ -497,6 +527,7 @@ export function PlanDecision({
   const decision = selected.find((value) => value !== 'clear_context');
   const cleared = selected.includes('clear_context');
   const note = answerNote(interaction);
+  const mode = decision ? planModeLabel(decision) : '';
   const [verb, detail, tone, outcome]: [
     string,
     string | undefined,
@@ -514,10 +545,9 @@ export function PlanDecision({
           ]
         : decision
           ? [
-              // One phrase, so a narrow row cuts "context cleared" and keeps the mode whole.
               cleared
-                ? t`Approved in ${ph({ mode: planModeLabel(decision) })}, context cleared`
-                : t`Approved in ${ph({ mode: planModeLabel(decision) })}`,
+                ? t`Approved in ${ph({ mode })}, context cleared`
+                : t`Approved in ${ph({ mode })}`,
               undefined,
               'ok',
               undefined,
@@ -534,6 +564,7 @@ export function PlanDecision({
       data-plan-decision={decision || interaction.status}
       detail={detail}
       icon={NotebookTextIcon}
+      label={mode ? <ModePhrase mode={mode} phrase={verb} /> : undefined}
       onOpenChange={onOpenChange}
       open={open}
       outcome={outcome}
