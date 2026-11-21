@@ -219,7 +219,7 @@ export function AskCard({
       <header
         className={cn(
           // A scrolling card pins its sticky header inside its padding; -10px keeps it at rest.
-          'sticky top-0 z-[1] -mt-[10px] in-data-ask-capped:-top-[10px] -mr-[11px] -ml-[15px] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-b-0 border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:shadow-[inset_0_-1px_0_var(--color-border)] group-focus-visible/ask:border-t-ring group-focus-visible/ask:border-r-ring',
+          'sticky top-0 z-[1] -mt-[10px] in-data-ask-capped:-top-[10px] -mr-[calc(var(--spacing)*2.5+1px)] -ml-[calc(var(--spacing)*3+3px)] flex min-h-[37px] min-w-0 shrink-0 items-center gap-[9px] rounded-t-[10px] border border-b-0 border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pl-3 in-data-ask-scrolled:shadow-[inset_0_-1px_0_var(--color-border)] in-data-ask-body-scrolled:shadow-[inset_0_-1px_0_var(--color-border)] group-focus-visible/ask:border-t-ring group-focus-visible/ask:border-r-ring',
           EDGE[kind],
         )}
       >
@@ -232,10 +232,10 @@ export function AskCard({
         )}
         <h2
           className={cn(
-            'min-w-0 shrink text-[0.84375rem] leading-5 font-medium',
-            // A question is what the person answers: it reads whole and wraps, never cut. A long
-            // token (a tool id) breaks inside its column rather than running under ✕.
-            wrapTitle ? 'py-1 whitespace-normal wrap-anywhere' : 'truncate',
+            'min-w-0 text-[0.84375rem] leading-5 font-medium',
+            // A question is what the person answers: it reads whole and wraps, never cut. It
+            // takes the room the pager and ✕ leave; a tool id breaks between its parts (<wbr>).
+            wrapTitle ? 'flex-1 py-1 whitespace-normal break-words' : 'shrink truncate',
           )}
           data-slot="pending-interaction-title"
           id={`${id}-title`}
@@ -259,7 +259,7 @@ export function AskCard({
           >
             {meta}
           </span>
-        ) : (
+        ) : wrapTitle ? null : (
           <span className="flex-1" />
         )}
         <AskPagerControls />
@@ -286,7 +286,7 @@ export function AskSection({ className, ...props }: ComponentProps<'div'>) {
  * What the reader weighs before answering (facts, a script). When the card is
  * capped this part scrolls, so the options and Technical details stay in view.
  */
-export function AskBody({ className, ...props }: ComponentProps<'div'>) {
+export function AskBody({ className, onScroll, ...props }: ComponentProps<'div'>) {
   const ref = useRef<HTMLDivElement>(null);
   useScrollClipped(ref);
   return (
@@ -294,10 +294,19 @@ export function AskBody({ className, ...props }: ComponentProps<'div'>) {
       ref={ref}
       className={cn(
         // No reserved gutter (over .clio-scrollbar's): body blocks end on the header's edge.
-        'clio-scrollbar min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:auto]! data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
+        // Content past either edge fades there; scrolled, the header draws its hairline.
+        'clio-scrollbar min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:auto]! data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)] data-scrolled:[mask-image:linear-gradient(transparent,#000_16px)] data-clipped:data-scrolled:[mask-image:linear-gradient(transparent,#000_16px,#000_calc(100%-24px),transparent)]',
         className,
       )}
       data-slot="ask-body"
+      onScroll={(event) => {
+        const scrolled = event.currentTarget.scrollTop > 0;
+        event.currentTarget.toggleAttribute('data-scrolled', scrolled);
+        event.currentTarget
+          .closest('[data-slot="ask-card"]')
+          ?.toggleAttribute('data-ask-body-scrolled', scrolled);
+        onScroll?.(event);
+      }}
       {...props}
     />
   );
@@ -705,17 +714,26 @@ export function AskCode({
       </pre>
       {hidden > 0 || onOpen ? (
         <div className="flex h-[30px] min-w-0 shrink-0 items-center gap-2.5 border-t border-border pr-1.5 pl-2.5 text-label whitespace-nowrap text-muted-foreground">
-          <span className="truncate">
-            {hidden > 0 ? plural(hidden, { one: '# more line', other: '# more lines' }) : null}
-          </span>
+          {hidden > 0 ? (
+            <span className="truncate">
+              {plural(hidden, { one: '# more line', other: '# more lines' })}
+            </span>
+          ) : null}
           <AskButton
             {...askKeyAttributes(['o'])}
-            className="ml-auto h-6 px-2 text-meta"
+            // Narrow, it drops its icon and gives up width before its O key leaves the card.
+            className="ml-auto h-6 max-w-full min-w-0 shrink px-2 text-meta @max-[420px]/ask:h-6 @max-[420px]/ask:min-h-0 @max-[420px]/ask:py-0"
             onClick={onOpen ?? (() => setExpanded(true))}
+            title={onOpen ? openLabel : undefined}
           >
-            <span className="inline-flex items-center gap-1.5">
-              {onOpen ? <PanelRightIcon aria-hidden="true" className="size-3.5" /> : null}
-              {onOpen ? openLabel : t`Show all`}
+            <span className="flex min-w-0 items-center gap-1.5">
+              {onOpen ? (
+                <PanelRightIcon
+                  aria-hidden="true"
+                  className="size-3.5 shrink-0 @max-[420px]/ask:hidden"
+                />
+              ) : null}
+              <span className="min-w-0 truncate">{onOpen ? openLabel : t`Show all`}</span>
               <AskKeyChip askKey="o" />
             </span>
           </AskButton>

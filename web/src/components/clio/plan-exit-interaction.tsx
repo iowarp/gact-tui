@@ -115,16 +115,24 @@ function PlanPreview({
     const clip = clipRef.current;
     const body = bodyRef.current;
     if (!clip || !body || expanded) return;
+    const card = clip.closest<HTMLElement>('[data-slot="ask-card"]');
     const measure = () => {
       setOverflowing(body.scrollHeight > clip.clientHeight + 1);
+      if (!card) return;
+      // The room the reading area would get under the card's cap, whether it is shown or
+      // collapsed, so collapsing it never changes the answer.
+      const cap = Number.parseFloat(getComputedStyle(card).maxHeight);
       const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      setCramped(clip.clientHeight > 0 && clip.clientHeight < 2.5 * rem);
+      const room =
+        cap - (card.offsetHeight - card.clientHeight) - (card.scrollHeight - clip.offsetHeight);
+      setCramped(Number.isFinite(room) && room < 2.5 * rem);
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(body);
     observer.observe(clip);
+    if (card) observer.observe(card);
     return () => observer.disconnect();
   }, [expanded, content]);
   const opens = Boolean(artifact && onOpenArtifact);
@@ -171,7 +179,7 @@ function PlanPreview({
             : // A narrow card wraps the plan to more lines, so its glance gets more height.
               'max-h-[118px] overflow-hidden @max-[420px]/ask:max-h-[11rem]',
           clipped && '[mask-image:linear-gradient(#000_55%,transparent)]',
-          hidden && 'invisible',
+          hidden && 'hidden',
         )}
         data-plan-clipped={clipped || undefined}
         data-plan-cramped={hidden || undefined}
@@ -424,9 +432,6 @@ export function PlanExitResponse({
   const file = plan?.plan_file;
   return (
     <AskCard
-      // In a narrow dock the options stack and fill the cap, which would squeeze the plan down
-      // to its summary line. There the card keeps its height and the dock scrolls it instead.
-      className="@max-[420px]/dock:max-h-none"
       data-interaction-kind="plan_exit"
       icon={NotebookTextIcon}
       id={pendingInteractionDomId(interaction.id)}
