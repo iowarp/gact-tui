@@ -41,7 +41,7 @@ base64 = "0.22"
 sha2 = "0.11"
 # Embedded workspace terminal (Wave B9): ConPTY on Windows, real ptys on
 # macOS/Linux, behind one cross-platform API.
-portable-pty = "0.8"
+portable-pty = "0.9"
 glob = "0.3"
 
 [target.'cfg(target_os = "windows")'.dependencies]
