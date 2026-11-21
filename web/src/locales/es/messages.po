@@ -9660,7 +9660,7 @@ msgstr "Elige qué recuerdos nuevos y actualizados se guardan automáticamente. 
 
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Choose Yes or No."
-msgstr "Elija Sí o No."
+msgstr "Elige Sí o No."
 
 #: src/components/clio/a2ui-choice-picker.tsx
 #: src/components/clio/capability-picker.tsx

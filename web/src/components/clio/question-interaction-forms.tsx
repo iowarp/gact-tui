@@ -10,7 +10,7 @@ import {
   LinkIcon,
   ShieldCheckIcon,
 } from 'lucide-react';
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Field,
@@ -27,7 +27,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { openExternalUrl } from '@/tauri/external-url';
 import { serverOwnerName } from '@/lib/a2ui/server-surface';
-import { AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
+import { AskBody, AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
 import { useQuestionDraftValue } from './question-answer-context';
 import { ph, plural, t } from '@lingui/core/macro';
@@ -56,10 +56,27 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   const serverErrors = fieldErrorsFromMessage(props.responseError?.message, fields);
   const errors = { ...serverErrors, ...fieldErrors };
   const loneBoolean = loneBooleanField(fields);
+  // After a failed Send the first field to fix takes focus and comes into view, even when the
+  // capped card or a narrow window holds it out of sight.
+  const fieldsRef = useRef<HTMLDivElement>(null);
+  const revealInvalid = useRef(false);
+  useEffect(() => {
+    if (!revealInvalid.current) return;
+    revealInvalid.current = false;
+    const field = fieldsRef.current?.querySelector<HTMLElement>('[data-invalid="true"]');
+    if (!field) return;
+    // Focusing a radio does not choose it: a yes/no stays unanswered until the person picks.
+    const control = field.querySelector<HTMLElement>(
+      '[role="radio"], [role="checkbox"], input, textarea, select',
+    );
+    field.scrollIntoView({ block: 'nearest' });
+    control?.focus({ preventScroll: true });
+  }, [fieldErrors]);
 
   const submit = async (override?: Record<string, unknown>) => {
     const current = override ? { ...values, ...override } : values;
     const validation = validateFields(fields, current);
+    revealInvalid.current = true;
     setFieldErrors(validation);
     if (Object.keys(validation).length > 0) return;
     const submissionValues = normalizedSubmissionValues(fields, current);
@@ -77,6 +94,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
       });
     } catch (thrown) {
       const message = thrown instanceof Error ? thrown.message : String(thrown);
+      revealInvalid.current = true;
       setFieldErrors(fieldErrorsFromMessage(message, fields));
     } finally {
       setSending(false);
@@ -91,9 +109,11 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
       <QuestionFrame {...props}>
         <AskError error={props.responseError} />
         {loneBoolean.description ? (
-          <AskSection className="text-meta text-muted-foreground">
-            {loneBoolean.description}
-          </AskSection>
+          <AskBody>
+            <AskSection className="text-meta text-muted-foreground">
+              {loneBoolean.description}
+            </AskSection>
+          </AskBody>
         ) : null}
         {errors[loneBoolean.name] ? (
           <AskSection className="text-meta text-destructive" role="alert">
@@ -101,14 +121,20 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
           </AskSection>
         ) : null}
         <AskOptions aria-label={loneBoolean.title || t`Answer`}>
+          {/* 1 and 2 pick Yes and No; Enter picks neither. */}
           <AskButton
             disabled={busy}
+            number={1}
             onClick={() => void submit({ [loneBoolean.name]: true })}
             primary
           >
             {sending === 'yes' ? t`Sending…` : t`Yes`}
           </AskButton>
-          <AskButton disabled={busy} onClick={() => void submit({ [loneBoolean.name]: false })}>
+          <AskButton
+            disabled={busy}
+            number={2}
+            onClick={() => void submit({ [loneBoolean.name]: false })}
+          >
             {sending === 'no' ? t`Sending…` : t`No`}
           </AskButton>
         </AskOptions>
@@ -119,29 +145,32 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   return (
     <QuestionFrame {...props}>
       <AskError error={props.responseError} />
-      <AskSection>
-        <FieldGroup className="gap-2.5 text-menu">
-          {fields.map((field) => (
-            <SchemaField
-              prefix={interaction.id}
-              disabled={props.disabled || sending !== false}
-              error={errors[field.name]}
-              field={field}
-              key={field.name}
-              onChange={(value) => {
-                setValues((current) => ({ ...current, [field.name]: value }));
-                setFieldErrors((current) => {
-                  if (!current[field.name]) return current;
-                  const next = { ...current };
-                  delete next[field.name];
-                  return next;
-                });
-              }}
-              value={values[field.name]}
-            />
-          ))}
-        </FieldGroup>
-      </AskSection>
+      {/* Under the card's cap the fields scroll; Send and the footer stay inside the card. */}
+      <AskBody>
+        <AskSection className="pb-0.5">
+          <FieldGroup className="gap-2.5 text-menu" ref={fieldsRef}>
+            {fields.map((field) => (
+              <SchemaField
+                prefix={interaction.id}
+                disabled={props.disabled || sending !== false}
+                error={errors[field.name]}
+                field={field}
+                key={field.name}
+                onChange={(value) => {
+                  setValues((current) => ({ ...current, [field.name]: value }));
+                  setFieldErrors((current) => {
+                    if (!current[field.name]) return current;
+                    const next = { ...current };
+                    delete next[field.name];
+                    return next;
+                  });
+                }}
+                value={values[field.name]}
+              />
+            ))}
+          </FieldGroup>
+        </AskSection>
+      </AskBody>
       <AskOptions aria-label={t`Answer`}>
         <AskButton
           disabled={props.disabled || sending !== false}
@@ -246,7 +275,14 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
               ]
             : []),
           ...(originTrust
-            ? [{ label: t`Trusted because`, icon: <ShieldCheckIcon />, value: originTrust, wrap: true }]
+            ? [
+                {
+                  label: t`Trusted because`,
+                  icon: <ShieldCheckIcon />,
+                  value: originTrust,
+                  wrap: true,
+                },
+              ]
             : []),
           ...(interaction.payload?.punycode_host
             ? [{ label: t`Decoded host`, value: interaction.payload.punycode_host, mono: true }]
@@ -316,7 +352,7 @@ function SchemaField({
   if (field.multi) {
     const selected = Array.isArray(value) ? value : [];
     return (
-      <Field className="!w-full" data-invalid={Boolean(error)}>
+      <Field className="!w-full scroll-my-6" data-invalid={Boolean(error)}>
         <FieldTitle>{field.title}</FieldTitle>
         {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
         <div className="grid gap-2" data-slot="checkbox-group">
@@ -354,7 +390,7 @@ function SchemaField({
   }
   if (enumValues.length > 0) {
     return (
-      <Field className="!w-full" data-invalid={Boolean(error)}>
+      <Field className="!w-full scroll-my-6" data-invalid={Boolean(error)}>
         <FieldTitle>{field.title}</FieldTitle>
         {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
         <RadioGroup
@@ -382,7 +418,7 @@ function SchemaField({
   if (field.type === 'boolean') {
     // Yes and No are separate choices so an unanswered field never reads as "no".
     return (
-      <Field className="!w-full" data-invalid={Boolean(error)}>
+      <Field className="!w-full scroll-my-6" data-invalid={Boolean(error)}>
         <FieldTitle id={`${id}-title`}>{field.title}</FieldTitle>
         {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
         <RadioGroup
@@ -426,7 +462,7 @@ function SchemaField({
     value: value === undefined ? '' : String(value),
   };
   return (
-    <Field className="!w-full" data-invalid={Boolean(error)}>
+    <Field className="!w-full scroll-my-6" data-invalid={Boolean(error)}>
       <FieldLabel htmlFor={id}>{field.title}</FieldLabel>
       {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
       {textarea ? (
