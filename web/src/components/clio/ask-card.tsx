@@ -162,6 +162,25 @@ function identifierBreaks(text: string): ReactNode {
   ));
 }
 
+/**
+ * The height a capped card needs with every part that gives up height at its floor (a scrolling
+ * body or option list at none, a script at its few lines). The dock lets a card past its 45% cap
+ * up to that, so the parts that keep their height (a permission's options) stay in view.
+ */
+function publishAskCardNeed(card: HTMLElement) {
+  let slack = 0;
+  for (const child of card.children) {
+    if (!(child instanceof HTMLElement)) continue;
+    const style = getComputedStyle(child);
+    if (style.position === 'absolute' || style.position === 'fixed' || style.flexShrink === '0')
+      continue;
+    const floor = Number.parseFloat(style.minHeight);
+    if (Number.isFinite(floor)) slack += Math.max(0, child.offsetHeight - floor);
+  }
+  const need = card.offsetHeight + card.scrollHeight - card.clientHeight - slack;
+  card.style.setProperty('--ask-card-need', `${Math.ceil(need)}px`);
+}
+
 /** The frame: kind edge, header, and a 25px content indent shared by every part. */
 export function AskCard({
   kind,
@@ -183,7 +202,8 @@ export function AskCard({
 }: AskCardProps) {
   const id = useId();
   const ref = useRef<HTMLElement>(null);
-  useOverflowMark(ref);
+  useOverflowMark(ref, publishAskCardNeed);
+  useScrollClipped(ref);
   const labelledBy = [
     `${id}-title`,
     meta ? `${id}-meta` : undefined,
@@ -214,14 +234,16 @@ export function AskCard({
       }}
       className={cn(
         // A surface may cap the card (--ask-card-max): AskBody and a long AskCode give up height
-        // and the options stay. Open Technical details scroll inside it, so the cap holds. When
+        // and the options stay. When those parts at their floors still pass the cap, the card
+        // grows to that need, up to the surface's --ask-card-ceiling. Open Technical details scroll inside it, so the cap holds. When
         // the parts that keep their height still pass the cap (stacked options at a large
         // interface size), the capped card scrolls as a whole instead of painting past its frame.
         // Only then is it a scroller. A card that fits is no scroller, so the wheel passes to the
         // dock and its sticky header stays at the top of the dock. At a scrolling card's end the
-        // wheel also passes on, so a dock shorter than the cap still shows the rest; the dock
-        // contains it, so the transcript never moves.
-        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-menu text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring clio-scrollbar [scrollbar-gutter:auto]! in-data-ask-capped:data-overflows:overflow-x-hidden in-data-ask-capped:data-overflows:overflow-y-auto',
+        // wheel also passes on; the dock contains it, so the transcript never moves. While more
+        // of a scrolling card lies below, its bottom edge fades as AskBody's does, so a cut row
+        // reads as continuing.
+        'group/ask @container/ask relative flex max-h-[max(var(--ask-card-max),min(var(--ask-card-need,0px),var(--ask-card-ceiling,0px)))] min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-menu text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring clio-scrollbar [scrollbar-gutter:auto]! in-data-ask-capped:data-overflows:overflow-x-hidden in-data-ask-capped:data-overflows:overflow-y-auto in-data-ask-capped:data-overflows:data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
         EDGE[kind],
         className,
       )}
