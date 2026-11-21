@@ -2185,7 +2185,7 @@ msgstr "{hidden, plural, one {他#件の会話} other {他#件の会話}}"
 msgid "{hidden, plural, one {# more file} other {# more files}}"
 msgstr "{hidden, plural, one {他#件のファイル} other {他#件のファイル}}"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "{hidden, plural, one {# more line} other {# more lines}}"
 msgstr "{hidden, plural, one {あと#行} other {あと#行}}"
@@ -11570,7 +11570,7 @@ msgstr "アルデンテになるまでゆで、ゆで汁を少し取っておき
 msgid "Cool"
 msgstr "クール"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/settings-report-problem.tsx
@@ -12080,7 +12080,7 @@ msgstr "ファイルのテキストをコピーできませんでした。"
 msgid "Could not copy the reference"
 msgstr "参照をコピーできませんでした"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 msgid "Could not copy to the clipboard."
 msgstr "クリップボードにコピーできませんでした。"
 
@@ -24982,7 +24982,7 @@ msgstr "メールで開く"
 msgid "Open in system terminal"
 msgstr "システムのターミナルで開く"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/mcp-app-card.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
@@ -33088,7 +33088,7 @@ msgstr "さらに{remaining}件を表示"
 msgid "Show {title}"
 msgstr "{title}を表示"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/conversation-list-groups.tsx
@@ -34874,7 +34874,7 @@ msgstr "この会話が開始した作業を停止しますか？"
 msgid "Stop this run?"
 msgstr "この実行を停止しますか？"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Stop wrapping long lines"
 msgstr "長い行を折り返さない"
@@ -42232,7 +42232,7 @@ msgstr "ワークスペースが一覧にありません"
 msgid "Workspaces not listed. Retry"
 msgstr "ワークスペースを一覧表示できません。再試行"
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/file-source-view.tsx
 #: src/components/clio/file-text-view.tsx
 #: src/components/clio/transcript-tool-bodies.tsx

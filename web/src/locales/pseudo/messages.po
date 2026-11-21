@@ -2184,7 +2184,7 @@ msgstr ""
 msgid "{hidden, plural, one {# more file} other {# more files}}"
 msgstr ""
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "{hidden, plural, one {# more line} other {# more lines}}"
 msgstr ""
@@ -11561,7 +11561,7 @@ msgstr ""
 msgid "Cool"
 msgstr ""
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/settings-report-problem.tsx
@@ -12071,7 +12071,7 @@ msgstr ""
 msgid "Could not copy the reference"
 msgstr ""
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 msgid "Could not copy to the clipboard."
 msgstr ""
 
@@ -24964,7 +24964,7 @@ msgstr ""
 msgid "Open in system terminal"
 msgstr ""
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/mcp-app-card.tsx
 #: src/components/clio/tool-technical-details.tsx
 msgid "Open in tab"
@@ -33070,7 +33070,7 @@ msgstr ""
 msgid "Show {title}"
 msgstr ""
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/cad-parts-panel.tsx
 #: src/components/clio/cad-tool-panels.tsx
 #: src/components/clio/conversation-list-groups.tsx
@@ -34855,7 +34855,7 @@ msgstr ""
 msgid "Stop this run?"
 msgstr ""
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Stop wrapping long lines"
 msgstr ""
@@ -42213,7 +42213,7 @@ msgstr ""
 msgid "Workspaces not listed. Retry"
 msgstr ""
 
-#: src/components/clio/ask-card.tsx
+#: src/components/clio/ask-code.tsx
 #: src/components/clio/file-source-view.tsx
 #: src/components/clio/file-text-view.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
