@@ -255,6 +255,19 @@ export function ClioAppShell({
   );
   const [workbenchPreference, setWorkbenchPreference] = useState<boolean>();
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string>();
+  // Under the split the workbench is a sheet the person slides over the
+  // conversation, so a docked pocket never becomes one: narrowing the window
+  // closes the sheet and drops the reveal that opened the pocket, keeping the
+  // docked preference for when it widens. A sheet open when it widens docks.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [layoutSplit, setLayoutSplit] = useState(desktopWorkbench);
+  if (layoutSplit !== desktopWorkbench) {
+    setLayoutSplit(desktopWorkbench);
+    if (desktopWorkbench) {
+      if (sheetOpen) setWorkbenchPreference(true);
+    } else if (workbenchRevealKey) setDismissedRevealKey(workbenchRevealKey);
+    setSheetOpen(false);
+  }
   const revealRequested = Boolean(workbenchRevealKey && workbenchRevealKey !== dismissedRevealKey);
   // A pocket a reference opened stays open across conversations, like one the
   // canvas button opened. A phone sheet still closes when you leave.
@@ -267,7 +280,9 @@ export function ClioAppShell({
   // user asked to open it. Explicit resource requests still reveal it, and an
   // open/closed choice survives route changes while this shell stays mounted.
   const hasWorkbench = Boolean(workbench);
-  const workbenchOpen = hasWorkbench && (revealRequested || (workbenchPreference ?? false));
+  const workbenchOpen =
+    hasWorkbench &&
+    (revealRequested || (desktopWorkbench ? (workbenchPreference ?? false) : sheetOpen));
   const collapseNavigationForWorkbench = workbenchOpen && conversationCrowded;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
@@ -302,10 +317,11 @@ export function ClioAppShell({
   }, []);
   const setWorkbenchOpen = useCallback(
     (open: boolean) => {
-      setWorkbenchPreference(open);
+      if (desktopWorkbench) setWorkbenchPreference(open);
+      else setSheetOpen(open);
       if (!open && workbenchRevealKey) setDismissedRevealKey(workbenchRevealKey);
     },
-    [workbenchRevealKey],
+    [desktopWorkbench, workbenchRevealKey],
   );
 
   const toggleWorkbench = useCallback(
