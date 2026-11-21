@@ -217,9 +217,11 @@ export function AskCard({
         // and the options stay. Open Technical details scroll inside it, so the cap holds. When
         // the parts that keep their height still pass the cap (stacked options at a large
         // interface size), the capped card scrolls as a whole instead of painting past its frame.
-        // Only then is it a scroller that keeps the wheel. A card that fits is no scroller, so the
-        // wheel passes to the dock and its sticky header stays at the top of the dock.
-        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-menu text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring clio-scrollbar [scrollbar-gutter:auto]! in-data-ask-capped:data-overflows:overflow-x-hidden in-data-ask-capped:data-overflows:overflow-y-auto in-data-ask-capped:data-overflows:overscroll-contain',
+        // Only then is it a scroller. A card that fits is no scroller, so the wheel passes to the
+        // dock and its sticky header stays at the top of the dock. At a scrolling card's end the
+        // wheel also passes on, so a dock shorter than the cap still shows the rest; the dock
+        // contains it, so the transcript never moves.
+        'group/ask @container/ask relative flex max-h-(--ask-card-max) min-w-0 flex-col rounded-[10px] border border-l-[3px] border-border bg-card pt-[9px] pr-2.5 pb-3 pl-3 text-menu text-foreground outline-none focus-visible:border-y-ring focus-visible:border-r-ring clio-scrollbar [scrollbar-gutter:auto]! in-data-ask-capped:data-overflows:overflow-x-hidden in-data-ask-capped:data-overflows:overflow-y-auto',
         EDGE[kind],
         className,
       )}
