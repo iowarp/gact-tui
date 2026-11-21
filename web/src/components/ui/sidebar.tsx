@@ -105,6 +105,8 @@ function SidebarProvider({
     Object.assign(layoutMemory.current, change);
     if (change.personWidth != null) {
       window.sessionStorage.setItem(SIDEBAR_WIDTH_KEY, String(change.personWidth));
+    } else if (change.personWidth === null) {
+      window.sessionStorage.removeItem(SIDEBAR_WIDTH_KEY);
     }
   }, []);
 
