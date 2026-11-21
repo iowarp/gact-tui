@@ -18,6 +18,8 @@ export interface MenuRowProps {
   wrapDescription?: boolean;
   /** A small muted second line under the label (a host, what a choice does). */
   detail?: string;
+  /** The detail line wraps instead of being cut, so a phone reads it whole. */
+  wrapDetail?: boolean;
   /**
    * A state as a mark and a word, left-aligned in the 62px status column with
    * the 34px action column after it (Online, Offline).
@@ -58,6 +60,7 @@ export const MenuRow = memo(function MenuRow({
   description,
   wrapDescription = false,
   detail,
+  wrapDetail = false,
   status,
   tag,
   value,
@@ -83,11 +86,22 @@ export const MenuRow = memo(function MenuRow({
         </span>
       ) : null}
       {detail ? (
-        <span className="flex min-w-0 flex-1 flex-col whitespace-nowrap leading-[1.3]">
+        <span
+          className={cn(
+            'flex min-w-0 flex-1 flex-col whitespace-nowrap leading-[1.3]',
+            wrapDetail && 'py-1',
+          )}
+        >
           <span className={cn('truncate', muted && 'text-muted-foreground')}>
             <JumpLabel label={label} letter={accelerator} />
           </span>
-          <span title={detail} className="truncate text-caption text-muted-foreground">
+          <span
+            title={wrapDetail ? undefined : detail}
+            className={cn(
+              'text-caption text-muted-foreground',
+              wrapDetail ? 'whitespace-normal' : 'truncate',
+            )}
+          >
             {detail}
           </span>
         </span>
