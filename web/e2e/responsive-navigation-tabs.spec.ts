@@ -162,11 +162,19 @@ async function expectSelectedTabVisible(canvas: Locator) {
 /** Select a tab, from the list at the end of the row when the row has no room for it. */
 async function selectCanvasTab(canvas: Locator, name: string) {
   const tab = canvas.getByRole('tab', { name, exact: true });
-  if (!(await tab.isVisible())) {
-    await canvas.getByRole('button', { name: /^\d+ more tabs$/ }).click();
-    await canvas.page().getByRole('menuitem', { name, exact: true }).click();
-  }
-  await tab.click();
+  const listed = canvas.page().getByRole('menuitem', { name, exact: true });
+  // The row can still be re-laying out (after a restore), moving the tab
+  // between the row and the list, so each attempt looks where it is now.
+  await expect(async () => {
+    if (await tab.isVisible()) {
+      await tab.click({ timeout: 1_000 });
+    } else {
+      if (!(await listed.isVisible()))
+        await canvas.getByRole('button', { name: /^\d+ more tabs$/ }).click({ timeout: 1_000 });
+      await listed.click({ timeout: 1_000 });
+    }
+    await expect(tab).toHaveAttribute('aria-selected', 'true', { timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
 }
 
 test('selected canvas tab stays fully visible through resizing, reordering and maximize/restore', async ({
@@ -244,11 +252,18 @@ test('selected canvas tab stays fully visible through resizing, reordering and m
   await page.keyboard.press('Escape');
   await expectSelectedTabVisible(canvas);
   await selectCanvasTab(canvas, longTitle);
+  // Below the split a docked canvas closes rather than turning into a sheet
+  // over the conversation; reopened, the sheet keeps the selected tab in view.
+  await page.setViewportSize({ width: 640, height: 900 });
+  await expect(canvas).toBeHidden();
+  await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
+  await expect(canvas.getByRole('tab', { name: longTitle, exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   for (const width of [640, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    await expectSelectedTabVisible(
-      page.getByRole('complementary', { name: 'Workspace canvas', exact: true }),
-    );
+    await expectSelectedTabVisible(canvas);
   }
   await page.screenshot({ path: testInfo.outputPath('selected-long-tab-narrow.png') });
 });
