@@ -1,4 +1,4 @@
-import { plural, t } from '@lingui/core/macro';
+import { t } from '@lingui/core/macro';
 import { MonitorIcon, PackageIcon } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import { formatDuration } from '@/lib/format';
@@ -31,8 +31,10 @@ const TONE_DOT: Record<JobStatusTone, string> = {
   bad: 'bg-destructive',
 };
 
-/** Cells a node stack draws, at most; a larger job shares nodes between cells. */
-const MAX_CELLS = 16;
+/** Nodes a stack draws one by one; a larger component draws three, a gap and its front node. */
+const DRAWN_NODES = 3;
+/** Depth the dots between a large component's front node and the three behind it take up. */
+const GAP_SLOTS = 2;
 
 function jobStatusLabel(job: JobSnapshot): string {
   switch (job.phase) {
@@ -68,29 +70,19 @@ function jobStatusLabel(job: JobSnapshot): string {
 
 function componentStateLabel(component: JobComponent): string | null {
   const nodes = component.nodes ?? 0;
-  const allocated = component.nodes_allocated ?? 0;
   const running = component.nodes_running ?? 0;
   switch (component.state) {
     case 'planned':
-      return nodes ? plural(nodes, { one: 'Will use # node', other: 'Will use # nodes' }) : null;
+      // The planned shape is the stack and its count; a line would only repeat them.
+      return null;
     case 'waiting':
       return t`Waiting for nodes`;
     case 'starting':
-      return nodes
-        ? plural(nodes, {
-            one: `Starting on ${allocated} of # node`,
-            other: `Starting on ${allocated} of # nodes`,
-          })
-        : t`Starting`;
+      return t`Starting`;
     case 'running':
-      if (!nodes || running >= nodes) {
-        const count = running || nodes;
-        return plural(count, { one: 'Running on # node', other: 'Running on # nodes' });
-      }
-      return plural(nodes, {
-        one: `Running on ${running} of # node`,
-        other: `Running on ${running} of # nodes`,
-      });
+      return nodes > 1 && running > 0 && running < nodes
+        ? t`${running} of ${nodes} running`
+        : t`Running`;
     case 'done':
       return t`Done`;
     case 'failed':
@@ -106,121 +98,162 @@ function componentName(component: JobComponent): string {
   return component.label || component.id;
 }
 
-/** How many of a component's cells are running, and how many hold an allocated node. */
-function cellCounts(component: JobComponent, phase: string) {
-  const nodes = Math.max(1, component.nodes ?? 1);
-  const cells = Math.min(nodes, MAX_CELLS);
-  const done = component.state === 'done';
-  const running = done || phase === 'ended' ? 0 : Math.min(nodes, component.nodes_running ?? 0);
-  const allocated =
-    done || phase === 'ended'
-      ? 0
-      : Math.min(nodes, Math.max(running, component.nodes_allocated ?? 0));
-  return {
-    cells,
-    running: Math.round((running / nodes) * cells),
-    allocated: Math.round((allocated / nodes) * cells),
-    done,
-  };
-}
+type NodeLook = 'planned' | 'allocated' | 'running' | 'done' | 'failed';
 
-function NodeCells({ component, phase }: { component: JobComponent; phase: string }) {
-  const { cells, running, allocated, done } = cellCounts(component, phase);
-  const failed = component.state === 'failed';
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        'grid gap-[3px]',
-        cells > 8 ? 'grid-cols-8' : cells > 4 ? 'grid-cols-4' : 'grid-cols-2',
-      )}
-    >
-      {Array.from({ length: cells }, (_, index) => (
-        <span
-          className={cn(
-            'size-2 rounded-[2px] border',
-            failed
-              ? 'border-destructive/60 bg-destructive/30'
-              : done
-                ? 'border-success/50 bg-success/40'
-                : index < running
-                  ? 'border-info bg-info'
-                  : index < allocated
-                    ? 'border-info/70 bg-info/25'
-                    : 'border-foreground/25',
-          )}
-          data-cell={index < running ? 'running' : index < allocated ? 'allocated' : 'planned'}
-          key={index}
-        />
-      ))}
-    </span>
+/** The nodes a stack draws, front first, each with the state it shows. */
+function drawnNodes(component: JobComponent, phase: string): NodeLook[] {
+  const nodes = Math.max(1, component.nodes ?? 1);
+  const drawn = nodes > DRAWN_NODES ? DRAWN_NODES + 1 : nodes;
+  if (component.state === 'failed') return Array.from({ length: drawn }, () => 'failed');
+  if (component.state === 'done') return Array.from({ length: drawn }, () => 'done');
+  const over = phase === 'ended';
+  const running = over ? 0 : Math.min(nodes, component.nodes_running ?? 0);
+  const allocated = over ? 0 : Math.min(nodes, Math.max(running, component.nodes_allocated ?? 0));
+  const share = (count: number) => (count >= nodes ? drawn : Math.round((count / nodes) * drawn));
+  const runningDrawn = share(running);
+  const allocatedDrawn = share(allocated);
+  return Array.from({ length: drawn }, (_, index) =>
+    index < runningDrawn ? 'running' : index < allocatedDrawn ? 'allocated' : 'planned',
   );
 }
 
-/** How many outlines a stack draws: one per node, up to three. */
-function layers(component: JobComponent): number {
-  return Math.min(3, Math.max(1, component.nodes ?? 1));
+const NODE_LOOK: Record<NodeLook, string> = {
+  planned: 'border-foreground/45',
+  allocated: 'border-info/70',
+  running: 'border-info',
+  done: 'border-success/60',
+  failed: 'border-destructive/70',
+};
+
+const NODE_TINT: Record<NodeLook, string> = {
+  planned: '',
+  allocated: 'bg-info/10',
+  running: 'bg-info/25',
+  done: 'bg-success/15',
+  failed: 'bg-destructive/20',
+};
+
+interface StackGeometry {
+  width: number;
+  height: number;
+  stepX: number;
+  stepY: number;
+  /** How far the gap's dots rise to clear the front node's top-left corner. */
+  dotLift: number;
+  box: string;
 }
 
-/** Compute nodes: staggered outlines, the front one holding the node cells. */
+const NODE_GEOMETRY: StackGeometry = {
+  width: 88,
+  height: 48,
+  stepX: 10,
+  stepY: 8,
+  dotLift: 0,
+  box: 'rounded-sm',
+};
+
+const SERVICE_GEOMETRY: StackGeometry = {
+  width: 72,
+  height: 60,
+  stepX: 13,
+  stepY: 3,
+  dotLift: 7,
+  box: 'rounded-md origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)]',
+};
+
+/**
+ * A component's nodes as a parallax stack, one outline per node: up to three
+ * drawn one by one, a larger component as three, a gap of dots and its front
+ * node, the name's count saying how many there are.
+ */
 function NodeStack({
   component,
   phase,
-  install = false,
+  shape,
 }: {
   component: JobComponent;
   phase: string;
-  /** A software install: a package over the cells of the node it builds on. */
-  install?: boolean;
+  shape: 'nodes' | 'service' | 'install';
 }) {
-  const count = layers(component);
-  return (
-    <span aria-hidden="true" className="relative inline-block h-20 w-32 shrink-0">
-      {count > 2 ? (
-        <span className="absolute top-0 left-6 h-14 w-26 rounded-sm border border-foreground/25 bg-background" />
-      ) : null}
-      {count > 1 ? (
-        <span className="absolute top-3 left-3 h-14 w-26 rounded-sm border border-foreground/35 bg-background" />
-      ) : null}
-      <span className="absolute top-6 left-0 flex h-14 w-26 flex-col items-center justify-center gap-1 rounded-sm border border-foreground/50 bg-background">
-        {install ? <PackageIcon className="size-4 text-muted-foreground" /> : null}
-        <NodeCells component={component} phase={phase} />
-      </span>
-    </span>
-  );
-}
-
-/** A viewer: a fanned stack of cards, the front one a screen holding its node cells. */
-function CardStack({ component, phase }: { component: JobComponent; phase: string }) {
-  const count = layers(component);
+  const looks = drawnNodes(component, phase);
+  const gap = looks.length > DRAWN_NODES;
+  const geometry = shape === 'service' ? SERVICE_GEOMETRY : NODE_GEOMETRY;
+  // Depth slots from the front: the front node, then room for the dots when there is a gap.
+  const slots = looks.map((_, index) => (gap && index > 0 ? index + GAP_SLOTS : index));
+  const depth = slots[slots.length - 1] ?? 0;
+  const width = geometry.width + depth * geometry.stepX;
+  const height = geometry.height + depth * geometry.stepY;
+  const Icon = shape === 'service' ? MonitorIcon : shape === 'install' ? PackageIcon : null;
   return (
     <span
       aria-hidden="true"
-      className="relative inline-block h-20 w-32 shrink-0 [perspective:240px]"
+      className={cn('relative inline-block shrink-0', shape === 'service' && '[perspective:240px]')}
+      data-drawn-nodes={looks.length}
+      style={{ width, height }}
     >
-      {count > 2 ? (
-        <span className="absolute top-1 left-12 h-16 w-18 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] rounded-md border border-foreground/25 bg-background" />
-      ) : null}
-      {count > 1 ? (
-        <span className="absolute top-2 left-7 h-16 w-18 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] rounded-md border border-foreground/35 bg-background" />
-      ) : null}
-      <span className="absolute top-3 left-2 flex h-16 w-18 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] flex-col items-center justify-center gap-1 rounded-md border border-foreground/50 bg-background">
-        <MonitorIcon className="size-4 text-muted-foreground" />
-        <NodeCells component={component} phase={phase} />
-      </span>
+      {looks
+        .map((look, index) => ({ look, index, slot: slots[index] ?? index }))
+        .reverse()
+        .map(({ look, index, slot }) => (
+          <span
+            className={cn(
+              'absolute flex items-center justify-center overflow-hidden border bg-background',
+              geometry.box,
+              NODE_LOOK[look],
+            )}
+            data-node={look}
+            key={index}
+            style={{
+              left: slot * geometry.stepX,
+              top: (depth - slot) * geometry.stepY,
+              width: geometry.width,
+              height: geometry.height,
+            }}
+          >
+            <span className={cn('absolute inset-0', NODE_TINT[look])} />
+            {index === 0 && Icon ? (
+              <Icon className="relative size-4 text-muted-foreground" />
+            ) : null}
+          </span>
+        ))}
+      {gap
+        ? // Along the boxes' top-left corners, where the gap leaves open space.
+          [0.25, 0.5, 0.75]
+            .map((share) => share * GAP_SLOTS)
+            .map((along) => (
+              <span
+                className="absolute size-[3px] rounded-full bg-foreground/70"
+                data-slot="job-node-gap"
+                key={along}
+                style={{
+                  left: along * geometry.stepX - 1.5,
+                  top: (depth - along) * geometry.stepY - 1.5 - geometry.dotLift,
+                }}
+              />
+            ))
+        : null}
     </span>
   );
 }
 
-function ComponentBlock({ component, phase }: { component: JobComponent; phase: string }) {
+function ComponentBlock({
+  component,
+  phase,
+  placed,
+}: {
+  component: JobComponent;
+  phase: string;
+  /** Whether the job has several components, so where each runs tells them apart. */
+  placed: boolean;
+}) {
   const nodes = component.nodes ?? null;
   const state = componentStateLabel(component);
   const tone = componentTone(component.state);
   const hosts = component.hosts?.length ? component.hosts.join(', ') : undefined;
   const name = componentName(component);
   const shape = componentShape(component);
-  // One install on one node is just the install; a count only helps a wider one.
-  const counted = nodes && (shape !== 'install' || nodes > 1);
+  // One node is one outline; the count only speaks for a larger stack.
+  const counted = nodes != null && nodes > 1;
   return (
     <div
       className="flex min-w-0 flex-col items-center gap-1 text-center"
@@ -229,11 +262,7 @@ function ComponentBlock({ component, phase }: { component: JobComponent; phase: 
       data-slot="job-component"
       title={hosts}
     >
-      {shape === 'service' ? (
-        <CardStack component={component} phase={phase} />
-      ) : (
-        <NodeStack component={component} install={shape === 'install'} phase={phase} />
-      )}
+      <NodeStack component={component} phase={phase} shape={shape} />
       <span className="line-clamp-2 max-w-44 font-medium break-words text-foreground">
         {counted ? t`${name} ×${nodes}` : name}
       </span>
@@ -243,7 +272,7 @@ function ComponentBlock({ component, phase }: { component: JobComponent; phase: 
           {state}
         </span>
       ) : null}
-      {component.host_slice ? (
+      {placed && component.host_slice ? (
         <span className="max-w-40 truncate text-meta text-muted-foreground">
           {hostSlice(component.host_slice)}
         </span>
@@ -414,7 +443,11 @@ export function JobCard({ job, fallback, className }: JobCardProps) {
           orderedComponents(job).map(({ component, coupling }) => (
             <Fragment key={component.id}>
               {coupling !== undefined ? <CouplingArrow coupling={coupling} /> : null}
-              <ComponentBlock component={component} phase={job.phase} />
+              <ComponentBlock
+                component={component}
+                phase={job.phase}
+                placed={job.components.length > 1}
+              />
             </Fragment>
           ))
         ) : (

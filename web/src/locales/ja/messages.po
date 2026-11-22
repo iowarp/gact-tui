@@ -1772,10 +1772,6 @@ msgstr "{count, plural, one {#個のファイルを元のファイルに公開�
 msgid "{count, plural, one {Ready, # tool} other {Ready, # tools}}"
 msgstr "{count, plural, other {準備完了、ツール#個}}"
 
-#: src/components/clio/job-card.tsx
-msgid "{count, plural, one {Running on # node} other {Running on # nodes}}"
-msgstr "{count, plural, other {# ノードで実行中}}"
-
 #: src/components/clio/comments/comment-session.tsx
 msgid "{count, plural, one {Send # comment} other {Send # comments}}"
 msgstr "{count, plural, one {#件のコメントを送信} other {#件のコメントを送信}}"
@@ -3131,18 +3127,6 @@ msgstr "{names} を有効にしました"
 msgid "{names}. Values are hidden."
 msgstr "{names}。値は非表示です。"
 
-#: src/components/clio/job-card.tsx
-msgid "{nodes, plural, one {Running on {running} of # node} other {Running on {running} of # nodes}}"
-msgstr "{nodes, plural, other {# ノード中 {running} ノードで実行中}}"
-
-#: src/components/clio/job-card.tsx
-msgid "{nodes, plural, one {Starting on {allocated} of # node} other {Starting on {allocated} of # nodes}}"
-msgstr "{nodes, plural, other {# ノード中 {allocated} ノードで起動中}}"
-
-#: src/components/clio/job-card.tsx
-msgid "{nodes, plural, one {Will use # node} other {Will use # nodes}}"
-msgstr "{nodes, plural, other {# ノードを使用予定}}"
-
 #: src/components/clio/document-workspace.tsx
 msgid "{opened} Opened a desktop copy; edits are local to this copy."
 msgstr "{opened}デスクトップのコピーを開きました。編集はこのコピーにのみ反映されます。"
@@ -3494,6 +3478,10 @@ msgstr "{path}に対して{rule}"
 #: src/components/clio/tool-operation.ts
 msgid "{running, plural, one {# running} other {# running}}"
 msgstr "{running, plural, one {#件実行中} other {#件実行中}}"
+
+#: src/components/clio/job-card.tsx
+msgid "{running} of {nodes} running"
+msgstr "{nodes} ?? {running} ?????"
 
 #: src/lib/variant-runs.ts
 msgid "{running} of {total} running"

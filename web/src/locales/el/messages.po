@@ -1772,10 +1772,6 @@ msgstr "{count, plural, one {Δημοσιεύτηκε # αρχείο στα πρ
 msgid "{count, plural, one {Ready, # tool} other {Ready, # tools}}"
 msgstr "{count, plural, one {Έτοιμο, # εργαλείο} other {Έτοιμο, # εργαλεία}}"
 
-#: src/components/clio/job-card.tsx
-msgid "{count, plural, one {Running on # node} other {Running on # nodes}}"
-msgstr "{count, plural, one {Εκτελείται σε # κόμβο} other {Εκτελείται σε # κόμβους}}"
-
 #: src/components/clio/comments/comment-session.tsx
 msgid "{count, plural, one {Send # comment} other {Send # comments}}"
 msgstr "{count, plural, one {Αποστολή # σχολίου} other {Αποστολή # σχολίων}}"
@@ -3131,18 +3127,6 @@ msgstr "Ενεργό: {names}"
 msgid "{names}. Values are hidden."
 msgstr "{names}. Οι τιμές είναι κρυφές."
 
-#: src/components/clio/job-card.tsx
-msgid "{nodes, plural, one {Running on {running} of # node} other {Running on {running} of # nodes}}"
-msgstr "{nodes, plural, one {Εκτελείται σε {running} από # κόμβο} other {Εκτελείται σε {running} από # κόμβους}}"
-
-#: src/components/clio/job-card.tsx
-msgid "{nodes, plural, one {Starting on {allocated} of # node} other {Starting on {allocated} of # nodes}}"
-msgstr "{nodes, plural, one {Εκκίνηση σε {allocated} από # κόμβο} other {Εκκίνηση σε {allocated} από # κόμβους}}"
-
-#: src/components/clio/job-card.tsx
-msgid "{nodes, plural, one {Will use # node} other {Will use # nodes}}"
-msgstr "{nodes, plural, one {Θα χρησιμοποιήσει # κόμβο} other {Θα χρησιμοποιήσει # κόμβους}}"
-
 #: src/components/clio/document-workspace.tsx
 msgid "{opened} Opened a desktop copy; edits are local to this copy."
 msgstr "{opened} Άνοιξε ένα τοπικό αντίγραφο· οι επεξεργασίες αφορούν μόνο αυτό το αντίγραφο."
@@ -3494,6 +3478,10 @@ msgstr "{rule} για {path}"
 #: src/components/clio/tool-operation.ts
 msgid "{running, plural, one {# running} other {# running}}"
 msgstr "{running, plural, one {# σε εκτέλεση} other {# σε εκτέλεση}}"
+
+#: src/components/clio/job-card.tsx
+msgid "{running} of {nodes} running"
+msgstr "{running} ??? {nodes} ?? ????????"
 
 #: src/lib/variant-runs.ts
 msgid "{running} of {total} running"

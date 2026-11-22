@@ -1771,10 +1771,6 @@ msgstr ""
 msgid "{count, plural, one {Ready, # tool} other {Ready, # tools}}"
 msgstr ""
 
-#: src/components/clio/job-card.tsx
-msgid "{count, plural, one {Running on # node} other {Running on # nodes}}"
-msgstr ""
-
 #: src/components/clio/comments/comment-session.tsx
 msgid "{count, plural, one {Send # comment} other {Send # comments}}"
 msgstr ""
@@ -3124,18 +3120,6 @@ msgstr ""
 msgid "{names}. Values are hidden."
 msgstr ""
 
-#: src/components/clio/job-card.tsx
-msgid "{nodes, plural, one {Running on {running} of # node} other {Running on {running} of # nodes}}"
-msgstr ""
-
-#: src/components/clio/job-card.tsx
-msgid "{nodes, plural, one {Starting on {allocated} of # node} other {Starting on {allocated} of # nodes}}"
-msgstr ""
-
-#: src/components/clio/job-card.tsx
-msgid "{nodes, plural, one {Will use # node} other {Will use # nodes}}"
-msgstr ""
-
 #: src/components/clio/document-workspace.tsx
 msgid "{opened} Opened a desktop copy; edits are local to this copy."
 msgstr ""
@@ -3485,6 +3469,10 @@ msgstr ""
 
 #: src/components/clio/tool-operation.ts
 msgid "{running, plural, one {# running} other {# running}}"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "{running} of {nodes} running"
 msgstr ""
 
 #: src/lib/variant-runs.ts
