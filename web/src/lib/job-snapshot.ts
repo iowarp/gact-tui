@@ -49,7 +49,15 @@ export const jobSnapshotSchema = z.object({
   time_limit_s: z.number().nonnegative().nullish().catch(null),
   started_at: optionalText,
   ended_at: optionalText,
-  queue: z.object({ reason: optionalText, position: optionalCount }).nullish().catch(null),
+  queue: z
+    .object({
+      reason: optionalText,
+      position: optionalCount,
+      /** The scheduler's estimate of when the job starts, from now. */
+      starts_in_s: z.number().nonnegative().nullish().catch(null),
+    })
+    .nullish()
+    .catch(null),
   components: z.array(componentSchema).catch([]),
   couplings: z.array(couplingSchema).catch([]),
   script: z.object({ sha256: optionalText, text: z.string() }).nullish().catch(null),

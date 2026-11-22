@@ -34625,6 +34625,10 @@ msgstr "Parte de"
 msgid "Starts from {parentName} and keeps your changes. Updates to {parentName} reach this agent in its next conversation."
 msgstr "Parte de {parentName} y conserva tus cambios. Las actualizaciones de {parentName} llegan a este agente en su siguiente conversación."
 
+#: src/components/clio/job-card.tsx
+msgid "Starts in"
+msgstr "Empieza en"
+
 #: src/lib/mcp-service-presentation.ts
 msgid "Starts when used"
 msgstr "Se inicia al usarse"
