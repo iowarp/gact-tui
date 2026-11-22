@@ -15,6 +15,7 @@ import type {
 } from './mcp-app-domain.js';
 import { InteractionRepository } from './interaction-repository.js';
 import { decodeMcpAppReopen, type McpAppReopenResult } from './mcp-app-reopen.js';
+import { requestViewCall } from './view-call-pending.js';
 
 const descriptorSchema = z.object({
   protocol_version: z.string(),
@@ -83,7 +84,7 @@ export class McpAppRepository extends InteractionRepository {
     identity: McpAppIdentity,
     signal?: AbortSignal,
   ): Promise<McpAppDescriptor> {
-    return this.transport.request({
+    return requestViewCall(this.transport, {
       method: 'GET',
       path: appPath(identity),
       decode: (value) => descriptorSchema.parse(value),
@@ -96,7 +97,7 @@ export class McpAppRepository extends InteractionRepository {
     request: { name: string; arguments?: Record<string, unknown> },
     signal?: AbortSignal,
   ): Promise<unknown> {
-    return this.transport.request({
+    return requestViewCall(this.transport, {
       method: 'POST',
       path: appPath(identity, '/tools/call'),
       body: request,
@@ -110,7 +111,7 @@ export class McpAppRepository extends InteractionRepository {
     uri: string,
     signal?: AbortSignal,
   ): Promise<unknown> {
-    return this.transport.request({
+    return requestViewCall(this.transport, {
       method: 'POST',
       path: appPath(identity, '/resources/read'),
       body: { uri },
@@ -178,7 +179,7 @@ export class McpAppRepository extends InteractionRepository {
     appInstanceId: string,
     signal?: AbortSignal,
   ): Promise<McpAppReopenResult> {
-    return this.transport.request({
+    return requestViewCall(this.transport, {
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp-apps/reopen`,
       body: { app_instance_id: appInstanceId },
@@ -197,7 +198,7 @@ export class McpAppRepository extends InteractionRepository {
     call: McpAppCall,
     signal?: AbortSignal,
   ): Promise<McpAppOpenFromCallResult> {
-    return this.transport.request({
+    return requestViewCall(this.transport, {
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp-apps/reopen`,
       body: { call, save: false },
