@@ -107,3 +107,78 @@ of this branch and of the pre-upgrade commit (`4903d3d5`), both talking to
   `tests/review/tool-operations.html` needs data the spec injects with
   `page.route`, so code rendering was checked only through the transcript tool rows
   and the gallery.
+
+## What the upgrades give us
+
+### Adopted
+
+- **pdf.js renderer worker** (pdf.js 6.5). The PDF viewer sets
+  `GlobalWorkerOptions.rendererSrc`, so pages are drawn on an `OffscreenCanvas`
+  in a worker instead of the main thread; large or image-heavy pages no longer block
+  scrolling and input. pdf.js falls back to main-thread drawing when the webview lacks
+  `OffscreenCanvas` or the worker cannot start. Checked with
+  `e2e/document-artifact-preview.spec.ts` (docx, pptx and xlsx previews at desktop and
+  phone width): every page started the renderer worker, and each rendered page canvas
+  is pixel-identical to main-thread drawing. The worker is a same-origin bundled
+  module, like the existing `pdf.worker`, so the desktop CSP (`script-src 'self'`,
+  no `worker-src`) treats it the same way; it has not been run inside the Tauri
+  webviews.
+
+### Already active with no code change
+
+- **TypeScript 7**: `tsc -b` for web takes about 10 s instead of about 70 s. It
+  already builds project references in parallel; `--builders` and `--checkers`
+  gave no further gain here (9–11 s either way).
+- **vitest 5**: inline projects share one Vite server, and transformed modules are
+  cached on disk (`fsModuleCache`, on by default since 5.0.4).
+- **React 19.3**: transitions render independently, resize updates batch to the
+  next frame, and unchanged `innerHTML` is not reassigned.
+- **Shiki 4.6**: the Oniguruma WASM is gzip-compressed and loaded asynchronously.
+- **MapLibre 6.6–6.19**: parallel shader linking, fewer WebGL calls per frame,
+  faster symbol layout and placement, no sprite readback stall.
+- **Mermaid 12**: deeply indented diagrams parse in milliseconds instead of seconds.
+- **pdf.js 6**: ImageDecoder on Chromium, faster JPX/JBIG2 decoding, downscaling of
+  large images without a full RGBA buffer.
+- **motion 13.3–14**: a smaller and faster `animate`, cheaper scroll animations, and
+  hardware-accelerated independent transforms.
+- **Tauri 2.5–2.12**: faster `Channel` IPC for small payloads and asynchronous
+  protocol handlers at startup.
+
+## Decisions for the user
+
+Each item is a design change, a contract change or a risk that needs a person to
+decide. "Value" is what the product gains, "Risk" is what could go wrong.
+
+### Held upgrades
+
+| Item | Value | Risk | Recommendation |
+| --- | --- | --- | --- |
+| **React Flow 13** (`@xyflow/react`) and its dark mode | Current release line. Graph chrome (controls, minimap, background) can finally follow the app's dark theme, so graphs stop being light islands in a dark UI. Also: per-slice stores (`useViewportStore`, `useNodesStore`, …) so components subscribe to less state. | v13 styles `.dark .react-flow`, which the app's `html.dark` matches, and otherwise follows the OS scheme. All four graph views (lineage, study, knowledge, conversation relationships) change appearance at once. `fitViewOptions.padding: 0.15` becomes 0.15 px unless rewritten as `'15%'`. | **Adopt, with a design pass.** Drive `forceColorMode` from the app theme (never the OS) and review the four graphs in both themes. The code change is small; the visual sign-off is the work. |
+| **KaTeX 0.19** | Current release line; `symbolNotInFont` strict reporting; new commands. | Chat math is rendered by `@streamdown/math`, whose latest release still uses KaTeX 0.16 and shares the app's KaTeX stylesheet. 0.18+ renames internal classes (`katex-base`, …), so moving the app copy mis-styles every chat formula. | **Wait** for `@streamdown/math` to move to KaTeX ≥ 0.18, then move both together. |
+| **zod 4** | Faster parsing, smaller bundles, `z.toJSONSchema()`, better error formatting. | `@a2ui/react` and `@a2ui/web_core` (through 0.15) depend on zod 3, so the app would carry two copies with schemas crossing the A2UI boundary. `required_error` and `invalid_type_error` are removed, `.default()` changes, `z.record()` needs two arguments. | **Move with A2UI, not before.** Until then, new code can use `zod/v4` from the installed 3.25 package where interoperability isn't needed. |
+| **A2UI 0.15** (`@a2ui/react`, `@a2ui/web_core`, `@a2ui/markdown-it`) | Protocol v1.0 wire format, enforced `allowedParents`/`allowedChildren`, catalog `validationSchema`, `a2ui-`-prefixed classes, refusing `agentOnly` functions in the invoker. | A contract change spanning clio-schemas, clio-agent and this renderer. The v0.8 exports move, the basic React catalog is removed, and `A2uiSurface` no longer renders loading or error placeholders. | **Plan a coordinated migration** across the three repositories (see the `a2ui-component-design` skill). Not a dependency bump. |
+| **jsdom 31** | Current test DOM: reimplemented CSS engine closer to browsers, async focus changes, `@napi-rs/canvas` support. | Tried: 12 tests in 7 files fail for separate reasons (canvas context fakes, `::highlight` and computed-style reads, visibility in the MCP-app look tests, `postMessage` in the HDF5 frame). Each needs a decision on whether the test or the environment is right. | **Do as its own task.** Fix the canvas fake once in the test setup first; most of the rest are test assumptions about jsdom 30's CSS. |
+| **vega-lite 6.5** | Current release; chart fixes and features. | `chart-selection.test.ts` pins the vega-lite version whose selection-store format the app writes, so saved selections may be read differently. | **Adopt after checking** the selection-store format against 6.5 and updating the pin with a migration note. |
+| **streamdown 2.8** | Current Markdown streaming renderer. | 2.8 rewrites in-document hash links to `#user-content-*`: two tests expecting `#section` now get `#user-content-section`. Whether the target headings get the same prefix (so the links still resolve) was not checked. | **Check, then decide.** If heading ids are prefixed too, update the two tests and adopt; if not, wait for a fix or an option to turn the prefix off. |
+| **ureq 3** (desktop HTTP bridge) | Maintained major; `http`-crate types, explicit TLS config with platform verifier, `Agent::shutdown()`. | Rewrite of 36 call sites in the supervisor, SSE and `gact_http` bridge. TLS root choice, proxy-from-env (now on by default) and no automatic retries change network behaviour in security-relevant code. | **Do as its own change** with a network/TLS review and tests against a proxied and an HTTPS endpoint. 2.x still works. |
+| **keyring 4** (desktop credentials) | Maintained major; credential stores split into small crates. | The API moves to `keyring-core` with a separate store crate per platform; the macOS and Windows paths cannot be built or exercised on Linux. A mistake loses or orphans stored credentials. | **Do on each platform**, with a migration test that reads credentials written by 3.x. |
+| **Schema generator pins** (prettier 3.10, json-schema-to-zod 2.8, json-schema-ref-parser 16) | Current formatter and generators. | `schema-ts-gen` regenerates `packages/core/src/generated/clio-schemas` and rejects drift; prettier 3.10 reflows the union types in `_models.ts`. | **Move all three together** with a regenerated tree from the pinned clio-schemas commit. |
+| **H5Web 18** and React 19 for the HDF5 viewer | One React version across the workspace. | H5Web 18 still requires React 18 (19 is planned for H5Web 19) and changes `HsdsProvider` and data fetching. | **Wait for H5Web 19.** |
+| **libavoid-js 0.5.0-beta.6** | Current routing engine. | The WASM API used by lineage edge routing changed. | **Wait for a stable release**, then port the routing calls. |
+
+### New features worth adopting
+
+| Feature | Value | Risk | Recommendation |
+| --- | --- | --- | --- |
+| **Shiki JavaScript regex engine** (`createJavaScriptRegexEngine` with `shiki/core` and per-language imports) | No WASM to download or compile before code is highlighted, and a much smaller highlighter bundle. It also removes highlighting's dependence on WebAssembly under the desktop CSP (below). All built-in grammars are supported by the JS engine. | Tokenization can differ for some grammars, and the app's custom grammars need checking. | **Adopt next**, after a token-by-token comparison of both engines over a corpus of the languages agents actually emit. |
+| **Desktop CSP and WebAssembly** | Reliable WASM features on desktop: highlighting, CAD STEP import (`occt-import-js`), lineage routing (`libavoid-js`), pdf.js image decoders. | The desktop CSP is `script-src 'self'` with no `'wasm-unsafe-eval'`. Chromium (so WebView2 on Windows) refuses to compile WebAssembly under such a policy, unless Tauri adds the keyword at runtime, which was not checked. | **Verify on Windows and macOS.** If WASM is blocked, add `'wasm-unsafe-eval'` to `script-src` (it allows compiling WASM, not `eval`). |
+| **React 19.3 `<ViewTransition>`** with motion's `AnimateView` (`motion/react-animate-view`) | Animated navigation between conversations, files and canvas states, and shared-element transitions (a file row expanding into the viewer), with no layout-thrash code. | Product motion design. Needs a `prefers-reduced-motion` policy in CSS and a decision on which transitions are worth animating. | **Design first.** Pick two or three transitions (open file, switch conversation), then adopt behind the reduced-motion rule. |
+| **Tauri `build.removeUnusedCommands`** (2.4) | Strips commands that no capability allows from the binary, shrinking the IPC attack surface. | Commands granted by capabilities added at runtime would be stripped. None are added at runtime today (no `add_capability` calls), but it changes the built binary and needs a desktop smoke run. | **Adopt** with a full desktop build and native smoke test. |
+| **Tauri 2.12 webview security options** (`limitNavigationsToAppBoundDomains`, the WebView permission handler) | Tighter navigation and permission control (display capture, MIDI, file-system access) for embedded content. | Can block legitimate flows (OAuth windows, MCP apps) if mis-scoped. | **Review with the security owner**; start by denying permissions the app never needs. |
+| **Vite `build.chunkImportMap`** (experimental) | Chunks import each other through an import map, so a release invalidates only the chunks that changed. Faster repeat loads of the web workspace after updates. | Experimental; needs `import.meta.resolve`. Little benefit in the desktop app, which ships its bundle locally. | **Try for the web deployment** once it leaves experimental. |
+| **MapLibre `oklch`/`oklab` interpolation** (6.19) and layer blend modes (6.18) | Perceptually uniform colour ramps for scientific map layers (no muddy midpoints), and better raster/vector overlays. | Changes how existing ramps look; needs the chart and map colour design to agree. | **Adopt in the map colour system** together with the chart palette. |
+| **Mermaid 12 per-diagram ELK, step animation and new diagrams** | Agents can ask for ELK layout on dense diagrams (`config: { layout: elk }` in front matter already works while the site default stays dagre), plus BPMN shapes, use-case diagrams and stepped flowcharts. | Small reach: Pele renders most diagrams first, and Mermaid is the fallback. Step animation needs a reduced-motion check. | **Document per-diagram ELK** in the agent's diagram guidance; skip the rest until Pele cannot cover a need. |
+| **react-virtual `cancelScroll()`** (virtual-core 3.18) | A reader's scroll gesture cleanly interrupts the transcript's stick-to-bottom scroll while an answer streams. | Touches streaming scroll behaviour, which is easy to regress. | **Adopt** if stick-to-bottom fights user scrolling today; test on touch devices. |
+| **vitest `--last-failed` / `--since-last-run`** (5.1) and `isolate: false` for DOM tests | Faster local loops: rerun only failures or what changed. Sharing the DOM environment could cut the 8–9 minute suite substantially. | The scripts are harmless. `isolate: false` for DOM tests exposes cross-file state leaks (this upgrade already found two in node tests). | **Add the scripts; evaluate `isolate: false`** for DOM tests separately with `vitest doctor`. |
+| **three r187 loader priority, `Object3D.dispose()`, `KHR_meshopt_compression`** | Lower memory when mesh and CAD viewers close, and smaller glTF downloads. | Viewer code paths that are hard to test headlessly. | **Adopt `dispose()`** when the 3D viewers are next touched. |
+| **pdf.js `partialFrames`** (6.5) | Progressive drawing of very heavy pages. | react-pdf does not expose it. | **Skip** until react-pdf exposes it. |
