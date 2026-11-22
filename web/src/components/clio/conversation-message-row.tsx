@@ -170,7 +170,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const answerStarted = visibleResidualBlocks.some(
     (block) => block.type === 'text' && block.text.trim().length > 0,
   );
-  // A settled run folds into its counted row once the agent moves past it.
+  // While the turn runs, its calls stay as rows; they fold into counted rows once it ends.
   const turnLive =
     active ||
     (liveActivityId !== undefined &&
@@ -431,6 +431,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                                   .slice(segmentIndex + 1)
                                   .some((later) => later.kind !== 'feedback')
                               }
+                              turnRunning={turnLive}
                               answerStarted={answerStarted}
                               artifacts={entities.artifacts}
                               interactions={entities.interactions}
