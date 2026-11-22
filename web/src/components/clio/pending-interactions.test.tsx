@@ -2,9 +2,12 @@ import type { A2UISurface, PendingInteraction } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import { ClioPendingInteractions } from './pending-interactions';
+
+type PendingInteractionsProps = ComponentProps<typeof ClioPendingInteractions>;
 
 const repository = vi.hoisted(() => ({
   a2uiAction: vi.fn().mockResolvedValue({ status: 'accepted' }),
@@ -46,8 +49,10 @@ function renderPending(
   options: {
     disabled?: boolean;
     error?: Error;
-    onRefetchSurfaces?: ReturnType<typeof vi.fn>;
-    onResponse?: ReturnType<typeof vi.fn>;
+    onRefetchSurfaces?: ReturnType<
+      typeof vi.fn<NonNullable<PendingInteractionsProps['onRefetchSurfaces']>>
+    >;
+    onResponse?: ReturnType<typeof vi.fn<PendingInteractionsProps['onResponse']>>;
     ownerLabels?: Record<string, string>;
     surfaces?: Record<string, A2UISurface>;
     viewedSessionId?: string;

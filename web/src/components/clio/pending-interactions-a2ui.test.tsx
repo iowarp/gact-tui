@@ -2,6 +2,7 @@ import type { A2UISurface, PendingInteraction } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CLIO_A2UI_CATALOG_ID,
@@ -9,6 +10,8 @@ import {
 } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import { A2uiSessionRegistryOwner } from '@/test-fixtures/a2ui/v0_9_1/test-harness';
 import { ClioPendingInteractions } from './pending-interactions';
+
+type PendingInteractionsProps = ComponentProps<typeof ClioPendingInteractions>;
 
 // Split out of pending-interactions.test.tsx by behavior (CLIO-owned
 // TypeScript file-size ratchet, scripts/check_frontend_file_size.mjs): every
@@ -99,8 +102,10 @@ function renderPending(
     actionLifecycles?: Record<string, import('@clio/core/v3').A2UIActionLifecycle>;
     disabled?: boolean;
     error?: Error;
-    onRefetchSurfaces?: ReturnType<typeof vi.fn>;
-    onResponse?: ReturnType<typeof vi.fn>;
+    onRefetchSurfaces?: ReturnType<
+      typeof vi.fn<NonNullable<PendingInteractionsProps['onRefetchSurfaces']>>
+    >;
+    onResponse?: ReturnType<typeof vi.fn<PendingInteractionsProps['onResponse']>>;
     ownerLabels?: Record<string, string>;
     surfaces?: Record<string, A2UISurface>;
     viewedSessionId?: string;

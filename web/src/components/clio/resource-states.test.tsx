@@ -23,7 +23,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function framed(setFacts: ReturnType<typeof vi.fn> | null = vi.fn()) {
+function framed(
+  setFacts: ReturnType<
+    typeof vi.fn<(id: string, facts?: readonly string[]) => void>
+  > | null = vi.fn(),
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Frame({ children }: { children: ReactNode }) {
     return (

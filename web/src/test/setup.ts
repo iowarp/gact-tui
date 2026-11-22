@@ -12,22 +12,20 @@ if (!Range.prototype.getClientRects) {
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
 }
 
-if (!URL.createObjectURL) {
-  Object.defineProperty(URL, 'createObjectURL', {
-    configurable: true,
-    value: (blob: Blob): string =>
-      `blob:test-${'name' in blob && typeof blob.name === 'string' ? blob.name : blob.size}`,
-    writable: true,
-  });
-}
+// Always replace the object-URL functions: the test URL global is Node's, whose
+// native createObjectURL cannot read jsdom Blobs and returns random names.
+Object.defineProperty(URL, 'createObjectURL', {
+  configurable: true,
+  value: (blob: Blob): string =>
+    `blob:test-${'name' in blob && typeof blob.name === 'string' ? blob.name : blob.size}`,
+  writable: true,
+});
 
-if (!URL.revokeObjectURL) {
-  Object.defineProperty(URL, 'revokeObjectURL', {
-    configurable: true,
-    value: () => undefined,
-    writable: true,
-  });
-}
+Object.defineProperty(URL, 'revokeObjectURL', {
+  configurable: true,
+  value: () => undefined,
+  writable: true,
+});
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
