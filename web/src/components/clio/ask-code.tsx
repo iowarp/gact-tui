@@ -84,6 +84,8 @@ export function AskCode({
   // lines past the block's visible bottom, a partly cut line included.
   const preRef = useRef<HTMLPreElement>(null);
   const [fitting, setFitting] = useState<number>();
+  // The cut falls between whole lines, inside the bottom padding: the edge is clean, not faded.
+  const [flush, setFlush] = useState(false);
   useLayoutEffect(() => {
     const pre = preRef.current;
     if (!pre || !clipped) {
@@ -92,21 +94,31 @@ export function AskCode({
     }
     const update = () => {
       // Folded (no room for a line), every line is hidden.
-      if (pre.getClientRects().length === 0) {
+      if (pre.closest('[data-code-folded]')) {
         setFitting(0);
+        setFlush(false);
         return;
       }
       const bottom = pre.getBoundingClientRect().top + pre.clientHeight + 0.5;
+      const padding = Number.parseFloat(getComputedStyle(pre).paddingBottom) || 0;
       let count = 0;
+      let between = false;
       for (const line of pre.querySelectorAll('code')) {
-        if (line.getBoundingClientRect().bottom > bottom) break;
+        const box = line.getBoundingClientRect();
+        if (box.bottom > bottom) {
+          between = box.top >= bottom - padding - 1;
+          break;
+        }
         count += 1;
       }
       setFitting(count);
+      setFlush(between && count > 0);
     };
     update();
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
     observer?.observe(pre);
+    // Folding takes the preview out of flow without resizing it; its block resizes instead.
+    if (pre.parentElement) observer?.observe(pre.parentElement);
     return () => observer?.disconnect();
   }, [clipped, code, wrap]);
   const hidden = lines.length - (clipped ? (fitting ?? shown.length) : lines.length);
@@ -126,7 +138,7 @@ export function AskCode({
     <AskSection
       aria-label={label}
       className={cn(
-        'shrink-0 overflow-hidden rounded-lg border border-border bg-background',
+        'relative shrink-0 overflow-hidden rounded-lg border border-border bg-background',
         className,
       )}
       data-slot="ask-code"
@@ -156,9 +168,14 @@ export function AskCode({
       <pre
         ref={preRef}
         className={cn(
-          'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90 in-data-code-folded:hidden',
+          'clio-scrollbar grid min-h-0 grid-cols-[34px_minmax(0,1fr)] py-1.5 pr-2.5 font-mono text-label leading-[1.65] text-foreground/90 in-data-code-folded:invisible in-data-code-folded:absolute in-data-code-folded:inset-x-0',
           clipped
-            ? 'max-h-[140px] overflow-y-hidden [mask-image:linear-gradient(#000_62%,transparent)]'
+            ? cn(
+                'max-h-[140px] overflow-y-hidden',
+                flush
+                  ? '[mask-image:linear-gradient(#000_calc(100%-0.375rem),transparent_0)]'
+                  : '[mask-image:linear-gradient(#000_62%,transparent)]',
+              )
             : 'max-h-[min(24rem,40dvh)] overflow-y-auto',
           wrap ? 'overflow-x-hidden' : 'overflow-x-auto',
         )}
