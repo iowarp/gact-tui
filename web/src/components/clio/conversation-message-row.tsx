@@ -9,6 +9,7 @@ import { MessageBlockSequence, ReplyErrorLine } from './conversation-message-blo
 import { replyFailureCode, replyFailureReason } from './reply-failure';
 import { ReplyRecoveryActions } from './reply-failure-recovery';
 import { ConversationTurn } from './conversation-turn';
+import type { TurnEnd } from './conversation-activity-lane';
 import { VariantRunsForMessage } from './variant-runs-for-message';
 import { subagentsForTool } from './subagent-tool-link';
 import type { ConversationMessageRowProps } from './conversation-types';
@@ -170,11 +171,24 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const answerStarted = visibleResidualBlocks.some(
     (block) => block.type === 'text' && block.text.trim().length > 0,
   );
-  // A settled run folds into its counted row once the agent moves past it.
+  // While the turn runs, its calls stay as rows; they fold into counted rows once it ends.
   const turnLive =
     active ||
     (liveActivityId !== undefined &&
       turn.iterations.some((iteration) => iteration.id === liveActivityId));
+  // A turn that ended without finishing marks its last run so, never as done.
+  const turnEnd: TurnEnd | undefined =
+    message.role !== 'assistant' || turnLive
+      ? undefined
+      : emptyResponseWasClientCancelled
+        ? 'stopped'
+        : interruptedByService
+          ? 'interrupted'
+          : emptyResponseErrorCode ||
+              emptyResponseErrorMessage ||
+              message.blocks.some((block) => block.type === 'error')
+            ? 'failed'
+            : undefined;
   const executionMode = specialMessageExecutionMode(message);
   const messageAttentionIndex = useMessageAttentionIndex(entities.attentionData, message);
 
@@ -430,6 +444,13 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                                 !segments
                                   .slice(segmentIndex + 1)
                                   .some((later) => later.kind !== 'feedback')
+                              }
+                              turnRunning={turnLive}
+                              turnEnd={
+                                segmentIndex ===
+                                segments.findLastIndex((later) => later.kind === 'iterations')
+                                  ? turnEnd
+                                  : undefined
                               }
                               answerStarted={answerStarted}
                               artifacts={entities.artifacts}
