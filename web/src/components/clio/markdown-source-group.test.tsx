@@ -75,7 +75,7 @@ describe('grouped Markdown sources', () => {
       >
         <GroundedMessageResponse mode="static">
           {
-            'Evidence. [Protocol](workspace-file:/data/protocol.md), [Missing](artifact://missing), [Reference](https://example.org)'
+            'Evidence. [Protocol](workspace-file:/data/protocol.md) · [Missing](artifact://missing) · [Reference](https://example.org)'
           }
         </GroundedMessageResponse>
       </PresentationNavigation.Provider>,
@@ -89,6 +89,33 @@ describe('grouped Markdown sources', () => {
       'aria-disabled',
       'true',
     );
+  });
+
+  it('leaves a prose list of produced files as links, with no Sources chip (take 1t)', async () => {
+    render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenFile: vi.fn() }}
+      >
+        <GroundedMessageResponse mode="static">
+          {
+            'The [final vorticity image](workspace-file:/D:/w/naca0012_final_vorticity.png), [force history](workspace-file:/D:/w/naca0012_forces.dat); and [the log](workspace-file:/D:/w/run.log) are still in your workspace.'
+          }
+        </GroundedMessageResponse>
+      </PresentationNavigation.Provider>,
+    );
+    expect(await screen.findByRole('link', { name: 'final vorticity image' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'force history' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'the log' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /^Sources/u })).not.toBeInTheDocument();
+  });
+
+  it('still groups numbered citations joined by commas or semicolons', async () => {
+    render(
+      <GroundedMessageResponse mode="static">
+        {'Rainfall rose. [1](https://a.org/1), [2](https://b.org/2); [[3]](https://c.org/3)'}
+      </GroundedMessageResponse>,
+    );
+    expect(await screen.findByRole('button', { name: 'Sources 3' })).toBeVisible();
   });
 
   it('keeps single links, links separated by prose, anchors and code in their original positions', async () => {
