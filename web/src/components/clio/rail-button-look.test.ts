@@ -18,6 +18,25 @@ describe('railButtonLook', () => {
     ).toEqual({ kind: 'waiting', count: 2, label: '2 waiting for you' });
   });
 
+  it('counts a plan card once when its question is also a waiting process', () => {
+    expect(
+      railButtonLook({
+        processes: [
+          process('yielded'),
+          { id: 'ques_1', kind: 'question', live_state: 'waiting_user' } as AsyncProcess,
+        ],
+        subagents: [],
+        interactions: [
+          {
+            status: 'pending',
+            task_id: 'ques_1',
+            payload: { question_id: 'ques_1' },
+          } as PendingInteraction,
+        ],
+      }),
+    ).toEqual({ kind: 'waiting', count: 1, label: '1 waiting for you' });
+  });
+
   it('shows failures until the rail has been opened on them', () => {
     const processes = [process('failed'), process('running')];
     expect(railButtonLook({ processes, subagents: [] })).toMatchObject({

@@ -46,10 +46,24 @@ export function railButtonLook({
   seenFailed?: number;
 }): RailButtonLook {
   const states = workStates(processes, subagents);
-  const waiting =
-    interactions.filter(
-      (interaction) => interaction.status === 'pending' && interaction.audience !== 'agent',
-    ).length + states.filter((state) => WAITING.has(state)).length;
+  const requests = interactions.filter(
+    (interaction) => interaction.status === 'pending' && interaction.audience !== 'agent',
+  );
+  // A question or plan card is also listed as a waiting process; count it once.
+  const carded = new Set(
+    requests.flatMap((request) => [request.task_id, request.payload?.question_id]),
+  );
+  const uncarded = processes.length
+    ? processes
+        .filter(
+          (process) =>
+            ![process.id, process.handle, process.question_id].some(
+              (key) => key && carded.has(key),
+            ),
+        )
+        .map((process) => process.live_state)
+    : states;
+  const waiting = requests.length + uncarded.filter((state) => WAITING.has(state)).length;
   if (waiting) return { kind: 'waiting', count: waiting, label: t`${waiting} waiting for you` };
   const failed = states.filter((state) => FAILED.has(state)).length;
   if (failed > seenFailed) {
