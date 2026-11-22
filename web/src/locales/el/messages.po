@@ -33845,6 +33845,10 @@ msgstr "Απλά ζυμαρικά με ντομάτα"
 msgid "Site"
 msgstr "Ιστότοπος"
 
+#: src/components/clio/job-card.tsx
+msgid "site default"
+msgstr "προεπιλογή τοποθεσίας"
+
 #: src/components/clio/managed-service-form.tsx
 msgid "Site-provided"
 msgstr "Παρέχεται από την εγκατάσταση"

@@ -33844,6 +33844,10 @@ msgstr "Simple tomato pasta"
 msgid "Site"
 msgstr "Site"
 
+#: src/components/clio/job-card.tsx
+msgid "site default"
+msgstr "site default"
+
 #: src/components/clio/managed-service-form.tsx
 msgid "Site-provided"
 msgstr "Site-provided"
