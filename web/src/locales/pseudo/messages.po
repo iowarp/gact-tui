@@ -23659,6 +23659,14 @@ msgstr ""
 msgid "No, only reply outcomes"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "Node {first}"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Nodes {first} to {last}"
+msgstr ""
+
 #: src/components/clio/agent-tab-values.ts
 msgid "None"
 msgstr ""
@@ -38879,9 +38887,13 @@ msgstr ""
 
 #: src/components/clio/a2ui-date-time-input.tsx
 #: src/components/clio/date-time-field.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
+msgid "Time"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgctxt "job wall time"
 msgid "Time"
 msgstr ""
 

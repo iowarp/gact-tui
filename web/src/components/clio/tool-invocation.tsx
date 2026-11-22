@@ -432,7 +432,7 @@ export function ClioToolInvocation({
           <NestedToolCalls parentId={tool.id} renderCall={renderNestedCall} />
         ) : null}
       </Collapsible>
-      {tool.parent_call_id ? null : <ToolJobCards tool={tool} />}
+      {flowResult && !tool.parent_call_id ? <ToolJobCards tool={tool} /> : null}
       {open ? (
         <ToolTechnicalDetailsDialog
           open={open}

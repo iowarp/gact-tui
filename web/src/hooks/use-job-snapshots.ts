@@ -58,22 +58,29 @@ interface SessionJobs {
   owners: Map<string, string>;
   /** Call ids and task handles in the conversation, by their row. */
   rowOf: Map<string, string>;
+  /** Whether any call runs as a task, whose live status may carry a job. */
+  taskCalls: boolean;
   /** Whether a task-backed call is still running (it can gain a job before its result). */
   taskRunning: boolean;
 }
 
-function sessionJobs(tools: Record<string, ToolInvocation>, sessionId: string): SessionJobs {
+function sessionJobs(
+  tools: Record<string, ToolInvocation>,
+  sessionId: string | undefined,
+): SessionJobs {
   const calls = Object.values(tools)
-    .filter((call) => call.session_id === sessionId)
+    .filter((call) => sessionId && call.session_id === sessionId)
     .sort((a, b) => (a.started_at ?? '').localeCompare(b.started_at ?? ''));
   const owners = new Map<string, string>();
   const rowOf = new Map<string, string>();
   const found: JobSnapshot[] = [];
+  let taskCalls = false;
   let taskRunning = false;
   for (const call of calls) {
     const row = topLevelId(tools, call);
     rowOf.set(call.id, row);
     if (call.execution_task) {
+      taskCalls = true;
       rowOf.set(call.execution_task.handle, row);
       if (call.state === 'running' || call.state === 'pending') taskRunning = true;
     }
@@ -82,22 +89,22 @@ function sessionJobs(tools: Record<string, ToolInvocation>, sessionId: string): 
       found.push(job);
     }
   }
-  return { jobs: latestJobs(found), owners, rowOf, taskRunning };
+  return { jobs: latestJobs(found), owners, rowOf, taskCalls, taskRunning };
 }
 
 /**
- * The jobs whose card shows under one transcript row: operations this row's call
- * (or a script's nested call) carried first, each at its latest revision across
- * the conversation's later results and the live snapshot of the task it runs as.
+ * A conversation's jobs by the transcript row their card shows under: each
+ * operation goes to the row whose call (or a script's nested call) carried it
+ * first, at its latest revision across later results and the live snapshot of
+ * the task it runs as.
  */
-export function useToolJobs(tool: ToolInvocation): JobSnapshot[] {
+export function useSessionJobRows(sessionId: string | undefined): Map<string, JobSnapshot[]> {
   const provided = useContext(PresentationNavigation)?.tools;
   const live = useLiveStore((state) => state.entities.tools);
   const tools = provided ?? live;
-  const session = useMemo(() => sessionJobs(tools, tool.session_id), [tools, tool.session_id]);
+  const session = useMemo(() => sessionJobs(tools, sessionId), [tools, sessionId]);
   const following = session.taskRunning || session.jobs.some(jobInFlight);
-  const taskJobs = useTaskJobs(following, following || session.jobs.length > 0);
-  const toolId = tool.id;
+  const taskJobs = useTaskJobs(following, session.taskCalls || session.jobs.length > 0);
   return useMemo(() => {
     const owners = new Map(session.owners);
     const fromTasks: JobSnapshot[] = [];
@@ -110,12 +117,21 @@ export function useToolJobs(tool: ToolInvocation): JobSnapshot[] {
       if (!owners.has(job.operation_id)) owners.set(job.operation_id, row);
       fromTasks.push(job);
     }
-    return latestJobs([...session.jobs, ...fromTasks]).filter(
-      (job) => owners.get(job.operation_id) === toolId,
-    );
-  }, [session, taskJobs, toolId]);
+    const rows = new Map<string, JobSnapshot[]>();
+    for (const job of latestJobs([...session.jobs, ...fromTasks])) {
+      const row = owners.get(job.operation_id);
+      if (row) rows.set(row, [...(rows.get(row) ?? []), job]);
+    }
+    return rows;
+  }, [session, taskJobs]);
 }
 
+const NO_JOBS: JobSnapshot[] = [];
+
+/** The jobs whose card shows under one transcript row. */
+export function useToolJobs(tool: ToolInvocation): JobSnapshot[] {
+  return useSessionJobRows(tool.session_id).get(tool.id) ?? NO_JOBS;
+}
 /**
  * Every job the person can see: the live snapshots of the agent's MCP tasks and
  * the latest results the loaded conversations carry, one per operation.

@@ -23677,6 +23677,14 @@ msgstr "Todavía no hay espacios de trabajo."
 msgid "No, only reply outcomes"
 msgstr "No, solo el resultado de las respuestas"
 
+#: src/components/clio/job-card.tsx
+msgid "Node {first}"
+msgstr "Nodo {first}"
+
+#: src/components/clio/job-card.tsx
+msgid "Nodes {first} to {last}"
+msgstr "Nodos {first} a {last}"
+
 #: src/components/clio/agent-tab-values.ts
 msgid "None"
 msgstr "Ninguno"
@@ -38898,11 +38906,15 @@ msgstr "Jueves"
 
 #: src/components/clio/a2ui-date-time-input.tsx
 #: src/components/clio/date-time-field.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Time"
 msgstr "Hora"
+
+#: src/components/clio/job-card.tsx
+msgctxt "job wall time"
+msgid "Time"
+msgstr "Tiempo"
 
 #: src/components/clio/work-record-controls.tsx
 msgid "Time limit (seconds)"

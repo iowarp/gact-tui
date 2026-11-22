@@ -131,14 +131,14 @@ function NodeCells({ component, phase }: { component: JobComponent; phase: strin
     <span
       aria-hidden="true"
       className={cn(
-        'grid gap-[2px]',
+        'grid gap-[3px]',
         cells > 8 ? 'grid-cols-8' : cells > 4 ? 'grid-cols-4' : 'grid-cols-2',
       )}
     >
       {Array.from({ length: cells }, (_, index) => (
         <span
           className={cn(
-            'size-1.5 rounded-[1px] border',
+            'size-2 rounded-[2px] border',
             failed
               ? 'border-destructive/60 bg-destructive/30'
               : done
@@ -160,10 +160,10 @@ function NodeCells({ component, phase }: { component: JobComponent; phase: strin
 /** Compute nodes: three staggered outlines, the front one holding the node cells. */
 function NodeStack({ component, phase }: { component: JobComponent; phase: string }) {
   return (
-    <span aria-hidden="true" className="relative inline-block h-14 w-20 shrink-0">
-      <span className="absolute top-0 left-4 h-10 w-16 rounded-sm border border-foreground/25 bg-background" />
-      <span className="absolute top-2 left-2 h-10 w-16 rounded-sm border border-foreground/35 bg-background" />
-      <span className="absolute top-4 left-0 flex h-10 w-16 items-center justify-center rounded-sm border border-foreground/50 bg-background">
+    <span aria-hidden="true" className="relative inline-block h-20 w-32 shrink-0">
+      <span className="absolute top-0 left-6 h-14 w-26 rounded-sm border border-foreground/25 bg-background" />
+      <span className="absolute top-3 left-3 h-14 w-26 rounded-sm border border-foreground/35 bg-background" />
+      <span className="absolute top-6 left-0 flex h-14 w-26 items-center justify-center rounded-sm border border-foreground/50 bg-background">
         <NodeCells component={component} phase={phase} />
       </span>
     </span>
@@ -175,12 +175,12 @@ function CardStack({ component, phase }: { component: JobComponent; phase: strin
   return (
     <span
       aria-hidden="true"
-      className="relative inline-block h-14 w-20 shrink-0 [perspective:200px]"
+      className="relative inline-block h-20 w-32 shrink-0 [perspective:240px]"
     >
-      <span className="absolute top-1 left-5 h-11 w-12 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] rounded-md border border-foreground/25 bg-background" />
-      <span className="absolute top-1.5 left-3 h-11 w-12 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] rounded-md border border-foreground/35 bg-background" />
-      <span className="absolute top-2 left-1 flex h-11 w-12 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] flex-col items-center justify-center gap-1 rounded-md border border-foreground/50 bg-background">
-        <MonitorIcon className="size-3 text-muted-foreground" />
+      <span className="absolute top-1 left-12 h-16 w-18 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] rounded-md border border-foreground/25 bg-background" />
+      <span className="absolute top-2 left-7 h-16 w-18 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] rounded-md border border-foreground/35 bg-background" />
+      <span className="absolute top-3 left-2 flex h-16 w-18 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] flex-col items-center justify-center gap-1 rounded-md border border-foreground/50 bg-background">
+        <MonitorIcon className="size-4 text-muted-foreground" />
         <NodeCells component={component} phase={phase} />
       </span>
     </span>
@@ -206,7 +206,7 @@ function ComponentBlock({ component, phase }: { component: JobComponent; phase: 
       ) : (
         <NodeStack component={component} phase={phase} />
       )}
-      <span className="max-w-40 truncate font-medium text-foreground">
+      <span className="line-clamp-2 max-w-44 font-medium break-words text-foreground">
         {nodes ? t`${name} ×${nodes}` : name}
       </span>
       {state ? (
@@ -216,12 +216,21 @@ function ComponentBlock({ component, phase }: { component: JobComponent; phase: 
         </span>
       ) : null}
       {component.host_slice ? (
-        <span className="max-w-40 truncate font-mono text-meta text-muted-foreground">
-          {component.host_slice}
+        <span className="max-w-40 truncate text-meta text-muted-foreground">
+          {hostSlice(component.host_slice)}
         </span>
       ) : null}
     </div>
   );
+}
+
+/** JARVIS's host slice (`start:end`, end exclusive) as the nodes it names, counted from 1. */
+function hostSlice(slice: string): string {
+  const range = /^(\d+):(\d+)$/.exec(slice.trim());
+  if (!range) return slice;
+  const first = Number(range[1]) + 1;
+  const last = Number(range[2]);
+  return first === last ? t`Node ${first}` : t`Nodes ${first} to ${last}`;
 }
 
 function couplingLabel(coupling: JobCoupling): string {
@@ -229,23 +238,39 @@ function couplingLabel(coupling: JobCoupling): string {
   return coupling.kind === 'stream' ? t`Streams to` : t`Feeds`;
 }
 
-/** The coupling between two neighbours: an arrow, its label beneath; it turns down when narrow. */
+/** The coupling between two neighbours: an arrow with its label; it points down when narrow. */
 function CouplingArrow({ coupling }: { coupling: JobCoupling | null }) {
+  const dash = coupling ? undefined : '3 3';
   return (
     <div
-      className="flex shrink-0 flex-col items-center gap-1 self-center text-muted-foreground @max-[420px]/job:py-1"
+      className="flex shrink-0 flex-col items-center gap-1 self-center text-muted-foreground @max-[420px]/job:flex-row @max-[420px]/job:gap-2"
       data-slot="job-coupling"
     >
       <svg
         aria-hidden="true"
-        className="h-3 w-16 @max-[420px]/job:rotate-90"
+        className="h-3 w-24 @max-[420px]/job:hidden"
         fill="none"
         viewBox="0 0 64 12"
       >
         <path
           d="M2 6h56m-6-5 6 5-6 5"
           stroke="currentColor"
-          strokeDasharray={coupling ? undefined : '3 3'}
+          strokeDasharray={dash}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.5"
+        />
+      </svg>
+      <svg
+        aria-hidden="true"
+        className="hidden h-10 w-3 @max-[420px]/job:block"
+        fill="none"
+        viewBox="0 0 12 40"
+      >
+        <path
+          d="M6 2v34m-5-6 5 6 5-6"
+          stroke="currentColor"
+          strokeDasharray={dash}
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth="1.5"
@@ -280,12 +305,22 @@ function Fact({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+/** A wall time as the scheduler states it: whole hours and minutes, seconds only when short. */
+function wallTime(milliseconds: number): string {
+  // Clocks on the site and here differ a little; never show a start ahead of now.
+  if (milliseconds < 1000) return '0 s';
+  const minutes = Math.round(milliseconds / 60_000);
+  if (minutes < 60) return formatDuration(Math.floor(milliseconds / 1000) * 1000);
+  const hours = Math.floor(minutes / 60);
+  return minutes % 60 ? `${hours} h ${minutes % 60} min` : `${hours} h`;
+}
+
 function timeFact(job: JobSnapshot, now: number): string | null {
-  const limit = job.time_limit_s != null ? formatDuration(job.time_limit_s * 1000) : null;
+  const limit = job.time_limit_s != null ? wallTime(job.time_limit_s * 1000) : null;
   const started = job.started_at ? Date.parse(job.started_at) : Number.NaN;
   if (Number.isNaN(started)) return limit;
   const end = job.ended_at ? Date.parse(job.ended_at) : now;
-  const elapsed = formatDuration(Math.max(0, end - started));
+  const elapsed = wallTime(Math.max(0, end - started));
   return limit ? t`${elapsed} of ${limit}` : elapsed;
 }
 
@@ -320,7 +355,9 @@ export function JobCard({ job, fallback, className }: JobCardProps) {
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
         {job.partition ? <Fact label={t`Partition`} value={job.partition} /> : null}
         {job.account ? <Fact label={t`Account`} value={job.account} /> : null}
-        {time ? <Fact label={t`Time`} value={time} /> : null}
+        {time ? (
+          <Fact label={t({ message: 'Time', context: 'job wall time' })} value={time} />
+        ) : null}
         <span
           className={cn('ml-auto inline-flex items-center gap-1.5 font-medium', TONE_TEXT[tone])}
           data-slot="job-status"
@@ -355,7 +392,7 @@ export function JobCard({ job, fallback, className }: JobCardProps) {
       ) : null}
       {job.script?.text || fallback ? (
         <TechnicalDetails
-          className="flex flex-col items-center"
+          className="flex flex-col items-start"
           contentClassName="mt-2 self-stretch"
           summaryClassName="text-meta"
           title={t`See script`}

@@ -37,6 +37,8 @@ export const jobSnapshotSchema = z.object({
   job_id: z.union([z.string(), z.number()]).nullish().catch(null),
   revision: z.number().catch(0),
   updated_at: optionalText,
+  /** `jarvis` when JARVIS planned the job; `relay` when relay filled it from the spec. */
+  source: optionalText,
   site: z.object({ id: z.string(), label: optionalText }).nullish().catch(null),
   scheduler: optionalText,
   phase: z.string(),
@@ -164,7 +166,10 @@ export function componentTone(state: string | null | undefined): JobStatusTone {
   }
 }
 
-/** Whether a component draws as a viewer's card stack rather than compute nodes. */
+/**
+ * Whether a component draws as a stack of service cards rather than compute
+ * nodes: JARVIS's roles for a server the pipeline runs beside its program.
+ */
 export function isViewerComponent(component: JobComponent): boolean {
-  return component.role === 'viewer';
+  return component.role === 'service' || component.role === 'viewer';
 }
