@@ -977,11 +977,6 @@ msgstr "{0, plural, one {writes to # folder} other {writes to # folders}}"
 msgid "{0, plural, other {# denied}}"
 msgstr "{0, plural, other {# denied}}"
 
-#. placeholder {0}: run.failed
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# failed}}"
-msgstr "{0, plural, other {# failed}}"
-
 #. placeholder {0}: run.interrupted
 #: src/components/clio/conversation-activity-lane.tsx
 msgid "{0, plural, other {# stopped}}"
@@ -2004,7 +1999,6 @@ msgstr "{failed, plural, one {# could not be enabled} other {# could not be enab
 msgid "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
 msgstr "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
 
-#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/nested-tool-calls.tsx
 msgid "{failed} failed"
 msgstr "{failed} failed"
@@ -33913,10 +33907,6 @@ msgstr "Some background processes are no longer attached to this agent service."
 #: src/components/clio/settings-operations.tsx
 msgid "Some background work is no longer attached to this service and may continue after the service stops."
 msgstr "Some background work is no longer attached to this service and may continue after the service stops."
-
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "Some calls failed"
-msgstr "Some calls failed"
 
 #: src/components/clio/conversation-activity-lane.tsx
 msgid "Some calls were denied"

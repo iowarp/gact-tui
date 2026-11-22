@@ -125,9 +125,11 @@ function laneTail(group: readonly ConversationIteration[], keep: number): Conver
 /**
  * A step's activity as flat rows in the conversation: thoughts, calls,
  * delegates and tasks, one 28px row each, in the order they happened. A long
- * step shows its latest rows; "Show N earlier" opens the rest and stays open.
- * Once the run has finished, it folds into one row that counts what it did,
+ * step shows its latest rows only once its turn has ended; while the turn runs,
+ * every row stays in view. "Show N earlier" opens the rest and stays open.
+ * Once the turn has ended, a run folds into one row that counts what it did,
  * "Called 3 tools, edited 2 files, delegated 1 task", and opens to all its rows.
+ * A failed call the agent recovered from is marked on its own row, not the count.
  * The steps arrive without the thinking that is read above the lane.
  */
 function ActivityLaneView({
@@ -144,35 +146,15 @@ function ActivityLaneView({
   const [runOpen, setRunOpen] = useTranscriptDisclosure(`run:${id}`, false);
   const runsFold = useContext(ActivityRunsFold);
   const total = group.reduce((sum, item) => sum + laneRows(item), 0);
-  // While the turn works, steps after the last call that only think are the
-  // agent moving on; they stay below the run. Once it has settled, the whole
-  // block between two updates is the run.
-  const lastCallEnd = (end: number) => {
-    while (end > 0 && !group[end - 1].activity.length && !group[end - 1].interrupted) end -= 1;
-    return end;
-  };
-  let headEnd = group.length;
-  if (turnLive) {
-    // The settled steps the agent has gone past stay one folded run while it
-    // works on the latest, so a new call never reopens it and remounts its rows.
-    const callEnd = lastCallEnd(group.length);
-    let settled = 0;
-    while (settled < group.length && runSettled([group[settled]], interactions)) settled += 1;
-    const movedOn = settled >= callEnd && callEnd < group.length;
-    headEnd = movedOn ? callEnd : lastCallEnd(Math.min(settled, callEnd - 1)) || callEnd;
-  }
-  const head = group.slice(0, headEnd);
-  const afterIds = new Set(group.slice(headEnd).map((item) => item.id));
-  // A settled run folds once the agent has moved past it, a single call too, so
-  // the work reads as one row between updates; thoughts alone stay as they are.
-  const headCalls = head.reduce(
+  // While the turn works, every step stays its own row as it happens; the run folds
+  // into its counted row only once the turn has ended.
+  const headCalls = group.reduce(
     (sum, item) => sum + item.activity.filter((entry) => entry.kind !== 'diff').length,
     0,
   );
-  const collapses =
-    runsFold && (!turnLive || afterIds.size > 0) && headCalls > 0 && runSettled(head, interactions);
+  const collapses = runsFold && !turnLive && headCalls > 0 && runSettled(group, interactions);
   // A folded run already counts its rows, so opening it shows every one of them.
-  const folded = !all && !collapses && total > LANE_LIMIT;
+  const folded = !all && !collapses && !turnLive && total > LANE_LIMIT;
   const shown = folded ? laneTail(group, LANE_TAIL) : group;
   const earlier = folded ? total - shown.reduce((sum, item) => sum + laneRows(item), 0) : 0;
   // While a call in a longer run waits on the person, the run's row already shows,
@@ -180,7 +162,7 @@ function ActivityLaneView({
   const waiting =
     !collapses &&
     headCalls > 1 &&
-    head.some((item) => item.tools.some((tool) => toolWaitsForYou(tool, interactions)));
+    group.some((item) => item.tools.some((tool) => toolWaitsForYou(tool, interactions)));
   const showAll = folded ? (
     <Button
       variant="ghost"
@@ -194,7 +176,7 @@ function ActivityLaneView({
   const run =
     collapses || waiting
       ? transcriptRunSummary(
-          head.map((item) => ({
+          group.map((item) => ({
             ...item,
             // A call the person refused is counted as denied, not failed.
             tools: item.tools.map((tool) => withPermissionDecision(tool, interactions)),
@@ -262,14 +244,10 @@ function ActivityLaneView({
           onOpenChange={setRunOpen}
           open={runOpen}
           outcome={
-            run.failed || run.denied || run.interrupted ? (
+            // A failed call the agent recovered from is marked on its own row, not here.
+            run.denied || run.interrupted ? (
               <span>
                 {[
-                  run.failed ? (
-                    <span key="failed" className="text-destructive">
-                      {t`${ph({ failed: run.failed })} failed`}
-                    </span>
-                  ) : null,
                   run.denied ? (
                     <span key="denied" className="text-warning">
                       {t`${ph({ denied: run.denied })} denied`}
@@ -287,7 +265,6 @@ function ActivityLaneView({
           outcomeTitle={
             formatList(
               [
-                run.failed ? plural(run.failed, { other: '# failed' }) : '',
                 run.denied ? plural(run.denied, { other: '# denied' }) : '',
                 run.interrupted ? plural(run.interrupted, { other: '# stopped' }) : '',
               ].filter(Boolean),
@@ -298,24 +275,10 @@ function ActivityLaneView({
             <StatusIndicator
               display="column"
               label={
-                run.failed
-                  ? t`Some calls failed`
-                  : run.denied
-                    ? t`Some calls were denied`
-                    : run.interrupted
-                      ? t`Stopped`
-                      : t`Done`
+                run.denied ? t`Some calls were denied` : run.interrupted ? t`Stopped` : t`Done`
               }
               mark="glyph"
-              tone={
-                run.failed
-                  ? 'error'
-                  : run.denied
-                    ? 'warning'
-                    : run.interrupted
-                      ? 'stopped'
-                      : 'success'
-              }
+              tone={run.denied ? 'warning' : run.interrupted ? 'stopped' : 'success'}
             />
           }
         />
@@ -327,10 +290,9 @@ function ActivityLaneView({
           label={t`Calls: ${ph({ label: (collapses && run?.label) || label })}`}
         >
           {showAll}
-          {shown.filter((item) => !afterIds.has(item.id)).map(children)}
+          {shown.map(children)}
         </ActivityNest>
       )}
-      {shown.filter((item) => afterIds.has(item.id)).map(children)}
     </div>
   );
 }
