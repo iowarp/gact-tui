@@ -401,6 +401,9 @@ export function JobCard({ job, fallback, className }: JobCardProps) {
           {job.phase === 'queued' && job.queue?.reason ? (
             <Fact label={t`Queue reason`} value={job.queue.reason} />
           ) : null}
+          {job.phase === 'queued' && job.queue?.starts_in_s != null ? (
+            <Fact label={t`Starts in`} value={wallTime(job.queue.starts_in_s * 1000)} />
+          ) : null}
         </div>
       ) : null}
       {job.script?.text || fallback ? (

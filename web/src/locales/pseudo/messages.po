@@ -34616,6 +34616,10 @@ msgstr ""
 msgid "Starts from {parentName} and keeps your changes. Updates to {parentName} reach this agent in its next conversation."
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "Starts in"
+msgstr ""
+
 #: src/lib/mcp-service-presentation.ts
 msgid "Starts when used"
 msgstr ""

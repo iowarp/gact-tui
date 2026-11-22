@@ -34635,6 +34635,10 @@ msgstr "Βασίζεται σε"
 msgid "Starts from {parentName} and keeps your changes. Updates to {parentName} reach this agent in its next conversation."
 msgstr "Βασίζεται στο {parentName} και διατηρεί τις αλλαγές σας. Οι ενημερώσεις του {parentName} φτάνουν σε αυτόν τον πράκτορα στην επόμενη συνομιλία του."
 
+#: src/components/clio/job-card.tsx
+msgid "Starts in"
+msgstr "Ξεκινά σε"
+
 #: src/lib/mcp-service-presentation.ts
 msgid "Starts when used"
 msgstr "Ξεκινά κατά τη χρήση"

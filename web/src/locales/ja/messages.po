@@ -34635,6 +34635,10 @@ msgstr "ベース"
 msgid "Starts from {parentName} and keeps your changes. Updates to {parentName} reach this agent in its next conversation."
 msgstr "{parentName}をベースに、あなたの変更を保持します。{parentName}のアップデートは、次の会話からこのエージェントに反映されます。"
 
+#: src/components/clio/job-card.tsx
+msgid "Starts in"
+msgstr "開始まで"
+
 #: src/lib/mcp-service-presentation.ts
 msgid "Starts when used"
 msgstr "使用時に起動"
