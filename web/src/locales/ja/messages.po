@@ -260,6 +260,11 @@ msgstr "{0, plural, one {#件のコメントをエージェントに送信しま
 msgid "{0, plural, one {# dataset} other {# datasets}}"
 msgstr "{0, plural, one {#件のデータセット} other {#件のデータセット}}"
 
+#. placeholder {0}: run.denied
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# denied} other {# denied}}"
+msgstr "{0, plural, other {#件拒否}}"
+
 #. placeholder {0}: model.downloads
 #: src/components/clio/model-download-search.tsx
 msgid "{0, plural, one {# download} other {# downloads}}"
@@ -612,6 +617,11 @@ msgstr "{0, plural, one {#ステップ、{state}} other {#ステップ、{state}
 #: src/components/clio/workbench-variant-try-tab.tsx
 msgid "{0, plural, one {# step} other {# steps}}"
 msgstr "{0, plural, one {#ステップ} other {#ステップ}}"
+
+#. placeholder {0}: run.interrupted
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# stopped} other {# stopped}}"
+msgstr "{0, plural, other {#件停止}}"
 
 #. placeholder {0}: request.data.events
 #: src/components/clio/ndp-endpoint-operation.tsx
@@ -972,16 +982,6 @@ msgstr "{0, plural, one {#個のステップと待機対象を示すワークフ
 #: src/components/clio/permission-operation-details.tsx
 msgid "{0, plural, one {writes to # folder} other {writes to # folders}}"
 msgstr "{0, plural, one {#個のフォルダーに書き込み} other {#個のフォルダーに書き込み}}"
-
-#. placeholder {0}: run.denied
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# denied}}"
-msgstr "{0, plural, other {#件拒否}}"
-
-#. placeholder {0}: run.interrupted
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# stopped}}"
-msgstr "{0, plural, other {#件停止}}"
 
 #. placeholder {0}: /^[aeiou]/iu.test(agentName) ? 'an' : 'a'
 #: src/components/clio/clio-menu.tsx
@@ -1882,10 +1882,6 @@ msgstr "{delegated, plural, one {#件のタスクを委任} other {#件のタス
 msgid "{delegates, plural, one {# delegate} other {# delegates}}"
 msgstr "{delegates, plural, one {#件の委任先} other {#件の委任先}}"
 
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{denied} denied"
-msgstr "{denied}件拒否"
-
 #: src/components/clio/settings-session-defaults.tsx
 msgid "{description} Workspace and organization rules still apply."
 msgstr "{description}ワークスペースと組織のルールは引き続き適用されます。"
@@ -2259,10 +2255,6 @@ msgstr "入力{input}、出力{output}"
 #: src/components/clio/memory-creation-log.tsx
 msgid "{input} input, {output} output tokens"
 msgstr "入力{input}トークン、出力{output}トークン"
-
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{interrupted} stopped"
-msgstr "{interrupted}件停止"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
@@ -13490,6 +13482,10 @@ msgstr "実行されませんでした"
 #: src/components/clio/flow-run-parts.tsx
 msgid "did not run or cancelled"
 msgstr "未実行またはキャンセル"
+
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "Didn’t finish"
+msgstr "完了しませんでした"
 
 #: src/components/clio/provider-auth-panel.tsx
 msgid "Didn't finish? Paste the address or code here"

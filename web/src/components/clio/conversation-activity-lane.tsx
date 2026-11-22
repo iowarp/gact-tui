@@ -23,12 +23,17 @@ import { formatList, listSeparator } from '@/lib/locale-format';
 const LANE_LIMIT = 6;
 const LANE_TAIL = 4;
 
+/** A turn that ended without finishing: it failed, the service cut it off, or the person stopped it. */
+export type TurnEnd = 'failed' | 'interrupted' | 'stopped';
+
 interface ActivityLaneProps {
   id: string;
   group: readonly ConversationIteration[];
   label: string;
   live: boolean;
   turnLive: boolean;
+  /** How the turn ended when it didn't finish; its run row never reads "Done". */
+  turnEnd?: TurnEnd;
   subagents: Record<string, SubagentRun>;
   interactions?: readonly PendingInteraction[];
   /** Everything `children` reads besides the step, subagents and interactions. */
@@ -88,6 +93,7 @@ export const ActivityLane = memo(
     a.label === b.label &&
     a.live === b.live &&
     a.turnLive === b.turnLive &&
+    a.turnEnd === b.turnEnd &&
     a.subagents === b.subagents &&
     a.interactions === b.interactions &&
     sameLaneSteps(a.group, b.group) &&
@@ -138,6 +144,7 @@ function ActivityLaneView({
   label,
   live,
   turnLive,
+  turnEnd,
   subagents,
   interactions,
   children,
@@ -157,9 +164,10 @@ function ActivityLaneView({
   const folded = !all && !collapses && !turnLive && total > LANE_LIMIT;
   const shown = folded ? laneTail(group, LANE_TAIL) : group;
   const earlier = folded ? total - shown.reduce((sum, item) => sum + laneRows(item), 0) : 0;
-  // While a call in a longer run waits on the person, the run's row already shows,
-  // open, with "waiting for you" in place of its outcome. A lone call says it itself.
+  // A call that waits on the person says so on its own row; the run gains no row
+  // for it while the turn works. Only a run left waiting after its turn shows one.
   const waiting =
+    !turnLive &&
     !collapses &&
     headCalls > 1 &&
     group.some((item) => item.tools.some((tool) => toolWaitsForYou(tool, interactions)));
@@ -184,6 +192,11 @@ function ActivityLaneView({
           (tool) => subagentsForTool(tool, subagents).map((subagent) => subagent.id),
         )
       : undefined;
+  // One plural form each, for the row's text and its hover title alike.
+  const deniedText = run?.denied ? plural(run.denied, { one: '# denied', other: '# denied' }) : '';
+  const stoppedText = run?.interrupted
+    ? plural(run.interrupted, { one: '# stopped', other: '# stopped' })
+    : '';
   return (
     <div
       role="group"
@@ -245,42 +258,24 @@ function ActivityLaneView({
           open={runOpen}
           outcome={
             // A failed call the agent recovered from is marked on its own row, not here.
-            run.denied || run.interrupted ? (
+            deniedText || stoppedText ? (
               <span>
                 {[
-                  run.denied ? (
+                  deniedText ? (
                     <span key="denied" className="text-warning">
-                      {t`${ph({ denied: run.denied })} denied`}
+                      {deniedText}
                     </span>
                   ) : null,
-                  run.interrupted ? (
-                    <span key="stopped">{t`${ph({ interrupted: run.interrupted })} stopped`}</span>
-                  ) : null,
+                  stoppedText ? <span key="stopped">{stoppedText}</span> : null,
                 ]
                   .filter(Boolean)
                   .flatMap((part, index) => (index ? [listSeparator(), part] : [part]))}
               </span>
             ) : undefined
           }
-          outcomeTitle={
-            formatList(
-              [
-                run.denied ? plural(run.denied, { other: '# denied' }) : '',
-                run.interrupted ? plural(run.interrupted, { other: '# stopped' }) : '',
-              ].filter(Boolean),
-            ) || undefined
-          }
+          outcomeTitle={formatList([deniedText, stoppedText].filter(Boolean)) || undefined}
           outcomeTone="muted"
-          status={
-            <StatusIndicator
-              display="column"
-              label={
-                run.denied ? t`Some calls were denied` : run.interrupted ? t`Stopped` : t`Done`
-              }
-              mark="glyph"
-              tone={run.denied ? 'warning' : run.interrupted ? 'stopped' : 'success'}
-            />
-          }
+          status={<StatusIndicator display="column" mark="glyph" {...runStatus(run, turnEnd)} />}
         />
       ) : null}
       {/* One parent in both shapes keeps each row's own state when the run folds. */}
@@ -295,6 +290,22 @@ function ActivityLaneView({
       )}
     </div>
   );
+}
+
+/**
+ * The counted row's mark. A turn that didn't finish never reads "Done", even when
+ * every call in the run succeeded; a turn that recovered from a failed call does.
+ */
+function runStatus(
+  run: { denied: number; interrupted: number },
+  turnEnd: TurnEnd | undefined,
+): { label: string; tone: 'error' | 'stopped' | 'warning' | 'success' } {
+  if (turnEnd === 'failed') return { label: t`Didn’t finish`, tone: 'error' };
+  if (turnEnd === 'interrupted') return { label: t`Didn’t finish`, tone: 'stopped' };
+  if (turnEnd === 'stopped') return { label: t`Stopped`, tone: 'stopped' };
+  if (run.denied) return { label: t`Some calls were denied`, tone: 'warning' };
+  if (run.interrupted) return { label: t`Stopped`, tone: 'stopped' };
+  return { label: t`Done`, tone: 'success' };
 }
 
 /** Nothing in the run is still working or waiting, so it can fold. */
