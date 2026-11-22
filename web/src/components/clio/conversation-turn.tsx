@@ -25,7 +25,7 @@ import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-present
 import { toolSandboxBoundary } from './sandbox-boundary';
 import { TurnSandboxNotices } from './sandbox-boundary-notice';
 import { useShownMcpAppIds } from './mcp-app-live-set';
-import { ActivityLane } from './conversation-activity-lane';
+import { ActivityLane, type TurnEnd } from './conversation-activity-lane';
 import {
   IterationDetail,
   McpAppActivity,
@@ -53,6 +53,8 @@ interface ConversationTurnProps {
    * it works and folds into its counted row only once the turn has ended.
    */
   turnRunning?: boolean;
+  /** How the turn ended when it didn't finish, given to its last calls only. */
+  turnEnd?: TurnEnd;
   /**
    * The live message's latest calls: a call held for approval before the service
    * projects it is shown here, even when a context injection follows these calls.
@@ -163,6 +165,7 @@ export function ConversationTurn({
   followLiveActivity = false,
   turnLive = false,
   turnRunning = false,
+  turnEnd,
   holdsWaitingCalls = turnLive,
   iterations: recordedIterations,
   mode,
@@ -268,6 +271,7 @@ export function ConversationTurn({
     }
     if (group.length) sections.push({ kind: 'activity', iterations: group });
     const activityInteractions = interactions?.filter((item) => !planReviews.includes(item));
+    const lastActivity = sections.findLastIndex((section) => section.kind === 'activity');
     return (
       <div className="flex min-w-0 flex-col gap-4" data-slot="plan-review-sequence">
         {sections.map((section, index) =>
@@ -299,6 +303,7 @@ export function ConversationTurn({
               followLiveActivity={followLiveActivity && index === sections.length - 1}
               turnLive={turnLive && index === sections.length - 1}
               turnRunning={turnRunning}
+              turnEnd={index === lastActivity ? turnEnd : undefined}
               holdsWaitingCalls={false}
               mode={mode}
               subagents={subagents}
@@ -402,6 +407,7 @@ export function ConversationTurn({
                 label={summary.label}
                 live={followLiveActivity && index === groups.length - 1}
                 turnLive={turnRunning || laneLive}
+                turnEnd={index === blocks.length - 1 ? turnEnd : undefined}
                 subagents={subagents}
                 interactions={interactions}
                 rowInputs={[

@@ -259,6 +259,11 @@ msgstr ""
 msgid "{0, plural, one {# dataset} other {# datasets}}"
 msgstr ""
 
+#. placeholder {0}: run.denied
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# denied} other {# denied}}"
+msgstr ""
+
 #. placeholder {0}: model.downloads
 #: src/components/clio/model-download-search.tsx
 msgid "{0, plural, one {# download} other {# downloads}}"
@@ -610,6 +615,11 @@ msgstr ""
 #: src/components/clio/workbench-activity-model.ts
 #: src/components/clio/workbench-variant-try-tab.tsx
 msgid "{0, plural, one {# step} other {# steps}}"
+msgstr ""
+
+#. placeholder {0}: run.interrupted
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# stopped} other {# stopped}}"
 msgstr ""
 
 #. placeholder {0}: request.data.events
@@ -970,16 +980,6 @@ msgstr ""
 #. placeholder {0}: access.folders.length
 #: src/components/clio/permission-operation-details.tsx
 msgid "{0, plural, one {writes to # folder} other {writes to # folders}}"
-msgstr ""
-
-#. placeholder {0}: run.denied
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# denied}}"
-msgstr ""
-
-#. placeholder {0}: run.interrupted
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# stopped}}"
 msgstr ""
 
 #. placeholder {0}: /^[aeiou]/iu.test(agentName) ? 'an' : 'a'
@@ -1881,10 +1881,6 @@ msgstr ""
 msgid "{delegates, plural, one {# delegate} other {# delegates}}"
 msgstr ""
 
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{denied} denied"
-msgstr ""
-
 #: src/components/clio/settings-session-defaults.tsx
 msgid "{description} Workspace and organization rules still apply."
 msgstr ""
@@ -2253,10 +2249,6 @@ msgstr ""
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{input} input, {output} output tokens"
-msgstr ""
-
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{interrupted} stopped"
 msgstr ""
 
 #: src/components/clio/memory-creation-log.tsx
@@ -13466,6 +13458,10 @@ msgstr ""
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "did not run or cancelled"
+msgstr ""
+
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "Didn’t finish"
 msgstr ""
 
 #: src/components/clio/provider-auth-panel.tsx
