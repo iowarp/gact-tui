@@ -88,4 +88,22 @@ Outcome: **upgraded**, **held** (left at the current version, reason given), or
 - Schema regeneration (`schema-ts-gen`): `iowarp/clio-schemas` was not reachable,
   so the generator pins were kept rather than verified.
 - Playwright e2e and native-webview tests are not part of the primary gates and were
-  not run; the browser review below used the built web bundle.
+  not run; the browser check below used the review-fixture build instead.
+
+## Browser check
+
+Headless Chromium at 1440×900 and 390×844 against `CLIO_REVIEW_FIXTURES=1` builds
+of this branch and of the pre-upgrade commit (`4903d3d5`), both talking to
+`web/e2e/fixture-server.mjs`:
+
+- Workspace session, Settings, and published A2UI chart, table and map surfaces from
+  the production bundle; the scientific diagrams, standard math and component
+  gallery review pages (the first and last are served by the Vite dev server).
+- No console errors, page errors or failed requests on either build.
+- Every capture is pixel-identical to the baseline except the Mermaid sequence
+  diagram at phone width, where Mermaid 12 spreads the actors across the width and
+  wraps message labels less.
+- The e2e fixture server publishes no A2UI code surface, and
+  `tests/review/tool-operations.html` needs data the spec injects with
+  `page.route`, so code rendering was checked only through the transcript tool rows
+  and the gallery.
