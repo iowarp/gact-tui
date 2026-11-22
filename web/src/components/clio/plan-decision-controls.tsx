@@ -3,7 +3,15 @@ import type {
   PendingInteractionResponse,
   SpotterAvailability,
 } from '@clio/core/v3';
-import { Fragment, useId, useRef, useState, type ReactNode } from 'react';
+import {
+  Fragment,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import {
   CheckIcon,
   CircleAlertIcon,
@@ -483,6 +491,8 @@ function answerNote(interaction: PendingInteraction): string | undefined {
  * full phrase is on hover.
  */
 function ModePhrase({ phrase, mode }: { phrase: string; mode: string }) {
+  const restRef = useRef<HTMLSpanElement>(null);
+  useStubFree(restRef);
   const at = phrase.indexOf(mode);
   if (at < 0) {
     return (
@@ -509,12 +519,40 @@ function ModePhrase({ phrase, mode }: { phrase: string; mode: string }) {
         </span>
       </span>
       {rest ? (
-        <span data-slot="plan-mode-rest" className={cn(PHRASE_PART, 'shrink')}>
+        <span
+          ref={restRef}
+          data-slot="plan-mode-rest"
+          className={cn(PHRASE_PART, 'shrink data-[stub]:invisible')}
+        >
           {rest}
         </span>
       ) : null}
     </span>
   );
+}
+
+/** Below this, the rest would show only ", …" (a comma and an ellipsis, no letter). */
+const REST_MIN_EM = 2;
+
+/**
+ * Hides the rest when it gets less than `REST_MIN_EM`, so the row ends on the mode.
+ * It stays in the layout (invisible, not removed): removing it would shrink the
+ * name's share of the row, and it could never come back when the row widens.
+ */
+function useStubFree(restRef: RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const rest = restRef.current;
+    if (!rest || typeof ResizeObserver === 'undefined') return;
+    const fit = () => {
+      const em = Number.parseFloat(getComputedStyle(rest).fontSize) || 16;
+      const room = rest.getBoundingClientRect().width;
+      rest.toggleAttribute('data-stub', room < REST_MIN_EM * em && room < rest.scrollWidth);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(rest);
+    return () => observer.disconnect();
+  });
 }
 
 // `whitespace-pre`, not `truncate`: the lead-in keeps its trailing space.
