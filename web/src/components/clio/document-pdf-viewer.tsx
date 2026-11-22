@@ -23,6 +23,13 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url,
 ).toString();
+// pdf.js 6.5 draws pages on an OffscreenCanvas in this worker, keeping large or
+// image-heavy pages off the main thread. Where the webview lacks OffscreenCanvas
+// or the worker cannot start, pdf.js draws on the main thread as before.
+pdfjs.GlobalWorkerOptions.rendererSrc = new URL(
+  'pdfjs-dist/build/pdf.renderer.min.mjs',
+  import.meta.url,
+).toString();
 
 /** Page fit: zooming out stops here. */
 const MIN_ZOOM = 1;
