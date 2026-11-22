@@ -184,7 +184,9 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
         ? 'stopped'
         : interruptedByService
           ? 'interrupted'
-          : emptyResponseErrorMessage || message.blocks.some((block) => block.type === 'error')
+          : emptyResponseErrorCode ||
+              emptyResponseErrorMessage ||
+              message.blocks.some((block) => block.type === 'error')
             ? 'failed'
             : undefined;
   const executionMode = specialMessageExecutionMode(message);
