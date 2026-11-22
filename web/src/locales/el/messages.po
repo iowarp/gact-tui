@@ -15069,7 +15069,7 @@ msgstr "Εξαίρεση"
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Excluded profiles"
-msgstr "Εξαιρεμένα προφίλ"
+msgstr "Εξαιρούμενα προφίλ"
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -16861,7 +16861,7 @@ msgstr "Το όριο του GitHub για ελέγχους ενημερώσεω
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Give {name} {asked}?"
-msgstr "Παροχή {asked} για {name};"
+msgstr "Να δοθεί {asked} στο {name};"
 
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
