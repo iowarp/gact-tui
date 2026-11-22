@@ -48,6 +48,11 @@ msgstr ""
 msgid "; dashed: {overlay}"
 msgstr ""
 
+#. The label of the control the person pressed, quoted
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "“{control}”"
+msgstr ""
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "“{label}” is per-node; a threshold needs per-element values, so the threshold is off."
 msgstr ""
@@ -1882,6 +1887,10 @@ msgstr ""
 
 #: src/components/clio/knowledge-source-view.tsx
 msgid "{count}+ links"
+msgstr ""
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "{cut, plural, one {Message (the record kept its start; # more character was cut)} other {Message (the record kept its start; # more characters were cut)}}"
 msgstr ""
 
 #: src/hooks/use-execution-provenance.ts
@@ -14856,6 +14865,7 @@ msgid "error"
 msgstr ""
 
 #: src/components/clio/agent-plugin-tree.tsx
+#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 #: src/components/clio/workspace-resource-derivatives.tsx
@@ -21316,6 +21326,7 @@ msgstr ""
 msgid "Mesh unavailable"
 msgstr ""
 
+#: src/components/clio/flow-run-parts.tsx
 #: src/lib/transcript-message-preview.ts
 msgid "Message"
 msgstr ""
@@ -24237,6 +24248,10 @@ msgstr ""
 
 #: src/components/clio/attention-center.tsx
 msgid "Nothing needs you."
+msgstr ""
+
+#: src/components/clio/pending-interaction-notices.tsx
+msgid "Nothing new can be recorded"
 msgstr ""
 
 #: src/lib/extension-library-entries.ts
@@ -36457,6 +36472,10 @@ msgid "The flow has not started any task yet."
 msgstr ""
 
 #: src/components/clio/flow-run-parts.tsx
+msgid "The flow hit an error"
+msgstr ""
+
+#: src/components/clio/flow-run-parts.tsx
 msgid "The flow saw"
 msgstr ""
 
@@ -42506,6 +42525,10 @@ msgstr ""
 
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Your change could not be saved."
+msgstr ""
+
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "Your choice"
 msgstr ""
 
 #. placeholder {0}: tab.comment

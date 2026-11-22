@@ -49,6 +49,11 @@ msgstr ", η απάντησή σας"
 msgid "; dashed: {overlay}"
 msgstr "; διακεκομμένη: {overlay}"
 
+#. The label of the control the person pressed, quoted
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "“{control}”"
+msgstr "«{control}»"
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "“{label}” is per-node; a threshold needs per-element values, so the threshold is off."
 msgstr "Το «{label}» ορίζεται ανά κόμβο· ένα κατώφλι χρειάζεται τιμές ανά στοιχείο, οπότε το κατώφλι είναι απενεργοποιημένο."
@@ -1884,6 +1889,10 @@ msgstr "{count}, έως {atOnce} ταυτόχρονα"
 #: src/components/clio/knowledge-source-view.tsx
 msgid "{count}+ links"
 msgstr "{count}+ σύνδεσμοι"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "{cut, plural, one {Message (the record kept its start; # more character was cut)} other {Message (the record kept its start; # more characters were cut)}}"
+msgstr "{cut, plural, one {Μήνυμα (η εγγραφή κράτησε την αρχή του· αποκόπηκε # ακόμη χαρακτήρας)} other {Μήνυμα (η εγγραφή κράτησε την αρχή του· αποκόπηκαν # ακόμη χαρακτήρες)}}"
 
 #: src/hooks/use-execution-provenance.ts
 msgid "{danglingEdges, plural, one {# relationship references missing nodes} other {# relationships reference missing nodes}}"
@@ -14865,6 +14874,7 @@ msgid "error"
 msgstr "σφάλμα"
 
 #: src/components/clio/agent-plugin-tree.tsx
+#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 #: src/components/clio/workspace-resource-derivatives.tsx
@@ -21334,6 +21344,7 @@ msgstr "Πηγαίος κώδικας Mermaid"
 msgid "Mesh unavailable"
 msgstr "Το πλέγμα δεν είναι διαθέσιμο"
 
+#: src/components/clio/flow-run-parts.tsx
 #: src/lib/transcript-message-preview.ts
 msgid "Message"
 msgstr "Μήνυμα"
@@ -24256,6 +24267,10 @@ msgstr "Τίποτα δεν ταιριάζει με {shown}"
 #: src/components/clio/attention-center.tsx
 msgid "Nothing needs you."
 msgstr "Τίποτα δεν σας χρειάζεται."
+
+#: src/components/clio/pending-interaction-notices.tsx
+msgid "Nothing new can be recorded"
+msgstr "Δεν μπορεί να καταγραφεί τίποτα νέο"
 
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
@@ -36476,6 +36491,10 @@ msgid "The flow has not started any task yet."
 msgstr "Η ροή δεν έχει ξεκινήσει ακόμη καμία εργασία."
 
 #: src/components/clio/flow-run-parts.tsx
+msgid "The flow hit an error"
+msgstr "Η ροή συνάντησε σφάλμα"
+
+#: src/components/clio/flow-run-parts.tsx
 msgid "The flow saw"
 msgstr "Τι είδε η ροή"
 
@@ -42526,6 +42545,10 @@ msgstr "Οι απαντήσεις σας"
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Your change could not be saved."
 msgstr "Δεν ήταν δυνατή η αποθήκευση της αλλαγής σας."
+
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "Your choice"
+msgstr "Η επιλογή σας"
 
 #. placeholder {0}: tab.comment
 #: src/components/clio/workbench-variant-try-tab.tsx

@@ -199,7 +199,9 @@ describe('ClioPendingInteractions explicitly inline A2UI kind', () => {
       },
     );
 
-    expect(await screen.findByText("form.submit delivered to the agent's turn")).toBeVisible();
+    // The producer's action name is never the copy (it was, live 2026-11-18).
+    expect(await screen.findByText("Your choice delivered to the agent's turn")).toBeVisible();
+    expect(screen.queryByText(/form\.submit/u)).toBeNull();
   });
 
   it('routes a child A2UI action through the normalized interaction response', async () => {

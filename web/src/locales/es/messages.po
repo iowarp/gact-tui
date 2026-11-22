@@ -49,6 +49,11 @@ msgstr ", tu respuesta"
 msgid "; dashed: {overlay}"
 msgstr "; discontinua: {overlay}"
 
+#. The label of the control the person pressed, quoted
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "“{control}”"
+msgstr "«{control}»"
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "“{label}” is per-node; a threshold needs per-element values, so the threshold is off."
 msgstr "“{label}” es por nodo; un umbral necesita valores por elemento, así que el umbral está desactivado."
@@ -1884,6 +1889,10 @@ msgstr "{count}, hasta {atOnce} a la vez"
 #: src/components/clio/knowledge-source-view.tsx
 msgid "{count}+ links"
 msgstr "{count}+ enlaces"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "{cut, plural, one {Message (the record kept its start; # more character was cut)} other {Message (the record kept its start; # more characters were cut)}}"
+msgstr "{cut, plural, one {Mensaje (el registro conservó el inicio; se recortó # carácter más)} other {Mensaje (el registro conservó el inicio; se recortaron # caracteres más)}}"
 
 #: src/hooks/use-execution-provenance.ts
 msgid "{danglingEdges, plural, one {# relationship references missing nodes} other {# relationships reference missing nodes}}"
@@ -14865,6 +14874,7 @@ msgid "error"
 msgstr "error"
 
 #: src/components/clio/agent-plugin-tree.tsx
+#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 #: src/components/clio/workspace-resource-derivatives.tsx
@@ -21334,6 +21344,7 @@ msgstr "Código fuente de Mermaid"
 msgid "Mesh unavailable"
 msgstr "Malla no disponible"
 
+#: src/components/clio/flow-run-parts.tsx
 #: src/lib/transcript-message-preview.ts
 msgid "Message"
 msgstr "Mensaje"
@@ -24256,6 +24267,10 @@ msgstr "Nada coincide con {shown}"
 #: src/components/clio/attention-center.tsx
 msgid "Nothing needs you."
 msgstr "Nada te necesita."
+
+#: src/components/clio/pending-interaction-notices.tsx
+msgid "Nothing new can be recorded"
+msgstr "No se puede registrar nada nuevo"
 
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
@@ -36476,6 +36491,10 @@ msgid "The flow has not started any task yet."
 msgstr "El flujo aún no ha iniciado ninguna tarea."
 
 #: src/components/clio/flow-run-parts.tsx
+msgid "The flow hit an error"
+msgstr "El flujo encontró un error"
+
+#: src/components/clio/flow-run-parts.tsx
 msgid "The flow saw"
 msgstr "Lo que vio el flujo"
 
@@ -42526,6 +42545,10 @@ msgstr "Tus respuestas"
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Your change could not be saved."
 msgstr "No se pudo guardar tu cambio."
+
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "Your choice"
+msgstr "Tu elección"
 
 #. placeholder {0}: tab.comment
 #: src/components/clio/workbench-variant-try-tab.tsx

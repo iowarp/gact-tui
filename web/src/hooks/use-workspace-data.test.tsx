@@ -310,6 +310,23 @@ describe('useWorkspaceData interaction reads', () => {
     );
   });
 
+  // Live 2026-11-19: a full store held a running deep-research flow and the
+  // conversation said nothing; the service's sentence is the notice, not "damaged record".
+  it('shows the store-full sentence while refused writes hold the work', async () => {
+    mocks.repository.capabilities.mockResolvedValue({
+      capabilities: { x_clio_interactions: true },
+      gact_versions: [],
+    });
+    const sentence =
+      "CLIO's conversation store is full, so nothing new can be recorded. Free disk space or give the store more room, then restart CLIO.";
+    mocks.repository.pendingInteractionProjection.mockResolvedValue({
+      interactions: [],
+      degradations: [{ reason: 'clio_core_writes_refused', detail: sentence }],
+    });
+    const { result } = renderWorkspaceData();
+    await waitFor(() => expect(result.current.interactionsError?.message).toBe(sentence));
+  });
+
   it('keeps a damaged background session notice out of an unrelated clean session', async () => {
     mocks.repository.capabilities.mockResolvedValue({
       capabilities: { x_clio_interactions: true },

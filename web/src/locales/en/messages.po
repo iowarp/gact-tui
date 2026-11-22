@@ -48,6 +48,11 @@ msgstr ", your answer"
 msgid "; dashed: {overlay}"
 msgstr "; dashed: {overlay}"
 
+#. The label of the control the person pressed, quoted
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "“{control}”"
+msgstr "“{control}”"
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "“{label}” is per-node; a threshold needs per-element values, so the threshold is off."
 msgstr "“{label}” is per-node; a threshold needs per-element values, so the threshold is off."
@@ -1883,6 +1888,10 @@ msgstr "{count}, up to {atOnce} at a time"
 #: src/components/clio/knowledge-source-view.tsx
 msgid "{count}+ links"
 msgstr "{count}+ links"
+
+#: src/components/clio/flow-run-parts.tsx
+msgid "{cut, plural, one {Message (the record kept its start; # more character was cut)} other {Message (the record kept its start; # more characters were cut)}}"
+msgstr "{cut, plural, one {Message (the record kept its start; # more character was cut)} other {Message (the record kept its start; # more characters were cut)}}"
 
 #: src/hooks/use-execution-provenance.ts
 msgid "{danglingEdges, plural, one {# relationship references missing nodes} other {# relationships reference missing nodes}}"
@@ -14864,6 +14873,7 @@ msgid "error"
 msgstr "error"
 
 #: src/components/clio/agent-plugin-tree.tsx
+#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 #: src/components/clio/workspace-resource-derivatives.tsx
@@ -21333,6 +21343,7 @@ msgstr "Mermaid source"
 msgid "Mesh unavailable"
 msgstr "Mesh unavailable"
 
+#: src/components/clio/flow-run-parts.tsx
 #: src/lib/transcript-message-preview.ts
 msgid "Message"
 msgstr "Message"
@@ -24255,6 +24266,10 @@ msgstr "Nothing matches {shown}"
 #: src/components/clio/attention-center.tsx
 msgid "Nothing needs you."
 msgstr "Nothing needs you."
+
+#: src/components/clio/pending-interaction-notices.tsx
+msgid "Nothing new can be recorded"
+msgstr "Nothing new can be recorded"
 
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
@@ -36475,6 +36490,10 @@ msgid "The flow has not started any task yet."
 msgstr "The flow has not started any task yet."
 
 #: src/components/clio/flow-run-parts.tsx
+msgid "The flow hit an error"
+msgstr "The flow hit an error"
+
+#: src/components/clio/flow-run-parts.tsx
 msgid "The flow saw"
 msgstr "The flow saw"
 
@@ -42525,6 +42544,10 @@ msgstr "Your answers"
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Your change could not be saved."
 msgstr "Your change could not be saved."
+
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "Your choice"
+msgstr "Your choice"
 
 #. placeholder {0}: tab.comment
 #: src/components/clio/workbench-variant-try-tab.tsx

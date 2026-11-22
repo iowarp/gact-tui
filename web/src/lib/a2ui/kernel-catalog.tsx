@@ -8,7 +8,6 @@ import {
 } from '@a2ui/web_core/v0_9';
 import type { ResolvedChildRef } from '@a2ui/web_core/v0_9';
 import {
-  CheckBox,
   Column,
   Card,
   Divider,
@@ -26,6 +25,7 @@ import { lazy, Suspense, type CSSProperties } from 'react';
 import { z } from 'zod';
 import { ClioDateTimeInput } from '@/components/clio/a2ui-date-time-input';
 import { ClioA2UIButton } from '@/components/clio/a2ui-button';
+import { ClioCheckBox } from '@/components/clio/a2ui-checkbox';
 import {
   Confirmation,
   ConfirmationAction,
@@ -684,7 +684,7 @@ const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   Divider,
   ClioA2UIButton,
   TextField,
-  CheckBox,
+  ClioCheckBox,
   ClioChoicePicker,
   Slider,
   ClioDateTimeInput,

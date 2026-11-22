@@ -505,6 +505,20 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   )}
                   data-slot="user-message-actions"
                 >
+                  <div
+                    className={cn(
+                      'flex items-center gap-3',
+                      // Time and actions show on hover; opacity, not visibility, keeps them focusable.
+                      // They come first: hidden, they still take their width, and after the
+                      // mode tag they pushed it off the bubble's edge (live 2026-11-18).
+                      'sm:pointer-events-none sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
+                    )}
+                  >
+                    <time dateTime={message.created_at} title={formatDateTime(message.created_at)}>
+                      {formatClockTime(message.created_at)}
+                    </time>
+                    {actions}
+                  </div>
                   {pendingSteer ? (
                     <>
                       {/* runs-attention: Queued is an empty ring and the word. */}
@@ -546,18 +560,6 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                       role="img"
                     />
                   ) : null}
-                  <div
-                    className={cn(
-                      'flex items-center gap-3',
-                      // Time and actions show on hover; opacity, not visibility, keeps them focusable.
-                      'sm:pointer-events-none sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
-                    )}
-                  >
-                    <time dateTime={message.created_at} title={formatDateTime(message.created_at)}>
-                      {formatClockTime(message.created_at)}
-                    </time>
-                    {actions}
-                  </div>
                 </div>
               ) : null}
             </div>

@@ -73,6 +73,52 @@ function renderPending(
 }
 
 describe('ClioPendingInteractions', () => {
+  // Live 2026-11-19: this consent was a radio list, a "Choice" heading and Send response.
+  it('answers a form that is one short choice with one button per option', async () => {
+    const user = userEvent.setup();
+    const interaction = pending('mcp_task_input', {
+      prompt: 'Allow searches through the literature sources?',
+      requires_human_response: true,
+      actions: ['answer', 'cancel'],
+      payload: {
+        mode: 'form',
+        fields: [
+          {
+            name: 'choice',
+            type: 'string',
+            title: 'Choice',
+            enum: ['approve', 'decline'],
+            enum_names: [
+              'Allow searches through the literature sources',
+              "Don't use the literature sources",
+            ],
+            default: 'approve',
+            required: true,
+          },
+        ],
+      },
+    });
+    const onResponse = renderPending([interaction]);
+
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send response' })).toBeNull();
+    expect(
+      screen.getByRole('button', { name: /Allow searches through the literature sources/u }),
+    ).toBeVisible();
+    // Like yes/no, Enter gives no consent the person did not choose.
+    screen
+      .getByRole('button', { name: /Allow searches through the literature sources/u })
+      .closest<HTMLElement>('[data-slot="ask-card"]')!
+      .focus();
+    await user.keyboard('{Enter}');
+    expect(onResponse).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: /Don't use the literature sources/u }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'answer',
+      metadata: { choice: 'decline' },
+    });
+  });
+
   it('renders structured defaults and submits the complete field map', async () => {
     const user = userEvent.setup();
     const interaction = pending('mcp_task_input', {
