@@ -166,10 +166,21 @@ export function componentTone(state: string | null | undefined): JobStatusTone {
   }
 }
 
+export type ComponentShape = 'nodes' | 'service' | 'install';
+
 /**
- * Whether a component draws as a stack of service cards rather than compute
- * nodes: JARVIS's roles for a server the pipeline runs beside its program.
+ * How a component draws: a server the pipeline runs beside its program as a
+ * stack of cards, a software install as a package on its node, and compute or
+ * any role the card does not know as plain compute nodes.
  */
-export function isViewerComponent(component: JobComponent): boolean {
-  return component.role === 'service' || component.role === 'viewer';
+export function componentShape(component: JobComponent): ComponentShape {
+  switch (component.role) {
+    case 'service':
+    case 'viewer':
+      return 'service';
+    case 'install':
+      return 'install';
+    default:
+      return 'nodes';
+  }
 }

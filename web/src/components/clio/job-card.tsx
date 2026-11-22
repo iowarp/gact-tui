@@ -1,10 +1,10 @@
 import { plural, t } from '@lingui/core/macro';
-import { MonitorIcon } from 'lucide-react';
+import { MonitorIcon, PackageIcon } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import { formatDuration } from '@/lib/format';
 import {
+  componentShape,
   componentTone,
-  isViewerComponent,
   jobTone,
   type JobComponent,
   type JobCoupling,
@@ -158,12 +158,22 @@ function NodeCells({ component, phase }: { component: JobComponent; phase: strin
 }
 
 /** Compute nodes: three staggered outlines, the front one holding the node cells. */
-function NodeStack({ component, phase }: { component: JobComponent; phase: string }) {
+function NodeStack({
+  component,
+  phase,
+  install = false,
+}: {
+  component: JobComponent;
+  phase: string;
+  /** A software install: a package over the cells of the node it builds on. */
+  install?: boolean;
+}) {
   return (
     <span aria-hidden="true" className="relative inline-block h-20 w-32 shrink-0">
       <span className="absolute top-0 left-6 h-14 w-26 rounded-sm border border-foreground/25 bg-background" />
       <span className="absolute top-3 left-3 h-14 w-26 rounded-sm border border-foreground/35 bg-background" />
-      <span className="absolute top-6 left-0 flex h-14 w-26 items-center justify-center rounded-sm border border-foreground/50 bg-background">
+      <span className="absolute top-6 left-0 flex h-14 w-26 flex-col items-center justify-center gap-1 rounded-sm border border-foreground/50 bg-background">
+        {install ? <PackageIcon className="size-4 text-muted-foreground" /> : null}
         <NodeCells component={component} phase={phase} />
       </span>
     </span>
@@ -193,6 +203,9 @@ function ComponentBlock({ component, phase }: { component: JobComponent; phase: 
   const tone = componentTone(component.state);
   const hosts = component.hosts?.length ? component.hosts.join(', ') : undefined;
   const name = componentName(component);
+  const shape = componentShape(component);
+  // One install on one node is just the install; a count only helps a wider one.
+  const counted = nodes && (shape !== 'install' || nodes > 1);
   return (
     <div
       className="flex min-w-0 flex-col items-center gap-1 text-center"
@@ -201,13 +214,13 @@ function ComponentBlock({ component, phase }: { component: JobComponent; phase: 
       data-slot="job-component"
       title={hosts}
     >
-      {isViewerComponent(component) ? (
+      {shape === 'service' ? (
         <CardStack component={component} phase={phase} />
       ) : (
-        <NodeStack component={component} phase={phase} />
+        <NodeStack component={component} install={shape === 'install'} phase={phase} />
       )}
       <span className="line-clamp-2 max-w-44 font-medium break-words text-foreground">
-        {nodes ? t`${name} ×${nodes}` : name}
+        {counted ? t`${name} ×${nodes}` : name}
       </span>
       {state ? (
         <span className={cn('inline-flex items-center gap-1 text-meta', TONE_TEXT[tone])}>
