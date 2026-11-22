@@ -157,7 +157,12 @@ function NodeCells({ component, phase }: { component: JobComponent; phase: strin
   );
 }
 
-/** Compute nodes: three staggered outlines, the front one holding the node cells. */
+/** How many outlines a stack draws: one per node, up to three. */
+function layers(component: JobComponent): number {
+  return Math.min(3, Math.max(1, component.nodes ?? 1));
+}
+
+/** Compute nodes: staggered outlines, the front one holding the node cells. */
 function NodeStack({
   component,
   phase,
@@ -168,10 +173,15 @@ function NodeStack({
   /** A software install: a package over the cells of the node it builds on. */
   install?: boolean;
 }) {
+  const count = layers(component);
   return (
     <span aria-hidden="true" className="relative inline-block h-20 w-32 shrink-0">
-      <span className="absolute top-0 left-6 h-14 w-26 rounded-sm border border-foreground/25 bg-background" />
-      <span className="absolute top-3 left-3 h-14 w-26 rounded-sm border border-foreground/35 bg-background" />
+      {count > 2 ? (
+        <span className="absolute top-0 left-6 h-14 w-26 rounded-sm border border-foreground/25 bg-background" />
+      ) : null}
+      {count > 1 ? (
+        <span className="absolute top-3 left-3 h-14 w-26 rounded-sm border border-foreground/35 bg-background" />
+      ) : null}
       <span className="absolute top-6 left-0 flex h-14 w-26 flex-col items-center justify-center gap-1 rounded-sm border border-foreground/50 bg-background">
         {install ? <PackageIcon className="size-4 text-muted-foreground" /> : null}
         <NodeCells component={component} phase={phase} />
@@ -182,13 +192,18 @@ function NodeStack({
 
 /** A viewer: a fanned stack of cards, the front one a screen holding its node cells. */
 function CardStack({ component, phase }: { component: JobComponent; phase: string }) {
+  const count = layers(component);
   return (
     <span
       aria-hidden="true"
       className="relative inline-block h-20 w-32 shrink-0 [perspective:240px]"
     >
-      <span className="absolute top-1 left-12 h-16 w-18 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] rounded-md border border-foreground/25 bg-background" />
-      <span className="absolute top-2 left-7 h-16 w-18 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] rounded-md border border-foreground/35 bg-background" />
+      {count > 2 ? (
+        <span className="absolute top-1 left-12 h-16 w-18 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] rounded-md border border-foreground/25 bg-background" />
+      ) : null}
+      {count > 1 ? (
+        <span className="absolute top-2 left-7 h-16 w-18 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] rounded-md border border-foreground/35 bg-background" />
+      ) : null}
       <span className="absolute top-3 left-2 flex h-16 w-18 origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)] flex-col items-center justify-center gap-1 rounded-md border border-foreground/50 bg-background">
         <MonitorIcon className="size-4 text-muted-foreground" />
         <NodeCells component={component} phase={phase} />
@@ -338,7 +353,10 @@ function timeFact(job: JobSnapshot, now: number): string | null {
   const started = job.started_at ? Date.parse(job.started_at) : Number.NaN;
   if (Number.isNaN(started)) return limit;
   const end = job.ended_at ? Date.parse(job.ended_at) : now;
-  const elapsed = wallTime(Math.max(0, end - started));
+  let spent = Math.max(0, end - started);
+  // The scheduler stops a job at its limit; a late snapshot must not count past it.
+  if (!job.ended_at && job.time_limit_s != null) spent = Math.min(spent, job.time_limit_s * 1000);
+  const elapsed = wallTime(spent);
   return limit ? t`${elapsed} of ${limit}` : elapsed;
 }
 
