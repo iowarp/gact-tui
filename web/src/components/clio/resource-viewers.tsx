@@ -281,6 +281,10 @@ const WorkspaceCadView = lazy(() =>
   import('./cad-file-view').then((module) => ({ default: module.WorkspaceCadView })),
 );
 
+const CadFileView = lazy(() =>
+  import('./cad-file-view').then((module) => ({ default: module.CadFileView })),
+);
+
 const Hdf5ViewerFrame = lazy(() =>
   import('./hdf5-viewer-frame').then((module) => ({ default: module.Hdf5ViewerFrame })),
 );
@@ -498,12 +502,16 @@ function ArtifactFileView({
         : undefined,
     [artifact.session_id, onOpenArtifact, repository],
   );
-  const canPreviewText = asText || isTextArtifact(artifact.media_type, artifact.name);
+  // A registered STEP or STL opens in the 3D view, as its workspace file does: the name decides.
+  const cad = cadFormatOf(artifact.name);
+  const canPreviewText = !cad && (asText || isTextArtifact(artifact.media_type, artifact.name));
   // A dashboard's frame draws Render, Definition (its JSON) and Lineage.
   const isDashboard =
     artifact.producer?.['designation'] === 'dashboard-report' ||
     artifact.name.endsWith('.dashboard.json');
-  const canPreviewImage = isImageArtifact(artifact.media_type, artifact.name);
+  const canPreviewImage = !cad && isImageArtifact(artifact.media_type, artifact.name);
+  // Images and models are read whole, from the same bytes query.
+  const readsBytes = canPreviewImage || cad !== undefined;
   const fallbackFile = useMemo(
     () => uniqueWorkspaceArtifactFile(artifact, workspaceId, files),
     [artifact, files, workspaceId],
@@ -569,7 +577,7 @@ function ArtifactFileView({
         };
       }
     },
-    enabled: canPreviewImage && canLoadInline,
+    enabled: readsBytes && canLoadInline,
     gcTime: VIEWER_BYTES_GC_TIME_MS,
   });
   const payloadError = text.error ?? image.error;
@@ -633,6 +641,21 @@ function ArtifactFileView({
     ) : (
       <ResourceLoading label={t`Loading ${ph({ name: artifact.name })}`} />
     )
+  ) : cad ? (
+    canLoadInline ? (
+      <Suspense fallback={<ResourceLoading label={t`Loading ${ph({ name: artifact.name })}`} />}>
+        <CadFileView
+          bytes={image.data?.bytes}
+          error={image.error?.message}
+          format={cad}
+          name={fileName(artifact.name)}
+          onRetry={() => void image.refetch()}
+          source={source}
+        />
+      </Suspense>
+    ) : (
+      <ViewerTooLarge onPreview={() => setPreviewAnyway(true)} size={previewSize} source={source} />
+    )
   ) : canPreviewImage ? (
     canLoadInline ? (
       <ArtifactVersionComments
@@ -673,7 +696,7 @@ function ArtifactFileView({
           content: (
             <>
               {currentFileAction}
-              {canPreviewImage ? (
+              {readsBytes ? (
                 <div className="flex h-full min-h-0 flex-col gap-2">
                   <div className="min-h-0 flex-1">{preview}</div>
                   {image.data?.recovered ? (
