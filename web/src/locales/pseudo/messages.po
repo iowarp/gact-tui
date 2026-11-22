@@ -977,11 +977,6 @@ msgstr ""
 msgid "{0, plural, other {# denied}}"
 msgstr ""
 
-#. placeholder {0}: run.failed
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# failed}}"
-msgstr ""
-
 #. placeholder {0}: run.interrupted
 #: src/components/clio/conversation-activity-lane.tsx
 msgid "{0, plural, other {# stopped}}"
@@ -2012,7 +2007,6 @@ msgstr ""
 msgid "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
 msgstr ""
 
-#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/nested-tool-calls.tsx
 msgid "{failed} failed"
 msgstr ""
@@ -33985,10 +33979,6 @@ msgstr ""
 
 #: src/components/clio/settings-operations.tsx
 msgid "Some background work is no longer attached to this service and may continue after the service stops."
-msgstr ""
-
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "Some calls failed"
 msgstr ""
 
 #: src/components/clio/conversation-activity-lane.tsx

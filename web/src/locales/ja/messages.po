@@ -978,11 +978,6 @@ msgstr "{0, plural, one {#個のフォルダーに書き込み} other {#個の�
 msgid "{0, plural, other {# denied}}"
 msgstr "{0, plural, other {#件拒否}}"
 
-#. placeholder {0}: run.failed
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# failed}}"
-msgstr "{0, plural, other {#件失敗}}"
-
 #. placeholder {0}: run.interrupted
 #: src/components/clio/conversation-activity-lane.tsx
 msgid "{0, plural, other {# stopped}}"
@@ -2013,7 +2008,6 @@ msgstr "{failed, plural, other {# 件を有効にできませんでした}}"
 msgid "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
 msgstr "{failed, plural, one {#件失敗} other {#件失敗}}"
 
-#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/nested-tool-calls.tsx
 msgid "{failed} failed"
 msgstr "{failed}件失敗"
@@ -34004,10 +33998,6 @@ msgstr "一部のバックグラウンドプロセスは、このエージェン
 #: src/components/clio/settings-operations.tsx
 msgid "Some background work is no longer attached to this service and may continue after the service stops."
 msgstr "一部のバックグラウンド処理はこのサービスに接続されておらず、サービス停止後も続行する可能性があります。"
-
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "Some calls failed"
-msgstr "一部の呼び出しが失敗しました"
 
 #: src/components/clio/conversation-activity-lane.tsx
 msgid "Some calls were denied"

@@ -978,11 +978,6 @@ msgstr "{0, plural, one {escribe en # carpeta} other {escribe en # carpetas}}"
 msgid "{0, plural, other {# denied}}"
 msgstr "{0, plural, other {# denegados}}"
 
-#. placeholder {0}: run.failed
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# failed}}"
-msgstr "{0, plural, other {# con error}}"
-
 #. placeholder {0}: run.interrupted
 #: src/components/clio/conversation-activity-lane.tsx
 msgid "{0, plural, other {# stopped}}"
@@ -2013,7 +2008,6 @@ msgstr "{failed, plural, one {# no se pudo activar} other {# no se pudieron acti
 msgid "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
 msgstr "{failed, plural, one {# sin éxito} other {# sin éxito}}"
 
-#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/nested-tool-calls.tsx
 msgid "{failed} failed"
 msgstr "{failed} con error"
@@ -34004,10 +33998,6 @@ msgstr "Algunos procesos en segundo plano ya no están vinculados a este servici
 #: src/components/clio/settings-operations.tsx
 msgid "Some background work is no longer attached to this service and may continue after the service stops."
 msgstr "Parte del trabajo en segundo plano ya no está vinculado a este servicio y podría continuar después de que el servicio se detenga."
-
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "Some calls failed"
-msgstr "Algunas llamadas fallaron"
 
 #: src/components/clio/conversation-activity-lane.tsx
 msgid "Some calls were denied"

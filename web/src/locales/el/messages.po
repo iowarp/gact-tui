@@ -978,11 +978,6 @@ msgstr "{0, plural, one {γράφει σε # φάκελο} other {γράφει �
 msgid "{0, plural, other {# denied}}"
 msgstr "{0, plural, other {# απορρίφθηκαν}}"
 
-#. placeholder {0}: run.failed
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# failed}}"
-msgstr "{0, plural, other {# απέτυχαν}}"
-
 #. placeholder {0}: run.interrupted
 #: src/components/clio/conversation-activity-lane.tsx
 msgid "{0, plural, other {# stopped}}"
@@ -2013,7 +2008,6 @@ msgstr "{failed, plural, one {# δεν ενεργοποιήθηκε} other {# δ
 msgid "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
 msgstr "{failed, plural, one {# ανεπιτυχής} other {# ανεπιτυχείς}}"
 
-#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/nested-tool-calls.tsx
 msgid "{failed} failed"
 msgstr "{failed} απέτυχαν"
@@ -34004,10 +33998,6 @@ msgstr "Ορισμένες διεργασίες παρασκηνίου δεν ε
 #: src/components/clio/settings-operations.tsx
 msgid "Some background work is no longer attached to this service and may continue after the service stops."
 msgstr "Ορισμένες εργασίες παρασκηνίου δεν συνδέονται πλέον με αυτή την υπηρεσία και ενδέχεται να συνεχίσουν μετά τη διακοπή της."
-
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "Some calls failed"
-msgstr "Ορισμένες κλήσεις απέτυχαν"
 
 #: src/components/clio/conversation-activity-lane.tsx
 msgid "Some calls were denied"
