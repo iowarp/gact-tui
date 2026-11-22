@@ -4,8 +4,10 @@ import { useRef, type ReactNode } from 'react';
 import { vocab } from '@/lib/brand-vocabulary';
 import { EditIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
+import { jobFromInteraction } from '@/lib/job-snapshot';
 import { AskCard, AskDetails, AskFooter, AskHint, AskSection, type AskCardProps } from './ask-card';
 import { pendingInteractionDomId } from './interaction-control';
+import { JobCard } from './job-card';
 import { OwnerAttribution } from './pending-interaction-notices';
 import { plainQuestionText, questionPrompt, useComposerAnswer } from './question-card-model';
 import { QuestionMarkdown } from './question-markdown';
@@ -59,6 +61,7 @@ export function QuestionCard({
   ...props
 }: QuestionCardProps) {
   const { title, body } = splitQuestion(heading ?? questionPrompt(interaction), interaction.title);
+  const job = jobFromInteraction(interaction.payload);
   const promptRef = useRef<HTMLDivElement>(null);
   useScrollClipped(promptRef);
   return (
@@ -77,7 +80,20 @@ export function QuestionCard({
       wrapTitle
       {...props}
     >
-      {body ? (
+      {job ? (
+        <AskSection className="mt-1" data-slot="question-job">
+          <JobCard
+            fallback={
+              body ? (
+                <div className="text-foreground/85 [&_.text-sm]:text-menu">
+                  <QuestionMarkdown>{body}</QuestionMarkdown>
+                </div>
+              ) : undefined
+            }
+            job={job}
+          />
+        </AskSection>
+      ) : body ? (
         <AskSection
           className={cn(
             // The question is what the person answers: it reads whole up to its own cap (about

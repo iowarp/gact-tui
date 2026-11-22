@@ -1,0 +1,170 @@
+import { z } from 'zod';
+
+/**
+ * A scheduler job as relay describes it: one full snapshot per change, keyed by
+ * relay's operation id. The card reads only these typed facts and never parses
+ * the batch script; when no snapshot is present, callers keep their text.
+ */
+export const JOB_META_KEY = 'io.iowarp.clio-relay/job';
+
+const optionalText = z.string().nullish().catch(null);
+const optionalCount = z.number().int().nonnegative().nullish().catch(null);
+
+const componentSchema = z.object({
+  id: z.string(),
+  label: z.string().nullish().catch(null),
+  package: optionalText,
+  role: optionalText,
+  nodes: optionalCount,
+  ranks: optionalCount,
+  host_slice: optionalText,
+  state: optionalText,
+  nodes_allocated: optionalCount,
+  nodes_running: optionalCount,
+  hosts: z.array(z.string()).nullish().catch(null),
+});
+
+const couplingSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  kind: optionalText,
+  label: optionalText,
+});
+
+export const jobSnapshotSchema = z.object({
+  version: z.number().nullish().catch(null),
+  operation_id: z.string(),
+  job_id: z.union([z.string(), z.number()]).nullish().catch(null),
+  revision: z.number().catch(0),
+  updated_at: optionalText,
+  site: z.object({ id: z.string(), label: optionalText }).nullish().catch(null),
+  scheduler: optionalText,
+  phase: z.string(),
+  outcome: optionalText,
+  partition: optionalText,
+  account: optionalText,
+  qos: optionalText,
+  time_limit_s: z.number().nonnegative().nullish().catch(null),
+  started_at: optionalText,
+  ended_at: optionalText,
+  queue: z.object({ reason: optionalText, position: optionalCount }).nullish().catch(null),
+  components: z.array(componentSchema).catch([]),
+  couplings: z.array(couplingSchema).catch([]),
+  script: z.object({ sha256: optionalText, text: z.string() }).nullish().catch(null),
+});
+
+export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
+export type JobComponent = JobSnapshot['components'][number];
+export type JobCoupling = JobSnapshot['couplings'][number];
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+export function readJob(value: unknown): JobSnapshot | null {
+  const parsed = jobSnapshotSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+/** The job a `_meta`-like mapping carries under relay's key. */
+export function jobFromMeta(meta: unknown): JobSnapshot | null {
+  return readJob(record(meta)?.[JOB_META_KEY]);
+}
+
+/**
+ * The planned job an ask carries. Hosts pass the elicitation's `_meta` through
+ * under a few names; the first that holds a job wins.
+ */
+export function jobFromInteraction(payload: unknown): JobSnapshot | null {
+  const root = record(payload);
+  if (!root) return null;
+  const metadata = record(root.metadata);
+  const elicitation = record(metadata?.elicitation);
+  for (const meta of [
+    elicitation?.meta,
+    elicitation?._meta,
+    metadata?.meta,
+    metadata?._meta,
+    root._meta,
+    root.meta,
+  ]) {
+    const job = jobFromMeta(meta);
+    if (job) return job;
+  }
+  return null;
+}
+
+/** Jobs a tool result carries: `structuredContent.job` or `structuredContent.jobs[]`. */
+export function jobsFromToolOutput(output: unknown): JobSnapshot[] {
+  const root = record(output);
+  if (!root) return [];
+  const content = record(root.structuredContent) ?? record(root.structured_content) ?? root;
+  const jobs: JobSnapshot[] = [];
+  const single = readJob(content.job);
+  if (single) jobs.push(single);
+  if (Array.isArray(content.jobs)) {
+    for (const entry of content.jobs) {
+      const job = readJob(entry);
+      if (job) jobs.push(job);
+    }
+  }
+  const meta = jobFromMeta(content._meta) ?? jobFromMeta(root._meta);
+  if (meta) jobs.push(meta);
+  return jobs;
+}
+
+/** The job a task's live snapshot carries in its metadata or progress. */
+export function jobFromTask(task: { metadata?: unknown; progress?: unknown }): JobSnapshot | null {
+  return (
+    jobFromMeta(task.metadata) ??
+    jobFromMeta(record(task.metadata)?._meta) ??
+    jobFromMeta(task.progress)
+  );
+}
+
+/** One snapshot per operation, the highest revision winning, in first-seen order. */
+export function latestJobs(jobs: Iterable<JobSnapshot | null | undefined>): JobSnapshot[] {
+  const latest = new Map<string, JobSnapshot>();
+  for (const job of jobs) {
+    if (!job) continue;
+    const current = latest.get(job.operation_id);
+    if (!current || job.revision >= current.revision) latest.set(job.operation_id, job);
+  }
+  return [...latest.values()];
+}
+
+export type JobStatusTone = 'neutral' | 'waiting' | 'active' | 'good' | 'bad';
+
+export function jobTone(job: Pick<JobSnapshot, 'phase' | 'outcome'>): JobStatusTone {
+  if (job.phase === 'ended') {
+    if (job.outcome === 'succeeded') return 'good';
+    if (job.outcome === 'failed' || job.outcome === 'timed_out') return 'bad';
+    return 'neutral';
+  }
+  if (job.phase === 'running' || job.phase === 'ending') return 'active';
+  if (job.phase === 'submitted' || job.phase === 'queued') return 'waiting';
+  return 'neutral';
+}
+
+export function componentTone(state: string | null | undefined): JobStatusTone {
+  switch (state) {
+    case 'running':
+    case 'starting':
+      return 'active';
+    case 'done':
+      return 'good';
+    case 'failed':
+      return 'bad';
+    case 'waiting':
+      return 'waiting';
+    default:
+      return 'neutral';
+  }
+}
+
+/** Whether a component draws as a viewer's card stack rather than compute nodes. */
+export function isViewerComponent(component: JobComponent): boolean {
+  return component.role === 'viewer';
+}

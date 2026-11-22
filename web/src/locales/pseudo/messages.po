@@ -1776,6 +1776,10 @@ msgstr ""
 msgid "{count, plural, one {Ready, # tool} other {Ready, # tools}}"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "{count, plural, one {Running on # node} other {Running on # nodes}}"
+msgstr ""
+
 #: src/components/clio/comments/comment-session.tsx
 msgid "{count, plural, one {Send # comment} other {Send # comments}}"
 msgstr ""
@@ -1973,6 +1977,10 @@ msgstr ""
 
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "{elapsed} elapsed. Setup continues if you leave this page. {agent} will notify you when it finishes."
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "{elapsed} of {limit}"
 msgstr ""
 
 #: src/components/clio/composer.tsx
@@ -2850,6 +2858,10 @@ msgstr ""
 msgid "{name} (fork of {forkOf})"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "{name} ×{nodes}"
+msgstr ""
+
 #: src/components/clio/provider-panel-footer.tsx
 #: src/components/clio/skill-tool-result.tsx
 #: src/components/clio/workbench-variant-try-tab.tsx
@@ -3116,6 +3128,18 @@ msgstr ""
 
 #: src/components/clio/mcp-connection-details.tsx
 msgid "{names}. Values are hidden."
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "{nodes, plural, one {Running on {running} of # node} other {Running on {running} of # nodes}}"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "{nodes, plural, one {Starting on {allocated} of # node} other {Starting on {allocated} of # nodes}}"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "{nodes, plural, one {Will use # node} other {Will use # nodes}}"
 msgstr ""
 
 #: src/components/clio/document-workspace.tsx
@@ -5031,6 +5055,7 @@ msgstr ""
 msgid "Access token"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-document-helpers.ts
 #: src/components/clio/session-usage-readout.tsx
 msgid "Account"
@@ -8469,6 +8494,7 @@ msgstr ""
 #: src/components/clio/deploy-progress.tsx
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
@@ -13766,6 +13792,7 @@ msgstr ""
 #: src/components/clio/comments/comment-editor.tsx
 #: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/deploy-progress.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/managed-service-inventory.tsx
 #: src/components/clio/mcp-sign-in.tsx
 #: src/components/clio/model-acquisition.tsx
@@ -14611,6 +14638,7 @@ msgid "End time"
 msgstr ""
 
 #: src/components/clio/attention-center.tsx
+#: src/components/clio/job-card.tsx
 msgid "Ended"
 msgstr ""
 
@@ -15418,6 +15446,7 @@ msgstr ""
 #: src/components/clio/deploy-progress.tsx
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/message-completion-footer.tsx
 #: src/components/clio/model-inventory-row.tsx
@@ -15485,6 +15514,10 @@ msgstr ""
 
 #: src/components/clio/response-rating.tsx
 msgid "Feedback saved"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Feeds"
 msgstr ""
 
 #: src/components/clio/table-query-rows.ts
@@ -15934,6 +15967,7 @@ msgid "Finish with a return URL"
 msgstr ""
 
 #: src/components/clio/composer-run-announcer.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/operation-progress.tsx
 msgid "Finished"
@@ -15958,6 +15992,10 @@ msgstr ""
 
 #: src/components/clio/run-tab.tsx
 msgid "Finished."
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Finishing"
 msgstr ""
 
 #: src/lib/runtime-install-progress.ts
@@ -18983,6 +19021,18 @@ msgstr ""
 
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Its view was not shown. {reason}"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Job"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Job on {site}"
+msgstr ""
+
+#: src/components/clio/infrastructure-jobs.tsx
+msgid "Jobs"
 msgstr ""
 
 #: src/components/clio/a2ui-chart.tsx
@@ -22660,6 +22710,10 @@ msgstr ""
 msgid "No completion was recorded. Inspect the captured output before running this action again."
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "No components described"
+msgstr ""
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "No computer matches"
 msgstr ""
@@ -25330,6 +25384,7 @@ msgid "Opening the note"
 msgstr ""
 
 #: src/components/clio/browser-new-page.tsx
+#: src/components/clio/plugin-page-browser.tsx
 #: src/components/clio/workbench-tab-content.tsx
 #: src/routes/plugin-page.tsx
 msgid "Opening the page"
@@ -25851,6 +25906,10 @@ msgstr ""
 msgid "partially selected"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "Partition"
+msgstr ""
+
 #: src/components/clio/cad-parts-panel.tsx
 msgid "Parts"
 msgstr ""
@@ -26337,6 +26396,10 @@ msgstr ""
 
 #: src/components/clio/cad-tool-panels.tsx
 msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Planned"
 msgstr ""
 
 #: src/components/clio/catalog-tool-bundles.ts
@@ -27475,6 +27538,10 @@ msgstr ""
 msgid "Queue is empty"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "Queue reason"
+msgstr ""
+
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "queued"
@@ -27492,6 +27559,7 @@ msgstr ""
 
 #: src/components/clio/conversation-message-row.tsx
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/resource-availability.ts
@@ -27525,6 +27593,10 @@ msgstr ""
 
 #: src/components/clio/run-tab.tsx
 msgid "queued on {host}"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Queued, position {position}"
 msgstr ""
 
 #: src/components/clio/composer-run-announcer.tsx
@@ -27591,6 +27663,10 @@ msgstr ""
 #: src/components/clio/report-tabs.tsx
 #: src/components/clio/tool-operation-result.tsx
 msgid "Ran on {model}"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Ran out of time"
 msgstr ""
 
 #: src/components/clio/workbench-activity-detail.tsx
@@ -30619,6 +30695,7 @@ msgstr ""
 #: src/components/clio/flow-diagram-source.ts
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/session-rail-layout.ts
@@ -32019,6 +32096,10 @@ msgstr ""
 
 #: src/widget-preview-app.tsx
 msgid "See linked views"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "See script"
 msgstr ""
 
 #: src/components/clio/extension-discover.tsx
@@ -33739,6 +33820,7 @@ msgstr ""
 msgid "Simple tomato pasta"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/permission-operation-details.tsx
 msgid "Site"
 msgstr ""
@@ -34434,6 +34516,7 @@ msgid "Started the workflow {target} as you asked"
 msgstr ""
 
 #: src/components/clio/composer-attachments.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/workspace-terminal-panel.tsx
 #: src/hooks/use-connection-availability.ts
@@ -35055,6 +35138,10 @@ msgstr ""
 msgid "Streams results"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "Streams to"
+msgstr ""
+
 #: src/components/clio/science-log-panel.tsx
 msgid "Strength"
 msgstr ""
@@ -35203,6 +35290,10 @@ msgstr ""
 
 #: src/components/clio/question-bundle-response.tsx
 msgid "Submit all answers"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Submitted"
 msgstr ""
 
 #: src/lib/fleet-usage.ts
@@ -38788,6 +38879,7 @@ msgstr ""
 
 #: src/components/clio/a2ui-date-time-input.tsx
 #: src/components/clio/date-time-field.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Time"
@@ -41289,6 +41381,10 @@ msgstr ""
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "Waiting for more conversation messages"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Waiting for nodes"
 msgstr ""
 
 #: src/components/clio/transcript-tool-bodies.tsx

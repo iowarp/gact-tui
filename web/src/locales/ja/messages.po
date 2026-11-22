@@ -1777,6 +1777,10 @@ msgstr "{count, plural, one {#個のファイルを元のファイルに公開�
 msgid "{count, plural, one {Ready, # tool} other {Ready, # tools}}"
 msgstr "{count, plural, other {準備完了、ツール#個}}"
 
+#: src/components/clio/job-card.tsx
+msgid "{count, plural, one {Running on # node} other {Running on # nodes}}"
+msgstr "{count, plural, other {# ノードで実行中}}"
+
 #: src/components/clio/comments/comment-session.tsx
 msgid "{count, plural, one {Send # comment} other {Send # comments}}"
 msgstr "{count, plural, one {#件のコメントを送信} other {#件のコメントを送信}}"
@@ -1975,6 +1979,10 @@ msgstr "{edited, plural, one {#個のファイルを編集} other {#個のファ
 #: src/routes/infrastructure-sandbox-row.tsx
 msgid "{elapsed} elapsed. Setup continues if you leave this page. {agent} will notify you when it finishes."
 msgstr "経過時間：{elapsed}。このページを離れてもセットアップは続行され、完了すると{agent}から通知されます。"
+
+#: src/components/clio/job-card.tsx
+msgid "{elapsed} of {limit}"
+msgstr "{limit} 中 {elapsed}"
 
 #: src/components/clio/composer.tsx
 msgid "{enteredId} is ambiguous; use {alternatives}"
@@ -2851,6 +2859,10 @@ msgstr "{name}（{count}）"
 msgid "{name} (fork of {forkOf})"
 msgstr "{name}（{forkOf}のフォーク）"
 
+#: src/components/clio/job-card.tsx
+msgid "{name} ×{nodes}"
+msgstr "{name} ×{nodes}"
+
 #: src/components/clio/provider-panel-footer.tsx
 #: src/components/clio/skill-tool-result.tsx
 #: src/components/clio/workbench-variant-try-tab.tsx
@@ -3124,6 +3136,18 @@ msgstr "{names} を有効にしました"
 #: src/components/clio/mcp-connection-details.tsx
 msgid "{names}. Values are hidden."
 msgstr "{names}。値は非表示です。"
+
+#: src/components/clio/job-card.tsx
+msgid "{nodes, plural, one {Running on {running} of # node} other {Running on {running} of # nodes}}"
+msgstr "{nodes, plural, other {# ノード中 {running} ノードで実行中}}"
+
+#: src/components/clio/job-card.tsx
+msgid "{nodes, plural, one {Starting on {allocated} of # node} other {Starting on {allocated} of # nodes}}"
+msgstr "{nodes, plural, other {# ノード中 {allocated} ノードで起動中}}"
+
+#: src/components/clio/job-card.tsx
+msgid "{nodes, plural, one {Will use # node} other {Will use # nodes}}"
+msgstr "{nodes, plural, other {# ノードを使用予定}}"
 
 #: src/components/clio/document-workspace.tsx
 msgid "{opened} Opened a desktop copy; edits are local to this copy."
@@ -5040,6 +5064,7 @@ msgstr "他のセッションへのアクセス"
 msgid "Access token"
 msgstr "アクセストークン"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-document-helpers.ts
 #: src/components/clio/session-usage-readout.tsx
 msgid "Account"
@@ -8478,6 +8503,7 @@ msgstr "キャンセル済み"
 #: src/components/clio/deploy-progress.tsx
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
@@ -13775,6 +13801,7 @@ msgstr "完了"
 #: src/components/clio/comments/comment-editor.tsx
 #: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/deploy-progress.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/managed-service-inventory.tsx
 #: src/components/clio/mcp-sign-in.tsx
 #: src/components/clio/model-acquisition.tsx
@@ -14620,6 +14647,7 @@ msgid "End time"
 msgstr "終了時刻"
 
 #: src/components/clio/attention-center.tsx
+#: src/components/clio/job-card.tsx
 msgid "Ended"
 msgstr "終了"
 
@@ -15427,6 +15455,7 @@ msgstr "失敗"
 #: src/components/clio/deploy-progress.tsx
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/message-completion-footer.tsx
 #: src/components/clio/model-inventory-row.tsx
@@ -15495,6 +15524,10 @@ msgstr "高速モデル"
 #: src/components/clio/response-rating.tsx
 msgid "Feedback saved"
 msgstr "フィードバックを保存しました"
+
+#: src/components/clio/job-card.tsx
+msgid "Feeds"
+msgstr "渡す"
 
 #: src/components/clio/table-query-rows.ts
 msgid "fewer"
@@ -15943,6 +15976,7 @@ msgid "Finish with a return URL"
 msgstr "戻り先URLで完了"
 
 #: src/components/clio/composer-run-announcer.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/operation-progress.tsx
 msgid "Finished"
@@ -15968,6 +16002,10 @@ msgstr "完了した作業"
 #: src/components/clio/run-tab.tsx
 msgid "Finished."
 msgstr "完了しました。"
+
+#: src/components/clio/job-card.tsx
+msgid "Finishing"
+msgstr "終了処理中"
 
 #: src/lib/runtime-install-progress.ts
 msgid "Finishing the installation"
@@ -19002,6 +19040,18 @@ msgstr "ビューが検証に合格しませんでした。"
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Its view was not shown. {reason}"
 msgstr "ビューは表示されませんでした。{reason}"
+
+#: src/components/clio/job-card.tsx
+msgid "Job"
+msgstr "ジョブ"
+
+#: src/components/clio/job-card.tsx
+msgid "Job on {site}"
+msgstr "{site} のジョブ"
+
+#: src/components/clio/infrastructure-jobs.tsx
+msgid "Jobs"
+msgstr "ジョブ"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "JPG image"
@@ -22678,6 +22728,10 @@ msgstr "完了した作業はありません。"
 msgid "No completion was recorded. Inspect the captured output before running this action again."
 msgstr "完了が記録されていません。このアクションを再実行する前に、キャプチャされた出力を確認してください。"
 
+#: src/components/clio/job-card.tsx
+msgid "No components described"
+msgstr "コンポーネントの記述がありません"
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "No computer matches"
 msgstr "一致するコンピューターはありません"
@@ -25348,6 +25402,7 @@ msgid "Opening the note"
 msgstr "ノートを開いています"
 
 #: src/components/clio/browser-new-page.tsx
+#: src/components/clio/plugin-page-browser.tsx
 #: src/components/clio/workbench-tab-content.tsx
 #: src/routes/plugin-page.tsx
 msgid "Opening the page"
@@ -25869,6 +25924,10 @@ msgstr "部分的な結果"
 msgid "partially selected"
 msgstr "一部選択"
 
+#: src/components/clio/job-card.tsx
+msgid "Partition"
+msgstr "パーティション"
+
 #: src/components/clio/cad-parts-panel.tsx
 msgid "Parts"
 msgstr "部品"
@@ -26356,6 +26415,10 @@ msgstr "{axis} = {position} の平面。上側を残します。断面は塗り�
 #: src/components/clio/cad-tool-panels.tsx
 msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
 msgstr "{axis} = {position} の平面。下側を残します。断面は塗りつぶされます。"
+
+#: src/components/clio/job-card.tsx
+msgid "Planned"
+msgstr "計画済み"
 
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/lib/tool-domain-labels.ts
@@ -27493,6 +27556,10 @@ msgstr "キューが別の場所で変更されたため、新しい順序は適
 msgid "Queue is empty"
 msgstr "キューは空です"
 
+#: src/components/clio/job-card.tsx
+msgid "Queue reason"
+msgstr "待機理由"
+
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "queued"
@@ -27510,6 +27577,7 @@ msgstr "待機中"
 
 #: src/components/clio/conversation-message-row.tsx
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/resource-availability.ts
@@ -27544,6 +27612,10 @@ msgstr "待機中のメッセージ"
 #: src/components/clio/run-tab.tsx
 msgid "queued on {host}"
 msgstr "{host}で待機中"
+
+#: src/components/clio/job-card.tsx
+msgid "Queued, position {position}"
+msgstr "待機中、{position} 番目"
 
 #: src/components/clio/composer-run-announcer.tsx
 msgid "Queued, waiting to start"
@@ -27610,6 +27682,10 @@ msgstr "実行場所"
 #: src/components/clio/tool-operation-result.tsx
 msgid "Ran on {model}"
 msgstr "{model}で実行"
+
+#: src/components/clio/job-card.tsx
+msgid "Ran out of time"
+msgstr "時間切れ"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Ran without asking"
@@ -30637,6 +30713,7 @@ msgstr "実行中"
 #: src/components/clio/flow-diagram-source.ts
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/session-rail-layout.ts
@@ -32038,6 +32115,10 @@ msgstr "エージェント、コンピューター、サービスがどのよう
 #: src/widget-preview-app.tsx
 msgid "See linked views"
 msgstr "連動ビューを見る"
+
+#: src/components/clio/job-card.tsx
+msgid "See script"
+msgstr "スクリプトを表示"
 
 #: src/components/clio/extension-discover.tsx
 msgid "See server documentation"
@@ -33757,6 +33838,7 @@ msgstr "ソースを煮込む"
 msgid "Simple tomato pasta"
 msgstr "シンプルなトマトパスタ"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/permission-operation-details.tsx
 msgid "Site"
 msgstr "サイト"
@@ -34453,6 +34535,7 @@ msgid "Started the workflow {target} as you asked"
 msgstr "ご依頼どおりワークフロー{target}を開始しました"
 
 #: src/components/clio/composer-attachments.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/workspace-terminal-panel.tsx
 #: src/hooks/use-connection-availability.ts
@@ -35074,6 +35157,10 @@ msgstr "ストリーム"
 msgid "Streams results"
 msgstr "ストリームの結果"
 
+#: src/components/clio/job-card.tsx
+msgid "Streams to"
+msgstr "ストリーム送信"
+
 #: src/components/clio/science-log-panel.tsx
 msgid "Strength"
 msgstr "強度"
@@ -35223,6 +35310,10 @@ msgstr "送信"
 #: src/components/clio/question-bundle-response.tsx
 msgid "Submit all answers"
 msgstr "すべての回答を送信"
+
+#: src/components/clio/job-card.tsx
+msgid "Submitted"
+msgstr "投入済み"
 
 #: src/lib/fleet-usage.ts
 msgid "Subscription"
@@ -38807,6 +38898,7 @@ msgstr "木曜日"
 
 #: src/components/clio/a2ui-date-time-input.tsx
 #: src/components/clio/date-time-field.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Time"
@@ -41309,6 +41401,10 @@ msgstr "入力待ち"
 #: src/components/clio/memory-creation-log.tsx
 msgid "Waiting for more conversation messages"
 msgstr "会話のメッセージがさらに届くのを待っています"
+
+#: src/components/clio/job-card.tsx
+msgid "Waiting for nodes"
+msgstr "ノード待ち"
 
 #: src/components/clio/transcript-tool-bodies.tsx
 #: src/components/clio/workbench-activity-detail.tsx

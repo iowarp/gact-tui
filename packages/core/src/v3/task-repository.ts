@@ -40,6 +40,8 @@ export const taskSnapshotSchema = z.object({
     output: coreReferenceSchema.nullable(),
   }),
   supported_actions: z.array(z.string()),
+  /** Namespaced facts the task's server sent with its status (`_meta`), passed through. */
+  metadata: z.record(z.string(), z.unknown()).optional(),
   cancellation_requested_at: z.string().nullable(),
   terminal_at: z.string().nullable(),
   connection_freshness: z.string(),

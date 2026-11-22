@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { BrandIcon } from './brand-icon';
 import { agentIdentity } from './connection-names';
 import { InfraList, InfraRow, type InfraStatus } from './infrastructure-row';
+import { InfrastructureJobs } from './infrastructure-jobs';
 import { InfraTabActions } from './infrastructure-tab-actions';
 import { InfrastructureTopology } from './infrastructure-topology';
 import { IconButton, NamedTooltip } from './primitives/icon-button';
@@ -120,6 +121,7 @@ export function InfrastructureOverview({
           title={named(t`Web search`)}
         />
       </InfraList>
+      <InfrastructureJobs />
       {servers.error ? (
         <StateView
           kind="error"

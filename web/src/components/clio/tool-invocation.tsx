@@ -59,6 +59,7 @@ import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 import { toolOperation } from './tool-operation';
 import { ToolOperationResult } from './tool-operation-result';
 import { withOperationOutcome } from './tool-operation-outcome';
+import { ToolJobCards } from './tool-job-cards';
 import { ph, plural, t } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 
@@ -431,6 +432,7 @@ export function ClioToolInvocation({
           <NestedToolCalls parentId={tool.id} renderCall={renderNestedCall} />
         ) : null}
       </Collapsible>
+      {tool.parent_call_id ? null : <ToolJobCards tool={tool} />}
       {open ? (
         <ToolTechnicalDetailsDialog
           open={open}
