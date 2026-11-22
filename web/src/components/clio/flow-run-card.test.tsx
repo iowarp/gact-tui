@@ -18,6 +18,7 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/hooks/use-near-viewport', () => ({ useNearViewport: () => true }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1' } }),
+  useOfflineArchive: () => false,
 }));
 vi.mock('@/hooks/use-session-agent', () => ({
   useSessionAgent: () => ({ agent: { data: { resolution: { agent: { ref: 'clio/standard' } } } } }),
