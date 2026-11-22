@@ -318,6 +318,11 @@ function Fact({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+/** A scheduler fact the job leaves to the site's own default. */
+function SiteDefault() {
+  return <span className="font-sans text-muted-foreground">{t`site default`}</span>;
+}
+
 /** A wall time as the scheduler states it: whole hours and minutes, seconds only when short. */
 function wallTime(milliseconds: number): string {
   // Clocks on the site and here differ a little; never show a start ahead of now.
@@ -366,8 +371,12 @@ export function JobCard({ job, fallback, className }: JobCardProps) {
       data-slot="job-card"
     >
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
-        {job.partition ? <Fact label={t`Partition`} value={job.partition} /> : null}
-        {job.account ? <Fact label={t`Account`} value={job.account} /> : null}
+        {job.partition || job.scheduler ? (
+          <Fact label={t`Partition`} value={job.partition || <SiteDefault />} />
+        ) : null}
+        {job.account || job.scheduler ? (
+          <Fact label={t`Account`} value={job.account || <SiteDefault />} />
+        ) : null}
         {time ? (
           <Fact label={t({ message: 'Time', context: 'job wall time' })} value={time} />
         ) : null}

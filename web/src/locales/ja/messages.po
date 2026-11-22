@@ -33851,6 +33851,10 @@ msgstr "シンプルなトマトパスタ"
 msgid "Site"
 msgstr "サイト"
 
+#: src/components/clio/job-card.tsx
+msgid "site default"
+msgstr "サイトの既定値"
+
 #: src/components/clio/managed-service-form.tsx
 msgid "Site-provided"
 msgstr "サイト提供"

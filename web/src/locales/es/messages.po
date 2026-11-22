@@ -33851,6 +33851,10 @@ msgstr "Pasta sencilla con tomate"
 msgid "Site"
 msgstr "Sitio"
 
+#: src/components/clio/job-card.tsx
+msgid "site default"
+msgstr "predeterminada del sitio"
+
 #: src/components/clio/managed-service-form.tsx
 msgid "Site-provided"
 msgstr "Proporcionado por el sitio"

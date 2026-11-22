@@ -33833,6 +33833,10 @@ msgstr ""
 msgid "Site"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "site default"
+msgstr ""
+
 #: src/components/clio/managed-service-form.tsx
 msgid "Site-provided"
 msgstr ""
