@@ -33208,6 +33208,7 @@ msgstr "Εμφάνιση ολοκληρωμένων"
 msgid "Show completed {count}"
 msgstr "Εμφάνιση ολοκληρωμένων ({count})"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/managed-service-host-facts.tsx
 #: src/components/clio/model-inventory-row.tsx
 msgid "Show details"

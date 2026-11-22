@@ -1,6 +1,6 @@
 import type { TaskSnapshot, ToolInvocation } from '@clio/core/v3';
-import { useQuery } from '@tanstack/react-query';
-import { useContext, useMemo } from 'react';
+import { useQueries, useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { PresentationNavigation } from '@/components/clio/presentation-navigation';
 import { useRepository } from '@/hooks/use-repository';
 import { jobFromTask, jobsFromToolOutput, latestJobs, type JobSnapshot } from '@/lib/job-snapshot';
@@ -16,24 +16,90 @@ export interface TaskJob {
   job: JobSnapshot;
 }
 
-/** Jobs the agent's MCP tasks carry in their status, reread while `live`. */
-export function useTaskJobs(live: boolean, enabled = true): TaskJob[] {
+/** A task by its conversation and handle, the address its latest status is read at. */
+interface TaskRef {
+  sessionId: string;
+  handle: string;
+}
+
+function refKey(ref: TaskRef): string {
+  return `${ref.sessionId}\u0000${ref.handle}`;
+}
+
+/** The open tasks the job list has seen, kept so a job that ended stays listed. */
+const FOLLOWED_STORAGE_KEY = 'clio.jobs.followed.v1';
+const FOLLOWED_LIMIT = 20;
+
+function readFollowed(): TaskRef[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(FOLLOWED_STORAGE_KEY) ?? '[]');
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter(
+        (entry): entry is TaskRef =>
+          typeof entry?.sessionId === 'string' && typeof entry?.handle === 'string',
+      )
+      .slice(-FOLLOWED_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function writeFollowed(refs: TaskRef[]): void {
+  try {
+    localStorage.setItem(FOLLOWED_STORAGE_KEY, JSON.stringify(refs.slice(-FOLLOWED_LIMIT)));
+  } catch {
+    // Storage may be full or disabled; the list still follows jobs for this page.
+  }
+}
+
+function taskJobs(tasks: Iterable<TaskSnapshot | null | undefined>): TaskJob[] {
+  const found: TaskJob[] = [];
+  for (const task of tasks) {
+    const job = task ? jobFromTask(task) : null;
+    if (task && job) found.push({ task, job });
+  }
+  return found;
+}
+
+function combineTaskJobs(results: UseQueryResult<TaskSnapshot | null>[]): TaskJob[] {
+  return taskJobs(results.map((result) => result.data));
+}
+
+/**
+ * Jobs the agent's open MCP tasks carry in their status, reread while `live`.
+ * The task index pages oldest first, so only open work is asked for here; a
+ * task that settles is followed by handle ({@link useTaskRefJobs}).
+ */
+function useActiveTaskJobs(live: boolean, enabled = true): TaskJob[] {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const query = useQuery({
-    queryKey: queryKeys.key('tasks', settings.endpoint, 'jobs'),
-    queryFn: ({ signal }) => repository.queryTasks({ kind: 'MCP', limit: 100 }, signal),
+    queryKey: queryKeys.key('tasks', settings.endpoint, 'jobs', 'active'),
+    queryFn: ({ signal }) =>
+      repository.queryTasks({ kind: 'MCP', activeOnly: true, limit: 100 }, signal),
     enabled,
     refetchInterval: live ? JOB_POLL_MS : false,
   });
-  return useMemo(
-    () =>
-      (query.data?.tasks ?? []).flatMap((task) => {
-        const job = jobFromTask(task);
-        return job ? [{ task, job }] : [];
-      }),
-    [query.data],
-  );
+  return useMemo(() => taskJobs(query.data?.tasks ?? []), [query.data]);
+}
+
+/** Each task's latest status by handle, reread until the task settles. */
+function useTaskRefJobs(refs: TaskRef[]): TaskJob[] {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  return useQueries({
+    queries: refs.map((ref) => ({
+      queryKey: queryKeys.key('tasks', settings.endpoint, 'job', ref.sessionId, ref.handle),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        repository.sessionTask(ref.sessionId, ref.handle, signal),
+      refetchInterval: (query: { state: { data: TaskSnapshot | null | undefined } }) =>
+        query.state.data === null || query.state.data?.terminal_at ? false : JOB_POLL_MS,
+      staleTime: (query: { state: { data: TaskSnapshot | null | undefined } }) =>
+        query.state.data === null || query.state.data?.terminal_at ? Infinity : 0,
+    })),
+    combine: combineTaskJobs,
+  });
 }
 
 export function jobInFlight(job: JobSnapshot): boolean {
@@ -58,8 +124,8 @@ interface SessionJobs {
   owners: Map<string, string>;
   /** Call ids and task handles in the conversation, by their row. */
   rowOf: Map<string, string>;
-  /** Whether any call runs as a task, whose live status may carry a job. */
-  taskCalls: boolean;
+  /** The tasks the conversation's calls run as, each read by handle for its job. */
+  taskRefs: TaskRef[];
   /** Whether a task-backed call is still running (it can gain a job before its result). */
   taskRunning: boolean;
 }
@@ -74,13 +140,13 @@ function sessionJobs(
   const owners = new Map<string, string>();
   const rowOf = new Map<string, string>();
   const found: JobSnapshot[] = [];
-  let taskCalls = false;
+  const taskRefs: TaskRef[] = [];
   let taskRunning = false;
   for (const call of calls) {
     const row = topLevelId(tools, call);
     rowOf.set(call.id, row);
-    if (call.execution_task) {
-      taskCalls = true;
+    if (call.execution_task && sessionId) {
+      taskRefs.push({ sessionId, handle: call.execution_task.handle });
       rowOf.set(call.execution_task.handle, row);
       if (call.state === 'running' || call.state === 'pending') taskRunning = true;
     }
@@ -89,7 +155,7 @@ function sessionJobs(
       found.push(job);
     }
   }
-  return { jobs: latestJobs(found), owners, rowOf, taskCalls, taskRunning };
+  return { jobs: latestJobs(found), owners, rowOf, taskRefs, taskRunning };
 }
 
 /**
@@ -104,11 +170,12 @@ export function useSessionJobRows(sessionId: string | undefined): Map<string, Jo
   const tools = provided ?? live;
   const session = useMemo(() => sessionJobs(tools, sessionId), [tools, sessionId]);
   const following = session.taskRunning || session.jobs.some(jobInFlight);
-  const taskJobs = useTaskJobs(following, session.taskCalls || session.jobs.length > 0);
+  const byHandle = useTaskRefJobs(session.taskRefs);
+  const open = useActiveTaskJobs(following, session.taskRefs.length > 0 || session.jobs.length > 0);
   return useMemo(() => {
     const owners = new Map(session.owners);
     const fromTasks: JobSnapshot[] = [];
-    for (const { task, job } of taskJobs) {
+    for (const { task, job } of [...byHandle, ...open]) {
       const row =
         session.rowOf.get(task.invocation_id) ??
         session.rowOf.get(task.handle) ??
@@ -120,10 +187,11 @@ export function useSessionJobRows(sessionId: string | undefined): Map<string, Jo
     const rows = new Map<string, JobSnapshot[]>();
     for (const job of latestJobs([...session.jobs, ...fromTasks])) {
       const row = owners.get(job.operation_id);
-      if (row) rows.set(row, [...(rows.get(row) ?? []), job]);
+      // A planned job's card belongs to the question that asks to submit it.
+      if (row && job.phase !== 'planned') rows.set(row, [...(rows.get(row) ?? []), job]);
     }
     return rows;
-  }, [session, taskJobs]);
+  }, [session, byHandle, open]);
 }
 
 const NO_JOBS: JobSnapshot[] = [];
@@ -133,8 +201,9 @@ export function useToolJobs(tool: ToolInvocation): JobSnapshot[] {
   return useSessionJobRows(tool.session_id).get(tool.id) ?? NO_JOBS;
 }
 /**
- * Every job the person can see: the live snapshots of the agent's MCP tasks and
- * the latest results the loaded conversations carry, one per operation.
+ * Every job the person can see: the latest results the loaded conversations
+ * carry and the live snapshots of the agent's MCP tasks, one per operation. An
+ * open task stays followed by handle after it settles, so its card ends.
  */
 export function useAllJobs(): JobSnapshot[] {
   const tools = useLiveStore((state) => state.entities.tools);
@@ -142,12 +211,29 @@ export function useAllJobs(): JobSnapshot[] {
     () => latestJobs(Object.values(tools).flatMap((call) => jobsFromToolOutput(call.output))),
     [tools],
   );
-  const taskJobs = useTaskJobs(true);
+  const open = useActiveTaskJobs(true);
+  const [followed, setFollowed] = useState<TaskRef[]>(readFollowed);
+  const known = new Set(followed.map(refKey));
+  const unseen = open
+    .map(({ task }) => ({ sessionId: task.owner.session_id, handle: task.handle }))
+    .filter((ref) => !known.has(refKey(ref)));
+  if (unseen.length) setFollowed([...followed, ...unseen].slice(-FOLLOWED_LIMIT));
+  useEffect(() => writeFollowed(followed), [followed]);
+  const refs = useMemo(() => {
+    const all = new Map(followed.map((ref) => [refKey(ref), ref]));
+    for (const call of Object.values(tools)) {
+      if (!call.execution_task || !call.session_id) continue;
+      const ref = { sessionId: call.session_id, handle: call.execution_task.handle };
+      all.set(refKey(ref), ref);
+    }
+    return [...all.values()];
+  }, [followed, tools]);
+  const byHandle = useTaskRefJobs(refs);
   return useMemo(
     () =>
-      latestJobs([...fromCalls, ...taskJobs.map(({ job }) => job)]).sort((a, b) =>
+      latestJobs([...fromCalls, ...[...byHandle, ...open].map(({ job }) => job)]).sort((a, b) =>
         (b.updated_at ?? '').localeCompare(a.updated_at ?? ''),
       ),
-    [fromCalls, taskJobs],
+    [fromCalls, byHandle, open],
   );
 }

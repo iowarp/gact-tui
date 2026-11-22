@@ -379,19 +379,21 @@ function wallTime(milliseconds: number): string {
 
 function timeFact(job: JobSnapshot, now: number): string | null {
   const limit = job.time_limit_s != null ? wallTime(job.time_limit_s * 1000) : null;
-  const started = job.started_at ? Date.parse(job.started_at) : Number.NaN;
+  // Relay stamps started_at when the operation starts; the job's clock runs only once it runs.
+  const ran = job.phase === 'running' || job.phase === 'ending' || job.phase === 'ended';
+  const started = ran && job.started_at ? Date.parse(job.started_at) : Number.NaN;
   if (Number.isNaN(started)) return limit;
   const end = job.ended_at ? Date.parse(job.ended_at) : now;
   let spent = Math.max(0, end - started);
-  // The scheduler stops a job at its limit; a late snapshot must not count past it.
-  if (!job.ended_at && job.time_limit_s != null) spent = Math.min(spent, job.time_limit_s * 1000);
+  // The scheduler stops a job at its limit; a late or early stamp must not count past it.
+  if (job.time_limit_s != null) spent = Math.min(spent, job.time_limit_s * 1000);
   const elapsed = wallTime(spent);
   return limit ? t`${elapsed} of ${limit}` : elapsed;
 }
 
 export interface JobCardProps {
   job: JobSnapshot;
-  /** What "See script" opens when the snapshot has no script (the ask's own text). */
+  /** What "Show details" opens when the snapshot has no script (the ask's own text). */
   fallback?: ReactNode;
   className?: string;
 }
@@ -471,7 +473,7 @@ export function JobCard({ job, fallback, className }: JobCardProps) {
           className="flex flex-col items-start"
           contentClassName="mt-2 self-stretch"
           summaryClassName="text-meta"
-          title={t`See script`}
+          title={job.script?.text ? t`See script` : t`Show details`}
         >
           {job.script?.text ? (
             <pre
