@@ -484,7 +484,7 @@ msgstr "{0, plural, one {# πρόβλημα} other {# προβλήματα}}"
 #. placeholder {0}: profiles.length
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{0, plural, one {# profile} other {# profiles}}"
-msgstr ""
+msgstr "{0, plural, one {# προφίλ} other {# προφίλ}}"
 
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
@@ -820,7 +820,7 @@ msgstr "{0, plural, one {Εισαγάγετε έως # χαρακτήρα.} othe
 #. placeholder {0}: focus.length
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{0, plural, one {Exclude # picked profile} other {Exclude # picked profiles}}"
-msgstr ""
+msgstr "{0, plural, one {Εξαίρεση # επιλεγμένου προφίλ} other {Εξαίρεση # επιλεγμένων προφίλ}}"
 
 #. placeholder {0}: result.added.length
 #: src/components/clio/provider-model-refresh.ts
@@ -1854,7 +1854,7 @@ msgstr "{count} προφίλ του {variable} ως προς {vertical}, {exclud
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{count} profiles, {excluded} excluded"
-msgstr ""
+msgstr "{count} προφίλ, {excluded} εξαιρέθηκαν"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{count} rejected"
@@ -5307,7 +5307,7 @@ msgstr "Προσθήκη απάντησης στη συνομιλία"
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Add as an injection"
-msgstr ""
+msgstr "Προσθήκη ως έγχυση"
 
 #: src/components/clio/composer-file-upload.tsx
 msgid "Add attachments"
@@ -5478,7 +5478,7 @@ msgstr "Προσθήκη στο μήνυμα"
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Add to the tool list"
-msgstr ""
+msgstr "Προσθήκη στη λίστα εργαλείων"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Add to workspace"
@@ -6373,7 +6373,7 @@ msgstr "Ανάλυση: <0>{0}</0>"
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "and {more} more"
-msgstr ""
+msgstr "και {more} ακόμη"
 
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Angle"
@@ -6508,11 +6508,11 @@ msgstr "Δόθηκε απάντηση σε αίτημα δικαιωμάτων"
 
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "Answered automatically with the default, as nobody was watching this run: {answer}"
-msgstr ""
+msgstr "Απαντήθηκε αυτόματα με την προεπιλογή, καθώς κανείς δεν παρακολουθούσε αυτή την εκτέλεση: {answer}"
 
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "Answered automatically: nobody was watching this run, so the agent went ahead on its own judgment"
-msgstr ""
+msgstr "Απαντήθηκε αυτόματα: κανείς δεν παρακολουθούσε αυτή την εκτέλεση, οπότε ο πράκτορας συνέχισε με δική του κρίση"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Answered by you"
@@ -9782,7 +9782,7 @@ msgstr "Εκκαθάριση χρονομέτρου για {title}"
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Click a curve to pick it."
-msgstr ""
+msgstr "Κάντε κλικ σε μια καμπύλη για να την επιλέξετε."
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Click a point to select it. {primary}-click selects its curve. Shift-click toggles a point; {primaryShift}-click merges or removes a curve. Drag selects points; {primary}-drag selects curves. {alt}-drag pans and {primary}-scroll zooms."
@@ -10319,7 +10319,7 @@ msgstr "Συμπύκνωση αυτής της συνομιλίας;"
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Compact, then add"
-msgstr ""
+msgstr "Συμπύκνωση και μετά προσθήκη"
 
 #: src/components/clio/conversation-summarization.tsx
 msgid "Compacted here, earlier messages summarized"
@@ -10377,7 +10377,7 @@ msgstr "Η συμπύκνωση παραλείφθηκε"
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Compacts the conversation before the agent's next step; its tools go in with it."
-msgstr ""
+msgstr "Συμπυκνώνει τη συνομιλία πριν από το επόμενο βήμα του πράκτορα· τα εργαλεία του προστίθενται μαζί της."
 
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "Compacts the conversation now; the change goes in with it."
@@ -15065,11 +15065,11 @@ msgstr "Απόσπασμα {number}"
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Exclude"
-msgstr ""
+msgstr "Εξαίρεση"
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Excluded profiles"
-msgstr ""
+msgstr "Εξαιρεμένα προφίλ"
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -16861,7 +16861,7 @@ msgstr "Το όριο του GitHub για ελέγχους ενημερώσεω
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Give {name} {asked}?"
-msgstr ""
+msgstr "Παροχή {asked} για {name};"
 
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
@@ -17478,7 +17478,7 @@ msgstr "Πόσο σκέφτεται το μοντέλο πριν απαντήσ�
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "How it joins this turn"
-msgstr ""
+msgstr "Πώς εντάσσεται σε αυτόν τον γύρο"
 
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "How long"
@@ -18986,7 +18986,7 @@ msgstr "Η προέλευσή του είναι άγνωστη, έκδοση {ve
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Its tools join the tool list now; the prompt cache is rebuilt on the next call."
-msgstr ""
+msgstr "Τα εργαλεία του προστίθενται τώρα στη λίστα εργαλείων· η κρυφή μνήμη προτροπών αναδημιουργείται στην επόμενη κλήση."
 
 #: src/components/clio/attention-away.ts
 msgid "Its turn is done"
@@ -23222,7 +23222,7 @@ msgstr "Δεν υπάρχουν πηγές άρθρων ή συνόλων δεδ
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "No part of this model is named {names}, so its opacity is not applied."
-msgstr ""
+msgstr "Κανένα τμήμα αυτού του μοντέλου δεν ονομάζεται {names}, οπότε η αδιαφάνειά του δεν εφαρμόζεται."
 
 #: src/components/clio/latex-workspace.tsx
 msgid "No PDF: the build stopped before making one"
@@ -26229,7 +26229,7 @@ msgstr "επέλεξε την καταχώριση {winner}"
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Picked profile"
-msgstr ""
+msgstr "Επιλεγμένο προφίλ"
 
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx
@@ -35974,7 +35974,7 @@ msgstr "Ο πράκτορας σταματά. Οι νέες εισαγωγές �
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "The agent is told about its tools and can call them now; the prompt cache is kept until the next compaction."
-msgstr ""
+msgstr "Ο πράκτορας ενημερώνεται για τα εργαλεία του και μπορεί να τα καλέσει τώρα· η κρυφή μνήμη προτροπών διατηρείται μέχρι την επόμενη συμπύκνωση."
 
 #: src/components/clio/mcp-app-look-waiting-notice.tsx
 msgid "The agent is waiting to see this view."
