@@ -1,5 +1,5 @@
 import type { Message, ToolInvocation } from '@clio/core/v3';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import '@/components/ai-elements/markdown';
@@ -201,7 +201,7 @@ it('folds a finished run into one counted row that opens to its ordered calls', 
   expect(ordered(timeline)).toEqual(ordered(view.container).slice(1));
 });
 
-it('folds the steps a live run has gone past and keeps the current step as rows', () => {
+it('keeps every step of a live run as rows and folds them once the turn ends', () => {
   const view = render(
     <ConversationTurn
       followLiveActivity
@@ -210,10 +210,11 @@ it('folds the steps a live run has gone past and keeps the current step as rows'
       subagents={{}}
     />,
   );
-  // A new call never reopens the settled run, so no row mounts open and folds again.
-  expect(screen.getByRole('button', { name: 'Expand Called 1 tool' })).toBeInTheDocument();
+  // While the turn works, each step stays its own row as it happens: nothing folds yet.
+  expect(screen.queryByRole('button', { name: /^Expand Called/ })).toBeNull();
+  expect(screen.getAllByRole('button', { name: 'Expand Read file' })).toHaveLength(2);
+  expect(screen.getByText('one.md')).toBeVisible();
   expect(screen.getByText('two.md')).toBeVisible();
-  expect(screen.queryByText('one.md')).toBeNull();
   view.rerender(
     <ConversationTurn
       iterations={[iteration('one', 0), { ...iteration('two', 1), nextThoughts: [] }]}
@@ -221,9 +222,12 @@ it('folds the steps a live run has gone past and keeps the current step as rows'
       subagents={{}}
     />,
   );
+  // Once the turn has ended, the run folds into its counted row.
   expect(
     screen.getByRole('button', { name: 'Expand Called 2 tools, thought once' }),
   ).toBeInTheDocument();
+  expect(screen.queryByText('one.md')).toBeNull();
+  expect(screen.queryByText('two.md')).toBeNull();
 });
 
 it('never paints a file change open while the turn works', () => {
@@ -245,12 +249,16 @@ it('never paints a file change open while the turn works', () => {
   const opened = () => document.querySelectorAll('[data-slot=tool-activity] > [data-state=open]');
   const view = render(live([edit(iteration('one', 0))]));
   expect(opened()).toHaveLength(0);
-  // The next call arrives: the edit folds into the run instead of remounting open.
+  // The next call arrives: the edit stays its own row, still closed.
   view.rerender(
     live([edit(iteration('one', 0)), { ...iteration('two', 1, true), nextThoughts: [] }]),
   );
   expect(opened()).toHaveLength(0);
-  expect(screen.getByRole('button', { name: 'Expand Edited 1 file' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Expand Write file' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  expect(screen.getByRole('button', { name: 'Expand Read file' })).toBeVisible();
 });
 
 it('retains an opened tool result across live updates and answer arrival', async () => {
@@ -389,8 +397,13 @@ it('renders the same alternating semantics from a saved assistant message', asyn
   const lanes = screen.getAllByRole('group', { name: /^Activity:/ });
   expect(lanes).toHaveLength(2);
   for (const lane of lanes) expect(lane).toHaveAccessibleName('Activity: Called 1 tool');
-  // The folded run counts its failure; opening it shows the failed call's own row.
-  expect(lanes[1]).toHaveTextContent('1 failed');
+  // A failed call the agent recovered from is marked on its own row, not on the counted run
+  // row: the completed turn's run reads as done.
+  expect(lanes[1]).not.toHaveTextContent('failed');
+  expect(lanes[1].querySelector('[data-run-summary]')).toContainElement(
+    within(lanes[1]).getByRole('img', { name: 'Done' }),
+  );
+  expect(screen.queryByRole('img', { name: 'Failed: Failed.' })).toBeNull();
   for (const run of screen.getAllByRole('button', { name: 'Expand Called 1 tool' }))
     fireEvent.click(run);
   // The status mark names the recorded reason as a sentence.

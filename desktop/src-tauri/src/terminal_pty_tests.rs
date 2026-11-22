@@ -9,31 +9,70 @@ use super::*;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-/// Whether a PID still refers to a live process — same technique
-/// `supervisor_state.rs`'s test module uses (`tasklist` on Windows,
-/// `kill(pid, 0)` on Unix). Cross-platform (unlike the production
-/// `pid_alive` in this module, which is Unix-only), and shadows it inside
-/// this test module.
-fn pid_alive(pid: u32) -> bool {
+/// Liveness of the exact process a test found, held for the probe's lifetime.
+///
+/// Windows opens a handle while the process is known to be alive, so its PID
+/// cannot be reused while the probe exists, and reads liveness with
+/// `GetExitCodeProcess` on that handle. Polling `tasklist /FI "PID eq N"` by
+/// PID instead could, once the process had exited, find an unrelated process
+/// that had been given the freed PID, including the probe's own `tasklist`.
+/// `supervisor_state.rs`'s tests pin their children the same way.
+struct ProcessProbe {
+    pid: u32,
     #[cfg(windows)]
-    {
-        use std::process::Command;
-        let out = Command::new("tasklist")
-            .args(["/FI", &format!("PID eq {pid}"), "/NH"])
-            .output()
-            .expect("run tasklist");
-        String::from_utf8_lossy(&out.stdout).contains(&pid.to_string())
-    }
-    #[cfg(unix)]
-    {
-        // A killed direct child stays a zombie, which `kill(pid, 0)` still
-        // reports as alive, until its parent reaps it. Production registers a
-        // waiter thread that reaps; these tests register without one.
-        let mut status = 0;
-        if unsafe { libc::waitpid(pid as i32, &mut status, libc::WNOHANG) } == pid as i32 {
-            return false;
+    handle: windows_sys::Win32::Foundation::HANDLE,
+}
+
+impl ProcessProbe {
+    /// Pins `pid`, which the caller has just seen running.
+    fn pin(pid: u32) -> Self {
+        #[cfg(windows)]
+        {
+            use windows_sys::Win32::System::Threading::{
+                OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+            };
+            let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+            assert!(!handle.is_null(), "open a probe handle for pid {pid}");
+            Self { pid, handle }
         }
-        unsafe { libc::kill(pid as i32, 0) == 0 }
+        #[cfg(unix)]
+        {
+            Self { pid }
+        }
+    }
+
+    fn alive(&self) -> bool {
+        #[cfg(windows)]
+        {
+            use windows_sys::Win32::{
+                Foundation::STILL_ACTIVE, System::Threading::GetExitCodeProcess,
+            };
+            let mut code: u32 = 0;
+            let ok = unsafe { GetExitCodeProcess(self.handle, &mut code) };
+            assert!(ok != 0, "read the exit code of pid {}", self.pid);
+            code == STILL_ACTIVE as u32
+        }
+        #[cfg(unix)]
+        {
+            // A killed direct child stays a zombie, which `kill(pid, 0)` still
+            // reports as alive, until its parent reaps it. Production registers a
+            // waiter thread that reaps; these tests register without one.
+            let pid = self.pid as i32;
+            let mut status = 0;
+            if unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) } == pid {
+                return false;
+            }
+            unsafe { libc::kill(pid, 0) == 0 }
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Drop for ProcessProbe {
+    fn drop(&mut self) {
+        unsafe {
+            windows_sys::Win32::Foundation::CloseHandle(self.handle);
+        }
     }
 }
 
@@ -239,8 +278,10 @@ fn registry_shutdown_kills_children_and_their_descendants() {
     let pid = registry
         .pid("shutdown-test")
         .expect("spawned child has a pid");
+    // The registry still holds the child, so this PID is the outer child's.
+    let outer = ProcessProbe::pin(pid);
     assert!(
-        pid_alive(pid),
+        outer.alive(),
         "outer child should be alive right after spawn"
     );
 
@@ -255,8 +296,9 @@ fn registry_shutdown_kills_children_and_their_descendants() {
         thread::sleep(Duration::from_millis(200));
     }
     let grandchild_pid = grandchild_pid.expect("grandchild never appeared in the process table");
+    let grandchild = ProcessProbe::pin(grandchild_pid);
     assert!(
-        pid_alive(grandchild_pid),
+        grandchild.alive(),
         "grandchild pid {grandchild_pid} should be alive before shutdown"
     );
 
@@ -266,8 +308,8 @@ fn registry_shutdown_kills_children_and_their_descendants() {
     let mut outer_gone = false;
     let mut grandchild_gone = false;
     while Instant::now() < reap_deadline && !(outer_gone && grandchild_gone) {
-        outer_gone = !pid_alive(pid);
-        grandchild_gone = !pid_alive(grandchild_pid);
+        outer_gone = !outer.alive();
+        grandchild_gone = !grandchild.alive();
         if !(outer_gone && grandchild_gone) {
             thread::sleep(Duration::from_millis(100));
         }
