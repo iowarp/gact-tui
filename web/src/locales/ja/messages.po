@@ -33198,6 +33198,7 @@ msgstr "完了済みを表示"
 msgid "Show completed {count}"
 msgstr "完了済み{count}件を表示"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/managed-service-host-facts.tsx
 #: src/components/clio/model-inventory-row.tsx
 msgid "Show details"

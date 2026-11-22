@@ -173,6 +173,21 @@ export class TaskRepository extends MemoryRepository {
       signal,
     });
   }
+  /** One task in this conversation's tree at its latest status, or `null` when it is not there. */
+  public async sessionTask(
+    sessionId: string,
+    handle: string,
+    signal?: AbortSignal,
+  ): Promise<TaskPage['tasks'][number] | null> {
+    const query = new URLSearchParams({ handle, scope: 'tree', limit: '1' });
+    const page = await this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tasks/query?${query}`,
+      decode: (value) => taskPageSchema.parse(value),
+      signal,
+    });
+    return page.tasks.find((task) => task.handle === handle) ?? null;
+  }
   /**
    * What one task in this conversation's tree was given: its assignment text, read
    * (not observed) from the task index. ``null`` when the handle is not in the tree.

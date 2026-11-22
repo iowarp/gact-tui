@@ -33197,6 +33197,7 @@ msgstr "Show completed"
 msgid "Show completed {count}"
 msgstr "Show completed {count}"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/managed-service-host-facts.tsx
 #: src/components/clio/model-inventory-row.tsx
 msgid "Show details"
