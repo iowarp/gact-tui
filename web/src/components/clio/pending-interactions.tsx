@@ -38,16 +38,24 @@ function outerHeight(element: HTMLElement, height = element.offsetHeight) {
   return height + Number.parseFloat(style.marginTop) + Number.parseFloat(style.marginBottom);
 }
 
+/** The "N more" line under the queue's rows: 22px and its 2px margin. */
+const QUEUE_MORE_LINE_PX = 24;
+
+function queueViewport(queue: Element) {
+  return queue.querySelector<HTMLElement>('[data-slot=scroll-area-viewport]');
+}
+
 /** The queue yields to a card down to its count line, one row and its "N more" line. */
 function queueFloor(queue: HTMLElement) {
-  const viewport = queue.querySelector<HTMLElement>('[data-slot=scroll-area-viewport]');
+  const viewport = queueViewport(queue);
   const row = viewport?.querySelector<HTMLElement>('li');
   if (!viewport || !row) return queue.offsetHeight;
-  const chrome = queue.offsetHeight - viewport.offsetHeight;
-  const more = viewport.scrollHeight - row.offsetHeight > 1;
-  // The "more" line (22px and its 2px margin) shows only once the rows overflow.
-  const moreLine = more && viewport.scrollHeight - viewport.clientHeight <= 1 ? 24 : 0;
-  return chrome + Math.min(viewport.scrollHeight, row.offsetHeight) + moreLine;
+  // The queue mounts the "more" line only after measuring its rows, so leave out whatever is
+  // there now: at the floor any row past the first puts it under that row.
+  const shown = queue.querySelector<HTMLElement>(':scope > [data-queue-more]');
+  const chrome = queue.offsetHeight - viewport.offsetHeight - (shown ? outerHeight(shown) : 0);
+  const more = viewport.scrollHeight - row.offsetHeight > 1 ? QUEUE_MORE_LINE_PX : 0;
+  return chrome + Math.min(viewport.scrollHeight, row.offsetHeight) + more;
 }
 
 /**
@@ -177,11 +185,27 @@ export function ClioPendingInteractions({
     };
     update();
     if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(update);
+    // A squeezed queue keeps its height as rows come and go, so watch its rows too. Its list
+    // remounts when it folds open, so look for it again on every change.
+    let rows: Element | null = null;
+    const watchRows = () => {
+      const queue = stack?.querySelector(':scope > [data-slot=composer-queue]');
+      const next = (queue && queueViewport(queue)?.firstElementChild) ?? null;
+      if (next === rows) return;
+      if (rows) observer.unobserve(rows);
+      rows = next;
+      if (rows) observer.observe(rows);
+    };
+    const observer = new ResizeObserver(() => {
+      watchRows();
+      update();
+    });
     const observe = () => {
       observer.disconnect();
+      rows = null;
       for (const element of [conversation, dock, column, ...(stack?.children ?? [])])
         if (element) observer.observe(element);
+      watchRows();
       update();
     };
     observe();
