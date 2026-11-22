@@ -9,6 +9,7 @@ import { MessageBlockSequence, ReplyErrorLine } from './conversation-message-blo
 import { replyFailureCode, replyFailureReason } from './reply-failure';
 import { ReplyRecoveryActions } from './reply-failure-recovery';
 import { ConversationTurn } from './conversation-turn';
+import type { TurnEnd } from './conversation-activity-lane';
 import { VariantRunsForMessage } from './variant-runs-for-message';
 import { subagentsForTool } from './subagent-tool-link';
 import type { ConversationMessageRowProps } from './conversation-types';
@@ -175,6 +176,17 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     active ||
     (liveActivityId !== undefined &&
       turn.iterations.some((iteration) => iteration.id === liveActivityId));
+  // A turn that ended without finishing marks its last run so, never as done.
+  const turnEnd: TurnEnd | undefined =
+    message.role !== 'assistant' || turnLive
+      ? undefined
+      : emptyResponseWasClientCancelled
+        ? 'stopped'
+        : interruptedByService
+          ? 'interrupted'
+          : emptyResponseErrorMessage || message.blocks.some((block) => block.type === 'error')
+            ? 'failed'
+            : undefined;
   const executionMode = specialMessageExecutionMode(message);
   const messageAttentionIndex = useMessageAttentionIndex(entities.attentionData, message);
 
@@ -432,6 +444,12 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                                   .some((later) => later.kind !== 'feedback')
                               }
                               turnRunning={turnLive}
+                              turnEnd={
+                                segmentIndex ===
+                                segments.findLastIndex((later) => later.kind === 'iterations')
+                                  ? turnEnd
+                                  : undefined
+                              }
                               answerStarted={answerStarted}
                               artifacts={entities.artifacts}
                               interactions={entities.interactions}

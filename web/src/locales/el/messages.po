@@ -269,6 +269,11 @@ msgstr "{0, plural, one {# σχόλιο στάλθηκε στον πράκτορ
 msgid "{0, plural, one {# dataset} other {# datasets}}"
 msgstr "{0, plural, one {# σύνολο δεδομένων} other {# σύνολα δεδομένων}}"
 
+#. placeholder {0}: run.denied
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# denied} other {# denied}}"
+msgstr "{0, plural, one {# απορρίφθηκε} other {# απορρίφθηκαν}}"
+
 #. placeholder {0}: model.downloads
 #: src/components/clio/model-download-search.tsx
 msgid "{0, plural, one {# download} other {# downloads}}"
@@ -626,6 +631,11 @@ msgstr "{0, plural, one {# βήμα, {state}} other {# βήματα, {state}}}"
 #: src/components/clio/workbench-variant-try-tab.tsx
 msgid "{0, plural, one {# step} other {# steps}}"
 msgstr "{0, plural, one {# βήμα} other {# βήματα}}"
+
+#. placeholder {0}: run.interrupted
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# stopped} other {# stopped}}"
+msgstr "{0, plural, one {# σταμάτησε} other {# σταμάτησαν}}"
 
 #. placeholder {0}: request.data.events
 #: src/components/clio/ndp-endpoint-operation.tsx
@@ -991,16 +1001,6 @@ msgstr "{0, plural, one {Γράφος ροής εργασιών με # βήμα 
 #: src/components/clio/permission-operation-details.tsx
 msgid "{0, plural, one {writes to # folder} other {writes to # folders}}"
 msgstr "{0, plural, one {γράφει σε # φάκελο} other {γράφει σε # φακέλους}}"
-
-#. placeholder {0}: run.denied
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# denied}}"
-msgstr "{0, plural, other {# απορρίφθηκαν}}"
-
-#. placeholder {0}: run.interrupted
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# stopped}}"
-msgstr "{0, plural, other {# σταμάτησαν}}"
 
 #. placeholder {0}: /^[aeiou]/iu.test(agentName) ? 'an' : 'a'
 #: src/components/clio/clio-menu.tsx
@@ -1905,10 +1905,6 @@ msgstr "{delegated, plural, one {ανέθεσε # εργασία} other {ανέ�
 msgid "{delegates, plural, one {# delegate} other {# delegates}}"
 msgstr "{delegates, plural, one {# εντολοδόχος} other {# εντολοδόχοι}}"
 
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{denied} denied"
-msgstr "{denied} απορρίφθηκαν"
-
 #: src/components/clio/settings-session-defaults.tsx
 msgid "{description} Workspace and organization rules still apply."
 msgstr "{description} Οι κανόνες του χώρου εργασίας και του οργανισμού εξακολουθούν να ισχύουν."
@@ -2282,10 +2278,6 @@ msgstr "{input} εισόδου, {output} εξόδου"
 #: src/components/clio/memory-creation-log.tsx
 msgid "{input} input, {output} output tokens"
 msgstr "{input} token εισόδου, {output} token εξόδου"
-
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{interrupted} stopped"
-msgstr "{interrupted} σταμάτησαν"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
@@ -13490,6 +13482,10 @@ msgstr "Δεν εκτελέστηκε"
 #: src/components/clio/flow-run-parts.tsx
 msgid "did not run or cancelled"
 msgstr "δεν εκτελέστηκε ή ακυρώθηκε"
+
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "Didn’t finish"
+msgstr "Δεν ολοκληρώθηκε"
 
 #: src/components/clio/provider-auth-panel.tsx
 msgid "Didn't finish? Paste the address or code here"

@@ -269,6 +269,11 @@ msgstr "{0, plural, one {# comentario enviado al agente.} other {# comentarios e
 msgid "{0, plural, one {# dataset} other {# datasets}}"
 msgstr "{0, plural, one {# conjunto de datos} other {# conjuntos de datos}}"
 
+#. placeholder {0}: run.denied
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# denied} other {# denied}}"
+msgstr "{0, plural, one {# denegada} other {# denegadas}}"
+
 #. placeholder {0}: model.downloads
 #: src/components/clio/model-download-search.tsx
 msgid "{0, plural, one {# download} other {# downloads}}"
@@ -626,6 +631,11 @@ msgstr "{0, plural, one {# paso, {state}} other {# pasos, {state}}}"
 #: src/components/clio/workbench-variant-try-tab.tsx
 msgid "{0, plural, one {# step} other {# steps}}"
 msgstr "{0, plural, one {# paso} other {# pasos}}"
+
+#. placeholder {0}: run.interrupted
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# stopped} other {# stopped}}"
+msgstr "{0, plural, one {# detenida} other {# detenidas}}"
 
 #. placeholder {0}: request.data.events
 #: src/components/clio/ndp-endpoint-operation.tsx
@@ -991,16 +1001,6 @@ msgstr "{0, plural, one {Grafo del flujo de trabajo de # paso y de lo que espera
 #: src/components/clio/permission-operation-details.tsx
 msgid "{0, plural, one {writes to # folder} other {writes to # folders}}"
 msgstr "{0, plural, one {escribe en # carpeta} other {escribe en # carpetas}}"
-
-#. placeholder {0}: run.denied
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# denied}}"
-msgstr "{0, plural, other {# denegados}}"
-
-#. placeholder {0}: run.interrupted
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# stopped}}"
-msgstr "{0, plural, other {# detenidos}}"
 
 #. placeholder {0}: /^[aeiou]/iu.test(agentName) ? 'an' : 'a'
 #: src/components/clio/clio-menu.tsx
@@ -1905,10 +1905,6 @@ msgstr "{delegated, plural, one {delegó # tarea} other {delegó # tareas}}"
 msgid "{delegates, plural, one {# delegate} other {# delegates}}"
 msgstr "{delegates, plural, one {# delegado} other {# delegados}}"
 
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{denied} denied"
-msgstr "{denied} denegadas"
-
 #: src/components/clio/settings-session-defaults.tsx
 msgid "{description} Workspace and organization rules still apply."
 msgstr "{description} Las reglas del espacio de trabajo y de la organización siguen aplicándose."
@@ -2282,10 +2278,6 @@ msgstr "{input} de entrada, {output} de salida"
 #: src/components/clio/memory-creation-log.tsx
 msgid "{input} input, {output} output tokens"
 msgstr "{input} tokens de entrada, {output} de salida"
-
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{interrupted} stopped"
-msgstr "{interrupted} detenidas"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
@@ -13490,6 +13482,10 @@ msgstr "No se ejecutó"
 #: src/components/clio/flow-run-parts.tsx
 msgid "did not run or cancelled"
 msgstr "no se ejecutó o se canceló"
+
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "Didn’t finish"
+msgstr "No terminó"
 
 #: src/components/clio/provider-auth-panel.tsx
 msgid "Didn't finish? Paste the address or code here"
