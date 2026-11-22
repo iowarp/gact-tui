@@ -451,6 +451,8 @@ export function ClioDocumentPdfViewer({
           error={<StateView kind="error" size="viewer" title={t`Couldn't read ${name}`} />}
           file={file}
           loading={<StateView kind="loading" size="viewer" title={t`Loading ${name}`} />}
+          // react-pdf 11 suspends by default; keep the viewer's own loading and error states.
+          suspense={false}
           onLoadSuccess={({ numPages }) => {
             setPageCount(numPages);
             setLoadedFile(file);
