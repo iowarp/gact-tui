@@ -79,20 +79,43 @@ function combineTaskJobs(results: UseQueryResult<TaskSnapshot | null>[]): TaskJo
   return taskJobs(results.map((result) => result.data));
 }
 
+/** How many of the newest MCP tasks the job lists read. */
+const RECENT_TASKS = 50;
+
 /**
- * Jobs the agent's open MCP tasks carry in their status, reread while `live`.
- * The task index pages oldest first, so only open work is asked for here; a
- * task that settles is followed by handle ({@link useTaskRefJobs}).
+ * Jobs the agent's newest MCP tasks carry in their status, reread while `live`.
+ * Reading the newest rather than only the open ones keeps a job whose task
+ * settled while no list was mounted, such as a service that became ready.
  */
-function useActiveTaskJobs(live: boolean, enabled = true): TaskJob[] {
+function useRecentTaskJobs(live: boolean, enabled = true): TaskJob[] {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const query = useQuery({
-    queryKey: queryKeys.key('tasks', settings.endpoint, 'jobs', 'active'),
+    queryKey: queryKeys.key('tasks', settings.endpoint, 'jobs', 'recent'),
     queryFn: ({ signal }) =>
-      repository.queryTasks({ kind: 'MCP', activeOnly: true, limit: 100 }, signal),
+      repository.queryTasks({ kind: 'MCP', order: 'newest', limit: RECENT_TASKS }, signal),
     enabled,
     refetchInterval: live ? JOB_POLL_MS : false,
+  });
+  return useMemo(() => taskJobs(query.data?.tasks ?? []), [query.data]);
+}
+
+/**
+ * Jobs the newest MCP tasks of one conversation carry, reread while `live`. A
+ * task names the call it runs for, so its card finds its row even when the
+ * call's record does not carry the task.
+ */
+function useSessionTaskJobs(sessionId: string | undefined, live: boolean, enabled: boolean) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const query = useQuery({
+    queryKey: queryKeys.key('tasks', settings.endpoint, 'jobs', 'session', sessionId ?? ''),
+    queryFn: ({ signal }) =>
+      repository.sessionTasks(sessionId!, { kind: 'MCP', limit: RECENT_TASKS }, signal),
+    enabled: enabled && Boolean(sessionId),
+    // An open task can still gain or change its job, even when no call shows it running.
+    refetchInterval: (query) =>
+      live || query.state.data?.tasks.some((task) => !task.terminal_at) ? JOB_POLL_MS : false,
   });
   return useMemo(() => taskJobs(query.data?.tasks ?? []), [query.data]);
 }
@@ -281,8 +304,8 @@ export function useSessionJobRows(sessionId: string | undefined): Map<string, Jo
   const session = useMemo(() => sessionJobs(tools, sessionId), [tools, sessionId]);
   const following = session.taskRunning || session.jobs.some(jobInFlight);
   const byHandle = useTaskRefJobs(session.taskRefs);
-  const fromResources = useJobResources(byHandle);
-  const open = useActiveTaskJobs(following, session.taskRefs.length > 0 || session.jobs.length > 0);
+  const open = useSessionTaskJobs(sessionId, following, session.rowOf.size > 0);
+  const fromResources = useJobResources(useMemo(() => [...byHandle, ...open], [byHandle, open]));
   return useMemo(() => {
     const owners = new Map(session.owners);
     const fromTasks: JobSnapshot[] = [];
@@ -322,7 +345,7 @@ export function useAllJobs(): JobSnapshot[] {
     () => latestJobs(Object.values(tools).flatMap((call) => jobsFromToolOutput(call.output))),
     [tools],
   );
-  const open = useActiveTaskJobs(true);
+  const open = useRecentTaskJobs(true);
   const [followed, setFollowed] = useState<TaskRef[]>(readFollowed);
   const known = new Set(followed.map(refKey));
   const unseen = open
@@ -340,7 +363,7 @@ export function useAllJobs(): JobSnapshot[] {
     return [...all.values()];
   }, [followed, tools]);
   const byHandle = useTaskRefJobs(refs);
-  const fromResources = useJobResources(byHandle);
+  const fromResources = useJobResources(useMemo(() => [...byHandle, ...open], [byHandle, open]));
   return useMemo(
     () =>
       latestJobs([
