@@ -7,6 +7,29 @@ import { z } from 'zod';
  */
 export const JOB_META_KEY = 'io.iowarp.clio-relay/job';
 
+/**
+ * The resource holding one job's newest card on the server that runs it. Relay
+ * announces it updated on each change, also after the task that started the job
+ * has ended, so a card read here follows the job to its end.
+ */
+export function jobResourceUri(operationId: string): string {
+  return `relay://jobs/${encodeURIComponent(operationId)}`;
+}
+
+/** The card a job resource read carries: its first JSON text. */
+export function jobFromResource(value: { contents: Array<{ text?: string }> }): JobSnapshot | null {
+  for (const content of value.contents) {
+    if (typeof content.text !== 'string') continue;
+    try {
+      const job = readJob(JSON.parse(content.text));
+      if (job) return job;
+    } catch {
+      // Not JSON; a later content may be.
+    }
+  }
+  return null;
+}
+
 const optionalText = z.string().nullish().catch(null);
 const optionalCount = z.number().int().nonnegative().nullish().catch(null);
 

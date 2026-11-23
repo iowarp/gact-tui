@@ -85,6 +85,30 @@ const mcpSessionServerReconnectSchema = z.object({
 /** The immediate answer to a conversation server reconnect. */
 export type McpSessionServerReconnect = z.infer<typeof mcpSessionServerReconnectSchema>;
 
+const mcpResourceContentsSchema = z.object({
+  contents: z
+    .array(
+      z
+        .object({
+          uri: z.string().optional(),
+          mimeType: z.string().nullish(),
+          text: z.string().optional(),
+          blob: z.string().optional(),
+        })
+        .passthrough(),
+    )
+    .default([]),
+});
+/** A `resources/read` answer: the resource's contents, text or base64 blob. */
+export type McpResourceContents = z.infer<typeof mcpResourceContentsSchema>;
+
+const mcpResourceWatchSchema = z.object({
+  watching: z.boolean(),
+  pushed: z.boolean(),
+});
+/** Whether a resource is watched now, and whether its server pushes its updates. */
+export type McpResourceWatch = z.infer<typeof mcpResourceWatchSchema>;
+
 /** Narrows an MCP server listing to the tools one session holds open. */
 export interface McpServerListOptions {
   /**
@@ -257,6 +281,43 @@ export class McpRepository extends LatexRepository {
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp/${encodeURIComponent(namespace)}/reconnect`,
       decode: (value) => mcpSessionServerReconnectSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** One read of a resource on a server the conversation mounts, as the server sent it. */
+  public readSessionServerResource(
+    sessionId: string,
+    namespace: string,
+    uri: string,
+    signal?: AbortSignal,
+  ): Promise<McpResourceContents> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp/${encodeURIComponent(namespace)}/resources/read`,
+      body: { uri },
+      decode: (value) => mcpResourceContentsSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * Start or stop one holder's watch of a server resource. While any holder watches,
+   * each update reaches the conversation's live stream as `mcp.resource.updated`;
+   * `pushed` is false when the server cannot announce updates, so the caller rereads.
+   */
+  public watchSessionServerResource(
+    sessionId: string,
+    namespace: string,
+    uri: string,
+    options: { holder: string; watching: boolean },
+    signal?: AbortSignal,
+  ): Promise<McpResourceWatch> {
+    return this.transport.request({
+      method: 'PUT',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/mcp/${encodeURIComponent(namespace)}/resources/watch`,
+      body: { uri, holder: options.holder, watching: options.watching },
+      decode: (value) => mcpResourceWatchSchema.parse(value),
       signal,
     });
   }

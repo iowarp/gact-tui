@@ -1,15 +1,28 @@
 import type { TaskSnapshot, ToolInvocation } from '@clio/core/v3';
 import { useQueries, useQuery, type UseQueryResult } from '@tanstack/react-query';
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { PresentationNavigation } from '@/components/clio/presentation-navigation';
 import { useRepository } from '@/hooks/use-repository';
-import { jobFromTask, jobsFromToolOutput, latestJobs, type JobSnapshot } from '@/lib/job-snapshot';
+import {
+  jobFromResource,
+  jobFromTask,
+  jobResourceUri,
+  jobsFromToolOutput,
+  latestJobs,
+  type JobSnapshot,
+} from '@/lib/job-snapshot';
 import { queryKeys } from '@/lib/query-keys';
+import { serverResourceQueryKey } from '@/lib/server-resource';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 
 /** How often a job card still in flight rereads its task's snapshot. */
 const JOB_POLL_MS = 5_000;
+/**
+ * How often a job whose task has ended rereads its card when no update reaches
+ * it, as for a conversation that is not open. An open one hears each update.
+ */
+const JOB_RESOURCE_POLL_MS = 30_000;
 
 export interface TaskJob {
   task: TaskSnapshot;
@@ -106,6 +119,103 @@ export function jobInFlight(job: JobSnapshot): boolean {
   return job.phase !== 'ended' && job.phase !== 'planned';
 }
 
+/** A job's card on the server that runs it, read in the conversation that mounts it. */
+interface JobResourceRef {
+  sessionId: string;
+  namespace: string;
+  uri: string;
+}
+
+function resourceKey(ref: JobResourceRef): string {
+  return `${ref.sessionId}\u0000${ref.namespace}\u0000${ref.uri}`;
+}
+
+/**
+ * The jobs still in flight whose task has ended, such as a service whose task
+ * completed once it was ready. The task stops changing then, so the card is
+ * followed on its server instead.
+ */
+function jobResourceRefs(found: TaskJob[]): JobResourceRef[] {
+  const refs = new Map<string, JobResourceRef>();
+  for (const { task, job } of found) {
+    const namespace = task.backend?.server;
+    if (!task.terminal_at || !namespace || !jobInFlight(job)) continue;
+    const ref = {
+      sessionId: task.owner.session_id,
+      namespace,
+      uri: jobResourceUri(job.operation_id),
+    };
+    refs.set(resourceKey(ref), ref);
+  }
+  return [...refs.values()];
+}
+
+function combineResourceJobs(
+  results: UseQueryResult<JobSnapshot | null>[],
+): (JobSnapshot | null)[] {
+  return results.map((result) => result.data ?? null);
+}
+
+/** Holds one watch per resource while `refs` lists it, and lets each go after. */
+function useWatchedResources(refs: JobResourceRef[]): void {
+  const repository = useRepository();
+  const holder = useId();
+  const held = useRef(new Map<string, JobResourceRef>());
+  const wanted = refs.map(resourceKey).join('\u0001');
+  const latest = useRef(refs);
+  latest.current = refs;
+  useEffect(() => {
+    const next = new Map(latest.current.map((ref) => [resourceKey(ref), ref]));
+    const change = (ref: JobResourceRef, watching: boolean) =>
+      void repository
+        .watchSessionServerResource(ref.sessionId, ref.namespace, ref.uri, { holder, watching })
+        .catch(() => undefined);
+    for (const [key, ref] of next) if (!held.current.has(key)) change(ref, true);
+    for (const [key, ref] of held.current) if (!next.has(key)) change(ref, false);
+    held.current = next;
+  }, [repository, holder, wanted]);
+  useEffect(
+    () => () => {
+      for (const ref of held.current.values()) {
+        void repository
+          .watchSessionServerResource(ref.sessionId, ref.namespace, ref.uri, {
+            holder,
+            watching: false,
+          })
+          .catch(() => undefined);
+      }
+      held.current = new Map();
+    },
+    [repository, holder],
+  );
+}
+
+/**
+ * The newest cards of the jobs whose task ended while the job ran on: read
+ * from the job's resource, reread on each update the server announces and
+ * slowly without one, until the card says the job ended.
+ */
+function useJobResources(found: TaskJob[]): JobSnapshot[] {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const refs = useMemo(() => jobResourceRefs(found), [found]);
+  const jobs = useQueries({
+    queries: refs.map((ref) => ({
+      queryKey: serverResourceQueryKey(settings.endpoint, ref.sessionId, ref.namespace, ref.uri),
+      queryFn: async ({ signal }: { signal: AbortSignal }) =>
+        jobFromResource(
+          await repository.readSessionServerResource(ref.sessionId, ref.namespace, ref.uri, signal),
+        ),
+      refetchInterval: (query: { state: { data: JobSnapshot | null | undefined } }) =>
+        query.state.data && !jobInFlight(query.state.data) ? false : JOB_RESOURCE_POLL_MS,
+      retry: false,
+    })),
+    combine: combineResourceJobs,
+  });
+  useWatchedResources(refs.filter((_, index) => !jobs[index] || jobInFlight(jobs[index]!)));
+  return useMemo(() => latestJobs(jobs), [jobs]);
+}
+
 /** The transcript row a call shows under: its outermost caller (a run_code script). */
 function topLevelId(tools: Record<string, ToolInvocation>, call: ToolInvocation): string {
   let current = call;
@@ -171,6 +281,7 @@ export function useSessionJobRows(sessionId: string | undefined): Map<string, Jo
   const session = useMemo(() => sessionJobs(tools, sessionId), [tools, sessionId]);
   const following = session.taskRunning || session.jobs.some(jobInFlight);
   const byHandle = useTaskRefJobs(session.taskRefs);
+  const fromResources = useJobResources(byHandle);
   const open = useActiveTaskJobs(following, session.taskRefs.length > 0 || session.jobs.length > 0);
   return useMemo(() => {
     const owners = new Map(session.owners);
@@ -185,13 +296,13 @@ export function useSessionJobRows(sessionId: string | undefined): Map<string, Jo
       fromTasks.push(job);
     }
     const rows = new Map<string, JobSnapshot[]>();
-    for (const job of latestJobs([...session.jobs, ...fromTasks])) {
+    for (const job of latestJobs([...session.jobs, ...fromTasks, ...fromResources])) {
       const row = owners.get(job.operation_id);
       // A planned job's card belongs to the question that asks to submit it.
       if (row && job.phase !== 'planned') rows.set(row, [...(rows.get(row) ?? []), job]);
     }
     return rows;
-  }, [session, byHandle, open]);
+  }, [session, byHandle, open, fromResources]);
 }
 
 const NO_JOBS: JobSnapshot[] = [];
@@ -229,11 +340,14 @@ export function useAllJobs(): JobSnapshot[] {
     return [...all.values()];
   }, [followed, tools]);
   const byHandle = useTaskRefJobs(refs);
+  const fromResources = useJobResources(byHandle);
   return useMemo(
     () =>
-      latestJobs([...fromCalls, ...[...byHandle, ...open].map(({ job }) => job)]).sort((a, b) =>
-        (b.updated_at ?? '').localeCompare(a.updated_at ?? ''),
-      ),
-    [fromCalls, byHandle, open],
+      latestJobs([
+        ...fromCalls,
+        ...[...byHandle, ...open].map(({ job }) => job),
+        ...fromResources,
+      ]).sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? '')),
+    [fromCalls, byHandle, open, fromResources],
   );
 }

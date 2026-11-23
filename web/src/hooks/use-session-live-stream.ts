@@ -34,6 +34,7 @@ import {
   rereadPluginTabs,
 } from '@/lib/a2ui/plugin-tab-store';
 import { invalidatePluginPages } from '@/lib/a2ui/plugin-pages';
+import { rereadServerResourcesForFrame } from '@/lib/server-resource';
 import { invalidateA2uiSessionCatalogs } from '@/lib/a2ui/processor-store';
 import { useRepository } from './use-repository';
 import { ph, t } from '@lingui/core/macro';
@@ -180,6 +181,9 @@ export function useSessionLiveStream({
       resumeCursor = transcript.cursor ?? resumeCursor;
       // Open plugin tabs may have missed updates while the stream was down.
       rereadPluginTabs(sessionId);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.key('mcp-server-resource', settings.endpoint, sessionId),
+      });
       void Promise.allSettled([
         queryClient.invalidateQueries({ queryKey: queryKeys.capabilities(settings.endpoint) }),
         queryClient.invalidateQueries({
@@ -233,6 +237,7 @@ export function useSessionLiveStream({
             dispatchMcpAppClosedFrame(frame);
             dispatchPluginTabFrame(frame, sessionId);
             dispatchServerSurfaceRefusalFrame(frame, sessionId);
+            rereadServerResourcesForFrame(queryClient, settings.endpoint, frame, sessionId);
             if (frame.eventName === 'stream.gap') rereadPluginTabs(sessionId);
             if (pluginsUpdatedByFrame(frame)) {
               void queryClient.invalidateQueries({
