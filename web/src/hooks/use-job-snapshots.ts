@@ -143,7 +143,7 @@ function jobResourceRefs(found: TaskJob[]): JobResourceRef[] {
     const ref = {
       sessionId: task.owner.session_id,
       namespace,
-      uri: jobResourceUri(job.operation_id),
+      uri: jobResourceUri(job),
     };
     refs.set(resourceKey(ref), ref);
   }

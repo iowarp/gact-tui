@@ -8,12 +8,13 @@ import { z } from 'zod';
 export const JOB_META_KEY = 'io.iowarp.clio-relay/job';
 
 /**
- * The resource holding one job's newest card on the server that runs it. Relay
+ * The resource holding one job's newest card on the server that runs it: the
+ * card's own `resource`, or relay's address for a card that predates it. Relay
  * announces it updated on each change, also after the task that started the job
  * has ended, so a card read here follows the job to its end.
  */
-export function jobResourceUri(operationId: string): string {
-  return `relay://jobs/${encodeURIComponent(operationId)}`;
+export function jobResourceUri(job: { operation_id: string; resource?: string | null }): string {
+  return job.resource || `relay://jobs/${encodeURIComponent(job.operation_id)}`;
 }
 
 /** The card a job resource read carries: its first JSON text. */
@@ -107,6 +108,8 @@ export const jobSnapshotSchema = z.object({
   couplings: z.array(couplingSchema).catch([]),
   script: z.object({ sha256: optionalText, text: z.string() }).nullish().catch(null),
   advisories: advisoriesSchema,
+  /** The resource holding this job's newest card, announced updated on each change. */
+  resource: optionalText,
 });
 
 export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
