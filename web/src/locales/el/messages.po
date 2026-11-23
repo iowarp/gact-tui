@@ -38575,6 +38575,10 @@ msgstr "Αυτή η εκτέλεση σταμάτησε και αργότερα 
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
 msgstr "Δεν ήταν δυνατή η αποκωδικοποίηση αυτής της αποθηκευμένης προβολής. Η ακριβής εγγραφή της παραμένει στα Τεκμήρια."
 
+#: src/components/clio/conversation-turn-model.ts
+msgid "This script's own row is in an earlier part of the conversation. Its calls are listed here."
+msgstr "Η γραμμή αυτού του σεναρίου βρίσκεται σε προηγούμενο σημείο της συνομιλίας. Οι κλήσεις του εμφανίζονται εδώ."
+
 #: src/routes/infrastructure-page.tsx
 msgid "This section could not load completely"
 msgstr "Δεν ήταν δυνατή η πλήρης φόρτωση αυτής της ενότητας"

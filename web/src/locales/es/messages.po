@@ -38575,6 +38575,10 @@ msgstr "Esta ejecución se detuvo y después se reinició."
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
 msgstr "Esta vista guardada no se pudo decodificar. Su registro exacto permanece en Evidencia."
 
+#: src/components/clio/conversation-turn-model.ts
+msgid "This script's own row is in an earlier part of the conversation. Its calls are listed here."
+msgstr "La fila de este script está en una parte anterior de la conversación. Sus llamadas se muestran aquí."
+
 #: src/routes/infrastructure-page.tsx
 msgid "This section could not load completely"
 msgstr "Esta sección no se pudo cargar por completo"

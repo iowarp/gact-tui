@@ -38574,6 +38574,10 @@ msgstr "This run was stopped and later restarted."
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
 msgstr "This saved view could not be decoded. Its exact record remains in Evidence."
 
+#: src/components/clio/conversation-turn-model.ts
+msgid "This script's own row is in an earlier part of the conversation. Its calls are listed here."
+msgstr "This script's own row is in an earlier part of the conversation. Its calls are listed here."
+
 #: src/routes/infrastructure-page.tsx
 msgid "This section could not load completely"
 msgstr "This section could not load completely"

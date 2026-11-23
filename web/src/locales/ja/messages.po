@@ -38575,6 +38575,10 @@ msgstr "この実行は停止され、その後再開されました。"
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
 msgstr "この保存されたビューはデコードできませんでした。正確な記録は「エビデンス」に残っています。"
 
+#: src/components/clio/conversation-turn-model.ts
+msgid "This script's own row is in an earlier part of the conversation. Its calls are listed here."
+msgstr "このスクリプト自体の行は会話の前の部分にあります。その呼び出しをここに表示します。"
+
 #: src/routes/infrastructure-page.tsx
 msgid "This section could not load completely"
 msgstr "このセクションを完全には読み込めませんでした"
