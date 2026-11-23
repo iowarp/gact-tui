@@ -17635,6 +17635,10 @@ msgstr "Αν δεν ανοίξει τίποτα, επιλέξτε Gmail ή Outlo
 msgid "If required"
 msgstr "Αν απαιτείται"
 
+#: src/components/clio/job-card.tsx
+msgid "If this is wrong"
+msgstr "?? ???? ????? ?????"
+
 #: src/widget-gallery-demos.ts
 msgid "Illustrative load field"
 msgstr "Ενδεικτικό πεδίο φορτίου"
@@ -19028,6 +19032,10 @@ msgstr "Η προβολή του δεν πέρασε τον έλεγχο εγκ�
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Its view was not shown. {reason}"
 msgstr "Η προβολή του δεν εμφανίστηκε. {reason}"
+
+#: src/components/clio/job-card.tsx
+msgid "JARVIS notes"
+msgstr "?????????? ??? JARVIS"
 
 #: src/components/clio/job-card.tsx
 msgid "Job"

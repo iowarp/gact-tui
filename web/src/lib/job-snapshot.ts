@@ -31,6 +31,28 @@ const couplingSchema = z.object({
   label: optionalText,
 });
 
+/** A note JARVIS attaches to its plan, such as a fact it guessed. It never holds the job. */
+const advisorySchema = z.object({
+  issue_id: optionalText,
+  kind: optionalText,
+  subject: optionalText,
+  fact: optionalText,
+  reason_codes: z.array(z.string()).catch([]),
+  message: z.string().min(1),
+  consequence_if_wrong: z.array(z.string()).catch([]),
+  remedy: optionalText,
+});
+
+const advisoriesSchema = z
+  .array(z.unknown())
+  .catch([])
+  .transform((items) =>
+    items.flatMap((item) => {
+      const parsed = advisorySchema.safeParse(item);
+      return parsed.success ? [parsed.data] : [];
+    }),
+  );
+
 export const jobSnapshotSchema = z.object({
   version: z.number().nullish().catch(null),
   operation_id: z.string(),
@@ -61,9 +83,11 @@ export const jobSnapshotSchema = z.object({
   components: z.array(componentSchema).catch([]),
   couplings: z.array(couplingSchema).catch([]),
   script: z.object({ sha256: optionalText, text: z.string() }).nullish().catch(null),
+  advisories: advisoriesSchema,
 });
 
 export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
+export type JobAdvisory = JobSnapshot['advisories'][number];
 export type JobComponent = JobSnapshot['components'][number];
 export type JobCoupling = JobSnapshot['couplings'][number];
 

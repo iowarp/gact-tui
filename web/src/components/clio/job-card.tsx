@@ -1,11 +1,12 @@
 import { t } from '@lingui/core/macro';
-import { MonitorIcon, PackageIcon } from 'lucide-react';
+import { InfoIcon, MonitorIcon, PackageIcon } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import { formatDuration } from '@/lib/format';
 import {
   componentShape,
   componentTone,
   jobTone,
+  type JobAdvisory,
   type JobComponent,
   type JobCoupling,
   type JobSnapshot,
@@ -391,6 +392,59 @@ function timeFact(job: JobSnapshot, now: number): string | null {
   return limit ? t`${elapsed} of ${limit}` : elapsed;
 }
 
+/**
+ * JARVIS's notes on its plan, shown as proposals: what it chose, what breaks if
+ * that is wrong and the command that settles it. They never hold the job.
+ */
+function JobAdvisories({ advisories }: { advisories: JobAdvisory[] }) {
+  return (
+    <ul
+      aria-label={t`JARVIS notes`}
+      className="flex min-w-0 flex-col gap-1.5"
+      data-slot="job-advisories"
+    >
+      {advisories.map((advisory, index) => {
+        const remedy =
+          advisory.remedy && advisory.issue_id
+            ? advisory.remedy.replaceAll('<issue_id>', advisory.issue_id)
+            : advisory.remedy;
+        return (
+          <li
+            className="flex min-w-0 items-start gap-1.5 text-meta"
+            data-advisory-kind={advisory.kind ?? undefined}
+            data-slot="job-advisory"
+            key={advisory.issue_id ?? index}
+          >
+            <InfoIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-info" />
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="text-foreground">{advisory.message}</span>
+              {advisory.consequence_if_wrong.length || remedy ? (
+                <TechnicalDetails
+                  className="flex flex-col items-start"
+                  contentClassName="mt-1 flex flex-col gap-1.5 self-stretch"
+                  summaryClassName="text-meta"
+                  title={t`If this is wrong`}
+                >
+                  {advisory.consequence_if_wrong.map((consequence) => (
+                    <p className="text-muted-foreground" key={consequence}>
+                      {consequence}
+                    </p>
+                  ))}
+                  {remedy ? (
+                    <pre className="clio-scrollbar overflow-auto rounded-md bg-muted/50 p-2 font-mono whitespace-pre-wrap wrap-anywhere text-foreground">
+                      {remedy}
+                    </pre>
+                  ) : null}
+                </TechnicalDetails>
+              ) : null}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export interface JobCardProps {
   job: JobSnapshot;
   /** What "Show details" opens when the snapshot has no script (the ask's own text). */
@@ -468,6 +522,7 @@ export function JobCard({ job, fallback, className }: JobCardProps) {
           ) : null}
         </div>
       ) : null}
+      {job.advisories.length ? <JobAdvisories advisories={job.advisories} /> : null}
       {job.script?.text || fallback ? (
         <TechnicalDetails
           className="flex flex-col items-start"

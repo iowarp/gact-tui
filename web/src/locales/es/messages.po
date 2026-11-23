@@ -17635,6 +17635,10 @@ msgstr "Si no se abre nada, elige Gmail u Outlook."
 msgid "If required"
 msgstr "Si se requiere"
 
+#: src/components/clio/job-card.tsx
+msgid "If this is wrong"
+msgstr "Si esto es incorrecto"
+
 #: src/widget-gallery-demos.ts
 msgid "Illustrative load field"
 msgstr "Campo de carga ilustrativo"
@@ -19028,6 +19032,10 @@ msgstr "Su vista no superó la validación."
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Its view was not shown. {reason}"
 msgstr "Su vista no se mostró. {reason}"
+
+#: src/components/clio/job-card.tsx
+msgid "JARVIS notes"
+msgstr "Notas de JARVIS"
 
 #: src/components/clio/job-card.tsx
 msgid "Job"

@@ -17617,6 +17617,10 @@ msgstr ""
 msgid "If required"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "If this is wrong"
+msgstr ""
+
 #: src/widget-gallery-demos.ts
 msgid "Illustrative load field"
 msgstr ""
@@ -19009,6 +19013,10 @@ msgstr ""
 
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Its view was not shown. {reason}"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "JARVIS notes"
 msgstr ""
 
 #: src/components/clio/job-card.tsx
