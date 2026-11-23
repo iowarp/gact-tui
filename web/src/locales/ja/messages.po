@@ -17625,6 +17625,10 @@ msgstr "何も開かない場合は、GmailまたはOutlookを選択してくだ
 msgid "If required"
 msgstr "必要な場合"
 
+#: src/components/clio/job-card.tsx
+msgid "If this is wrong"
+msgstr "????????"
+
 #: src/widget-gallery-demos.ts
 msgid "Illustrative load field"
 msgstr "説明用の荷重分布"
@@ -19018,6 +19022,10 @@ msgstr "ビューが検証に合格しませんでした。"
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Its view was not shown. {reason}"
 msgstr "ビューは表示されませんでした。{reason}"
+
+#: src/components/clio/job-card.tsx
+msgid "JARVIS notes"
+msgstr "JARVIS ???"
 
 #: src/components/clio/job-card.tsx
 msgid "Job"
