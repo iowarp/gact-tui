@@ -43,9 +43,29 @@ export function McpAppFrameMenu({ label, onReload }: { label: string; onReload: 
   );
 }
 
-/** The header's state, in words: loading, drawing, ready, or nothing drawn. */
-export function McpAppPaintStatus({ ready, paint }: { ready: boolean; paint: PaintVerdict }) {
+/**
+ * The header's state, in words: loading, drawing, ready, or nothing drawn. A view that
+ * says it shows nothing (`undrawn`, its own words) reads Nothing drawn, so the header and
+ * the view's notice tell one story.
+ */
+export function McpAppPaintStatus({
+  ready,
+  paint,
+  undrawn = null,
+}: {
+  ready: boolean;
+  paint: PaintVerdict;
+  undrawn?: string | null;
+}) {
   if (!ready) return <ClioStatus label={t`Loading`} value="running" />;
+  if (undrawn !== null)
+    return (
+      <ClioStatus
+        detail={undrawn || t`The view loaded but has drawn nothing.`}
+        label={t`Nothing drawn`}
+        value="degraded"
+      />
+    );
   if (paint === 'pending') return <ClioStatus label={t`Drawing`} value="running" />;
   if (paint === 'blank')
     return (
