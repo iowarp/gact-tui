@@ -484,7 +484,7 @@ msgstr "{0, plural, one {#件の問題} other {#件の問題}}"
 #. placeholder {0}: profiles.length
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{0, plural, one {# profile} other {# profiles}}"
-msgstr ""
+msgstr "{0, plural, one {プロファイル # 件} other {プロファイル # 件}}"
 
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
@@ -820,7 +820,7 @@ msgstr "{0, plural, one {#文字以内で入力してください。} other {#�
 #. placeholder {0}: focus.length
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{0, plural, one {Exclude # picked profile} other {Exclude # picked profiles}}"
-msgstr ""
+msgstr "{0, plural, one {選択したプロファイル # 件を除外} other {選択したプロファイル # 件を除外}}"
 
 #. placeholder {0}: result.added.length
 #: src/components/clio/provider-model-refresh.ts
@@ -1854,7 +1854,7 @@ msgstr "{vertical} に対する {variable} のプロファイル {count} 件、�
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{count} profiles, {excluded} excluded"
-msgstr ""
+msgstr "プロファイル {count} 件、除外 {excluded} 件"
 
 #: src/components/clio/memory-creation-log.tsx
 msgid "{count} rejected"
@@ -5307,7 +5307,7 @@ msgstr "回答をチャットに追加"
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Add as an injection"
-msgstr ""
+msgstr "インジェクションとして追加"
 
 #: src/components/clio/composer-file-upload.tsx
 msgid "Add attachments"
@@ -5478,7 +5478,7 @@ msgstr "メッセージに追加"
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Add to the tool list"
-msgstr ""
+msgstr "ツール一覧に追加"
 
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Add to workspace"
@@ -6373,7 +6373,7 @@ msgstr "解析：<0>{0}</0>"
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "and {more} more"
-msgstr ""
+msgstr "ほか {more} 件"
 
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Angle"
@@ -6508,11 +6508,11 @@ msgstr "権限リクエストに回答しました"
 
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "Answered automatically with the default, as nobody was watching this run: {answer}"
-msgstr ""
+msgstr "この実行を見ている人がいなかったため、既定値で自動的に回答しました：{answer}"
 
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "Answered automatically: nobody was watching this run, so the agent went ahead on its own judgment"
-msgstr ""
+msgstr "自動的に回答しました：この実行を見ている人がいなかったため、エージェントが自らの判断で進めました"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Answered by you"
@@ -9782,7 +9782,7 @@ msgstr "{title}のタイマーをクリア"
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Click a curve to pick it."
-msgstr ""
+msgstr "曲線をクリックして選択します。"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "Click a point to select it. {primary}-click selects its curve. Shift-click toggles a point; {primaryShift}-click merges or removes a curve. Drag selects points; {primary}-drag selects curves. {alt}-drag pans and {primary}-scroll zooms."
@@ -10319,7 +10319,7 @@ msgstr "この会話を圧縮しますか？"
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Compact, then add"
-msgstr ""
+msgstr "圧縮してから追加"
 
 #: src/components/clio/conversation-summarization.tsx
 msgid "Compacted here, earlier messages summarized"
@@ -10377,7 +10377,7 @@ msgstr "圧縮をスキップしました"
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Compacts the conversation before the agent's next step; its tools go in with it."
-msgstr ""
+msgstr "エージェントの次のステップの前に会話を圧縮し、その際にツールを追加します。"
 
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "Compacts the conversation now; the change goes in with it."
@@ -15065,11 +15065,11 @@ msgstr "抜粋{number}"
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Exclude"
-msgstr ""
+msgstr "除外"
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Excluded profiles"
-msgstr ""
+msgstr "除外したプロファイル"
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -16861,7 +16861,7 @@ msgstr "このネットワークからのアップデート確認に対するGit
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Give {name} {asked}?"
-msgstr ""
+msgstr "{name} に {asked} を渡しますか？"
 
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
@@ -17478,7 +17478,7 @@ msgstr "モデルが回答する前にどれだけ考えるか。デフォルト
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "How it joins this turn"
-msgstr ""
+msgstr "このターンへの加え方"
 
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "How long"
@@ -18986,7 +18986,7 @@ msgstr "出所は不明です、バージョン{version}"
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Its tools join the tool list now; the prompt cache is rebuilt on the next call."
-msgstr ""
+msgstr "ツールはすぐにツール一覧に加わります。プロンプトキャッシュは次の呼び出しで再構築されます。"
 
 #: src/components/clio/attention-away.ts
 msgid "Its turn is done"
@@ -23222,7 +23222,7 @@ msgstr "このサービスでは論文やデータセットのソースを利用
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "No part of this model is named {names}, so its opacity is not applied."
-msgstr ""
+msgstr "このモデルには {names} という名前のパーツがないため、その不透明度は適用されません。"
 
 #: src/components/clio/latex-workspace.tsx
 msgid "No PDF: the build stopped before making one"
@@ -26229,7 +26229,7 @@ msgstr "エントリー{winner}を選択"
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Picked profile"
-msgstr ""
+msgstr "選択したプロファイル"
 
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx
@@ -35974,7 +35974,7 @@ msgstr "エージェントを停止しています。現在の実行が終了す
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "The agent is told about its tools and can call them now; the prompt cache is kept until the next compaction."
-msgstr ""
+msgstr "エージェントにツールが知らされ、すぐに呼び出せます。プロンプトキャッシュは次回の圧縮まで保持されます。"
 
 #: src/components/clio/mcp-app-look-waiting-notice.tsx
 msgid "The agent is waiting to see this view."
