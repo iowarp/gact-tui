@@ -24,7 +24,10 @@ import { taskUpdateForFrame } from '@/lib/streaming/task-updates';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
-import { dispatchMcpAppClosedFrame } from '@/components/clio/mcp-app-live-set';
+import {
+  dispatchMcpAppClosedFrame,
+  dispatchMcpAppShownFrame,
+} from '@/components/clio/mcp-app-live-set';
 import { dispatchMcpAppLookFrame } from '@/components/clio/mcp-app-look';
 import { dispatchFileViewLookFrame } from '@/components/clio/file-view-look';
 import { dispatchMcpAppToolCallFrame } from '@/components/clio/mcp-app-view-tools';
@@ -235,6 +238,7 @@ export function useSessionLiveStream({
             dispatchMcpAppLookFrame(frame);
             dispatchFileViewLookFrame(frame);
             dispatchMcpAppClosedFrame(frame);
+            dispatchMcpAppShownFrame(frame);
             dispatchPluginTabFrame(frame, sessionId);
             dispatchServerSurfaceRefusalFrame(frame, sessionId);
             rereadServerResourcesForFrame(queryClient, settings.endpoint, frame, sessionId);
