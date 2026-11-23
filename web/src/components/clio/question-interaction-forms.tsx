@@ -27,6 +27,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { openExternalUrl } from '@/tauri/external-url';
 import { serverOwnerName } from '@/lib/a2ui/server-surface';
+import { cn } from '@/lib/utils';
 import { AskBody, AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
 import { useQuestionDraftValue } from './question-answer-context';
@@ -52,10 +53,12 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     initialValues(interaction),
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [sending, setSending] = useState<boolean | 'yes' | 'no'>(false);
+  // `true` for Send; the chosen answer's key while one of the answer buttons sends.
+  const [sending, setSending] = useState<boolean | string>(false);
   const serverErrors = fieldErrorsFromMessage(props.responseError?.message, fields);
   const errors = { ...serverErrors, ...fieldErrors };
   const loneBoolean = loneBooleanField(fields);
+  const answerChoice = loneBoolean ? undefined : answerChoiceField(fields);
   // After a failed Send the first field to fix takes focus and comes into view, even when the
   // capped card or a narrow window holds it out of sight.
   const fieldsRef = useRef<HTMLDivElement>(null);
@@ -81,7 +84,13 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     if (Object.keys(validation).length > 0) return;
     const submissionValues = normalizedSubmissionValues(fields, current);
     setSending(
-      loneBoolean && override ? (override[loneBoolean.name] === true ? 'yes' : 'no') : true,
+      loneBoolean && override
+        ? override[loneBoolean.name] === true
+          ? 'yes'
+          : 'no'
+        : answerChoice && override
+          ? String(override[answerChoice.name])
+          : true,
     );
     try {
       await props.onResponse(interaction, {
@@ -142,6 +151,68 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     );
   }
 
+  const renderField = (field: PendingInteractionField, compact?: boolean) => (
+    <SchemaField
+      compact={compact}
+      prefix={interaction.id}
+      disabled={props.disabled || sending !== false}
+      error={errors[field.name]}
+      field={field}
+      key={field.name}
+      onChange={(value) => {
+        setValues((current) => ({ ...current, [field.name]: value }));
+        setFieldErrors((current) => {
+          if (!current[field.name]) return current;
+          const next = { ...current };
+          delete next[field.name];
+          return next;
+        });
+      }}
+      value={values[field.name]}
+    />
+  );
+
+  if (answerChoice) {
+    // The form's one required choice answers it on the card's buttons, which stay in view
+    // under a capped card; the other fields (already filled) sit above them, compact.
+    const busy = props.disabled || sending !== false;
+    const options = answerChoice.enum ?? [];
+    return (
+      <QuestionFrame {...props}>
+        <AskError error={props.responseError} />
+        <AskBody>
+          <AskSection className="pb-0.5">
+            <FieldGroup className="gap-2.5 text-menu" ref={fieldsRef}>
+              {fields
+                .filter((field) => field.name !== answerChoice.name)
+                .map((field) => renderField(field, true))}
+            </FieldGroup>
+          </AskSection>
+        </AskBody>
+        {errors[answerChoice.name] ? (
+          <AskSection className="text-meta text-destructive" role="alert">
+            {errors[answerChoice.name]}
+          </AskSection>
+        ) : null}
+        <AskOptions aria-label={answerChoice.title || t`Answer`}>
+          {options.map((option, index) => (
+            <AskButton
+              disabled={busy}
+              key={String(option)}
+              number={index + 1}
+              onClick={() => void submit({ [answerChoice.name]: option })}
+              primary={index === 0}
+            >
+              {sending === String(option)
+                ? t`Sending…`
+                : (answerChoice.enum_names?.[index] ?? String(option))}
+            </AskButton>
+          ))}
+        </AskOptions>
+      </QuestionFrame>
+    );
+  }
+
   return (
     <QuestionFrame {...props}>
       <AskError error={props.responseError} />
@@ -149,25 +220,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
       <AskBody>
         <AskSection className="pb-0.5">
           <FieldGroup className="gap-2.5 text-menu" ref={fieldsRef}>
-            {fields.map((field) => (
-              <SchemaField
-                prefix={interaction.id}
-                disabled={props.disabled || sending !== false}
-                error={errors[field.name]}
-                field={field}
-                key={field.name}
-                onChange={(value) => {
-                  setValues((current) => ({ ...current, [field.name]: value }));
-                  setFieldErrors((current) => {
-                    if (!current[field.name]) return current;
-                    const next = { ...current };
-                    delete next[field.name];
-                    return next;
-                  });
-                }}
-                value={values[field.name]}
-              />
-            ))}
+            {fields.map((field) => renderField(field))}
           </FieldGroup>
         </AskSection>
       </AskBody>
@@ -333,6 +386,7 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
 }
 
 function SchemaField({
+  compact,
   prefix,
   disabled,
   error,
@@ -340,6 +394,8 @@ function SchemaField({
   onChange,
   value,
 }: {
+  /** A single choice's options flow on one line where they fit. */
+  compact?: boolean;
   prefix: string;
   disabled?: boolean;
   error?: string;
@@ -394,13 +450,17 @@ function SchemaField({
         <FieldTitle>{field.title}</FieldTitle>
         {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
         <RadioGroup
+          className={compact ? 'flex flex-wrap gap-x-4 gap-y-1' : undefined}
           disabled={disabled}
           onValueChange={(next) => onChange(enumValues.find((option) => String(option) === next))}
           value={value === undefined ? '' : String(value)}
         >
           {enumValues.map((option, index) => (
             <Label
-              className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50"
+              className={cn(
+                'flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50',
+                !compact && 'w-full',
+              )}
               htmlFor={`${id}-${index}`}
               key={String(option)}
             >
@@ -496,6 +556,30 @@ function loneBooleanField(
   const [only] = fields;
   return fields.length === 1 && only.type === 'boolean' && !only.multi && !only.enum?.length
     ? only
+    : undefined;
+}
+
+/**
+ * The one short required choice of a form whose other fields need no answer from the
+ * person (relay's approval with a setting folded in, say): choosing it answers the form.
+ */
+function answerChoiceField(
+  fields: readonly PendingInteractionField[],
+): PendingInteractionField | undefined {
+  if (fields.length < 2) return undefined;
+  const choices = fields.filter((field) => {
+    const count = field.enum?.length ?? 0;
+    return field.required && !field.multi && count >= 2 && count <= 4;
+  });
+  if (choices.length !== 1) return undefined;
+  const [choice] = choices;
+  return fields.every(
+    (field) =>
+      field === choice ||
+      !field.required ||
+      (field.default !== undefined && field.default !== null),
+  )
+    ? choice
     : undefined;
 }
 
