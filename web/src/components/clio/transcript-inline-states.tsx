@@ -1,5 +1,5 @@
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
-import { memo, type PointerEvent, useCallback, useRef } from 'react';
+import { memo, type PointerEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -84,10 +84,56 @@ export function TranscriptLoadError({ error, onRetry }: { error: string; onRetry
   );
 }
 
-/** A background refresh, at row height in the control lane so it never covers a message. */
+/** A background refresh, as a small pill that never takes layout space. */
 export function TranscriptSyncing() {
-  return <StateView className="w-fit" kind="loading" size="row" title={t`Syncing history…`} />;
+  return (
+    <StateView
+      className="w-fit rounded-full border border-border bg-background shadow-sm motion-safe:animate-in motion-safe:fade-in-0"
+      kind="loading"
+      size="row"
+      title={t`Syncing history…`}
+    />
+  );
 }
+
+/** A refresh shorter than this shows nothing, so routine syncs stay invisible. */
+export const TRANSCRIPT_SYNC_REVEAL_MS = 1000;
+
+/** True once `active` has held for `delayMs`; false as soon as it drops. */
+export function useHeldFlag(active: boolean, delayMs: number): boolean {
+  const [held, setHeld] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setHeld(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setHeld(true), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [active, delayMs]);
+  return active && held;
+}
+
+/**
+ * A long background refresh while no control lane is shown. The slot is a
+ * zero-height sticky box at the end of the scroller, and the pill hangs up from
+ * it into the lane's place. Showing or hiding it never changes the transcript's
+ * height, so the history never jumps while syncs come and go.
+ */
+export const TranscriptSyncOverlay = memo(function TranscriptSyncOverlay() {
+  return (
+    <div
+      className="pointer-events-none sticky bottom-0 z-20 h-0"
+      data-slot="transcript-sync-overlay"
+    >
+      <div
+        className="absolute inset-x-0 bottom-0 flex items-center justify-center"
+        style={{ height: TRANSCRIPT_CONTROL_LANE_PX }}
+      >
+        <TranscriptSyncing />
+      </div>
+    </div>
+  );
+});
 
 /** Height of the lane above the composer that holds the transcript's floating controls. */
 export const TRANSCRIPT_CONTROL_LANE_PX = 40;
@@ -107,7 +153,7 @@ export const TranscriptControlLane = memo(function TranscriptControlLane({
 }: {
   /** Present while the reader is away from the latest message. */
   onJump?: () => void;
-  /** A background refresh of the history is in flight. */
+  /** A long background refresh of the history is in flight. */
   syncing?: boolean;
 }) {
   return (

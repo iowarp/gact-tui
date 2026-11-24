@@ -13,7 +13,10 @@ import {
   TranscriptLoadError,
   TranscriptLoading,
   TRANSCRIPT_CONTROL_LANE_PX,
+  TRANSCRIPT_SYNC_REVEAL_MS,
   TranscriptControlLane,
+  TranscriptSyncOverlay,
+  useHeldFlag,
 } from './transcript-inline-states';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
@@ -96,8 +99,9 @@ export function ClioConversation(props: ClioConversationProps) {
 
 /**
  * The lane above the composer, shown while the reader is away from the latest
- * message or the history is refreshing. A refresh sits in the lane at row
- * height, so it never covers a message or moves the reading position.
+ * message. A history refresh never mounts the lane: it appears only once it has
+ * run for a second, as a pill in the lane or in an out-of-flow slot in its
+ * place, so syncs never move the transcript.
  */
 function TranscriptControls({
   loading,
@@ -109,8 +113,9 @@ function TranscriptControls({
   queryKey?: QueryKey;
 }) {
   const fetching = useQueryFetching(queryKey);
-  const syncing = Boolean(loading || fetching);
-  return syncing || onJump ? <TranscriptControlLane onJump={onJump} syncing={syncing} /> : null;
+  const syncing = useHeldFlag(Boolean(loading || fetching), TRANSCRIPT_SYNC_REVEAL_MS);
+  if (onJump) return <TranscriptControlLane onJump={onJump} syncing={syncing} />;
+  return syncing ? <TranscriptSyncOverlay /> : null;
 }
 function RoutedConversationBody(props: ClioConversationProps) {
   const location = useLocation();
