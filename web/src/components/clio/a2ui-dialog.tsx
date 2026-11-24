@@ -86,7 +86,8 @@ const dialogSchema = z
       .strict()
       .optional(),
     onClose: CommonSchemas.Action.optional(),
-    width: z.enum(['narrow', 'default']).optional(),
+    // `wide`: a dialog that walks through steps and lists (an add flow) gets more room both ways.
+    width: z.enum(['narrow', 'default', 'wide']).optional(),
     accessibility: CommonSchemas.AccessibilityAttributes.optional(),
     weight: z.number().optional(),
   })
@@ -345,6 +346,7 @@ export function ClioDialog({
         className={cn(
           '@container/dialog',
           props.width === 'narrow' && 'w-[clamp(320px,30vw,440px)]',
+          props.width === 'wide' && 'w-[clamp(340px,56vw,880px)]',
         )}
         confirm={
           props.confirm
@@ -378,7 +380,12 @@ export function ClioDialog({
         title={props.title}
       >
         <div
-          className="clio-scrollbar grid max-h-[min(36rem,calc(100dvh-12rem))] min-w-0 gap-3 overflow-y-auto pb-1"
+          className={cn(
+            'clio-scrollbar grid min-w-0 content-start gap-3 overflow-y-auto pb-1',
+            props.width === 'wide'
+              ? 'max-h-[min(46rem,calc(100dvh-12rem))] min-[600px]:min-h-[min(32rem,calc(100dvh-12rem))]'
+              : 'max-h-[min(36rem,calc(100dvh-12rem))]',
+          )}
           data-slot="dialog-body"
         >
           {/* The dialog portals past the surface's own root, so mark its body as one for index.css's catalog styles. */}
