@@ -40,7 +40,8 @@ const dialogSchema = z
   .object({
     title: z.string().min(1),
     description: z.string().optional(),
-    open: CommonSchemas.DataBinding,
+    // Dynamic, not a bare DataBinding: the binder resolves only dynamic props and gives them setters.
+    open: CommonSchemas.DynamicBoolean,
     trigger: componentId().optional(),
     content: componentId().optional(),
     tabs: z
@@ -57,7 +58,7 @@ const dialogSchema = z
       .min(1)
       .max(6)
       .optional(),
-    activeTab: CommonSchemas.DataBinding.optional(),
+    activeTab: CommonSchemas.DynamicString.optional(),
     rail: z
       .object({
         steps: z.array(z.string().min(1)).min(2).max(6),
@@ -380,7 +381,10 @@ export function ClioDialog({
           className="clio-scrollbar grid max-h-[min(36rem,calc(100dvh-12rem))] min-w-0 gap-3 overflow-y-auto pb-1"
           data-slot="dialog-body"
         >
-          {body}
+          {/* The dialog portals past the surface's own root, so mark its body as one for index.css's catalog styles. */}
+          <div className="contents" data-slot="a2ui-surface-root">
+            {body}
+          </div>
           {props.status ? (
             <StatusLine
               onAction={

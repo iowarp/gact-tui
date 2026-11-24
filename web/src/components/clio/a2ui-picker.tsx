@@ -38,7 +38,8 @@ const pickerSchema = z
   .object({
     label: z.string().min(1),
     items: z.array(pickerItem).max(200),
-    value: CommonSchemas.DataBinding,
+    // Dynamic, not a bare DataBinding: the binder resolves only dynamic props and gives them setters.
+    value: CommonSchemas.DynamicString,
     search: z.string().optional(),
     hint: z.string().optional(),
     error: z.string().optional(),
