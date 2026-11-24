@@ -21,6 +21,10 @@ msgstr ", άλλαξε σε αυτή τη συνομιλία"
 msgid ", default"
 msgstr ", προεπιλογή"
 
+#: src/components/clio/a2ui-dialog.tsx
+msgid ", done"
+msgstr ", ολοκληρώθηκε"
+
 #: src/components/clio/primitives/frame-bar.tsx
 msgid ", pinned"
 msgstr ", καρφιτσωμένο"
@@ -997,6 +1001,12 @@ msgstr "{0, select, an {Ένα {agentName} που εκτελείται ήδη} o
 #: src/components/clio/tool-operation-data.ts
 msgid "{0, select, failed {Task failed} error {Task error} denied {Task denied} cancelled {Task cancelled} other {Task interrupted}}"
 msgstr "{0, select, failed {Η εργασία απέτυχε} error {Σφάλμα εργασίας} denied {Η εργασία απορρίφθηκε} cancelled {Η εργασία ακυρώθηκε} other {Η εργασία διακόπηκε}}"
+
+#. placeholder {0}: hidden.length
+#. placeholder {1}: hidden.map((item) => item.title).join(', ')
+#: src/components/clio/a2ui-picker.tsx
+msgid "{0} more: {1}"
+msgstr "{0} ακόμη: {1}"
 
 #. placeholder {0}: item.name
 #: src/components/clio/agent-needs-response.tsx
@@ -20399,6 +20409,10 @@ msgstr "Φόρτωση της εισόδου…"
 msgid "Loading the linked view…"
 msgstr "Φόρτωση της συνδεδεμένης προβολής…"
 
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Loading the page"
+msgstr "Φόρτωση της σελίδας"
+
 #: src/components/clio/script-run-body.tsx
 msgid "Loading the rest…"
 msgstr "Φόρτωση του υπολοίπου…"
@@ -24216,6 +24230,11 @@ msgstr "Δεν έχει επιλεγεί ακόμη τίποτα για αυτό
 msgid "Nothing matches"
 msgstr "Τίποτα δεν ταιριάζει"
 
+#. placeholder {0}: query.trim()
+#: src/components/clio/a2ui-picker.tsx
+msgid "Nothing matches “{0}”."
+msgstr "Τίποτα δεν ταιριάζει με «{0}»."
+
 #: src/components/clio/search-results-tab.tsx
 msgid "Nothing matches “{query}”"
 msgstr "Τίποτα δεν ταιριάζει με «{query}»"
@@ -24256,6 +24275,10 @@ msgstr "Δεν έχει αποθηκευτεί τίποτα εδώ ακόμη."
 #: src/components/clio/cad-measure-state.ts
 msgid "Nothing there to measure. Click on the model."
 msgstr "Δεν υπάρχει τίποτα εκεί για μέτρηση. Κάντε κλικ στο μοντέλο."
+
+#: src/components/clio/a2ui-picker.tsx
+msgid "Nothing to choose from yet."
+msgstr "Δεν υπάρχει ακόμη κάτι για επιλογή."
 
 #: src/components/clio/offer-list-dialog.tsx
 msgid "Nothing to offer yet."
@@ -25339,6 +25362,10 @@ msgstr "Άνοιγμα του NDP…"
 msgid "Opening sign-in…"
 msgstr "Άνοιγμα σύνδεσης…"
 
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Opening steps"
+msgstr "Βήματα ανοίγματος"
+
 #: src/components/clio/document-workspace.tsx
 msgid "Opening the document…"
 msgstr "Άνοιγμα του εγγράφου…"
@@ -25348,6 +25375,7 @@ msgid "Opening the note"
 msgstr "Άνοιγμα της σημείωσης"
 
 #: src/components/clio/browser-new-page.tsx
+#: src/components/clio/plugin-page-browser.tsx
 #: src/components/clio/workbench-tab-content.tsx
 #: src/routes/plugin-page.tsx
 msgid "Opening the page"
@@ -26711,6 +26739,10 @@ msgstr "Προετοιμασία των διαχειριζόμενων πακέ�
 #: src/components/clio/document-open-menu.tsx
 msgid "Preparing the PDF…"
 msgstr "Προετοιμασία του PDF…"
+
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Preparing the plugin's environment"
+msgstr "Προετοιμασία του περιβάλλοντος του πρόσθετου"
 
 #: src/components/clio/settings-report-problem.tsx
 msgid "Preparing the report…"
@@ -34505,6 +34537,10 @@ msgstr "Εκκίνηση της τοπικής υπηρεσίας"
 msgid "Starting the local service."
 msgstr "Εκκίνηση της τοπικής υπηρεσίας."
 
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Starting the plugin's server"
+msgstr "Εκκίνηση του διακομιστή του πρόσθετου"
+
 #: src/lib/mcp-preparation.ts
 msgid "Starting the server for this conversation; its tools join when it is ready."
 msgstr "Εκκίνηση του διακομιστή για αυτή τη συνομιλία· τα εργαλεία του προστίθενται όταν είναι έτοιμος."
@@ -34706,6 +34742,7 @@ msgstr "Όριο βημάτων"
 msgid "Step weights"
 msgstr "Βάρη βημάτων"
 
+#: src/components/clio/a2ui-dialog.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/widget-gallery-demos.ts
@@ -34756,6 +34793,7 @@ msgstr "Ανακατεύετε κατά διαστήματα μέχρι να π�
 msgid "STL (binary)"
 msgstr "STL (δυαδικό)"
 
+#: src/components/clio/a2ui-dialog.tsx
 #: src/components/clio/composer-submit-controls.tsx
 #: src/components/clio/ndp-endpoint-browser.tsx
 #: src/components/clio/ndp-sdk-stream-actions.tsx

@@ -9,6 +9,7 @@ import {
 } from '@clio/core/v3';
 import { GACT_HTTP_TIMEOUT_MS, GACT_HTTP_TRANSFER_TIMEOUT_MS } from '@/lib/runtime-limits';
 import { headerValue, retryAfterMs } from './retry-after';
+import { LOCALE_HEADER, requestLocale } from './request-locale';
 
 interface RustHttpResponse {
   status: number;
@@ -244,6 +245,7 @@ export class TauriClioTransport implements ClioTransport {
       'Content-Type': 'application/json',
       'X-GACT-Version': PROTOCOL_VERSION,
       'X-A2UI-Version': A2UI_VERSION,
+      [LOCALE_HEADER]: requestLocale(),
     };
     // i18n-ignore: HTTP header value
     if (this.token) headers.Authorization = `Bearer ${this.token}`;

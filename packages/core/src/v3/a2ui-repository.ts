@@ -24,9 +24,11 @@ import {
   pluginTabOpenedSchema,
   pluginPageListSchema,
   pluginPageOpenedSchema,
+  pluginPageStatusSchema,
   type A2uiActionReply,
   type PluginPage,
   type PluginPageOpened,
+  type PluginPageStatus,
   type PluginTab,
   type PluginTabOpened,
 } from './plugin-tab-contract.js';
@@ -264,6 +266,16 @@ export class A2uiRepository extends PresentationRepository {
       body: {},
       timeoutMs: PLUGIN_SURFACE_TIMEOUT_MS,
       decode: (value) => pluginPageOpenedSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** The steps of a page open in flight, polled while the open waits. */
+  public pluginPageStatus(pageId: string, signal?: AbortSignal): Promise<PluginPageStatus> {
+    return this.transport.request({
+      method: 'GET',
+      path: `${pluginPagePath(pageId)}/status`,
+      decode: (value) => pluginPageStatusSchema.parse(value),
       signal,
     });
   }

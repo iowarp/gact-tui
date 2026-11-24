@@ -183,6 +183,7 @@ describe('TauriClioTransport', () => {
     expect(request.headers.Authorization).toBe('Bearer secret');
     expect(request.headers['X-GACT-Version']).toBe('0.3');
     expect(request.headers['X-A2UI-Version']).toBe('0.9.1');
+    expect(request.headers['X-Clio-Locale']).toBe('en');
   });
 
   it('preserves text responses from the Rust bridge', async () => {

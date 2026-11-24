@@ -16,6 +16,7 @@ describe('BrowserClioTransport', () => {
     const [, options] = fetcher.mock.calls[0] ?? [];
     expect(options?.method).toBe('POST');
     expect(new Headers(options?.headers).get('X-GACT-Version')).toBe('0.3');
+    expect(new Headers(options?.headers).get('X-Clio-Locale')).toBe('en');
   });
 
   it('returns authoritative text responses without attempting JSON parsing', async () => {

@@ -8,6 +8,7 @@ import {
   type TransportRequest,
 } from '@clio/core/v3';
 import { retryAfterMs } from './retry-after';
+import { LOCALE_HEADER, requestLocale } from './request-locale';
 
 const GACT_ACCEPT = PROTOCOL_VERSION;
 const A2UI_ACCEPT = A2UI_VERSION;
@@ -195,6 +196,7 @@ export class BrowserClioTransport implements ClioTransport {
       'Content-Type': 'application/json',
       'X-GACT-Version': GACT_ACCEPT,
       'X-A2UI-Version': A2UI_ACCEPT,
+      [LOCALE_HEADER]: requestLocale(),
     });
     if (this.token) headers.set('Authorization', `Bearer ${this.token}`);
     return headers;

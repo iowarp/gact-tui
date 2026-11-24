@@ -9,6 +9,8 @@ import {
   ArrowRightIcon,
   BellIcon,
   BellOffIcon,
+  BookIcon,
+  BookmarkIcon,
   CalendarDaysIcon,
   CalendarIcon,
   CameraIcon,
@@ -32,6 +34,7 @@ import {
   KeyRoundIcon,
   LaptopIcon,
   ImageIcon,
+  LinkIcon,
   LockIcon,
   LockOpenIcon,
   MailIcon,
@@ -42,6 +45,7 @@ import {
   PauseIcon,
   PhoneIcon,
   PlayIcon,
+  PlugIcon,
   PrinterIcon,
   RewindIcon,
   SearchIcon,
@@ -179,6 +183,11 @@ const KERNEL_ICON_MAP = new Map<string, LucideIcon>([
   ['terminal', TerminalIcon],
   ['verifiedUser', ShieldCheckIcon],
   ['alertTriangle', TriangleAlertIcon],
+  // Dialog tab and footer glyphs (a plugin's add-endpoint dialog).
+  ['book', BookIcon],
+  ['bookmark', BookmarkIcon],
+  ['link', LinkIcon],
+  ['plug', PlugIcon],
 ]);
 
 /** `alert-circle` / `alert_circle` -> `alertCircle`, so one map entry covers every separator style. */

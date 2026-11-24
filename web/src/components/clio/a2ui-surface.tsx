@@ -27,7 +27,9 @@ import {
   a2uiCatalogsKey,
   useA2uiCatalogRegistry,
   useA2uiSurfaceModel,
+  type A2uiProcessorResult,
 } from '@/lib/a2ui/processor-store';
+import { showReplyToast } from '@/lib/a2ui/action-toast';
 import { A2uiReferenceSessionProvider } from '@/lib/a2ui/reference-session';
 import { AutoDatasetSelectionProvider } from '@/lib/a2ui/auto-dataset-selection';
 import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
@@ -225,7 +227,14 @@ function ClioA2UISurfaceContent({
   const [localActionPending, setLocalActionPending] = useState(false);
   const [localActionStatus, setLocalActionStatus] = useState<string>();
   const openSourceSignIn = useSourceSignIn();
-  const { error, isPending, mutateAsync, variables: lastSend } = useMutation({
+  // The surface model the processor built, for a toast's Undo sent after the reply.
+  const modelRef = useRef<A2uiProcessorResult['model']>(undefined);
+  const {
+    error,
+    isPending,
+    mutateAsync,
+    variables: lastSend,
+  } = useMutation({
     mutationFn: async (send: ServerSend): Promise<A2uiActionReply | void> => {
       const clientAction = send.action;
       const message = { version: `v${A2UI_VERSION}`, action: clientAction };
@@ -242,6 +251,8 @@ function ClioA2UISurfaceContent({
           const result = serverActionResult(reply, ownerName, send.subject);
           if (result) setServerResult({ ...result, revision: surface.revision, send });
         }
+        if (reply?.toast)
+          showReplyToast(reply.toast, () => modelRef.current, clientAction.sourceComponentId);
         return reply;
       } catch (actionError) {
         if (!serverOwner) throw actionError;
@@ -469,7 +480,15 @@ function ClioA2UISurfaceContent({
         });
       }
     },
-    [repository, surface.id, surface.revision, surface.session_id, readOnly, serverOwner, catalogsKey],
+    [
+      repository,
+      surface.id,
+      surface.revision,
+      surface.session_id,
+      readOnly,
+      serverOwner,
+      catalogsKey,
+    ],
   );
   const { model, failure } = useA2uiSurfaceModel(
     surface,
@@ -479,6 +498,9 @@ function ClioA2UISurfaceContent({
     handleValidationFailed,
     !readOnly,
   );
+  useEffect(() => {
+    modelRef.current = model;
+  }, [model]);
   const visualRoot = useRef<HTMLDivElement>(null);
   useA2uiVisualViewer(visualRoot, surface, model, captureArtifactId, visualFeedback);
   useOpenedViewSelection(surface.session_id, surface.id, model);

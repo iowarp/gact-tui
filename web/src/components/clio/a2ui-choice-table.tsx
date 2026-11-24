@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { kernelIconGlyph } from '@/lib/a2ui/kernel-icon-map';
+import { fireRawAction, resolveRawValue } from '@/lib/a2ui/raw-action';
 import { AddIcon, AdjustIcon, HelpIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { moveAcrossCells } from '@/lib/settings-row-keys';
 import { cn } from '@/lib/utils';
@@ -37,9 +38,11 @@ import { ph, t } from '@lingui/core/macro';
 
 /*
  * `clio.choice-table.v1`: rows of things a person configures, each with a few
- * choices, drawn the way Settings › Tools draws its tools. A defaults row
- * sets what new rows start with; each row's picker cells open a list of
- * explained choices; a row's ⋯ menu holds its actions. Narrower than its
+ * choices, drawn the way Settings › Tools draws its tools. An optional
+ * defaults row sets what new rows start with; each row's picker cells open a
+ * list of explained choices (only those the row offers, when it names them);
+ * a row's ⋯ menu holds its actions. Column titles show even with no rows.
+ * Narrower than its
  * columns need, every row folds to one summary row whose › opens all its
  * choices and actions. Generic: any server's surface can send one.
  */
@@ -84,6 +87,7 @@ const row = z
     error: z.string().optional(),
     context: extraContext.optional(),
     menu: z.array(menuItem).max(8).optional(),
+    options: z.record(z.string(), z.array(z.string().min(1))).optional(),
   })
   .strict();
 
@@ -155,31 +159,17 @@ function namedGlyph(name: string | undefined, className: string): ReactNode {
   return icon ? createElement(icon, { 'aria-hidden': true, className }) : null;
 }
 
-/** Resolves bindings in an action's literal context, the way the binder does at a click. */
-function resolveDeep(value: unknown, context: TableContext): unknown {
-  if (typeof value !== 'object' || value === null) return value;
-  if ('path' in value || 'call' in value) return context.dataContext.resolveDynamicValue(value);
-  if (Array.isArray(value)) return value.map((entry) => resolveDeep(entry, context));
-  return Object.fromEntries(
-    Object.entries(value).map(([key, entry]) => [key, resolveDeep(entry, context)]),
-  );
-}
-
 /** Sends a raw action with what was chosen merged into its event context. */
 function fire(context: TableContext, raw: unknown, extra: Record<string, unknown>) {
-  const resolved = resolveDeep(raw, context) as { event?: { context?: object } } | undefined;
-  if (!resolved || typeof resolved !== 'object') return;
-  const action = resolved.event
-    ? {
-        ...resolved,
-        event: { ...resolved.event, context: { ...resolved.event.context, ...extra } },
-      }
-    : resolved;
-  void context.dispatchAction(action);
+  void fireRawAction(context, raw, extra);
 }
 
-function pickerOptions(column: Column): PickerOption<string>[] {
-  return column.options.map((entry) => ({
+/** A column's options, narrowed to what one row offers when it names them. */
+function pickerOptions(column: Column, offered?: readonly string[]): PickerOption<string>[] {
+  const options = offered
+    ? column.options.filter((entry) => offered.includes(entry.value))
+    : column.options;
+  return options.map((entry) => ({
     value: entry.value,
     label: entry.label,
     description: entry.description ?? '',
@@ -224,6 +214,10 @@ interface Cells {
   columns: readonly Column[];
   values: Record<string, string>;
   inherited?: readonly string[];
+  /** Columns some row inherits: there a value of the row's own shows in teal. */
+  inheritable?: ReadonlySet<string>;
+  /** Column id to the option values this row offers. */
+  options?: Readonly<Record<string, readonly string[]>>;
   /** The thing the cells set, for their accessible names ("Delta"). */
   name: string;
   bulk?: boolean;
@@ -235,7 +229,16 @@ function optionFor(column: Column, value: string | undefined): Option | undefine
 }
 
 /** One cell per column: a picker for a choice, the status word for a read-only value. */
-function WideCells({ columns, values, inherited, name, bulk, onChoose }: Cells) {
+function WideCells({
+  columns,
+  values,
+  inherited,
+  inheritable,
+  options,
+  name,
+  bulk,
+  onChoose,
+}: Cells) {
   return columns.map((column) => {
     const current = optionFor(column, values[column.id]);
     if (column.editable === false)
@@ -251,6 +254,7 @@ function WideCells({ columns, values, inherited, name, bulk, onChoose }: Cells) 
     return (
       <ChoicePicker
         bulk={bulk}
+        chosen={ownValue(column, current, isDefault, inheritable)}
         className="w-full min-w-0"
         icon={current ? glyph(current.icon) : HelpIcon}
         isDefault={isDefault}
@@ -258,7 +262,7 @@ function WideCells({ columns, values, inherited, name, bulk, onChoose }: Cells) 
         label={label}
         name={t`${ph({ column: column.title })}: ${ph({ name })}`}
         onChoose={(value) => onChoose(column.id, value)}
-        options={pickerOptions(column)}
+        options={pickerOptions(column, options?.[column.id])}
         search={t`${ph({ column: column.title })} for ${ph({ name })}`}
         selected={current?.value}
         title={current?.description ? `${label}: ${current.description}` : label}
@@ -268,7 +272,12 @@ function WideCells({ columns, values, inherited, name, bulk, onChoose }: Cells) 
 }
 
 /** The values a summary row's sub line shows in place of its cells. */
-function FoldedValues({ columns, values, inherited }: Omit<Cells, 'name' | 'onChoose'>) {
+function FoldedValues({
+  columns,
+  values,
+  inherited,
+  inheritable,
+}: Omit<Cells, 'name' | 'onChoose'>) {
   return columns.map((column) => {
     const current = optionFor(column, values[column.id]);
     if (column.editable === false)
@@ -277,11 +286,12 @@ function FoldedValues({ columns, values, inherited }: Omit<Cells, 'name' | 'onCh
           <StatusCell value={current} />
         </span>
       ) : null;
+    const isDefault = inherited?.includes(column.id) ?? false;
     return (
       <ValueSummary
-        chosen={false}
+        chosen={ownValue(column, current, isDefault, inheritable)}
         icon={current ? glyph(current.icon) : HelpIcon}
-        isDefault={inherited?.includes(column.id) ?? false}
+        isDefault={isDefault}
         key={column.id}
         label={current?.label ?? t`Not set`}
         title={`${column.title}: ${current?.label ?? t`Not set`}`}
@@ -290,12 +300,22 @@ function FoldedValues({ columns, values, inherited }: Omit<Cells, 'name' | 'onCh
   });
 }
 
-function summaryGroups({ columns, values, onChoose }: Cells) {
+/** A value the row set itself, in a column others inherit: teal, as in Settings › Tools. */
+function ownValue(
+  column: Column,
+  current: Option | undefined,
+  isDefault: boolean,
+  inheritable: ReadonlySet<string> | undefined,
+): boolean {
+  return Boolean(current && !isDefault && inheritable?.has(column.id));
+}
+
+function summaryGroups({ columns, values, options, onChoose }: Cells) {
   return columns
     .filter((column) => column.editable !== false)
     .map((column) => ({
       heading: column.title,
-      options: pickerOptions(column),
+      options: pickerOptions(column, options?.[column.id]),
       selected: values[column.id],
       onChoose: (value: string) => onChoose(column.id, value),
     }));
@@ -343,6 +363,7 @@ function TableRow({
   wide,
   template,
   menu,
+  inheritable,
   onChoose,
 }: {
   row: Row;
@@ -350,12 +371,15 @@ function TableRow({
   wide: boolean;
   template: string;
   menu: readonly MenuEntry[];
+  inheritable: ReadonlySet<string>;
   onChoose: (column: string, value: string) => void;
 }) {
   const cells: Cells = {
     columns,
     values: row.values,
     inherited: row.inherited,
+    inheritable,
+    options: row.options,
     name: row.title,
     onChoose,
   };
@@ -534,7 +558,7 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
       }));
       if (!raw.onChoose) return;
       const extra = rowIndex === undefined ? raw.defaults?.context : rawRows?.[rowIndex]?.context;
-      const resolved = resolveDeep(extra ?? {}, context);
+      const resolved = resolveRawValue(extra ?? {}, context.dataContext);
       fire(context, raw.onChoose, {
         ...(resolved && typeof resolved === 'object' ? resolved : {}),
         row: rowId,
@@ -586,12 +610,33 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
     }));
   };
 
+  const inheritable = useMemo(
+    () => new Set(rows.flatMap((entry) => entry.inherited ?? [])),
+    [rows],
+  );
+  const addButton = props.add ? (
+    <Button
+      className="rounded-[7px] border-input text-foreground"
+      data-slot="choice-table-add"
+      onClick={() => fire(context, raw.add?.action, {})}
+      size="sm"
+      variant="outline"
+    >
+      <AddIcon aria-hidden="true" className="size-3.5" />
+      {props.add.label}
+    </Button>
+  ) : null;
+
   let body: ReactNode;
   if (!rows.length)
     body = (
-      <p className="py-4 text-center text-sm text-muted-foreground">
-        {props.empty ?? t`Nothing here yet.`}
-      </p>
+      <div
+        className="flex min-h-12 flex-wrap items-center gap-2.5 px-1 py-3 text-sm text-muted-foreground"
+        data-slot="choice-table-empty"
+      >
+        <span className="min-w-0 flex-1">{props.empty ?? t`Nothing here yet.`}</span>
+        {addButton}
+      </div>
     );
   else
     body = (
@@ -599,6 +644,7 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
         {rows.map((entry, index) => (
           <TableRow
             columns={columns}
+            inheritable={inheritable}
             key={entry.id}
             menu={menuFor(entry, index)}
             onChoose={(columnId, value) => choose(entry.id, index, columnId, value)}
@@ -621,20 +667,7 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
         ref={table}
         role="group"
       >
-        {props.add ? (
-          <div className="flex justify-end pb-2">
-            <Button
-              className="rounded-[7px] border-input text-foreground"
-              data-slot="choice-table-add"
-              onClick={() => fire(context, raw.add?.action, {})}
-              size="sm"
-              variant="outline"
-            >
-              <AddIcon aria-hidden="true" className="size-3.5" />
-              {props.add.label}
-            </Button>
-          </div>
-        ) : null}
+        {addButton && rows.length ? <div className="flex justify-end pb-2">{addButton}</div> : null}
         {props.defaults ? (
           <DefaultsRow
             columns={columns}
@@ -645,7 +678,7 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
             wide={wide}
           />
         ) : null}
-        {wide && rows.length ? (
+        {wide ? (
           <div
             className="grid min-h-[34px] items-center gap-x-2.5 border-b border-border text-label text-muted-foreground"
             data-slot="choice-table-header"

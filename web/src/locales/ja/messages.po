@@ -21,6 +21,10 @@ msgstr "、この会話で変更"
 msgid ", default"
 msgstr "、既定値"
 
+#: src/components/clio/a2ui-dialog.tsx
+msgid ", done"
+msgstr "、完了"
+
 #: src/components/clio/primitives/frame-bar.tsx
 msgid ", pinned"
 msgstr "、ピン留め"
@@ -997,6 +1001,12 @@ msgstr "{0, select, an {すでに実行中の{agentName}} other {すでに実行
 #: src/components/clio/tool-operation-data.ts
 msgid "{0, select, failed {Task failed} error {Task error} denied {Task denied} cancelled {Task cancelled} other {Task interrupted}}"
 msgstr "{0, select, failed {タスクが失敗しました} error {タスクエラー} denied {タスクが拒否されました} cancelled {タスクがキャンセルされました} other {タスクが中断されました}}"
+
+#. placeholder {0}: hidden.length
+#. placeholder {1}: hidden.map((item) => item.title).join(', ')
+#: src/components/clio/a2ui-picker.tsx
+msgid "{0} more: {1}"
+msgstr "ほか{0}件: {1}"
 
 #. placeholder {0}: item.name
 #: src/components/clio/agent-needs-response.tsx
@@ -20399,6 +20409,10 @@ msgstr "入力を読み込んでいます…"
 msgid "Loading the linked view…"
 msgstr "リンクされたビューを読み込み中…"
 
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Loading the page"
+msgstr "ページを読み込んでいます"
+
 #: src/components/clio/script-run-body.tsx
 msgid "Loading the rest…"
 msgstr "残りを読み込み中…"
@@ -24216,6 +24230,11 @@ msgstr "この{noun}ではまだ何も選択されていません。"
 msgid "Nothing matches"
 msgstr "一致する項目はありません"
 
+#. placeholder {0}: query.trim()
+#: src/components/clio/a2ui-picker.tsx
+msgid "Nothing matches “{0}”."
+msgstr "「{0}」に一致するものはありません。"
+
 #: src/components/clio/search-results-tab.tsx
 msgid "Nothing matches “{query}”"
 msgstr "「{query}」に一致するものはありません"
@@ -24256,6 +24275,10 @@ msgstr "まだ何も保存されていません。"
 #: src/components/clio/cad-measure-state.ts
 msgid "Nothing there to measure. Click on the model."
 msgstr "そこには測定するものがありません。モデルをクリックしてください。"
+
+#: src/components/clio/a2ui-picker.tsx
+msgid "Nothing to choose from yet."
+msgstr "まだ選べるものがありません。"
 
 #: src/components/clio/offer-list-dialog.tsx
 msgid "Nothing to offer yet."
@@ -25339,6 +25362,10 @@ msgstr "NDPを開いています…"
 msgid "Opening sign-in…"
 msgstr "サインインを開いています…"
 
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Opening steps"
+msgstr "開くまでのステップ"
+
 #: src/components/clio/document-workspace.tsx
 msgid "Opening the document…"
 msgstr "ドキュメントを開いています…"
@@ -25348,6 +25375,7 @@ msgid "Opening the note"
 msgstr "ノートを開いています"
 
 #: src/components/clio/browser-new-page.tsx
+#: src/components/clio/plugin-page-browser.tsx
 #: src/components/clio/workbench-tab-content.tsx
 #: src/routes/plugin-page.tsx
 msgid "Opening the page"
@@ -26711,6 +26739,10 @@ msgstr "管理パッケージとOfficeを準備中"
 #: src/components/clio/document-open-menu.tsx
 msgid "Preparing the PDF…"
 msgstr "PDFを準備中…"
+
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Preparing the plugin's environment"
+msgstr "プラグインの環境を準備しています"
 
 #: src/components/clio/settings-report-problem.tsx
 msgid "Preparing the report…"
@@ -34505,6 +34537,10 @@ msgstr "ローカルサービスを起動中"
 msgid "Starting the local service."
 msgstr "ローカルサービスを起動しています。"
 
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Starting the plugin's server"
+msgstr "プラグインのサーバーを起動しています"
+
 #: src/lib/mcp-preparation.ts
 msgid "Starting the server for this conversation; its tools join when it is ready."
 msgstr "この会話のためにサーバーを起動しています。準備ができるとツールが追加されます。"
@@ -34706,6 +34742,7 @@ msgstr "ステップ上限"
 msgid "Step weights"
 msgstr "ステップの重み"
 
+#: src/components/clio/a2ui-dialog.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/widget-gallery-demos.ts
@@ -34756,6 +34793,7 @@ msgstr "少しとろみがつくまで、ときどき混ぜます。"
 msgid "STL (binary)"
 msgstr "STL(バイナリ)"
 
+#: src/components/clio/a2ui-dialog.tsx
 #: src/components/clio/composer-submit-controls.tsx
 #: src/components/clio/ndp-endpoint-browser.tsx
 #: src/components/clio/ndp-sdk-stream-actions.tsx

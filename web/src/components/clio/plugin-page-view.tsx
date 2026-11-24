@@ -38,6 +38,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioA2UISurface } from './a2ui-surface';
 import { ClioPendingInteractions } from './pending-interactions';
 import { PluginOpenWaitingLine, PluginOpenWaitingState } from './plugin-open-waiting';
+import { PluginOpenSteps } from './plugin-open-steps';
 import { PluginPageBrowser } from './plugin-page-browser';
 import { StateView } from './primitives/state-view';
 import { SettingsSectionHeading } from './settings-section-heading';
@@ -183,10 +184,17 @@ export function PluginPageView({ page }: { page: PluginPage }) {
   let body;
   if (longWait)
     body = (
-      <PluginOpenWaitingState label={label} onCancel={cancel} onRetry={retry} state={state} />
+      <div className="flex w-full min-w-0 flex-col gap-3">
+        <PluginOpenWaitingState label={label} onCancel={cancel} onRetry={retry} state={state} />
+        {state?.status === 'loading' ? <PluginOpenSteps pageId={pageId} /> : null}
+      </div>
     );
   else if (!state || (state.status === 'loading' && state.surfaces.length === 0))
-    body = <StateView kind="loading" size="viewer" title={t`Opening ${ph({ label })}`} />;
+    body = (
+      <StateView kind="loading" size="viewer" title={t`Opening ${ph({ label })}`}>
+        <PluginOpenSteps pageId={pageId} />
+      </StateView>
+    );
   else if (unavailable && state.surfaces.length === 0)
     body = (
       <StateView

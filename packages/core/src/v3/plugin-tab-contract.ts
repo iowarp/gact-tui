@@ -26,10 +26,22 @@ export const a2uiActionReplySchema = z
     ]).optional(),
     surface_ids: z.array(z.string()).optional(),
     error_text: z.string().optional(),
+    /** A short notice for the person, optionally with an Undo the host sends back on the same surface. */
+    toast: z
+      .object({
+        message: z.string().min(1).max(300),
+        tone: forwardCompatibleEnum(['neutral', 'positive', 'warning', 'negative']).default(
+          'neutral',
+        ),
+        undo: z.object({ label: z.string().min(1).max(40), action: z.unknown() }).optional(),
+      })
+      .optional()
+      .catch(undefined),
   })
   .passthrough();
 
 export type A2uiActionReply = z.infer<typeof a2uiActionReplySchema>;
+export type A2uiActionToast = NonNullable<A2uiActionReply['toast']>;
 
 export const pluginTabSchema = z
   .object({
@@ -185,6 +197,27 @@ export const pluginPageOpenedSchema: z.ZodType<PluginPageOpened, z.ZodTypeDef, u
     surfaces,
     revision,
   }));
+
+/** How far an in-flight page open has got: the plugin's environment, its server, the page read. */
+export const pluginPageStatusSchema = z
+  .object({
+    state: forwardCompatibleEnum(['idle', 'starting', 'ready', 'failed']),
+    steps: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            state: forwardCompatibleEnum(['pending', 'active', 'done', 'failed']),
+            elapsed_ms: z.number().nonnegative().default(0),
+          })
+          .passthrough(),
+      )
+      .default([]),
+    error: z.string().optional(),
+  })
+  .passthrough();
+
+export type PluginPageStatus = z.infer<typeof pluginPageStatusSchema>;
 
 /**
  * Decodes one `plugin_page.*` event as its `plugin_tab.*` twin: a page's

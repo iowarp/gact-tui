@@ -20,6 +20,10 @@ msgstr ", changed in this conversation"
 msgid ", default"
 msgstr ", default"
 
+#: src/components/clio/a2ui-dialog.tsx
+msgid ", done"
+msgstr ", done"
+
 #: src/components/clio/primitives/frame-bar.tsx
 msgid ", pinned"
 msgstr ", pinned"
@@ -996,6 +1000,12 @@ msgstr "{0, select, an {An {agentName} that is already running} other {A {agentN
 #: src/components/clio/tool-operation-data.ts
 msgid "{0, select, failed {Task failed} error {Task error} denied {Task denied} cancelled {Task cancelled} other {Task interrupted}}"
 msgstr "{0, select, failed {Task failed} error {Task error} denied {Task denied} cancelled {Task cancelled} other {Task interrupted}}"
+
+#. placeholder {0}: hidden.length
+#. placeholder {1}: hidden.map((item) => item.title).join(', ')
+#: src/components/clio/a2ui-picker.tsx
+msgid "{0} more: {1}"
+msgstr "{0} more: {1}"
 
 #. placeholder {0}: item.name
 #: src/components/clio/agent-needs-response.tsx
@@ -20398,6 +20408,10 @@ msgstr "Loading the input…"
 msgid "Loading the linked view…"
 msgstr "Loading the linked view…"
 
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Loading the page"
+msgstr "Loading the page"
+
 #: src/components/clio/script-run-body.tsx
 msgid "Loading the rest…"
 msgstr "Loading the rest…"
@@ -24215,6 +24229,11 @@ msgstr "Nothing is selected for this {noun} yet."
 msgid "Nothing matches"
 msgstr "Nothing matches"
 
+#. placeholder {0}: query.trim()
+#: src/components/clio/a2ui-picker.tsx
+msgid "Nothing matches “{0}”."
+msgstr "Nothing matches “{0}”."
+
 #: src/components/clio/search-results-tab.tsx
 msgid "Nothing matches “{query}”"
 msgstr "Nothing matches “{query}”"
@@ -24255,6 +24274,10 @@ msgstr "Nothing saved here yet."
 #: src/components/clio/cad-measure-state.ts
 msgid "Nothing there to measure. Click on the model."
 msgstr "Nothing there to measure. Click on the model."
+
+#: src/components/clio/a2ui-picker.tsx
+msgid "Nothing to choose from yet."
+msgstr "Nothing to choose from yet."
 
 #: src/components/clio/offer-list-dialog.tsx
 msgid "Nothing to offer yet."
@@ -25338,6 +25361,10 @@ msgstr "Opening NDP…"
 msgid "Opening sign-in…"
 msgstr "Opening sign-in…"
 
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Opening steps"
+msgstr "Opening steps"
+
 #: src/components/clio/document-workspace.tsx
 msgid "Opening the document…"
 msgstr "Opening the document…"
@@ -25347,6 +25374,7 @@ msgid "Opening the note"
 msgstr "Opening the note"
 
 #: src/components/clio/browser-new-page.tsx
+#: src/components/clio/plugin-page-browser.tsx
 #: src/components/clio/workbench-tab-content.tsx
 #: src/routes/plugin-page.tsx
 msgid "Opening the page"
@@ -26710,6 +26738,10 @@ msgstr "Preparing the managed packages and Office"
 #: src/components/clio/document-open-menu.tsx
 msgid "Preparing the PDF…"
 msgstr "Preparing the PDF…"
+
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Preparing the plugin's environment"
+msgstr "Preparing the plugin's environment"
 
 #: src/components/clio/settings-report-problem.tsx
 msgid "Preparing the report…"
@@ -34504,6 +34536,10 @@ msgstr "Starting the local service"
 msgid "Starting the local service."
 msgstr "Starting the local service."
 
+#: src/components/clio/plugin-open-steps.tsx
+msgid "Starting the plugin's server"
+msgstr "Starting the plugin's server"
+
 #: src/lib/mcp-preparation.ts
 msgid "Starting the server for this conversation; its tools join when it is ready."
 msgstr "Starting the server for this conversation; its tools join when it is ready."
@@ -34705,6 +34741,7 @@ msgstr "Step limit"
 msgid "Step weights"
 msgstr "Step weights"
 
+#: src/components/clio/a2ui-dialog.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/widget-gallery-demos.ts
@@ -34755,6 +34792,7 @@ msgstr "Stir occasionally until slightly thickened."
 msgid "STL (binary)"
 msgstr "STL (binary)"
 
+#: src/components/clio/a2ui-dialog.tsx
 #: src/components/clio/composer-submit-controls.tsx
 #: src/components/clio/ndp-endpoint-browser.tsx
 #: src/components/clio/ndp-sdk-stream-actions.tsx

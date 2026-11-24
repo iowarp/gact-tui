@@ -54,6 +54,8 @@ import { ClioMessageDraftCatalogComponent } from '@/components/clio/a2ui-message
 import { ClioWeatherCatalogComponent } from '@/components/clio/a2ui-weather';
 import { ClioStepsCatalogComponent } from '@/components/clio/a2ui-steps';
 import { ClioChoiceTableCatalogComponent } from '@/components/clio/a2ui-choice-table';
+import { ClioDialogCatalogComponent } from '@/components/clio/a2ui-dialog';
+import { ClioPickerCatalogComponent } from '@/components/clio/a2ui-picker';
 import { ClioMermaidCatalogComponent } from '@/components/clio/a2ui-mermaid-catalog';
 import { ClioMcpAppCatalogComponent } from '@/components/clio/a2ui-mcp-app-catalog';
 import { ClioMeshViewportCatalogComponent } from '@/components/clio/a2ui-mesh-viewport-catalog';
@@ -700,6 +702,8 @@ const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   ClioWeatherCatalogComponent,
   ClioStepsCatalogComponent,
   ClioChoiceTableCatalogComponent,
+  ClioDialogCatalogComponent,
+  ClioPickerCatalogComponent,
   ClioMeshViewportCatalogComponent,
   ClioRasterViewportCatalogComponent,
   ClioMcpAppCatalogComponent,
