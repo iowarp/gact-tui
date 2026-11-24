@@ -1,5 +1,5 @@
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react';
-import { memo, type PointerEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, type PointerEvent, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -98,20 +98,6 @@ export function TranscriptSyncing() {
 
 /** A refresh shorter than this shows nothing, so routine syncs stay invisible. */
 export const TRANSCRIPT_SYNC_REVEAL_MS = 1000;
-
-/** True once `active` has held for `delayMs`; false as soon as it drops. */
-export function useHeldFlag(active: boolean, delayMs: number): boolean {
-  const [held, setHeld] = useState(false);
-  useEffect(() => {
-    if (!active) {
-      setHeld(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setHeld(true), delayMs);
-    return () => window.clearTimeout(timer);
-  }, [active, delayMs]);
-  return active && held;
-}
 
 /**
  * A long background refresh while no control lane is shown. The slot is a

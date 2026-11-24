@@ -16,8 +16,8 @@ import {
   TRANSCRIPT_SYNC_REVEAL_MS,
   TranscriptControlLane,
   TranscriptSyncOverlay,
-  useHeldFlag,
 } from './transcript-inline-states';
+import { useHeldFlag } from './use-held-flag';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
