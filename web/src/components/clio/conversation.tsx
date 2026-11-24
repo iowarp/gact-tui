@@ -13,8 +13,11 @@ import {
   TranscriptLoadError,
   TranscriptLoading,
   TRANSCRIPT_CONTROL_LANE_PX,
+  TRANSCRIPT_SYNC_REVEAL_MS,
   TranscriptControlLane,
+  TranscriptSyncOverlay,
 } from './transcript-inline-states';
+import { useHeldFlag } from './use-held-flag';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
@@ -94,10 +97,16 @@ export function ClioConversation(props: ClioConversationProps) {
   );
 }
 
+/** A history refresh that has run for a second; shorter syncs show nothing. */
+function useTranscriptSyncing(loading?: boolean, queryKey?: QueryKey) {
+  const fetching = useQueryFetching(queryKey);
+  return useHeldFlag(Boolean(loading || fetching), TRANSCRIPT_SYNC_REVEAL_MS);
+}
+
 /**
  * The lane above the composer, shown while the reader is away from the latest
- * message or the history is refreshing. A refresh sits in the lane at row
- * height, so it never covers a message or moves the reading position.
+ * message. A history refresh never mounts the lane; it shows in the lane only
+ * when the lane is already there.
  */
 function TranscriptControls({
   loading,
@@ -105,12 +114,17 @@ function TranscriptControls({
   queryKey,
 }: {
   loading?: boolean;
-  onJump?: () => void;
+  onJump: () => void;
   queryKey?: QueryKey;
 }) {
-  const fetching = useQueryFetching(queryKey);
-  const syncing = Boolean(loading || fetching);
-  return syncing || onJump ? <TranscriptControlLane onJump={onJump} syncing={syncing} /> : null;
+  const syncing = useTranscriptSyncing(loading, queryKey);
+  return <TranscriptControlLane onJump={onJump} syncing={syncing} />;
+}
+
+/** Without the lane, a long refresh floats at the top of the view and takes no space. */
+function TranscriptSyncStatus({ loading, queryKey }: { loading?: boolean; queryKey?: QueryKey }) {
+  const syncing = useTranscriptSyncing(loading, queryKey);
+  return syncing ? <TranscriptSyncOverlay /> : null;
 }
 function RoutedConversationBody(props: ClioConversationProps) {
   const location = useLocation();
@@ -552,6 +566,9 @@ function ConversationBody({
         }}
         tabIndex={0}
       >
+        {messages.length > 0 && !jumpVisible ? (
+          <TranscriptSyncStatus loading={loading} queryKey={loadingQueryKey} />
+        ) : null}
         {emptyTranscript === 'error' && error ? (
           <TranscriptLoadError error={error} onRetry={onReload} />
         ) : emptyTranscript === 'loading' ? (
@@ -690,10 +707,10 @@ function ConversationBody({
             ))}
           </div>
         ) : null}
-        {messages.length > 0 ? (
+        {messages.length > 0 && jumpVisible ? (
           <TranscriptControls
             loading={loading}
-            onJump={jumpVisible ? autoscroll.engage : undefined}
+            onJump={autoscroll.engage}
             queryKey={loadingQueryKey}
           />
         ) : null}
