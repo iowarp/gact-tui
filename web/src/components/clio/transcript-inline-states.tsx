@@ -101,20 +101,15 @@ export const TRANSCRIPT_SYNC_REVEAL_MS = 1000;
 
 /**
  * A long background refresh while no control lane is shown. The slot is a
- * zero-height sticky box at the end of the scroller, and the pill hangs up from
- * it into the lane's place. Showing or hiding it never changes the transcript's
- * height, so the history never jumps while syncs come and go.
+ * zero-height sticky box at the start of the scroller, and the pill hangs down
+ * from the top edge of the view, away from the newest row. Showing or hiding it
+ * never changes the transcript's height, so the history never jumps while syncs
+ * come and go.
  */
 export const TranscriptSyncOverlay = memo(function TranscriptSyncOverlay() {
   return (
-    <div
-      className="pointer-events-none sticky bottom-0 z-20 h-0"
-      data-slot="transcript-sync-overlay"
-    >
-      <div
-        className="absolute inset-x-0 bottom-0 flex items-center justify-center"
-        style={{ height: TRANSCRIPT_CONTROL_LANE_PX }}
-      >
+    <div className="pointer-events-none sticky top-0 z-20 h-0" data-slot="transcript-sync-overlay">
+      <div className="absolute inset-x-0 top-2 flex justify-center">
         <TranscriptSyncing />
       </div>
     </div>

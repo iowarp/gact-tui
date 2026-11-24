@@ -97,11 +97,16 @@ export function ClioConversation(props: ClioConversationProps) {
   );
 }
 
+/** A history refresh that has run for a second; shorter syncs show nothing. */
+function useTranscriptSyncing(loading?: boolean, queryKey?: QueryKey) {
+  const fetching = useQueryFetching(queryKey);
+  return useHeldFlag(Boolean(loading || fetching), TRANSCRIPT_SYNC_REVEAL_MS);
+}
+
 /**
  * The lane above the composer, shown while the reader is away from the latest
- * message. A history refresh never mounts the lane: it appears only once it has
- * run for a second, as a pill in the lane or in an out-of-flow slot in its
- * place, so syncs never move the transcript.
+ * message. A history refresh never mounts the lane; it shows in the lane only
+ * when the lane is already there.
  */
 function TranscriptControls({
   loading,
@@ -109,12 +114,16 @@ function TranscriptControls({
   queryKey,
 }: {
   loading?: boolean;
-  onJump?: () => void;
+  onJump: () => void;
   queryKey?: QueryKey;
 }) {
-  const fetching = useQueryFetching(queryKey);
-  const syncing = useHeldFlag(Boolean(loading || fetching), TRANSCRIPT_SYNC_REVEAL_MS);
-  if (onJump) return <TranscriptControlLane onJump={onJump} syncing={syncing} />;
+  const syncing = useTranscriptSyncing(loading, queryKey);
+  return <TranscriptControlLane onJump={onJump} syncing={syncing} />;
+}
+
+/** Without the lane, a long refresh floats at the top of the view and takes no space. */
+function TranscriptSyncStatus({ loading, queryKey }: { loading?: boolean; queryKey?: QueryKey }) {
+  const syncing = useTranscriptSyncing(loading, queryKey);
   return syncing ? <TranscriptSyncOverlay /> : null;
 }
 function RoutedConversationBody(props: ClioConversationProps) {
@@ -557,6 +566,9 @@ function ConversationBody({
         }}
         tabIndex={0}
       >
+        {messages.length > 0 && !jumpVisible ? (
+          <TranscriptSyncStatus loading={loading} queryKey={loadingQueryKey} />
+        ) : null}
         {emptyTranscript === 'error' && error ? (
           <TranscriptLoadError error={error} onRetry={onReload} />
         ) : emptyTranscript === 'loading' ? (
@@ -695,10 +707,10 @@ function ConversationBody({
             ))}
           </div>
         ) : null}
-        {messages.length > 0 ? (
+        {messages.length > 0 && jumpVisible ? (
           <TranscriptControls
             loading={loading}
-            onJump={jumpVisible ? autoscroll.engage : undefined}
+            onJump={autoscroll.engage}
             queryKey={loadingQueryKey}
           />
         ) : null}
