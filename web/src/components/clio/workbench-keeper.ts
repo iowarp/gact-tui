@@ -1,7 +1,52 @@
-import { useLayoutEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useState, type CSSProperties } from 'react';
 
 /** The longest an ancestor's animation is followed frame by frame (a missed end event). */
 const FOLLOW_LIMIT_MS = 2000;
+
+/**
+ * How far the split's grip reaches past its line into the canvas side (half of
+ * its 12 px hit area). The keeper is drawn above the conversation's section, so
+ * over the split it starts this far right of the slot and leaves the grip's
+ * canvas-side half free to grab.
+ */
+export const WORKBENCH_SPLIT_GRIP_PX = 6;
+
+/** The keeper's box over the split's slot, clear of the grip's canvas-side half. */
+export function clearOfSplitGrip(bounds: CSSProperties | undefined): CSSProperties | undefined {
+  if (!bounds || typeof bounds.left !== 'number' || typeof bounds.width !== 'number') return bounds;
+  return {
+    ...bounds,
+    left: bounds.left + WORKBENCH_SPLIT_GRIP_PX,
+    width: Math.max(0, bounds.width - WORKBENCH_SPLIT_GRIP_PX),
+  };
+}
+
+/**
+ * Whether the person is dragging a split inside `host`.
+ *
+ * The panels library marks the separator it drags `data-separator="active"`,
+ * wherever in its hit region the press landed. While that holds the keeper lets
+ * the pointer through: an App view's iframe would otherwise take the moves once
+ * the pointer crosses into the canvas, and the split would stop following it.
+ */
+export function useWorkbenchSplitDrag(host: HTMLElement | null): boolean {
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    if (!host) return;
+    const check = () => {
+      const active = host.querySelector('[data-slot=resizable-handle][data-separator=active]');
+      setDragging(active !== null);
+    };
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(host, { attributeFilter: ['data-separator'], subtree: true });
+    return () => {
+      observer.disconnect();
+      setDragging(false);
+    };
+  }, [host]);
+  return dragging;
+}
 
 /**
  * Where the workbench keeper sits: fixed over `slot`'s box, the empty place the

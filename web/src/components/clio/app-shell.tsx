@@ -28,7 +28,11 @@ import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbenc
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { usePhoneAppDock, useWorkbenchAppTabs } from './phone-app-dock';
 import { appTabShare } from './workbench-app-width';
-import { useWorkbenchSlotBounds } from './workbench-keeper';
+import {
+  clearOfSplitGrip,
+  useWorkbenchSlotBounds,
+  useWorkbenchSplitDrag,
+} from './workbench-keeper';
 import { OPEN_TERMINAL_EVENT } from './workspace-canvas-visibility-context';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
@@ -398,6 +402,7 @@ export function ClioAppShell({
   // shrink (un-maximizing) landed before the group re-laid its panels out, and
   // the pocket kept a few pixels too many.
   const [workbenchHost, setWorkbenchHost] = useState<HTMLElement | null>(null);
+  const splitDragging = useWorkbenchSplitDrag(workbenchHost);
   useEffect(() => {
     const host = workbenchHost;
     if (!hasWorkbench || !host) return;
@@ -685,14 +690,15 @@ export function ClioAppShell({
         <div
           className={cn(
             'fixed z-50 outline-none',
-            !workbenchShown && 'pointer-events-none invisible',
+            (!workbenchShown || splitDragging) && 'pointer-events-none',
+            !workbenchShown && 'invisible',
           )}
           data-slot="workbench-keeper"
           data-workbench-keeper={desktopWorkbench ? 'section' : 'sheet'}
           inert={!workbenchShown}
           key="workbench-keeper"
           ref={workbenchKeeperRef}
-          style={workbenchSlotBounds}
+          style={desktopWorkbench ? clearOfSplitGrip(workbenchSlotBounds) : workbenchSlotBounds}
           tabIndex={-1}
         >
           {visibleWorkbench}
