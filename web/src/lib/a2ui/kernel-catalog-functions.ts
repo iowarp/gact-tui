@@ -1,9 +1,16 @@
-import { BASIC_FUNCTIONS, OpenUrlApi, createFunctionImplementation } from '@a2ui/web_core/v0_9';
+import {
+  A2uiExpressionError,
+  BASIC_FUNCTIONS,
+  OpenUrlApi,
+  RegexApi,
+  createFunctionImplementation,
+} from '@a2ui/web_core/v0_9';
 import type { FunctionImplementation } from '@a2ui/web_core/v0_9';
 import { checkA2uiUrlScheme } from '@clio/core/v3';
 import { z } from 'zod';
 import type { SelectionState } from '@/components/clio/selection-state';
 import { openExternalUrl } from '@/tauri/external-url';
+import { boundedRegexTest } from './bounded-regex';
 import { activeA2uiOpenArtifactRuntime } from './kernel-runtime';
 import { activeA2uiOpenViewRuntime } from './open-view';
 import { t } from '@lingui/core/macro';
@@ -70,6 +77,29 @@ const openUrlFunction = createFunctionImplementation(OpenUrlApi, (args, context)
       message: error instanceof Error ? error.message : `Could not open ${args.url}.`,
     });
   });
+});
+
+/**
+ * Overrides the Basic catalog's `regex` (`RegexImplementation`, `@a2ui/web_core`),
+ * which runs `new RegExp(pattern).test(value)` with no bound. Checks run when a
+ * component mounts, so a catastrophic model-chosen pattern would block the page
+ * (and again on every replay). `boundedRegexTest` refuses the shapes that backtrack
+ * without bound; a refused pattern fails the check, as a non-match does, and an
+ * invalid one still raises `A2uiExpressionError` like the library's.
+ */
+const regexFunction = createFunctionImplementation(RegexApi, (args) => {
+  let outcome: ReturnType<typeof boundedRegexTest>;
+  try {
+    outcome = boundedRegexTest(args.pattern, args.value);
+  } catch (error) {
+    // i18n-ignore: an expression error names the pattern for the developer console
+    throw new A2uiExpressionError(`Invalid regex pattern: ${args.pattern}`, 'regex', error);
+  }
+  if (!outcome.ok) {
+    console.warn(`A2UI regex check refused: ${outcome.reason}`);
+    return false;
+  }
+  return outcome.matches;
 });
 
 /**
@@ -168,6 +198,7 @@ const openViewFunction = createFunctionImplementation(
 const KERNEL_FUNCTION_LIST: FunctionImplementation[] = [
   ...BASIC_FUNCTIONS,
   openUrlFunction,
+  regexFunction,
   openArtifactFunction,
   selectDataFunction,
   focusWorkflowFunction,

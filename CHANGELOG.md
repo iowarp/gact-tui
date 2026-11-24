@@ -6,6 +6,15 @@ UI aren't tracked.
 
 ## Unreleased
 
+### Fixed
+
+- An A2UI `regex` check no longer runs a pattern that can backtrack without bound
+  (a repeated group holding a `+`/`*` or an alternation, a backreference, more than
+  three unbounded quantifiers) or a pattern or value over 256 characters: the check
+  fails instead. Checks run when a component mounts, so one such pattern from a
+  surface blocked the page, and blocked it again whenever the conversation was
+  reopened.
+
 ### Added
 
 - A conversation a Python script started with `run_flow` (its own work is a flow)
