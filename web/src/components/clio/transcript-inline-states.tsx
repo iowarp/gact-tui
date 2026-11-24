@@ -88,7 +88,7 @@ export function TranscriptLoadError({ error, onRetry }: { error: string; onRetry
 export function TranscriptSyncing() {
   return (
     <StateView
-      className="w-fit rounded-full border border-border bg-background shadow-sm motion-safe:animate-in motion-safe:fade-in-0"
+      className="w-fit rounded-full bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/15 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-100"
       kind="loading"
       size="row"
       title={t`Syncing history…`}
