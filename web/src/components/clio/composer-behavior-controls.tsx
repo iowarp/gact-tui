@@ -93,8 +93,9 @@ interface ClioComposerBehaviorControlsProps {
 }
 
 /**
- * The composer row's behavior controls: confirmation policy and reasoning as bare
- * icons on the left, then the model and the mode, as words, on the right. One menu opens at a
+ * The composer row's behavior controls. Session semantics sit on the left: the confirmation
+ * policy (attention) and the mode (execution), as bare icons. Model semantics sit on the
+ * right: the model as words, then its reasoning effort. One menu opens at a
  * time. Rendered as a fragment so every control sits directly in the composer's
  * single toolbar row.
  */
@@ -169,6 +170,81 @@ export function ClioComposerBehaviorControls({
     { enabled: !disabled },
   );
 
+  const reasoningControl = reasoningLevels.length ? (
+    <DropdownMenu onOpenChange={(open) => setMenuOpen('effort', open)} open={openMenu === 'effort'}>
+      <DropdownMenuTrigger asChild>
+        <IconButton
+          className="aria-expanded:bg-hover"
+          data-tour="reasoning-effort"
+          disabled={disabled}
+          icon={
+            <ReasoningBars
+              filled={
+                unknownEffort || !behavior.reasoning_effort
+                  ? 0
+                  : EFFORT_BARS[behavior.reasoning_effort]
+              }
+            />
+          }
+          label={t`Reasoning effort: ${effortLabel}`}
+          size="toolbar"
+          tooltipSide="top"
+          type="button"
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        className="w-56"
+        collisionPadding={8}
+        onCloseAutoFocus={closeFocus}
+        onEscapeKeyDown={chose}
+        side="top"
+      >
+        <DropdownMenuLabel className={MENU_LABEL}>{t`Reasoning effort`}</DropdownMenuLabel>
+        {unknownEffort ? (
+          <p className="px-2 pb-1.5 text-xs text-muted-foreground">
+            {t`The service reported “${unknownEffort}”, which this build has no setting for. Choose one to send with this message.`}
+          </p>
+        ) : null}
+        <DropdownMenuRadioGroup
+          onValueChange={(value) => {
+            chose();
+            if (value === DEFAULT_EFFORT) {
+              setEffortChosen(true);
+              onChange({ ...behavior, reasoning_effort: undefined });
+              return;
+            }
+            const effort = reasoningLevels.find((candidate) => candidate === value);
+            if (!effort) return;
+            setEffortChosen(true);
+            onChange({ ...behavior, reasoning_effort: effort });
+          }}
+          value={unknownEffort ? '' : (behavior.reasoning_effort ?? DEFAULT_EFFORT)}
+        >
+          <DropdownMenuRadioItem className={MENU_ITEM} value={DEFAULT_EFFORT}>
+            <MenuRow icon={<ReasoningBars filled={0} />} label={defaultEffortLabel} />
+          </DropdownMenuRadioItem>
+          {reasoningLevels.map((value) => (
+            <DropdownMenuRadioItem className={MENU_ITEM} key={value} value={value}>
+              <MenuRow
+                icon={<ReasoningBars filled={EFFORT_BARS[value]} />}
+                label={REASONING_EFFORT_LABELS[value]}
+              />
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : reasoningPending ? (
+    <IconButton
+      disabled
+      icon={<ReasoningBars filled={0} />}
+      label={t`Reasoning effort`}
+      size="toolbar"
+      tooltipSide="top"
+      type="button"
+    />
+  ) : null;
+
   return (
     <>
       <DropdownMenu
@@ -242,83 +318,6 @@ export function ClioComposerBehaviorControls({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      {reasoningLevels.length ? (
-        <DropdownMenu
-          onOpenChange={(open) => setMenuOpen('effort', open)}
-          open={openMenu === 'effort'}
-        >
-          <DropdownMenuTrigger asChild>
-            <IconButton
-              className="aria-expanded:bg-hover"
-              data-tour="reasoning-effort"
-              disabled={disabled}
-              icon={
-                <ReasoningBars
-                  filled={
-                    unknownEffort || !behavior.reasoning_effort
-                      ? 0
-                      : EFFORT_BARS[behavior.reasoning_effort]
-                  }
-                />
-              }
-              label={t`Reasoning effort: ${effortLabel}`}
-              size="toolbar"
-              tooltipSide="top"
-              type="button"
-            />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-56"
-            collisionPadding={8}
-            onCloseAutoFocus={closeFocus}
-            onEscapeKeyDown={chose}
-            side="top"
-          >
-            <DropdownMenuLabel className={MENU_LABEL}>{t`Reasoning effort`}</DropdownMenuLabel>
-            {unknownEffort ? (
-              <p className="px-2 pb-1.5 text-xs text-muted-foreground">
-                {t`The service reported “${unknownEffort}”, which this build has no setting for. Choose one to send with this message.`}
-              </p>
-            ) : null}
-            <DropdownMenuRadioGroup
-              onValueChange={(value) => {
-                chose();
-                if (value === DEFAULT_EFFORT) {
-                  setEffortChosen(true);
-                  onChange({ ...behavior, reasoning_effort: undefined });
-                  return;
-                }
-                const effort = reasoningLevels.find((candidate) => candidate === value);
-                if (!effort) return;
-                setEffortChosen(true);
-                onChange({ ...behavior, reasoning_effort: effort });
-              }}
-              value={unknownEffort ? '' : (behavior.reasoning_effort ?? DEFAULT_EFFORT)}
-            >
-              <DropdownMenuRadioItem className={MENU_ITEM} value={DEFAULT_EFFORT}>
-                <MenuRow icon={<ReasoningBars filled={0} />} label={defaultEffortLabel} />
-              </DropdownMenuRadioItem>
-              {reasoningLevels.map((value) => (
-                <DropdownMenuRadioItem className={MENU_ITEM} key={value} value={value}>
-                  <MenuRow
-                    icon={<ReasoningBars filled={EFFORT_BARS[value]} />}
-                    label={REASONING_EFFORT_LABELS[value]}
-                  />
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : reasoningPending ? (
-        <IconButton
-          disabled
-          icon={<ReasoningBars filled={0} />}
-          label={t`Reasoning effort`}
-          size="toolbar"
-          tooltipSide="top"
-          type="button"
-        />
-      ) : null}
       {/* The mode is an icon with the other behavior controls; its name is the tooltip and
           accessible label, and a mode other than Execute takes the accent colour. */}
       <DropdownMenu onOpenChange={(open) => setMenuOpen('mode', open)} open={openMenu === 'mode'}>
@@ -378,11 +377,13 @@ export function ClioComposerBehaviorControls({
       spotterAvailability?.available
         ? spotterModelControl
         : null}
-      {/* A narrow row has no slack to right-align into: the model stays put after
-          the reasoning control while a wait status appears or the route name loads. */}
+      {/* Session semantics end here; the model and its reasoning follow. A narrow row has
+          no slack to right-align into: the model stays put after the mode while a wait
+          status appears or the route name loads. */}
       <span aria-hidden="true" className="min-w-0 flex-1 @max-[440px]/composer:hidden" />
       {beforeModel}
       {modelControl}
+      {reasoningControl}
       <AlertDialog onOpenChange={setConfirmBypass} open={confirmBypass}>
         <AlertDialogContent
           onCloseAutoFocus={(event) => {
