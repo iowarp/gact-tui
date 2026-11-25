@@ -42,7 +42,7 @@ export function JobCards({
  * What opens the run a call started: its task's record when it ran as a task,
  * otherwise the call itself. Nothing when the surface cannot open either.
  */
-export function useOpenToolRun(toolId: string | undefined): (() => void) | undefined {
+function useOpenToolRun(toolId: string | undefined): (() => void) | undefined {
   const navigation = useContext(PresentationNavigation);
   const live = useLiveStore((state) => (toolId ? state.entities.tools[toolId] : undefined));
   const tool: ToolInvocation | undefined = (toolId && navigation?.tools?.[toolId]) || live;
