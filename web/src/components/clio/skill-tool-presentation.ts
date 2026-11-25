@@ -7,14 +7,31 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
+/** The producer's English action ("Load skill"), in the person's language. */
+function skillAction(action: string | undefined): string | undefined {
+  switch (action?.trim()) {
+    case 'Load skill':
+      return t`Load skill`;
+    case 'Read skill reference':
+      return t`Read skill reference`;
+    case 'Read skill references':
+      return t`Read skill references`;
+    default:
+      return action;
+  }
+}
+
 /** A skill read is named by its skill id ("use-relay"); its description is supporting text. */
 function namedBySkill(tool: ToolInvocation, skillId: string): ToolInvocation {
   const presentation = tool.presentation!;
-  if (!skillId) return tool;
+  const action = skillAction(presentation.action);
+  if (!skillId)
+    return action === presentation.action ? tool : { ...tool, presentation: { ...presentation, action } };
   return {
     ...tool,
     presentation: {
       ...presentation,
+      action,
       blocks: presentation.blocks
         .filter((block) => block.id !== 'skill-identity')
         .map((block) =>
