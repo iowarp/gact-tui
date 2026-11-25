@@ -81,7 +81,8 @@ export function RailRuns({
     const opensConversation = target === 'conversation' || !process || !onOpenRun;
     if (conversation?.child_session_id && opensConversation)
       return onOpenSubagent?.(conversation, target);
-    if (process && onOpenRun) onOpenRun(
+    if (process && onOpenRun)
+      onOpenRun(
         run.entry.key,
         run.row.label,
         process.owner?.session_id ?? process.owner_session_id,

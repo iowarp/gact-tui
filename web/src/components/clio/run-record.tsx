@@ -92,7 +92,10 @@ function RecordLine({
             : 'flex min-h-[30px] min-w-0 items-center gap-2.5 text-foreground/90'
       }
     >
-      <span aria-hidden="true" className="grid size-3.5 shrink-0 place-items-center [&_svg]:size-3.5">
+      <span
+        aria-hidden="true"
+        className="grid size-3.5 shrink-0 place-items-center [&_svg]:size-3.5"
+      >
         {icon}
       </span>
       <span className="min-w-0 flex-1 truncate" title={typeof text === 'string' ? text : undefined}>
@@ -168,8 +171,7 @@ function chunkEntries(chunk: ObservedTaskChunk, key: string): LogEntry[] {
     (part): part is string => typeof part === 'string' && Boolean(part.trim()),
   );
   if (text) entries.push({ key: `${key}:text`, kind: 'output', text });
-  if (!entries.length)
-    entries.push({ key, kind: 'output', text: JSON.stringify(output, null, 2) });
+  if (!entries.length) entries.push({ key, kind: 'output', text: JSON.stringify(output, null, 2) });
   return entries;
 }
 
@@ -226,7 +228,12 @@ function RunLog({ row, live }: { row: RunRow; live: boolean }) {
     enabled: Boolean(sessionId),
     initialPageParam: '',
     queryFn: ({ pageParam, signal }) =>
-      repository.observeTasks(sessionId, [row.handleId], { cursor: pageParam || undefined }, signal),
+      repository.observeTasks(
+        sessionId,
+        [row.handleId],
+        { cursor: pageParam || undefined },
+        signal,
+      ),
     getNextPageParam: (page) =>
       page.tasks[0]?.output_truncated && page.cursor ? page.cursor : undefined,
     refetchInterval: live ? RUN_POLL_MS : false,
@@ -456,7 +463,12 @@ function RunConversation({ row, live }: { row: RunRow; live: boolean }) {
                   </p>
                 ) : null}
                 {used.map((name, index) => (
-                  <RecordLine icon={<WrenchIcon />} key={`${name}:${index}`} text={name} tone="muted" />
+                  <RecordLine
+                    icon={<WrenchIcon />}
+                    key={`${name}:${index}`}
+                    text={name}
+                    tone="muted"
+                  />
                 ))}
               </li>
             );
@@ -545,7 +557,9 @@ export function RunRetry({ row }: { row: RunRow }) {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.key('tasks', settings.endpoint) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.key('run-snapshot', settings.endpoint) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('run-snapshot', settings.endpoint),
+        }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.sessionObservability(settings.endpoint, sessionId),
         }),

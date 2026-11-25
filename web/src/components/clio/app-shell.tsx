@@ -42,7 +42,6 @@ import { useUpdatePane } from './update-page-host';
 import { UpdatePage } from './update-restart-overlay';
 import { HeldKeyBadge, HeldKeysScrim } from './primitives/key-chip';
 import { SPLIT_WORKBENCH_QUERY } from './workbench-shared';
-import { ConversationRailDockContext, dockedRailWidth } from './conversation-rail-dock';
 import { tourAnchor } from '@/lib/onboarding/tour-anchors';
 import { t } from '@lingui/core/macro';
 
@@ -572,32 +571,6 @@ export function ClioAppShell({
     window.addEventListener(OPEN_TERMINAL_EVENT, openTerminalPocket);
     return () => window.removeEventListener(OPEN_TERMINAL_EVENT, openTerminalPocket);
   }, [openTerminalPocket, sheetClosed]);
-  // User-directed: the conversation rail docks beside the conversation while the
-  // pocket is closed, as long as the conversation keeps its minimum width. Under
-  // the spec's 900 px rail rule, or with the pocket open, it floats or hides.
-  const [railHost, setRailHost] = useState<HTMLDivElement | null>(null);
-  const [conversationAreaWidth, setConversationAreaWidth] = useState(0);
-  useEffect(() => {
-    const area = railHost?.parentElement;
-    if (!area) return;
-    const measure = () => setConversationAreaWidth(Math.round(area.getBoundingClientRect().width));
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(area);
-    return () => observer.disconnect();
-  }, [railHost]);
-  const railDock = useMemo(
-    () => ({
-      host: railHost,
-      pocketOpen: workbenchOpen,
-      dockable:
-        desktopWorkbench &&
-        !workbenchOpen &&
-        conversationAreaWidth - dockedRailWidth(currentWindowWidth()) >= MIN_CONVERSATION_WIDTH,
-    }),
-    [conversationAreaWidth, desktopWorkbench, railHost, workbenchOpen],
-  );
-
   const workbenchControl = useMemo(
     () => ({
       show: () => setWorkbenchOpen(true),
@@ -609,53 +582,46 @@ export function ClioAppShell({
   );
 
   const sessionSurface = (
-    <ConversationRailDockContext.Provider value={railDock}>
-      <section
-        className="flex h-full min-w-0 flex-col bg-background"
-        aria-label={t`Conversation workspace`}
-        data-keyboard-region=""
-        data-slot="conversation-surface"
-      >
-        <DesktopWorkspaceToolbar navigation={<TopBarSidebarTrigger />}>
-          {/* The update page brings its own header; the conversation's is stale while it runs. */}
-          <div className="min-w-0 flex-1">
-            {updating ? null : (
-              <TopBarEndHost.Provider value={topBarEnd}>{contextBar}</TopBarEndHost.Provider>
-            )}
-          </div>
-          {/* Each slot sits in its own keyed fragment: the page keys every conversation
+    <section
+      className="flex h-full min-w-0 flex-col bg-background"
+      aria-label={t`Conversation workspace`}
+      data-keyboard-region=""
+      data-slot="conversation-surface"
+    >
+      <DesktopWorkspaceToolbar navigation={<TopBarSidebarTrigger />}>
+        {/* The update page brings its own header; the conversation's is stale while it runs. */}
+        <div className="min-w-0 flex-1">
+          {updating ? null : (
+            <TopBarEndHost.Provider value={topBarEnd}>{contextBar}</TopBarEndHost.Provider>
+          )}
+        </div>
+        {/* Each slot sits in its own keyed fragment: the page keys every conversation
               region by endpoint and conversation, so the two siblings would otherwise
               share one key. */}
-          <Fragment key="status-strip">{updating ? null : statusStrip}</Fragment>
-          <Fragment key="toolbar-actions">{updating ? null : toolbarActions}</Fragment>
-          {hasWorkbench && !updating && (
-            <ToolbarAction
-              label={workbenchOpen ? t`Close workspace canvas` : t`Open workspace canvas`}
-              onClick={toggleWorkbench}
-              shortcut="right-pocket"
-              aria-pressed={workbenchOpen}
-              {...tourAnchor('workbench-lists')}
-            >
-              <PanelRightIcon aria-hidden="true" />
-            </ToolbarAction>
-          )}
-          <div className="flex shrink-0 items-center empty:hidden" ref={setTopBarEnd} />
-        </DesktopWorkspaceToolbar>
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div
-            className="min-h-0 min-w-0 flex-1 overflow-hidden"
-            {...tourAnchor('conversation-area')}
+        <Fragment key="status-strip">{updating ? null : statusStrip}</Fragment>
+        <Fragment key="toolbar-actions">{updating ? null : toolbarActions}</Fragment>
+        {hasWorkbench && !updating && (
+          <ToolbarAction
+            label={workbenchOpen ? t`Close workspace canvas` : t`Open workspace canvas`}
+            onClick={toggleWorkbench}
+            shortcut="right-pocket"
+            aria-pressed={workbenchOpen}
+            {...tourAnchor('workbench-lists')}
           >
-            {updating ? <UpdatePage /> : children}
-          </div>
-          <div
-            className="flex shrink-0 empty:hidden"
-            data-slot="conversation-rail-dock"
-            ref={setRailHost}
-          />
+            <PanelRightIcon aria-hidden="true" />
+          </ToolbarAction>
+        )}
+        <div className="flex shrink-0 items-center empty:hidden" ref={setTopBarEnd} />
+      </DesktopWorkspaceToolbar>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div
+          className="min-h-0 min-w-0 flex-1 overflow-hidden"
+          {...tourAnchor('conversation-area')}
+        >
+          {updating ? <UpdatePage /> : children}
         </div>
-      </section>
-    </ConversationRailDockContext.Provider>
+      </div>
+    </section>
   );
 
   const visibleWorkbench = (

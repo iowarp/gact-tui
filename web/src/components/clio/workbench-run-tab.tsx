@@ -32,8 +32,7 @@ export function WorkbenchRunTab({ tab }: { tab: Extract<WorkbenchTab, { kind: 'r
   const task = useQuery({
     queryKey: queryKeys.key('run-snapshot', settings.endpoint, tab.sessionId, tab.handle),
     queryFn: ({ signal }) => repository.sessionTask(tab.sessionId, tab.handle, signal),
-    refetchInterval: (query) =>
-      query.state.data?.terminal_at ? false : RUN_TAB_POLL_MS,
+    refetchInterval: (query) => (query.state.data?.terminal_at ? false : RUN_TAB_POLL_MS),
     retry: false,
   });
   const row = useMemo(
@@ -80,11 +79,7 @@ export function WorkbenchRunTab({ tab }: { tab: Extract<WorkbenchTab, { kind: 'r
         }
         where={
           <FrameCrumbs
-            parts={
-              conversation?.title
-                ? [{ label: conversation.title }, { label }]
-                : [{ label }]
-            }
+            parts={conversation?.title ? [{ label: conversation.title }, { label }] : [{ label }]}
           />
         }
       />
