@@ -32,6 +32,8 @@ function splitQuestion(text: string, fallback: string | undefined) {
     return { title: plainQuestionText(first), body: rest.join('\n').trim() || undefined };
   const label =
     fallback &&
+    // The core's English "Question" only names the kind; the reader's language says who asks.
+    fallback.trim().toLowerCase() !== 'question' &&
     fallback.trim() !== trimmed &&
     fallback.length <= TITLE_LIMIT &&
     !fallback.includes('\n')

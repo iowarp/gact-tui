@@ -24,6 +24,8 @@ import { trackViewLook } from './mcp-app-look-waiting';
 export const MCP_APP_LOOK_EVENT = 'mcp_app_look';
 /** The request the sandbox document answers itself; it never reaches the view. */
 export const VIEW_SNAPSHOT_METHOD = 'clio/view-snapshot';
+/** The sandbox document's notice that the view's content outgrew its frame: `{height}`. */
+export const VIEW_CONTENT_HEIGHT_METHOD = 'clio/notifications/view-content-height';
 
 export type McpAppLookClient = Pick<ClioRepository, 'setMcpAppShown' | 'postMcpAppLook'>;
 

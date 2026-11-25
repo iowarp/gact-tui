@@ -177,8 +177,16 @@ function pickerOptions(column: Column, offered?: readonly string[]): PickerOptio
   }));
 }
 
-function ColumnTitle({ column }: { column: Column }) {
-  if (!column.help) return <span className="min-w-0 truncate">{column.title}</span>;
+/** A cell's hover text, naming a default in words as well as by its D (#20). */
+function cellTitle(label: string, isDefault: boolean, description?: string): string {
+  const named = isDefault ? t`${ph({ label })} (default; choose a value to override it)` : label;
+  return description ? `${named}: ${description}` : named;
+}
+
+/** A column title; its tooltip holds the column's help and, where rows inherit it, what D means. */
+function ColumnTitle({ column, marksDefaults }: { column: Column; marksDefaults: boolean }) {
+  const legend = marksDefaults ? t`D marks a default value. Choose a value to override it.` : '';
+  if (!column.help && !legend) return <span className="min-w-0 truncate">{column.title}</span>;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -189,7 +197,10 @@ function ColumnTitle({ column }: { column: Column }) {
           {column.title}
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-80">{column.help}</TooltipContent>
+      <TooltipContent className="grid max-w-80 gap-1">
+        {column.help ? <span>{column.help}</span> : null}
+        {legend ? <span>{legend}</span> : null}
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -269,7 +280,7 @@ function WideCells({
         options={pickerOptions(column, options?.[column.id])}
         search={t`${ph({ column: column.title })} for ${ph({ name })}`}
         selected={current?.value}
-        title={current?.description ? `${label}: ${current.description}` : label}
+        title={cellTitle(label, isDefault, current?.description)}
       />
     );
   });
@@ -299,7 +310,7 @@ function FoldedValues({
         key={column.id}
         label={current?.label ?? t`Not set`}
         markBeside
-        title={`${column.title}: ${current?.label ?? t`Not set`}`}
+        title={`${column.title}: ${cellTitle(current?.label ?? t`Not set`, isDefault)}`}
       />
     );
   });
@@ -699,7 +710,11 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
             </span>
             <span className="min-w-0 truncate">{props.label}</span>
             {columns.map((entry) => (
-              <ColumnTitle column={entry} key={entry.id} />
+              <ColumnTitle
+                column={entry}
+                key={entry.id}
+                marksDefaults={inheritable.has(entry.id)}
+              />
             ))}
             <span />
           </div>

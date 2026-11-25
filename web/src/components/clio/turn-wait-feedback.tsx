@@ -76,9 +76,11 @@ export function ClioTurnWaitFeedback({
 }
 
 const THINKING_ICON = <BrainIcon aria-hidden="true" />;
-const WAITING_STATUS = (
-  <StatusIndicator tone="running" label={t`Waiting for response`} display="column" mark="glyph" />
-);
+function waitingStatus() {
+  return (
+    <StatusIndicator tone="running" label={t`Waiting for response`} display="column" mark="glyph" />
+  );
+}
 
 /**
  * The live row while the model has said nothing yet: "Thinking…", its time, a spinner.
@@ -102,16 +104,21 @@ const ResponseWait = memo(function ResponseWait() {
         data-slot="turn-response-wait-reserve"
         style={{ visibility: 'hidden' }}
       >
-        <ActivityRow icon={THINKING_ICON} name="Thinking…" elapsed="0s" status={WAITING_STATUS} />
+        <ActivityRow
+          icon={THINKING_ICON}
+          name={t`Thinking…`}
+          elapsed="0s"
+          status={waitingStatus()}
+        />
       </div>
     );
   return (
     <div role="status" data-slot="turn-response-wait">
       <ActivityRow
         icon={THINKING_ICON}
-        name="Thinking…"
+        name={t`Thinking…`}
         elapsed={<ResponseWaitElapsed started={started} />}
-        status={WAITING_STATUS}
+        status={waitingStatus()}
       />
     </div>
   );

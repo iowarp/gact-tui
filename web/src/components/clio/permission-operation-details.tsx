@@ -119,16 +119,15 @@ function permissionOperation(
   const folder = isWebRequest ? '' : cwd;
   const fact = (label: string, icon: ReactNode, value: string, mono = false): AskFact[] =>
     value ? [{ label, icon, value, mono }] : [];
+  const reason =
+    access?.reason ||
+    text('reason') ||
+    text('access_reason') ||
+    text('_clio_task_description') ||
+    (interaction.prompt && interaction.prompt !== interaction.title ? interaction.prompt : '');
   const facts: AskFact[] = [
-    ...fact(
-      t`Why`,
-      <InfoIcon />,
-      access?.reason ||
-        text('reason') ||
-        text('access_reason') ||
-        text('_clio_task_description') ||
-        (interaction.prompt && interaction.prompt !== interaction.title ? interaction.prompt : ''),
-    ),
+    // Why it is asked is part of what the person consents to: it wraps, never cut.
+    ...(reason ? [{ label: t`Why`, icon: <InfoIcon />, value: reason, wrap: true }] : []),
     // A raw tool id is already the header's mono name; only a plain label adds a row.
     ...(action && action !== title && action !== (call?.tool_name ?? interaction.source.tool_name)
       ? fact(t`Action`, <ZapIcon />, action)

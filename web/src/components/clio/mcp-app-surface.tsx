@@ -45,6 +45,7 @@ import {
   McpAppLooks,
   registerViewSnapshot,
   snapshotAnswer,
+  VIEW_CONTENT_HEIGHT_METHOD,
   VIEW_SNAPSHOT_METHOD,
   type TakeSnapshot,
 } from './mcp-app-look';
@@ -411,6 +412,14 @@ const McpAppSurfaceInstance = forwardRef<
         }
         // A view that resizes itself has often just drawn its first frame.
         firstPaint?.recheck();
+        return;
+      }
+      if (message.method === VIEW_CONTENT_HEIGHT_METHOD) {
+        // CLIO's sandbox saw the view's content outgrow its frame (#70): grow, never cut.
+        const height = message.params?.height;
+        if (typeof height === 'number' && Number.isFinite(height)) {
+          setRequestedHeight((current) => Math.max(current, Math.ceil(height)));
+        }
         return;
       }
       if (message.method === 'notifications/message') return;

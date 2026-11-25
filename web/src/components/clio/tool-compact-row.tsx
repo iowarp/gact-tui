@@ -121,7 +121,11 @@ export function ToolCompactRow({
             <Button
               variant="link"
               // A block of its own, so a long target ends in … instead of being cut mid-glyph.
-              className="inline-block h-auto min-w-0 max-w-full truncate p-0 align-bottom text-menu font-medium text-accent-foreground underline decoration-primary/45 underline-offset-[3px]"
+              // It opens the run, yet reads as the argument it is, like every other row's.
+              className={cn(
+                'inline-block h-auto min-w-0 max-w-full truncate p-0 align-bottom font-normal',
+                ARGUMENT_CLASS,
+              )}
               onClick={onOpenFlow}
             >
               {subject.label || subject.text}

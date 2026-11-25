@@ -42,7 +42,7 @@ export function TranscriptTaskRow({ task, id }: { task?: Task; id: string }) {
           />
         }
         icon={<ListChecksIcon aria-hidden="true" />}
-        name="Task"
+        name={t`Task`}
         argument={title}
         argumentTitle={title}
         outcome={outcome}

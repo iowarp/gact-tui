@@ -425,6 +425,11 @@ msgstr "{0, plural, one {# modelo} other {# modelos}}"
 msgid "{0, plural, one {# more note} other {# more notes}}"
 msgstr "{0, plural, one {# nota más} other {# notas más}}"
 
+#. placeholder {0}: unstaged.length
+#: src/components/clio/structured-result-reading.ts
+msgid "{0, plural, one {# more package can be staged: {list}} other {# more packages can be staged: {list}}}"
+msgstr "{0, plural, one {# paquete más se puede preparar: {list}} other {# paquetes más se pueden preparar: {list}}}"
+
 #. placeholder {0}: hidden.length
 #: src/components/clio/workbench-tab-row.tsx
 msgid "{0, plural, one {# more tab} other {# more tabs}}"
@@ -1704,6 +1709,10 @@ msgstr "{count, plural, one {# conversación antigua se contabiliza en el modelo
 msgid "{count, plural, one {# organization} other {# organizations}}"
 msgstr "{count, plural, one {# organización} other {# organizaciones}}"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "{count, plural, one {# package is staged: {list}} other {# packages are staged: {list}}}"
+msgstr "{count, plural, one {# paquete está preparado: {list}} other {# paquetes están preparados: {list}}}"
+
 #: src/lib/scientific-document.ts
 msgid "{count, plural, one {# page} other {# pages}}"
 msgstr "{count, plural, one {# página} other {# páginas}}"
@@ -1869,6 +1878,7 @@ msgid "{count} in parallel"
 msgstr "{count} en paralelo"
 
 #: src/components/clio/primitives/nav-tabs.tsx
+#: src/components/clio/structured-result-reading.ts
 msgid "{count} more"
 msgstr "{count} más"
 
@@ -2395,6 +2405,7 @@ msgstr "{km} km, {level}: {value}"
 msgid "{label} — refreshing"
 msgstr "{label} — actualizando"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-tools-options.ts
 msgid "{label} (default; choose a value to override it)"
 msgstr "{label} (predeterminado; elige un valor para sustituirlo)"
@@ -2699,6 +2710,10 @@ msgstr "{lines, plural, one {# línea} other {# líneas}}"
 #: src/components/clio/permission-response.tsx
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python, # línea} other {Python, # líneas}}"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "{list} and {count} more"
+msgstr "{list} y {count} más"
 
 #. A short list, its last item
 #: src/lib/locale-format.ts
@@ -7460,6 +7475,7 @@ msgid "Attaching…"
 msgstr "Adjuntando…"
 
 #: src/components/ai-elements/attachments.tsx
+#: src/components/clio/composer-attachments.tsx
 #: src/components/clio/question-answer-presentation.ts
 msgid "Attachment"
 msgstr "Adjunto"
@@ -10365,6 +10381,10 @@ msgstr "Contraer {group}"
 msgid "Collapse {label}"
 msgstr "Contraer {label}"
 
+#: src/components/clio/conversation-summarization.tsx
+msgid "Collapse {name}"
+msgstr "Contraer {name}"
+
 #: src/components/clio/ask-answered-row.tsx
 msgid "Collapse {verb}"
 msgstr "Contraer {verb}"
@@ -13040,6 +13060,7 @@ msgstr "Cortar a lo largo de {axis}"
 msgid "Cut short"
 msgstr "Recortado"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-tools-picker.tsx
 msgid "D marks a default value. Choose a value to override it."
 msgstr "D marca un valor predeterminado. Elige un valor para sustituirlo."
@@ -13425,6 +13446,10 @@ msgstr "¿Eliminar {title}?"
 #: src/components/clio/archived-sessions-dialog.tsx
 msgid "Delete conversation?"
 msgstr "¿Eliminar la conversación?"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Delete files"
+msgstr "Eliminar archivos"
 
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Delete memory?"
@@ -14242,6 +14267,10 @@ msgstr "La descarga falló, {amount}"
 #: src/components/clio/image-resource-view.tsx
 msgid "Download file"
 msgstr "Descargar archivo"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Download files"
+msgstr "Descargar archivos"
 
 #: src/components/clio/connected-source-detail.tsx
 msgid "Download folder"
@@ -15296,6 +15325,10 @@ msgstr "cada {interval}"
 msgid "Every agent carries the core plugin. It cannot be removed."
 msgstr "Todos los agentes llevan el complemento principal. No se puede quitar."
 
+#: src/components/clio/structured-result-reading.ts
+msgid "Every available package is staged."
+msgstr "Todos los paquetes disponibles están preparados."
+
 #: src/lib/onboarding/tour-script.ts
 msgid "Every command, file edit and search gets its own row."
 msgstr "Cada comando, edición de archivo y búsqueda tiene su propia fila."
@@ -15564,6 +15597,10 @@ msgstr "Expandir {group}"
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "Expandir {label}"
+
+#: src/components/clio/conversation-summarization.tsx
+msgid "Expand {name}"
+msgstr "Expandir {name}"
 
 #: src/components/clio/ask-answered-row.tsx
 msgid "Expand {verb}"
@@ -17975,6 +18012,7 @@ msgstr "Trayectorias de huracanes"
 msgid "Hypothesis"
 msgstr "Hipótesis"
 
+#: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-group-row.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
@@ -17985,6 +18023,7 @@ msgstr "E/S"
 msgid "I/O for {group}"
 msgstr "E/S de {group}"
 
+#: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "I/O for {name}"
 msgstr "E/S de {name}"
@@ -18863,6 +18902,10 @@ msgstr "Instala un servicio o conecta uno que ya ejecutes."
 #: src/components/clio/managed-services.tsx
 msgid "Install completed. View logs for the server output."
 msgstr "Instalación completada. Consulta los registros para ver la salida del servidor."
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Install packages"
+msgstr "Instalar paquetes"
 
 #: src/components/clio/service-management-model.ts
 msgid "Install prepares the pinned environment. Start loads the model. Removal retains models and evidence."
@@ -20117,9 +20160,17 @@ msgctxt "verb: tool action"
 msgid "List"
 msgstr "Listar"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "List files"
+msgstr "Listar archivos"
+
 #: src/components/clio/context-composition-model.ts
 msgid "List heading and closing line"
 msgstr "Encabezado y línea final de la lista"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "List packages"
+msgstr "Listar paquetes"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "List schedules"
@@ -22337,6 +22388,10 @@ msgstr "Más acciones del servicio"
 msgid "More types"
 msgstr "Más tipos"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "More values are in Technical details."
+msgstr "Hay más valores en Detalles técnicos."
+
 #: src/components/clio/managed-services.tsx
 msgid "More ways to add a service"
 msgstr "Más formas de añadir un servicio"
@@ -23002,6 +23057,10 @@ msgstr "Grupo siguiente, anterior"
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "Next, previous region"
 msgstr "Región siguiente, anterior"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "no"
+msgstr "no"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
@@ -23747,6 +23806,10 @@ msgstr "Ningún paquete aporta subagentes."
 #: src/components/clio/agent-package-items.ts
 msgid "No package brings tools."
 msgstr "Ningún paquete aporta herramientas."
+
+#: src/components/clio/structured-result-reading.ts
+msgid "No packages are staged."
+msgstr "No hay paquetes preparados."
 
 #: src/components/clio/settings-web-search.tsx
 msgid "No paper or dataset sources are available on this service."
@@ -24923,6 +24986,7 @@ msgid "now"
 msgstr "ahora"
 
 #: src/components/clio/activity-timeline-list.tsx
+#: src/components/clio/relative-time.tsx
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/workbench-activity-model.ts
 #: src/components/reui/time-picker.tsx
@@ -28115,6 +28179,7 @@ msgstr "Consultar servicio"
 msgid "question"
 msgstr "pregunta"
 
+#: src/components/clio/agent-answer-activity.tsx
 #: src/components/clio/agent-answer-domain.ts
 #: src/components/clio/pending-interactions.tsx
 #: src/components/clio/question-answer-reader.tsx
@@ -28509,6 +28574,10 @@ msgstr "Leer archivo"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "read files"
 msgstr "leyó archivos"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Read files"
+msgstr "Leer archivos"
 
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "Read from its code."
@@ -28956,6 +29025,10 @@ msgstr "Respuestas recientes"
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Recent session excerpts"
 msgstr "Extractos recientes de la sesión"
+
+#: src/components/clio/conversation-summarization.tsx
+msgid "Recent turns kept verbatim"
+msgstr "Turnos recientes conservados literalmente"
 
 #: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/question-choice-card.tsx
@@ -29782,6 +29855,10 @@ msgstr "Eliminar mensajes posteriores"
 msgid "Remove message"
 msgstr "Quitar mensaje"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Remove packages"
+msgstr "Quitar paquetes"
+
 #: src/components/clio/workspace-resource-remove.tsx
 msgid "Remove resource"
 msgstr "Quitar recurso"
@@ -29878,6 +29955,10 @@ msgstr "Quitado (selecciona para volver a añadirlo)"
 #: src/hooks/use-saved-mcp-services.ts
 msgid "Removed {name}"
 msgstr "Se quitó {name}"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "Removed {packages}."
+msgstr "Se quitó {packages}."
 
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "Removed by you"
@@ -30245,6 +30326,10 @@ msgstr "Solicitar cambios"
 #: src/components/clio/permission-request-text.ts
 msgid "Request expired"
 msgstr "Solicitud caducada"
+
+#: src/components/clio/tool-result-presentation.tsx
+msgid "Request failed"
+msgstr "La solicitud falló"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Request headers"
@@ -35079,6 +35164,18 @@ msgstr "SSH empieza en el {agent} conectado. Añade saltos para llegar al equipo
 msgid "SSH: {words}"
 msgstr "SSH: {words}"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Stage files"
+msgstr "Preparar archivos"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Stage packages"
+msgstr "Preparar paquetes"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "Staged {package}."
+msgstr "Se preparó {package}."
+
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/model-inventory-row.tsx
 msgid "Stale"
@@ -36115,6 +36212,7 @@ msgstr "Resume el contexto antiguo antes de que se llene la ventana."
 msgid "Summarizing earlier messages…"
 msgstr "Resumiendo mensajes anteriores…"
 
+#: src/components/clio/conversation-summarization.tsx
 #: src/components/clio/infrastructure-activity-row.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/widget-gallery-demos.ts
@@ -36308,6 +36406,7 @@ msgid "System note"
 msgstr "Nota del sistema"
 
 #: src/components/clio/context-composition-model.ts
+#: src/components/clio/conversation-summarization.tsx
 msgid "System prompt"
 msgstr "Instrucción del sistema"
 
@@ -36937,6 +37036,10 @@ msgstr "El navegador bloqueó este enlace. No se ha aceptado."
 #: src/components/clio/settings-schema-copy.ts
 msgid "The browser that shows the pages the agent opens. A separate browser keeps its own sign-ins; your running Chrome or Edge has yours."
 msgstr "El navegador que muestra las páginas que abre el agente. Un navegador independiente guarda sus propios inicios de sesión; tu Chrome o Edge abierto tiene los tuyos."
+
+#: src/components/clio/structured-result-reading.ts
+msgid "The call returned no values to show. Technical details has the exact result."
+msgstr "La llamada no devolvió valores que mostrar. Detalles técnicos tiene el resultado exacto."
 
 #: src/components/clio/science-log-sources.tsx
 msgid "The call's record is not available: {message}"
@@ -38772,6 +38875,7 @@ msgid "Thinking..."
 msgstr "Pensando..."
 
 #: src/components/clio/transcript-reasoning-passage.tsx
+#: src/components/clio/turn-wait-feedback.tsx
 msgid "Thinking…"
 msgstr "Pensando…"
 
@@ -41357,6 +41461,7 @@ msgid "Upload failed"
 msgstr "La subida falló"
 
 #: src/components/ai-elements/prompt-input.tsx
+#: src/components/clio/permission-operation-labels.ts
 msgid "Upload files"
 msgstr "Subir archivos"
 
@@ -43224,6 +43329,10 @@ msgstr "Herramientas de escritura y eliminación"
 msgid "Write file"
 msgstr "Escribir archivo"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Write files"
+msgstr "Escribir archivos"
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "Write what should change in {label} first"
 msgstr "Primero escribe qué debería cambiar en {label}"
@@ -43289,6 +43398,10 @@ msgstr "x {xRange}, y {yRange}"
 #: src/components/reui/date-selector.tsx
 msgid "Year"
 msgstr "Año"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "yes"
+msgstr "sí"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
@@ -43403,6 +43516,7 @@ msgid "You chose to continue"
 msgstr "Elegiste continuar"
 
 #: src/components/clio/agent-answer-activity.tsx
+#: src/components/clio/tool-result-presentation.tsx
 msgid "You declined"
 msgstr "Rechazaste"
 

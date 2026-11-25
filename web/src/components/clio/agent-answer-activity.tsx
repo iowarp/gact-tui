@@ -316,7 +316,7 @@ function HumanQuestionActivity({
         argument={prompt}
         argumentTitle={prompt}
         icon={<MessageCircleQuestionIcon aria-hidden="true" />}
-        name={isMcp ? requestLabel : 'Question'}
+        name={isMcp ? requestLabel : t`Question`}
         outcome={<WaitingForYou interaction={interaction} />}
         outcomeTone="warning"
         status={

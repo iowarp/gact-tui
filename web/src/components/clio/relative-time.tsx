@@ -107,15 +107,24 @@ function subscribeClock(listener: () => void): () => void {
   };
 }
 
+function compactUnit(value: number, unit: 'minute' | 'hour'): string {
+  return new Intl.NumberFormat(formatLocale(), {
+    style: 'unit',
+    unit,
+    unitDisplay: 'narrow',
+  }).format(value);
+}
+
 function compactTimestamp(time: Date, nowMs: number): string {
   const now = new Date(nowMs);
   const elapsedMilliseconds = Math.max(0, now.getTime() - time.getTime());
   const elapsedMinutes = Math.floor(elapsedMilliseconds / 60_000);
-  if (elapsedMinutes < 1) return 'Now';
-  if (elapsedMinutes < 60) return `${elapsedMinutes}m`;
+  if (elapsedMinutes < 1) return t`Now`;
+  // The reader's language abbreviates the unit: "11m" in English, "11 λ" in Greek.
+  if (elapsedMinutes < 60) return compactUnit(elapsedMinutes, 'minute');
 
   const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `${elapsedHours}h`;
+  if (elapsedHours < 24) return compactUnit(elapsedHours, 'hour');
 
   // Within the past week the spec names the weekday; calendar days keep last week's
   // same weekday from reading as today.

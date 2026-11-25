@@ -133,7 +133,7 @@ function CompactionRecord({ block }: { block: SummarizationBlock }) {
       <CompactionSection
         id={`${block.id}:system`}
         icon={<ScrollTextIcon aria-hidden="true" />}
-        name="System prompt"
+        name={t`System prompt`}
         absent={t`Not recorded`}
         absentTitle={t`The agent had not recorded its system prompt when this compaction ran`}
       >
@@ -147,7 +147,7 @@ function CompactionRecord({ block }: { block: SummarizationBlock }) {
         id={`${block.id}:summary`}
         icon={<PackageIcon aria-hidden="true" />}
         initiallyOpen
-        name="Summary"
+        name={t`Summary`}
         framed={false}
       >
         <div className="min-w-0 break-words text-sm" data-slot="compaction-summary">
@@ -157,7 +157,7 @@ function CompactionRecord({ block }: { block: SummarizationBlock }) {
       <CompactionSection
         id={`${block.id}:kept`}
         icon={<MessagesSquareIcon aria-hidden="true" />}
-        name="Recent turns kept verbatim"
+        name={t`Recent turns kept verbatim`}
         meta={keptIds.length ? countLabel(keptIds.length) : undefined}
         absent={keptSent ? t({ message: 'None', context: 'nothing kept' }) : t`Not recorded`}
         absentTitle={
@@ -203,7 +203,7 @@ function CompactionSection({
         disclosure={
           <ActivityDisclosure
             disabled={!available}
-            label={`${open ? 'Collapse' : 'Expand'} ${name}`}
+            label={open ? t`Collapse ${name}` : t`Expand ${name}`}
             open={available && open}
             onClick={() => setOpen(!open)}
           />

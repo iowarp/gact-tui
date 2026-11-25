@@ -298,7 +298,7 @@ export function PermissionResponse({
           label={t`Script`}
           language="python"
           meta={plural(scriptLines, { one: 'Python, # line', other: 'Python, # lines' })}
-          name="Script"
+          name={t`Script`}
           onOpen={
             onOpenScript && scriptCallId ? () => onOpenScript(interaction, scriptCallId) : undefined
           }
@@ -368,7 +368,7 @@ export function PermissionResponse({
                 copyLabel={t`Copy arguments`}
                 label={t`Arguments`}
                 language="json"
-                name="Arguments"
+                name={t`Arguments`}
                 previewLines={12}
               />
             )}

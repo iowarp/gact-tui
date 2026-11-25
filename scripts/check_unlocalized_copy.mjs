@@ -292,7 +292,8 @@ function nonCopyContext(node) {
     }
     if (ts.isJsxAttribute(parent)) {
       const name = parent.name.getText();
-      if (NON_COPY_ATTRIBUTES.has(name) || name.startsWith('data-')) return 'not copy';
+      if (name.startsWith('data-')) return 'not copy';
+      if (NON_COPY_ATTRIBUTES.has(name) && !componentDisplayAttribute(parent)) return 'not copy';
       return undefined;
     }
     if (ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name)) {
@@ -330,6 +331,21 @@ function nonCopyContext(node) {
   return undefined;
 }
 
+/**
+ * Attributes that are technical on an HTML element but name what a person reads
+ * on a component: `<ActivityRow name="Thinking…" />` is the row's visible label.
+ */
+const COMPONENT_DISPLAY_ATTRIBUTES = new Set(['name', 'status', 'state']);
+
+function componentDisplayAttribute(attribute) {
+  if (!COMPONENT_DISPLAY_ATTRIBUTES.has(attribute.name.getText())) return false;
+  const element = attribute.parent?.parent;
+  if (!element || !(ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)))
+    return false;
+  const tag = element.tagName.getText();
+  return /^[A-Z]/u.test(tag) || tag.includes('.');
+}
+
 /** The property a literal is the value of (`label: 'Save'`), if any. */
 function owningProperty(node) {
   let current = node;
@@ -343,10 +359,20 @@ function owningProperty(node) {
 
 function attributeName(node) {
   // Through any nesting of conditionals and `??`/`||` to the attribute it lands in.
+  const attribute = attributeSite(node);
+  return attribute ? attribute.name.getText() : undefined;
+}
+
+function attributeSite(node) {
   const site = valueSite(node);
   let current = site.parent;
   if (current && ts.isJsxExpression(current)) current = current.parent;
-  return current && ts.isJsxAttribute(current) ? current.name.getText() : undefined;
+  return current && ts.isJsxAttribute(current) ? current : undefined;
+}
+
+function componentAttributeSite(node) {
+  const attribute = attributeSite(node);
+  return Boolean(attribute && componentDisplayAttribute(attribute));
 }
 
 function ignoredLines(source) {
@@ -411,9 +437,11 @@ export function isCopyLiteral(node) {
     const copyAttribute =
       COPY_ATTRIBUTES.has(attribute) ||
       /label|title|text|description|placeholder|message|heading/iu.test(attribute);
-    return copyAttribute
-      ? !looksLikeIdentifier(text) || singleCapitalizedWord(text)
-      : readsAsProse(text);
+    if (copyAttribute) return !looksLikeIdentifier(text) || singleCapitalizedWord(text);
+    // A component's display name: anything that isn't shaped like an identifier.
+    if (COMPONENT_DISPLAY_ATTRIBUTES.has(attribute) && componentAttributeSite(node))
+      return readsAsProse(text) || !looksLikeIdentifier(text.trim()) || singleCapitalizedWord(text);
+    return readsAsProse(text);
   }
   if (readsAsProse(text)) return true;
   if (ts.isTemplateExpression(node) && templateReadsAsCopy(node)) return true;
@@ -629,7 +657,9 @@ function returnedAsLabel(node) {
       }
       return Boolean(
         name &&
-          /(?:label|title|text|word|heading|caption|summary|message|noun|verb|name)s?$/iu.test(name),
+          /(?:label|title|text|word|heading|caption|summary|message|noun|verb|name)s?$/iu.test(
+            name,
+          ),
       );
     }
   }
