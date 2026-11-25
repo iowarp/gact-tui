@@ -18,6 +18,7 @@ type Navigation = Pick<
   | 'onOpenWebPage'
   | 'onOpenSubagent'
   | 'onOpenFlow'
+  | 'onOpenRun'
 > &
   Partial<
     Pick<
@@ -67,6 +68,7 @@ export function usePresentationNavigation({
   onOpenFileReference,
   onOpenFlow,
   onOpenFolder,
+  onOpenRun,
   onOpenResource,
   onOpenSubagent,
   onOpenTasks,
@@ -90,6 +92,7 @@ export function usePresentationNavigation({
       onOpenFileReference,
       onOpenFlow,
       onOpenFolder,
+      onOpenRun,
       onOpenResource,
       onOpenSubagent,
       onOpenTasks,
@@ -112,6 +115,7 @@ export function usePresentationNavigation({
       onOpenFileReference,
       onOpenFlow,
       onOpenFolder,
+      onOpenRun,
       onOpenResource,
       onOpenSubagent,
       onOpenTasks,

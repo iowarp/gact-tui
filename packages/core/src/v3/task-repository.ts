@@ -123,6 +123,46 @@ const coordinationGrant = z.object({
   revoked_at: z.string().nullish(),
 });
 
+/** One recorded output chunk of a task, as the observation route pages it. */
+const observedChunkSchema = z
+  .object({
+    chunk_id: z.union([z.string(), z.number()]).optional(),
+    offset: z.number().optional(),
+    next_offset: z.number().nullish(),
+    output: z.unknown().optional(),
+    fragment: z.boolean().optional(),
+    serialization: z.string().optional(),
+    error: z.string().optional(),
+  })
+  .passthrough();
+
+/**
+ * One task's row in an observation: its access view with the output read so far
+ * (`progress`) or its conversation items (`transcript`, `summary`), or an error.
+ */
+const observedTaskSchema = z
+  .object({
+    handle: z.string(),
+    error: z.unknown().optional(),
+    output: z.array(observedChunkSchema).optional(),
+    output_truncated: z.boolean().optional(),
+    items: z.array(z.record(z.string(), z.unknown())).optional(),
+    has_more: z.boolean().nullish(),
+  })
+  .passthrough();
+
+const taskObservationSchema = z
+  .object({
+    tasks: z.array(observedTaskSchema),
+    cursor: z.string().nullish(),
+    has_more: z.boolean().optional(),
+  })
+  .passthrough();
+
+export type ObservedTaskChunk = z.infer<typeof observedChunkSchema>;
+export type ObservedTask = z.infer<typeof observedTaskSchema>;
+export type TaskObservation = z.infer<typeof taskObservationSchema>;
+
 export type SessionCoordinationGrant = z.infer<typeof coordinationGrant>;
 export type SessionCoordinationRight = SessionCoordinationGrant['rights'][number];
 
@@ -365,5 +405,37 @@ export class TaskRepository extends MemoryRepository {
       signal,
     });
     return result.moved;
+  }
+
+  /**
+   * Reads what tasks recorded, without waiting or subscribing: `progress` pages
+   * their output newest chunk first (pass the returned cursor for older ones);
+   * `transcript` and `summary` read the conversation a delegated task held.
+   * Reading acknowledges nothing the agent has yet to collect.
+   */
+  public observeTasks(
+    sessionId: string,
+    handles: string[],
+    options: {
+      cursor?: string;
+      view?: 'progress' | 'transcript' | 'summary';
+      history?: 'assignment' | 'session';
+      limit?: number;
+    } = {},
+    signal?: AbortSignal,
+  ): Promise<TaskObservation> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tasks/observe`,
+      body: {
+        tasks: handles,
+        view: options.view ?? 'progress',
+        history: options.history ?? 'assignment',
+        limit: options.limit ?? 50,
+        ...(options.cursor ? { cursor: options.cursor } : {}),
+      },
+      decode: (value) => taskObservationSchema.parse(value),
+      signal,
+    });
   }
 }

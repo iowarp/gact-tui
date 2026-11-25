@@ -77,7 +77,7 @@ export function WorkspaceTranscript({
   history: Pick<ReturnType<typeof useSessionHistoryActions>, 'fork' | 'rewind'>;
   navigation: Pick<
     ReturnType<typeof useWorkbenchNavigation>,
-    'conversationNavigation' | 'openFlow' | 'openSubagent' | 'revealWorkbench'
+    'conversationNavigation' | 'openFlow' | 'openRun' | 'openSubagent' | 'revealWorkbench'
   >;
   attention: ReturnType<typeof useAttentionMode>;
   resources: ReturnType<typeof useWorkspaceResourceMap>;
@@ -172,6 +172,7 @@ export function WorkspaceTranscript({
                 onForkFromMessage={canForkSession(session) ? history.fork.mutateAsync : undefined}
                 onOpenSubagent={navigation.openSubagent}
                 onOpenFlow={navigation.openFlow}
+                onOpenRun={navigation.openRun}
                 onRewindToMessage={history.rewind.mutateAsync}
                 onRetryMessage={retry.mutateAsync}
                 cancellablePendingMessageIds={cancellablePendingMessageIds}

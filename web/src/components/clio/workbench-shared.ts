@@ -100,6 +100,15 @@ type WorkbenchTabKind =
       sessionId: string;
       workspaceId: string;
     }
+  /** One run (a task the conversation started) with its log, questions and job. */
+  | {
+      id: string;
+      kind: 'run';
+      label: string;
+      handle: string;
+      sessionId: string;
+      workspaceId: string;
+    }
   | {
       id: string;
       kind: 'terminal';

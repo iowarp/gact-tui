@@ -75,7 +75,7 @@ export function SessionRailContent({
     ),
     backgroundProcesses: evidence.processes,
   }).map((item) =>
-    // The rail lists runs in the Runs page row; older ones are under All runs.
+    // Running lists what runs now, in the Runs page row; every run is in Runs in the left bar.
     // Only Running opens by default; every other row waits to be asked for.
     item.id === 'running'
       ? {
@@ -86,8 +86,8 @@ export function SessionRailContent({
               subagents={evidence.subagents}
               onOpenSubagent={evidence.onOpenSubagent}
               onOpenFlow={evidence.onOpenFlow}
+              onOpenRun={evidence.onOpenRun}
               onCancelTask={evidence.onCancelTask}
-              onControlTask={evidence.onControlTask}
             />
           ),
         }

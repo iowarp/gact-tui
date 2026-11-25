@@ -23,6 +23,7 @@ import { resourceDisplayName } from './host-folder';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { AgentCompositionView } from './agent-composition-view';
 import { WorkbenchFlowTab } from './workbench-flow-tab';
+import { WorkbenchRunTab } from './workbench-run-tab';
 import { WorkbenchVariantTryTab } from './workbench-variant-try-tab';
 import { deferredComponent } from '@/lib/deferred-chunk';
 import { ArtifactBrowser, FileBrowser } from './workbench-resource-browser';
@@ -382,6 +383,8 @@ export function WorkbenchTabContent({
       );
     case 'flow':
       return <WorkbenchFlowTab onOpenSubagent={onOpenSubagent} tab={tab} />;
+    case 'run':
+      return <WorkbenchRunTab tab={tab} />;
     case 'terminal':
       return <WorkspaceTerminalPanel cwd={tab.cwd} sessionId={tab.sessionId} tabId={tab.id} />;
     case 'browser':

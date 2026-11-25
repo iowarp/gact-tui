@@ -20,6 +20,8 @@ export interface SessionEvidenceActions {
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   /** Open a flow run's view: a task that runs a flow opens its run, not a chat. */
   onOpenFlow?: (handle: string, title: string) => void;
+  /** Open a run's record (log, questions, job) beside the conversation. */
+  onOpenRun?: (handle: string, title: string, sessionId?: string) => void;
   onOpenWork?: () => void;
   onOpenActivity?: () => void;
 }

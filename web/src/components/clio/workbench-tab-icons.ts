@@ -39,6 +39,7 @@ export const workbenchTabIcons = {
   resource: PaperclipIcon,
   subagent: BotIcon,
   flow: WorkflowIcon,
+  run: ActivityIcon,
   terminal: TerminalSquareIcon,
   browser: GlobeIcon,
   list: ListIcon,
