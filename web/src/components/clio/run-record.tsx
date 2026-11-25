@@ -81,11 +81,14 @@ function RecordLine({
   text,
   meta,
   tone,
+  wrap = false,
 }: {
   icon: ReactNode;
   text: ReactNode;
   meta?: string;
   tone?: 'error' | 'muted';
+  /** A question is read whole, so it wraps instead of cutting off. */
+  wrap?: boolean;
 }) {
   return (
     <div
@@ -103,7 +106,14 @@ function RecordLine({
       >
         {icon}
       </span>
-      <span className="min-w-0 flex-1 truncate" title={typeof text === 'string' ? text : undefined}>
+      <span
+        className={
+          wrap
+            ? 'min-w-0 flex-1 py-1 whitespace-pre-wrap [overflow-wrap:anywhere]'
+            : 'min-w-0 flex-1 truncate'
+        }
+        title={!wrap && typeof text === 'string' ? text : undefined}
+      >
         {text}
       </span>
       {meta ? (
@@ -397,6 +407,7 @@ function RunQuestions({ row, live }: { row: RunRow; live: boolean }) {
                 icon={<MessageCircleQuestionIcon />}
                 meta={questionState(question)}
                 text={question.prompt?.trim() || question.title}
+                wrap
               />
               <p className="ml-6 min-w-0 text-meta whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
                 {answer

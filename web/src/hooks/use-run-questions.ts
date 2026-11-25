@@ -30,6 +30,21 @@ export function useRunQuestions(row: RunRow, live: boolean): PendingInteraction[
     refetchInterval: live ? RUN_POLL_MS : false,
     retry: false,
   });
+  // A conversation turn's ask_user runs as its own Question task, parented to the turn.
+  const asksOwnQuestions = row.taskKind === 'Session' || delegated;
+  const askedHere = useQuery({
+    queryKey: queryKeys.key('run-question-tasks', settings.endpoint, sessionId),
+    enabled: Boolean(sessionId) && asksOwnQuestions,
+    queryFn: ({ signal }) =>
+      repository.sessionTasks(sessionId, { kind: 'Question', limit: 100 }, signal),
+    refetchInterval: live ? RUN_POLL_MS : false,
+    retry: false,
+  });
+  const ownQuestionTasks = new Set(
+    (askedHere.data?.tasks ?? [])
+      .filter((task) => task.owner.parent_handle === row.handleId)
+      .map((task) => task.handle),
+  );
   const invocation = row.task?.invocation_id;
   const backendTask = row.task?.backend?.task_id;
   return (questions.data ?? [])
@@ -39,6 +54,7 @@ export function useRunQuestions(row: RunRow, live: boolean): PendingInteraction[
       const payload = record(question.payload);
       return (
         question.task_id === row.handleId ||
+        (question.task_id && ownQuestionTasks.has(question.task_id)) ||
         (invocation && question.source.invocation_id === invocation) ||
         (invocation && payload?.invocation_id === invocation) ||
         (backendTask && payload?.task_id === backendTask) ||
