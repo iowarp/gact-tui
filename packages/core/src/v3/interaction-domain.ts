@@ -35,7 +35,7 @@ export interface PendingInteractionField {
 export interface PendingInteractionPayload {
   question_id?: string;
   question_kind?: WireValue<'freeform' | 'choice' | 'confirmation' | 'multi_choice'>;
-  options?: Array<{ label: string; value: string; description?: string }>;
+  options?: Array<{ label: string; value: string; description?: string; recommended?: boolean }>;
   allow_freeform?: boolean;
   answer_metadata?: Record<string, unknown>;
   agent_answer_task?: {

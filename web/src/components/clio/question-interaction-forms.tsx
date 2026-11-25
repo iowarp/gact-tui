@@ -342,8 +342,11 @@ function urlOriginTrust(payload: PendingInteraction['payload']): string | undefi
  * sources?" was a radio list, a "Choice" heading and a separate Send response.
  */
 function fieldPair(field: PendingInteractionField): BinaryPair<BinaryOption<unknown>> | undefined {
-  // Options that say what they mean (relay's spend approval) keep that line on the choice rows.
+  // Options that say what they mean (relay's spend approval) keep that line on the choice rows,
+  // and a recommended option keeps its mark there.
   if (field.enum_descriptions?.some((line) => line?.trim())) return undefined;
+  if (field.recommended != null && (field.enum ?? []).some((v) => Object.is(v, field.recommended)))
+    return undefined;
   const values = field.enum ?? [];
   const pair = binaryPair(
     values.map((value, index) => ({

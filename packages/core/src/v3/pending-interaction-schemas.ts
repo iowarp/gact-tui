@@ -97,6 +97,7 @@ export const pendingInteractionSchema = z.object({
             label: z.string(),
             value: z.string().default(''),
             description: z.string().optional(),
+            recommended: z.boolean().optional(),
           }),
         )
         .optional(),

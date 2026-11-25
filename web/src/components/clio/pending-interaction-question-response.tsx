@@ -54,6 +54,7 @@ export function QuestionResponse(props: {
     value: option.value || option.label,
     label: option.label,
     description: option.description,
+    recommended: option.recommended,
   }));
   const multi = interaction.payload?.question_kind === 'multi_choice';
   const actions = interaction.actions ?? [];
@@ -66,8 +67,10 @@ export function QuestionResponse(props: {
   const respond = (response: PendingInteractionResponse) =>
     respondFromControl(onResponse(interaction, response));
   const label = interaction.prompt ?? interaction.title;
-  // Two choices where one is the way out (Yes/No, Approve/Decline) are the buttons themselves.
-  const pair = canAnswer && !multi ? binaryPair(choices) : undefined;
+  // Two choices where one is the way out (Yes/No, Approve/Decline) are the buttons themselves,
+  // unless they say what they mean or one is recommended: then the choice rows show it.
+  const explained = choices.some((choice) => choice.description?.trim() || choice.recommended);
+  const pair = canAnswer && !multi && !explained ? binaryPair(choices) : undefined;
   return (
     <QuestionResponseFrame
       {...props}
