@@ -22,6 +22,8 @@ import { NamedTooltip } from './primitives/icon-button';
 import { ActivityBody } from './activity-row';
 import { CopyAction } from './tool-compact-row';
 import { formatNumber } from '@/lib/locale-format';
+import { planDocumentTitle } from '@/lib/plan-status';
+import { plainInlineCode } from '@/lib/inline-code';
 import { ph, t } from '@lingui/core/macro';
 
 type PlanExit = NonNullable<NonNullable<PendingInteraction['payload']>['plan_exit']>;
@@ -438,6 +440,7 @@ export function PlanExitResponse({
   const actions = interaction.actions ?? [];
   const canAnswer = actions.includes('answer');
   const file = plan?.plan_file;
+  const named = planDocumentTitle(plan?.plan_content);
   return (
     <AskCard
       data-interaction-kind="plan_exit"
@@ -445,13 +448,15 @@ export function PlanExitResponse({
       id={pendingInteractionDomId(interaction.id)}
       kind="plan"
       meta={
-        file ? (
+        named ? (
+          <span title={file}>{plainInlineCode(named)}</span>
+        ) : file ? (
           <span title={file}>{planFileName(file)}</span>
         ) : plan?.summary ? (
           <span title={plan.summary}>{plan.summary}</span>
         ) : undefined
       }
-      metaMono={Boolean(file)}
+      metaMono={!named && Boolean(file)}
       owner={
         showOwner ? (
           <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show />

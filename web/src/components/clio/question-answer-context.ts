@@ -1,4 +1,4 @@
-import type { A2UISurface, PendingInteraction } from '@clio/core/v3';
+import type { A2UISurface, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
@@ -43,6 +43,11 @@ export interface QuestionAnswerState {
   questionLink?: (interaction: PendingInteraction) => string | undefined;
   surfaces?: Readonly<Record<string, A2UISurface>>;
   refetchSurfaces?: () => void;
+  /** Answer an interaction through its own response route (the Plan tab's decision). */
+  respond?: (
+    interaction: PendingInteraction,
+    response: PendingInteractionResponse,
+  ) => Promise<void>;
   startAnswer: (interactionId: string) => void;
   stopAnswer: () => void;
 }

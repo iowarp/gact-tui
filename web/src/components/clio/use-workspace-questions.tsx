@@ -15,6 +15,8 @@ import {
 } from './pending-interactions';
 import { AgentQuestionDialog } from './agent-question-dialog';
 import { revealPendingInteraction } from './interaction-control';
+import { ComposerPlanDecision } from './plan-decision-dock';
+import { pendingPlanReview } from './plan-decision-view';
 import { useQuestionAnswering } from './use-question-answering';
 import { useQuestionDrafts } from './question-answer-context';
 import * as workspaceRouteState from './workspace-route-state';
@@ -69,6 +71,8 @@ export function useWorkspaceQuestions({
   handleInteractionResponse: Respond;
   questionAnswering: ReturnType<typeof useQuestionAnswering>;
   pendingInteractionsPanel: ReactNode;
+  /** Unsent decision state (plan mode, note), shared by every place an ask is answered. */
+  drafts: ReturnType<typeof createAttentionDraftStore>;
 } {
   const drafts = useMemo(
     () => createAttentionDraftStore(JSON.stringify([endpoint, sessionId])),
@@ -116,10 +120,7 @@ export function useWorkspaceQuestions({
   const trayToolIds = tools.map((tool) => tool.id).join('\n');
   const trayInteractions = useMemo(
     () =>
-      workspaceRouteState.responseTrayInteractions(
-        interactions,
-        new Set(trayToolIds.split('\n')),
-      ),
+      workspaceRouteState.responseTrayInteractions(interactions, new Set(trayToolIds.split('\n'))),
     [interactions, trayToolIds],
   );
   // The dock renders again when a card's data changes, not on every streamed token.
@@ -137,9 +138,19 @@ export function useWorkspaceQuestions({
     onResponse: handleInteractionResponse,
     onOpenSurfaceQuestion: openSurfaceQuestion,
   });
+  // The log answers a plan in its card; while that card's decision is out of view (a long reply
+  // follows it), the same decision waits over the composer.
+  const anchoredPlan = pendingPlanReview(interactions, sessionId);
+  const loggedPlan =
+    anchoredPlan && !trayInteractions.some((row) => row.id === anchoredPlan.id)
+      ? anchoredPlan
+      : undefined;
   const pendingInteractionsPanel = (
     <AttentionDraftContext.Provider value={drafts}>
       {questionAnswering.context.answeringId ? questionAnswering.notice : null}
+      {loggedPlan ? (
+        <ComposerPlanDecision interaction={loggedPlan} onResponse={handleInteractionResponse} />
+      ) : null}
       <AgentQuestionDialog
         interaction={interactions.find((row) => row.id === openedId && row.status === 'pending')}
         onClose={() => setOpened(undefined)}
@@ -156,6 +167,7 @@ export function useWorkspaceQuestions({
         ...questionAnswering.context,
         responseDrafts,
         interactions,
+        respond: handleInteractionResponse,
         openQuestion: (interaction: PendingInteraction) => {
           if (interaction.source.surface_id && !embedsQuestionSurface(interaction))
             openSurfaceQuestion(interaction);
@@ -170,5 +182,6 @@ export function useWorkspaceQuestions({
       },
     },
     pendingInteractionsPanel,
+    drafts,
   };
 }

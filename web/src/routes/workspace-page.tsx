@@ -25,6 +25,7 @@ import {
   WorkspaceUnavailable,
 } from '@/components/clio/workspace-route-surfaces';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
+import { AttentionDraftContext } from '@/components/clio/attention-drafts';
 import { QuestionAnswerContext } from '@/components/clio/question-answer-context';
 import { useWorkspaceQuestions } from '@/components/clio/use-workspace-questions';
 import { WorkspaceLiveStatusStrip } from '@/components/clio/workspace-live-projections';
@@ -213,7 +214,7 @@ export function WorkspacePage() {
     supportsUnifiedInteractions: data.supportsUnifiedInteractions,
   });
   const hold = useSpotterQuarantine(session, mutations.actionCard.mutateAsync);
-  const { handleInteractionResponse, questionAnswering, pendingInteractionsPanel } =
+  const { handleInteractionResponse, questionAnswering, pendingInteractionsPanel, drafts } =
     useWorkspaceQuestions({
       interactions,
       tools: data.tools,
@@ -316,18 +317,24 @@ export function WorkspacePage() {
       attention={attention.availability}
     >
       <QuestionAnswerContext.Provider value={questionAnswering.context}>
-        <ClioCommandMenu onOpenResource={revealWorkbench} />
-        <ClioAppShell
-          key="shell"
-          navigation={sideNavigation}
-          contextBar={<div className="min-w-0 truncate text-ui font-medium">{contextTitle}</div>}
-          statusStrip={
-            <WorkspaceLiveStatusStrip key={`${sessionKey}:status`} work={work} sessionId={sessionId} />
-          }
-          workbench={<div aria-label={canvasLabel} className="h-full bg-background" />}
-        >
-          <Fragment key={sessionKey}>{body}</Fragment>
-        </ClioAppShell>
+        <AttentionDraftContext.Provider value={drafts}>
+          <ClioCommandMenu onOpenResource={revealWorkbench} />
+          <ClioAppShell
+            key="shell"
+            navigation={sideNavigation}
+            contextBar={<div className="min-w-0 truncate text-ui font-medium">{contextTitle}</div>}
+            statusStrip={
+              <WorkspaceLiveStatusStrip
+                key={`${sessionKey}:status`}
+                work={work}
+                sessionId={sessionId}
+              />
+            }
+            workbench={<div aria-label={canvasLabel} className="h-full bg-background" />}
+          >
+            <Fragment key={sessionKey}>{body}</Fragment>
+          </ClioAppShell>
+        </AttentionDraftContext.Provider>
       </QuestionAnswerContext.Provider>
     </WorkspaceSessionProviders>
   );
@@ -410,100 +417,102 @@ export function WorkspacePage() {
       attention={attention.availability}
     >
       <QuestionAnswerContext.Provider value={questionAnswering.context}>
-        <ClioCommandMenu onOpenResource={revealWorkbench} />
-        <ClioMoreDetails
-          key={`${sessionKey}:details`}
-          composerDraft={composerDraft}
-          focusComposer={() => setComposerFocusKey((key) => key + 1)}
-          model={data.activeModel}
-          provider={data.activeProvider}
-          sessionId={sessionId}
-          workspaceId={workspaceId}
-        />
-        <ClioAppShell
-          key="shell"
-          toolbarActions={
-            <WorkspaceObservabilityDock
-              key={`${sessionKey}:dock`}
-              data={data}
-              navigation={workbench}
-              sessionId={sessionId}
-              workspaceId={workspaceId}
-              sessionState={state}
-              surfaceRef={showcaseSurfaceRef}
-              onOpenCanvas={openObservability}
-              onOpenWork={openWork}
-            />
-          }
-          navigation={sideNavigation}
-          contextBar={
-            <WorkspaceContextBar
-              key={`${sessionKey}:context`}
-              session={session}
-              parentSession={data.parentSession}
-              workspaceLabel={activeWorkspace ? workspaceName(activeWorkspace) : undefined}
-              endpoint={settings.endpoint}
-              history={sessionHistory}
-              navigationActions={navigationActions}
-              terminalActions={terminalActions}
-              onOpenWorkspace={() => revealWorkbench({ kind: 'resources', section: 'files' })}
-            />
-          }
-          workbench={
-            <WorkspaceWorkbench
-              key={`${sessionKey}:workbench`}
-              data={data}
-              navigation={workbench}
-              sessionId={sessionId}
-              workspaceId={workspaceId}
-              endpoint={settings.endpoint}
-              inStudy={inStudy}
-              diffActions={diffActions}
-              terminalActions={terminalActions}
-              requestedView={requestedView}
-              contextTargetId={contextTargetId}
-              onContextTargetChange={setContextTargetId}
-              onFilesViewActiveChange={setFilesViewActive}
-              workspaceFolders={activeWorkspace?.source_folders}
-            />
-          }
-          workbenchReveal={workbench.requests}
-          statusStrip={
-            <WorkspaceLiveStatusStrip
-              key={`${sessionKey}:status`}
-              work={work}
-              onInspectTasks={() => openObservability()}
-              onOpenWork={openWork}
-              sessionId={sessionId}
-              sessionState={session.state}
-            />
-          }
-        >
-          <WorkspaceTranscript
-            key={sessionKey}
-            surfaceRef={showcaseSurfaceRef}
-            session={session}
+        <AttentionDraftContext.Provider value={drafts}>
+          <ClioCommandMenu onOpenResource={revealWorkbench} />
+          <ClioMoreDetails
+            key={`${sessionKey}:details`}
+            composerDraft={composerDraft}
+            focusComposer={() => setComposerFocusKey((key) => key + 1)}
+            model={data.activeModel}
+            provider={data.activeProvider}
             sessionId={sessionId}
             workspaceId={workspaceId}
-            state={state}
-            data={data}
-            mutations={mutations}
-            history={sessionHistory}
-            navigation={workbench}
-            attention={attention}
-            resources={workspaceResourceEntities}
-            repository={repository}
-            messageCount={messageCount}
-            damaged={transcriptDamaged}
-            navigationActions={navigationActions}
-            showWelcome={showConversationWelcome}
-            dockedComposerHeight={dockedComposerHeight}
-            composer={renderComposer}
-            onOpenReference={openReference}
-            onOpenTasks={openTasks}
-            onInteractionResponse={handleInteractionResponse}
           />
-        </ClioAppShell>
+          <ClioAppShell
+            key="shell"
+            toolbarActions={
+              <WorkspaceObservabilityDock
+                key={`${sessionKey}:dock`}
+                data={data}
+                navigation={workbench}
+                sessionId={sessionId}
+                workspaceId={workspaceId}
+                sessionState={state}
+                surfaceRef={showcaseSurfaceRef}
+                onOpenCanvas={openObservability}
+                onOpenWork={openWork}
+              />
+            }
+            navigation={sideNavigation}
+            contextBar={
+              <WorkspaceContextBar
+                key={`${sessionKey}:context`}
+                session={session}
+                parentSession={data.parentSession}
+                workspaceLabel={activeWorkspace ? workspaceName(activeWorkspace) : undefined}
+                endpoint={settings.endpoint}
+                history={sessionHistory}
+                navigationActions={navigationActions}
+                terminalActions={terminalActions}
+                onOpenWorkspace={() => revealWorkbench({ kind: 'resources', section: 'files' })}
+              />
+            }
+            workbench={
+              <WorkspaceWorkbench
+                key={`${sessionKey}:workbench`}
+                data={data}
+                navigation={workbench}
+                sessionId={sessionId}
+                workspaceId={workspaceId}
+                endpoint={settings.endpoint}
+                inStudy={inStudy}
+                diffActions={diffActions}
+                terminalActions={terminalActions}
+                requestedView={requestedView}
+                contextTargetId={contextTargetId}
+                onContextTargetChange={setContextTargetId}
+                onFilesViewActiveChange={setFilesViewActive}
+                workspaceFolders={activeWorkspace?.source_folders}
+              />
+            }
+            workbenchReveal={workbench.requests}
+            statusStrip={
+              <WorkspaceLiveStatusStrip
+                key={`${sessionKey}:status`}
+                work={work}
+                onInspectTasks={() => openObservability()}
+                onOpenWork={openWork}
+                sessionId={sessionId}
+                sessionState={session.state}
+              />
+            }
+          >
+            <WorkspaceTranscript
+              key={sessionKey}
+              surfaceRef={showcaseSurfaceRef}
+              session={session}
+              sessionId={sessionId}
+              workspaceId={workspaceId}
+              state={state}
+              data={data}
+              mutations={mutations}
+              history={sessionHistory}
+              navigation={workbench}
+              attention={attention}
+              resources={workspaceResourceEntities}
+              repository={repository}
+              messageCount={messageCount}
+              damaged={transcriptDamaged}
+              navigationActions={navigationActions}
+              showWelcome={showConversationWelcome}
+              dockedComposerHeight={dockedComposerHeight}
+              composer={renderComposer}
+              onOpenReference={openReference}
+              onOpenTasks={openTasks}
+              onInteractionResponse={handleInteractionResponse}
+            />
+          </ClioAppShell>
+        </AttentionDraftContext.Provider>
       </QuestionAnswerContext.Provider>
     </WorkspaceSessionProviders>
   );

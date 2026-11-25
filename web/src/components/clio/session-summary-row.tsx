@@ -9,6 +9,7 @@ import { t } from '@lingui/core/macro';
 export function SessionSummaryRow({
   icon,
   label,
+  labelContent,
   metadata,
   timestamp,
   timestampLabel = t`Recorded`,
@@ -18,6 +19,8 @@ export function SessionSummaryRow({
 }: {
   icon: ReactNode;
   label: string;
+  /** The label drawn richer (inline code); `label` stays its plain name. */
+  labelContent?: ReactNode;
   metadata?: string;
   timestamp?: string;
   timestampLabel?: string;
@@ -32,7 +35,7 @@ export function SessionSummaryRow({
       <span className="flex size-3.5 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-3.5">
         {icon}
       </span>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="min-w-0 flex-1 truncate">{labelContent ?? label}</span>
       {metadata ? (
         <span className="max-w-[35%] shrink-0 truncate text-[0.625rem] text-muted-foreground">
           {metadata}

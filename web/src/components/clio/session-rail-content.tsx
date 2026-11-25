@@ -29,6 +29,9 @@ import { SessionPlanBody } from './session-plan-section';
 import { openPlanTab } from '@/lib/plan-tab';
 import { planStatusLabel } from '@/lib/plan-status';
 import { TodoList, TodoStatusIcon } from './todo-list';
+import { todoProgressSummary } from './todo-list-summary';
+import { plainInlineCode } from '@/lib/inline-code';
+import { InlineCodeText } from './inline-code-text';
 import type { ReactNode } from 'react';
 import { t } from '@lingui/core/macro';
 
@@ -81,6 +84,8 @@ export function SessionRailContent({
     item.id === 'running'
       ? {
           ...item,
+          // The list itself says when nothing is running; the row does not say it again.
+          summary: undefined,
           content: (
             <RailRuns
               processes={evidence.processes}
@@ -175,7 +180,7 @@ export function SessionRailContent({
     inventory.push({
       id: 'todos',
       count: todos.length,
-      summary: `${todos.filter((todo) => todo.status === 'completed').length} of ${todos.length}`,
+      summary: todoProgressSummary(todos, (todo) => todo.status),
       content: (
         <TodoList
           items={todos}
@@ -185,7 +190,8 @@ export function SessionRailContent({
             <li key={`${index}:${todo.content}`}>
               <SessionSummaryRow
                 icon={<TodoStatusIcon state={todo.status} />}
-                label={todo.content}
+                label={plainInlineCode(todo.content)}
+                labelContent={<InlineCodeText text={todo.content} />}
                 metadata={
                   todo.status === 'in_progress'
                     ? t`In progress`

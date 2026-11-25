@@ -13,8 +13,20 @@ export function planStatusLabel(status: string): string {
 type PlanOrigin = 'plan_mode' | 'outside_plan_mode';
 
 /**
+ * The plan's name as a person reads it: its first Markdown heading (code marks kept for
+ * inline code), else the file's name. Never the slug when the plan names itself.
+ */
+export function planDocumentTitle(text: string | undefined, path?: string): string | undefined {
+  const heading = /^#{1,3}\s+(.+?)\s*#*\s*$/mu.exec(text ?? '')?.[1]?.trim();
+  if (heading) return heading;
+  const file = path?.split(/[\\/]/).pop();
+  return file || undefined;
+}
+
+/**
  * Where the plan document came from: plan mode (a planning phase) or written without it.
- * Null when neither the plan nor its status says, rather than guessing.
+ * The status reads beside it, once, so this never repeats it. Null when neither the plan
+ * nor its status says, rather than guessing.
  */
 export function planOriginLabel(plan: { status: string; origin?: PlanOrigin }): string | null {
   const origin =
@@ -24,11 +36,7 @@ export function planOriginLabel(plan: { status: string; origin?: PlanOrigin }): 
       : plan.status === 'active'
         ? 'outside_plan_mode'
         : undefined);
-  if (origin === 'plan_mode') {
-    if (plan.status === 'draft') return t`Written in plan mode. It waits for your approval.`;
-    if (plan.status === 'approved') return t`Written in plan mode and approved by you.`;
-    return t`Written in plan mode.`;
-  }
+  if (origin === 'plan_mode') return t`Written in plan mode.`;
   if (origin === 'outside_plan_mode')
     return t`Written by the agent without plan mode. Nobody approved it.`;
   return null;

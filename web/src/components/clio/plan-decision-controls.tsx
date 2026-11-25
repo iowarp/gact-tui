@@ -195,12 +195,15 @@ type PlanDecisionControlsProps = {
   ) => Promise<void>;
   /** What the service reports about SPOTTER review; read from the service when omitted. */
   spotterAvailability?: SpotterAvailability;
+  /** A rule above the decision, under the plan it decides; off where nothing sits above it. */
+  divided?: boolean;
 };
 
 /**
  * The decision under the plan: Execute in a mode (the mode reads inside the
  * filled button), Request changes with a one-line note, and Clear context
- * first. Nothing executes until a button is pressed.
+ * first. Nothing executes until a button is pressed. The same controls answer
+ * from the plan card, over the composer and in the Plan tab.
  */
 export function PlanDecisionControls(props: PlanDecisionControlsProps) {
   const offersSpotter = (props.interaction.payload?.options ?? []).some(
@@ -229,6 +232,7 @@ function PlanDecisionControlsView({
   disabled,
   onResponse,
   spotterAvailability,
+  divided = true,
 }: PlanDecisionControlsProps) {
   const id = interaction.id;
   const options = interaction.payload?.options ?? [];
@@ -310,13 +314,18 @@ function PlanDecisionControlsView({
 
   return (
     <>
-      <div
-        aria-hidden="true"
-        className="mt-3 ml-[25px] border-t border-border @max-[420px]/ask:ml-0"
-      />
+      {divided ? (
+        <div
+          aria-hidden="true"
+          className="mt-3 ml-[25px] border-t border-border @max-[420px]/ask:ml-0"
+        />
+      ) : null}
       <AskSection
         aria-label={t`Plan decision`}
-        className="mt-2.5 flex flex-wrap items-center gap-2 whitespace-nowrap @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch"
+        className={cn(
+          'flex flex-wrap items-center gap-2 whitespace-nowrap @max-[420px]/ask:flex-col @max-[420px]/ask:items-stretch',
+          divided ? 'mt-2.5' : 'mt-1',
+        )}
         data-slot="plan-decision-controls"
         role="group"
       >

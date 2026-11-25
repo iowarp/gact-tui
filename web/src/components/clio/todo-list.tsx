@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useEvidenceDisclosure } from '@/hooks/use-evidence-disclosures';
 import { cn } from '@/lib/utils';
-import { todoCurrentSummary } from './todo-list-summary';
+import { todoProgressSummary } from './todo-list-summary';
 import { t, ph } from '@lingui/core/macro';
 
 export function TodoStatusIcon({ state, className }: { state?: string; className?: string }) {
@@ -55,7 +55,7 @@ export function TodoList<T>({
     <div className="min-w-0 space-y-1" data-slot="todo-list">
       {summary ? (
         <p className="text-xs tabular-nums text-muted-foreground">
-          {todoCurrentSummary(items, status)}
+          {todoProgressSummary(items, status)}
         </p>
       ) : null}
       {current.length ? (

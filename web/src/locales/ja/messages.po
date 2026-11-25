@@ -1964,6 +1964,7 @@ msgstr "{total}中{done}"
 msgid "{done} of {total} ({percent}%)"
 msgstr "{done} / {total} ({percent}%)"
 
+#: src/components/clio/todo-list-summary.ts
 #: src/components/clio/workbench-activity-model.ts
 msgid "{done} of {total} done"
 msgstr "{total}件中{done}件完了"
@@ -25428,6 +25429,7 @@ msgstr "開き方のオプション"
 msgid "Open original"
 msgstr "元のデータを開く"
 
+#: src/components/clio/plan-decision-dock.tsx
 #: src/components/clio/plan-exit-interaction.tsx
 msgid "Open plan"
 msgstr "プランを開く"
@@ -26693,6 +26695,7 @@ msgstr "計画"
 #: src/components/clio/pending-interactions.tsx
 #: src/components/clio/plan-exit-interaction.tsx
 #: src/components/clio/session-behavior-options.ts
+#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/session-work.tsx
 #: src/components/clio/workbench-activity-model.ts
@@ -26715,6 +26718,7 @@ msgstr "計画の操作"
 msgid "Plan approved"
 msgstr "プランを承認しました"
 
+#: src/components/clio/plan-decision-dock.tsx
 #: src/components/clio/plan-exit-interaction.tsx
 msgid "Plan controls are not available yet."
 msgstr "プランのコントロールはまだ利用できません。"
@@ -26767,6 +26771,10 @@ msgstr "プランが切り詰められました"
 #: src/components/clio/plan-decision-controls.tsx
 msgid "Plan unavailable"
 msgstr "プランを利用できません"
+
+#: src/components/clio/plan-decision-dock.tsx
+msgid "Plan waiting for your decision"
+msgstr "決定を待っているプラン"
 
 #: src/lib/transcript-message-preview.ts
 msgid "Plan: {title}"
@@ -42949,16 +42957,8 @@ msgid "Written by the agent without plan mode. Nobody approved it."
 msgstr "エージェントが計画モードを使わずに作成しました。誰も承認していません。"
 
 #: src/lib/plan-status.ts
-msgid "Written in plan mode and approved by you."
-msgstr "計画モードで作成され、あなたが承認しました。"
-
-#: src/lib/plan-status.ts
 msgid "Written in plan mode."
 msgstr "計画モードで作成されました。"
-
-#: src/lib/plan-status.ts
-msgid "Written in plan mode. It waits for your approval."
-msgstr "計画モードで作成されました。あなたの承認を待っています。"
 
 #: src/components/clio/science-log-sources.tsx
 msgid "Wrote"
@@ -43191,6 +43191,10 @@ msgstr "接続済みのソース"
 #: src/components/clio/onboarding/tour-practice-stage.tsx
 msgid "Your conversation with {agent} appears here."
 msgstr "{agent}との会話はここに表示されます。"
+
+#: src/components/clio/plan-decision-dock.tsx
+msgid "Your decision"
+msgstr "あなたの決定"
 
 #: src/components/clio/document-working-copy.tsx
 msgid "Your edits after version {head_version} were not saved"

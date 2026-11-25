@@ -13,6 +13,10 @@ import { MoreIcon } from '@/lib/icon-vocabulary';
 import { planOriginLabel, planStatusLabel } from '@/lib/plan-status';
 import { useLiveStore } from '@/store/live-store';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
+import { InlineCodeText } from './inline-code-text';
+import { PlanDecisionDock } from './plan-decision-dock';
+import { pendingPlanReview } from './plan-decision-view';
+import { useQuestionAnswer } from './question-answer-context';
 import { MenuRow } from './primitives/menu-row';
 import { StateView } from './primitives/state-view';
 import { PlanContent } from './session-plan-section';
@@ -44,6 +48,9 @@ export function WorkbenchPlanTab({
     ? [{ label: conversation }, { label: tab.label }]
     : [{ label: tab.label }];
   const origin = plan ? planOriginLabel(plan) : null;
+  // A plan waiting for approval is decided here too, above the plan, never scrolled away.
+  const answers = useQuestionAnswer();
+  const decision = pendingPlanReview(answers?.interactions ?? [], tab.sessionId);
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" data-slot="plan-tab">
       <FrameBar
@@ -52,6 +59,17 @@ export function WorkbenchPlanTab({
         what={plan ? <span>{planStatusLabel(plan.status)}</span> : undefined}
         where={<FrameCrumbs parts={crumbs} />}
       />
+      {decision ? (
+        <div className="shrink-0 border-b border-border px-6 py-3" data-slot="plan-tab-decision">
+          <div className="mx-auto max-w-3xl">
+            <PlanDecisionDock
+              interaction={decision}
+              onResponse={answers?.respond}
+              placement="tab"
+            />
+          </div>
+        </div>
+      ) : null}
       {work.data && (plan || todos.length) ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 [overflow-wrap:anywhere]">
           <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -127,7 +145,9 @@ function PlanTabTodo({ todo }: { todo: Todo }) {
   return (
     <li className="flex min-w-0 items-start gap-2 text-sm" data-todo-state={todo.status}>
       <TodoStatusIcon className="mt-0.5" state={todo.status} />
-      <span className="min-w-0 flex-1">{todo.content}</span>
+      <span className="min-w-0 flex-1">
+        <InlineCodeText text={todo.content} />
+      </span>
       <span className="shrink-0 pt-px text-xs text-muted-foreground">
         {todo.status === 'in_progress'
           ? t`In progress`
