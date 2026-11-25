@@ -13,7 +13,14 @@ function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
-interface DeclaredChoice {
+/** What a choice's producer says around its answers: what they cover, and why one is advised. */
+export interface DeclaredChoiceContext {
+  note?: string;
+  detail?: string;
+  evidence: string[];
+}
+
+interface DeclaredChoice extends DeclaredChoiceContext {
   title?: string;
   options: { value: unknown; label?: string; description?: string }[];
   recommended?: unknown;
@@ -83,6 +90,11 @@ function choiceFromMeta(payload: unknown, name: string): DeclaredChoice | undefi
           description: text(option.description),
         })),
         recommended: entry.recommended ?? flagged ?? undefined,
+        note: text(entry.note),
+        detail: text(entry.detail),
+        evidence: Array.isArray(entry.evidence)
+          ? entry.evidence.map(text).filter((line): line is string => Boolean(line))
+          : [],
       };
     }
   }
@@ -106,8 +118,21 @@ function choiceFromSchema(payload: unknown, name: string): DeclaredChoice | unde
       description: text(option.description),
     }));
   return options.length
-    ? { title: text(property.title), options, recommended: property.default }
+    ? { title: text(property.title), options, recommended: property.default, evidence: [] }
     : undefined;
+}
+
+/** A relay choice's note, detail and evidence for one field; empty when it sent none. */
+export function declaredChoiceContext(
+  interaction: Pick<PendingInteraction, 'payload'>,
+  name: string,
+): DeclaredChoiceContext {
+  const declared = choiceFromMeta(interaction.payload, name);
+  return {
+    note: declared?.note,
+    detail: declared?.detail,
+    evidence: declared?.evidence ?? [],
+  };
 }
 
 /**

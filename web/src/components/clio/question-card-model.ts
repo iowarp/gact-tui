@@ -1,4 +1,5 @@
 import type { PendingInteraction } from '@clio/core/v3';
+import { serverOwnerName } from '@/lib/a2ui/server-surface';
 import { isVariantPickInteraction } from '@/lib/variant-runs';
 import { useQuestionAnswer } from './question-answer-context';
 
@@ -53,4 +54,34 @@ export function withoutRepeatedTitle(prompt: string, title: string): string {
   if (!head || !text.toLowerCase().startsWith(head.toLowerCase())) return text;
   const rest = text.slice(head.length).trim();
   return rest || text;
+}
+
+/**
+ * The question without its asker's name in front ("Relay: Where should…" reads "Where
+ * should…"). The backend titles a plugin's ask with the plugin's name; the card says who
+ * asks once, in its attribution and navigation, so the header is only the question.
+ */
+export function withoutOwnerPrefix(title: string, interaction: PendingInteraction): string {
+  const payload = interaction.payload;
+  const owners = [
+    payload?.plugin_title,
+    payload?.plugin || payload?.server
+      ? serverOwnerName({
+          plugin: payload?.plugin ?? '',
+          plugin_title: payload?.plugin_title,
+          server: payload?.server ?? '',
+        })
+      : undefined,
+    payload?.plugin,
+    payload?.server,
+  ]
+    .map((name) => name?.trim().toLowerCase())
+    .filter((name): name is string => Boolean(name));
+  const lower = title.toLowerCase();
+  for (const owner of owners) {
+    if (!lower.startsWith(`${owner}:`)) continue;
+    const rest = title.slice(owner.length + 1).trim();
+    if (rest) return rest;
+  }
+  return title;
 }

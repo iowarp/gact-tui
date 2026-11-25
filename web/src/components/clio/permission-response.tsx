@@ -196,11 +196,17 @@ export function PermissionResponse({
   const scriptCallId = script?.call_id;
   // The script block carries the lines run_code's own title summarises ("Run a Python script
   // (48 lines): readings = …"), so the title is the spec's plain "Run script".
+  const named = permissionTitle(interaction, toolName);
   const title = flowTrust
     ? t`Running flow ${ph({ flow: flowTrust.flow })}`
     : script && !interaction.payload?.script
       ? t`Run script`
-      : permissionTitle(interaction, toolName);
+      : named;
+  // A title CLIO named from the tool keeps the tool's id beside it, faint.
+  const toolId =
+    !flowTrust && title === named && title !== interaction.title
+      ? (legacyName ?? toolName)
+      : undefined;
   const scriptLines = script ? script.code.replace(/\n$/u, '').split('\n').length : 0;
   const answers = scopes.map(
     (scope): BinaryAnswer => ({
@@ -248,11 +254,9 @@ export function PermissionResponse({
       kind="permission"
       spokenDetail={flowTrust ? undefined : spokenToolCall(toolName, args, script?.code)}
       title={
-        // A title CLIO named from the tool keeps the tool's id beside it, faint.
-        legacyName && title !== interaction.title && title !== legacyName ? (
+        toolId && title !== toolId ? (
           <>
-            {title}{' '}
-            <span className="font-mono text-caption font-normal text-faint">{legacyName}</span>
+            {title} <span className="font-mono text-caption font-normal text-faint">{toolId}</span>
           </>
         ) : (
           title

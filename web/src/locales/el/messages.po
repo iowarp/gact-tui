@@ -15323,6 +15323,7 @@ msgid "Every weekday"
 msgstr "Κάθε εργάσιμη"
 
 #: src/components/clio/memory-inbox.tsx
+#: src/components/clio/question-choice-context.tsx
 #: src/components/clio/science-log-model.ts
 #: src/components/clio/workspace-resource-view.tsx
 msgid "Evidence"

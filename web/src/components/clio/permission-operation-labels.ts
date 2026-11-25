@@ -1,6 +1,7 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { ph, t } from '@lingui/core/macro';
 import { TOOL_OPERATIONS } from './tool-operation-contract';
+import { readsAsDescription } from './tool-presentation';
 
 const OPERATIONS: Record<string, string> = {
   fs_read_file: t`Read file`,
@@ -47,8 +48,44 @@ export function permissionTitle(
       ? (input as Record<string, unknown>)
       : ({} as Record<string, unknown>);
   const named = legacyToolCallName(interaction.title);
-  if (named === undefined) return interaction.title;
-  return permissionOperationTitle(named, named === toolName ? fields : {}) ?? named;
+  if (named !== undefined)
+    return permissionOperationTitle(named, named === toolName ? fields : {}) ?? named;
+  // A tool's description ("List, read, write, delete and stage files on a site") is not
+  // what this call does: the operation is named from the tool and its arguments instead.
+  const title = interaction.title?.trim() ?? '';
+  if (!toolName || (title && !readsAsDescription(title))) return interaction.title;
+  return (
+    permissionOperationTitle(toolName, fields) ??
+    operationFromArguments(toolName, fields) ??
+    toolName
+  );
+}
+
+const OPERATION_ARGUMENT = ['op', 'operation', 'action'] as const;
+const VERB_SEGMENT = /^(?:read|write|list|get|set|run|call|manage|ops?)$/u;
+
+/**
+ * An operation an MCP tool takes as an argument, in words: relay_files with op=upload is
+ * "Upload files". The words are the tool's own ids, as a tool name is.
+ */
+function operationFromArguments(
+  toolName: string,
+  fields: Record<string, unknown>,
+): string | undefined {
+  const key = OPERATION_ARGUMENT.find(
+    (name) =>
+      typeof fields[name] === 'string' && /^[\p{L}][\p{L}\d_-]*$/u.test(String(fields[name])),
+  );
+  if (!key) return undefined;
+  const verb = String(fields[key]).replace(/[_-]+/gu, ' ').trim();
+  // The first segment of a namespaced tool is its server (relay_files); trailing verbs
+  // (relay_files_read) say less than the operation does.
+  const segments = toolName.split(/[_.-]+/u).filter(Boolean);
+  const rest = segments.length > 1 ? segments.slice(1) : segments;
+  while (rest.length > 1 && VERB_SEGMENT.test(rest[rest.length - 1]!.toLowerCase())) rest.pop();
+  const object = rest.join(' ');
+  const phrase = object && object.toLowerCase() !== verb.toLowerCase() ? `${verb} ${object}` : verb;
+  return phrase.charAt(0).toLocaleUpperCase() + phrase.slice(1);
 }
 
 // "destructive tool call: fs_write_file", "shell command call: shell_bash", "external MCP tool call: …".

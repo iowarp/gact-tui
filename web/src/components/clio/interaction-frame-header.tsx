@@ -5,7 +5,6 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { EditIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { jobFromInteraction, jobHasShape } from '@/lib/job-snapshot';
-import { serverOwnerName } from '@/lib/a2ui/server-surface';
 import { trailingCommand } from '@/lib/literal-command-text';
 import { AskCode } from './ask-code';
 import { AskCard, AskDetails, AskFooter, AskHint, AskSection, type AskCardProps } from './ask-card';
@@ -16,6 +15,7 @@ import {
   plainQuestionText,
   questionPrompt,
   useComposerAnswer,
+  withoutOwnerPrefix,
   withoutRepeatedTitle,
 } from './question-card-model';
 import { QuestionMarkdown } from './question-markdown';
@@ -73,20 +73,7 @@ export function QuestionCard({
     interaction.title,
   );
   // Who asks is said once, by its attribution: "Relay: Where should…" reads "Where should…".
-  const owner = interaction.payload?.server
-    ? serverOwnerName({
-        plugin: interaction.payload.plugin ?? '',
-        plugin_title: interaction.payload.plugin_title,
-        server: interaction.payload.server,
-      })
-    : '';
-  const ownerPrefix = owner ? `${owner.toLowerCase()}:` : '';
-  const title =
-    ownerPrefix &&
-    rawTitle.toLowerCase().startsWith(ownerPrefix) &&
-    rawTitle.slice(ownerPrefix.length).trim()
-      ? rawTitle.slice(ownerPrefix.length).trim()
-      : rawTitle;
+  const title = withoutOwnerPrefix(rawTitle, interaction);
   const recorded = jobFromInteraction(interaction.payload);
   // A job that is only its site and one planned step tells the person nothing; the question does.
   const job = recorded && jobHasShape(recorded) ? recorded : null;

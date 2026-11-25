@@ -31,8 +31,9 @@ import { cn } from '@/lib/utils';
 import { answerWord, binaryPair, type BinaryOption, type BinaryPair } from '@/lib/binary-answers';
 import { AskBody, AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { BinaryAsk } from './ask-binary';
-import { withDeclaredChoices } from '@/lib/declared-choices';
+import { declaredChoiceContext, withDeclaredChoices } from '@/lib/declared-choices';
 import { QuestionChoiceRows, type QuestionChoice } from './question-choice-card';
+import { ChoiceEvidence, ChoiceNote } from './question-choice-context';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
 import { useQuestionDraftValue } from './question-answer-context';
 import { ph, plural, t } from '@lingui/core/macro';
@@ -154,6 +155,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
       }
     };
     const pair = fieldPair(choice);
+    const choiceContext = declaredChoiceContext(interaction, choice.name);
     return (
       <QuestionFrame {...props} escapeAnswers={Boolean(pair)}>
         <AskError error={props.responseError} />
@@ -169,6 +171,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             {errors[choice.name]}
           </AskSection>
         ) : null}
+        <ChoiceNote context={choiceContext} />
         {pair ? (
           <BinaryAsk
             accept={{ label: pair.accept.label, onChoose: () => answer(pair.accept.value) }}
@@ -186,6 +189,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             onChoose={(index) => void answer(choice.enum?.[Number(index)])}
           />
         )}
+        <ChoiceEvidence context={choiceContext} />
       </QuestionFrame>
     );
   }
@@ -216,6 +220,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     // under a capped card; the other fields (already filled) sit above them, compact.
     const options = answerChoice.enum ?? [];
     const others = fields.filter((field) => field.name !== answerChoice.name);
+    const answerContext = declaredChoiceContext(interaction, answerChoice.name);
     return (
       <QuestionFrame {...props} escapeAnswers={Boolean(answerPair)}>
         <AskError error={props.responseError} />
@@ -240,6 +245,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             {errors[answerChoice.name]}
           </AskSection>
         ) : null}
+        <ChoiceNote context={answerContext} />
         {answerPair ? (
           <BinaryAsk
             accept={{
@@ -263,6 +269,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             onChoose={(index) => void submit({ [answerChoice.name]: options[Number(index)] })}
           />
         )}
+        <ChoiceEvidence context={answerContext} />
       </QuestionFrame>
     );
   }
