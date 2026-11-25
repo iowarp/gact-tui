@@ -9,6 +9,7 @@ export function ValueSummary({
   label,
   isDefault,
   chosen,
+  markBeside = false,
   className,
   title,
 }: {
@@ -16,6 +17,8 @@ export function ValueSummary({
   label: string;
   isDefault: boolean;
   chosen: boolean;
+  /** The D goes beside the icon rather than on its corner (see ValueMark). */
+  markBeside?: boolean;
   className?: string;
   title?: string;
 }) {
@@ -28,7 +31,7 @@ export function ValueSummary({
       )}
       title={title}
     >
-      <ValueMark icon={icon} isDefault={isDefault} />
+      <ValueMark beside={markBeside && isDefault} icon={icon} isDefault={isDefault} />
       {label}
       {isDefault ? <span className="sr-only">{t`, default`}</span> : null}
     </span>
