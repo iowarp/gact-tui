@@ -433,8 +433,9 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
   }
   if (definition.family === 'wait') {
     if (input.timeout_s === 0) operation.action = tx`Check`;
-    else if (tool.state === 'running' && tool.presentation?.summary?.startsWith('Waiting for '))
-      operation.action = tool.presentation.summary;
+    // The producer's English "Waiting for your answer"; its "Waiting for tasks" keeps "Wait for".
+    else if (tool.state === 'running' && tool.presentation?.summary === 'Waiting for your answer')
+      operation.action = tx`Waiting for your answer`;
     const receipt = operationWaitTasks(tool, context);
     const tasks = receipt?.tasks ?? declaredResults(tool, context);
     operation.kind = 'results';

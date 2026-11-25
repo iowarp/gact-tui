@@ -7287,6 +7287,10 @@ msgstr "pide iniciar sesión la primera vez"
 msgid "Assignment"
 msgstr "Asignación"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Assignment control"
+msgstr "Control de la asignación"
+
 #: src/routes/runs-rows.ts
 msgid "Assignment description unavailable"
 msgstr "Descripción de la asignación no disponible"
@@ -11501,6 +11505,10 @@ msgstr "Continuar"
 #: src/components/clio/tool-operation-contract.ts
 msgid "Continue after"
 msgstr "Continuar después de"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Continue after restart"
+msgstr "Continuar tras el reinicio"
 
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Continue at a specific date and time."
@@ -30496,6 +30504,7 @@ msgid "Restart agent"
 msgstr "Reiniciar agente"
 
 #: src/components/clio/async-task-list.tsx
+#: src/components/clio/conversation-harness-injection.tsx
 msgid "Restart assignment"
 msgstr "Reiniciar asignación"
 
@@ -30670,6 +30679,10 @@ msgstr "Reanudar"
 #: src/components/clio/tool-presentation.ts
 msgid "Resume agent"
 msgstr "Reanudar agente"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Resume assignment"
+msgstr "Reanudar la asignación"
 
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Resume cursor"
@@ -42275,6 +42288,7 @@ msgstr "Esperando a que inicies sesión…"
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
+#: src/components/clio/tool-operation.ts
 #: src/components/clio/work-kind-status.tsx
 msgid "Waiting for your answer"
 msgstr "Esperando tu respuesta"

@@ -7287,6 +7287,10 @@ msgstr "初回利用時にサインインを求めます"
 msgid "Assignment"
 msgstr "割り当て"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Assignment control"
+msgstr "割り当ての制御"
+
 #: src/routes/runs-rows.ts
 msgid "Assignment description unavailable"
 msgstr "割り当ての説明は利用できません"
@@ -11501,6 +11505,10 @@ msgstr "続行"
 #: src/components/clio/tool-operation-contract.ts
 msgid "Continue after"
 msgstr "完了後に続行"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Continue after restart"
+msgstr "再起動後に続行"
 
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Continue at a specific date and time."
@@ -30496,6 +30504,7 @@ msgid "Restart agent"
 msgstr "エージェントを再起動"
 
 #: src/components/clio/async-task-list.tsx
+#: src/components/clio/conversation-harness-injection.tsx
 msgid "Restart assignment"
 msgstr "割り当てを再開始"
 
@@ -30670,6 +30679,10 @@ msgstr "再開"
 #: src/components/clio/tool-presentation.ts
 msgid "Resume agent"
 msgstr "エージェントを再開"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Resume assignment"
+msgstr "割り当てを再開"
 
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Resume cursor"
@@ -42275,6 +42288,7 @@ msgstr "ログインを待っています…"
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
+#: src/components/clio/tool-operation.ts
 #: src/components/clio/work-kind-status.tsx
 msgid "Waiting for your answer"
 msgstr "回答を待っています"

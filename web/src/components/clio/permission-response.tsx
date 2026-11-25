@@ -190,7 +190,8 @@ export function PermissionResponse({
     SCOPES.filter((scope) => offered(scope.action) && (!flowTrust || scope.action === 'allow')),
   );
   const toolCall = interaction.payload?.tool_call;
-  const toolName = toolCall?.tool_name ?? interaction.source.tool_name;
+  const legacyName = legacyToolCallName(interaction.title);
+  const toolName = toolCall?.tool_name ?? interaction.source.tool_name ?? legacyName;
   const script = permissionScript(interaction, toolName);
   const scriptCallId = script?.call_id;
   // The script block carries the lines run_code's own title summarises ("Run a Python script
@@ -248,12 +249,10 @@ export function PermissionResponse({
       spokenDetail={flowTrust ? undefined : spokenToolCall(toolName, args, script?.code)}
       title={
         // A title CLIO named from the tool keeps the tool's id beside it, faint.
-        toolName &&
-        title !== interaction.title &&
-        legacyToolCallName(interaction.title) === toolName ? (
+        legacyName && title !== interaction.title && title !== legacyName ? (
           <>
             {title}{' '}
-            <span className="font-mono text-caption font-normal text-faint">{toolName}</span>
+            <span className="font-mono text-caption font-normal text-faint">{legacyName}</span>
           </>
         ) : (
           title

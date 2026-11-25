@@ -2,6 +2,7 @@ import type { PendingInteraction } from '@clio/core/v3';
 import { MessageSquareShareIcon } from 'lucide-react';
 import { AskButton, AskCard, AskOptions, AskSection, type AskKind } from './ask-card';
 import { OwnerAttribution } from './pending-interaction-notices';
+import { permissionTitle } from './permission-operation-labels';
 import { t } from '@lingui/core/macro';
 
 function signpostKind(interaction: PendingInteraction): AskKind {
@@ -31,7 +32,10 @@ export function SubagentAskSignpost({
       icon={MessageSquareShareIcon}
       kind={signpostKind(interaction)}
       owner={<OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show />}
-      title={interaction.title || t`A subagent is waiting for you`}
+      title={
+        (interaction.kind === 'permission' ? permissionTitle(interaction) : interaction.title) ||
+        t`A subagent is waiting for you`
+      }
       wrapTitle
     >
       <AskSection className="mt-1 text-meta text-muted-foreground">

@@ -7278,6 +7278,10 @@ msgstr ""
 msgid "Assignment"
 msgstr ""
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Assignment control"
+msgstr ""
+
 #: src/routes/runs-rows.ts
 msgid "Assignment description unavailable"
 msgstr ""
@@ -11491,6 +11495,10 @@ msgstr ""
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "Continue after"
+msgstr ""
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Continue after restart"
 msgstr ""
 
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -30478,6 +30486,7 @@ msgid "Restart agent"
 msgstr ""
 
 #: src/components/clio/async-task-list.tsx
+#: src/components/clio/conversation-harness-injection.tsx
 msgid "Restart assignment"
 msgstr ""
 
@@ -30651,6 +30660,10 @@ msgstr ""
 
 #: src/components/clio/tool-presentation.ts
 msgid "Resume agent"
+msgstr ""
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Resume assignment"
 msgstr ""
 
 #: src/components/clio/ndp-workflow-form.tsx
@@ -42256,6 +42269,7 @@ msgstr ""
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
+#: src/components/clio/tool-operation.ts
 #: src/components/clio/work-kind-status.tsx
 msgid "Waiting for your answer"
 msgstr ""

@@ -17,13 +17,13 @@ export function withTodoPresentation(tool: ToolInvocation): ToolInvocation {
   };
 }
 
-/** The agent's English count line ("3 tasks changed"), in the person's language as todos. */
+/** The agent's English count line ("3 todos changed"; older agents say "tasks"), in the person's language. */
 function todoSummary(summary: string): string {
-  const changed = /^(\d+) tasks? changed$/u.exec(summary.trim());
+  const changed = /^(\d+) (?:tasks?|todos?) changed$/u.exec(summary.trim());
   if (changed) {
     const count = Number(changed[1]);
     return plural(count, { one: '# todo changed', other: '# todos changed' });
   }
-  if (/^No tasks in this list$/u.test(summary.trim())) return t`No todos in this list`;
+  if (/^No (?:tasks|todos) in this list$/u.test(summary.trim())) return t`No todos in this list`;
   return summary;
 }

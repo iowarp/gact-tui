@@ -7287,6 +7287,10 @@ msgstr "ζητά σύνδεση την πρώτη φορά"
 msgid "Assignment"
 msgstr "Ανάθεση"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Assignment control"
+msgstr "Έλεγχος ανάθεσης"
+
 #: src/routes/runs-rows.ts
 msgid "Assignment description unavailable"
 msgstr "Η περιγραφή της ανάθεσης δεν είναι διαθέσιμη"
@@ -11501,6 +11505,10 @@ msgstr "Συνέχεια"
 #: src/components/clio/tool-operation-contract.ts
 msgid "Continue after"
 msgstr "Συνέχεια μετά από"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Continue after restart"
+msgstr "Συνέχεια μετά την επανεκκίνηση"
 
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Continue at a specific date and time."
@@ -30496,6 +30504,7 @@ msgid "Restart agent"
 msgstr "Επανεκκίνηση πράκτορα"
 
 #: src/components/clio/async-task-list.tsx
+#: src/components/clio/conversation-harness-injection.tsx
 msgid "Restart assignment"
 msgstr "Επανεκκίνηση ανάθεσης"
 
@@ -30670,6 +30679,10 @@ msgstr "Συνέχιση"
 #: src/components/clio/tool-presentation.ts
 msgid "Resume agent"
 msgstr "Συνέχιση πράκτορα"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Resume assignment"
+msgstr "Συνέχιση ανάθεσης"
 
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Resume cursor"
@@ -42275,6 +42288,7 @@ msgstr "Αναμονή για τη σύνδεσή σας…"
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
+#: src/components/clio/tool-operation.ts
 #: src/components/clio/work-kind-status.tsx
 msgid "Waiting for your answer"
 msgstr "Αναμονή για την απάντησή σας"

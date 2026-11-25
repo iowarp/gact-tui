@@ -47,6 +47,7 @@ function rowMarkdown(source: string, text: string): string {
 }
 
 const INJECTION_LABELS: Record<string, string> = {
+  control: t`Assignment control`,
   goal_judgment: t`Goal judgment`,
   loop_wake: t`Loop wake`,
   scheduled_wake: t`Scheduled wake`,
@@ -85,6 +86,36 @@ const INJECTION_LABELS: Record<string, string> = {
   variant_drafting: t`Drafting alternatives`,
   variant_advice: t`Advice for this draft`,
 };
+
+/**
+ * A control notice by what it did, with the assignment it acted on as its argument:
+ * "Continue after restart  Load the use-relay skill…". The text is the agent's own.
+ */
+function controlNotice(text: string): { label: string; argument?: string } {
+  let body = text;
+  let assignment: string | undefined;
+  const start = text.indexOf('{');
+  try {
+    // The recorded notice may lead with its "[CLIO; control; …]" envelope line.
+    const parsed: unknown = start >= 0 ? JSON.parse(text.slice(start)) : undefined;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const fields = parsed as Record<string, unknown>;
+      if (typeof fields.text === 'string') body = fields.text;
+      if (typeof fields.assignment === 'string' && fields.assignment.trim())
+        assignment = fields.assignment.trim().split('\n')[0];
+    }
+  } catch {
+    // Plain text: the notice itself.
+  }
+  const label = /^The service restarted\b/u.test(body)
+    ? t`Continue after restart`
+    : /^Resume this assignment\b/u.test(body)
+      ? t`Resume assignment`
+      : /^This is a linked restart\b/u.test(body)
+        ? t`Restart assignment`
+        : t`Assignment control`;
+  return { label, argument: assignment };
+}
 
 /**
  * Show a recorded harness addition, retaining the exact text the agent
@@ -134,8 +165,10 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
     block.source === 'mcp_app_context'
       ? [...block.text.matchAll(/The person has the (.+?) view open \(opened by (.+?)\)/gu)]
       : [];
+  const control = block.source === 'control' ? controlNotice(block.text) : undefined;
   const label =
     (views.length ? t`View context` : undefined) ??
+    control?.label ??
     (notice && startedBy
       ? taskNoticeLabel(notice.kind, notice.status, callerName(startedBy))
       : undefined) ??
@@ -178,7 +211,7 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
               {label}
             </span>
           }
-          argument={views.length ? formatList(views.map((view) => view[1]!)) : undefined}
+          argument={views.length ? formatList(views.map((view) => view[1]!)) : control?.argument}
           argumentTitle={
             views.length
               ? formatList(

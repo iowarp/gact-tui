@@ -32,7 +32,9 @@ export function permissionOperationLabel(
 /**
  * A permission's title in the person's words. The agent's legacy titles ("destructive tool
  * call: fs_write_file") name the known operation instead; any other title is the agent's own.
- * The decision card and the bell share this, so both read the same in every locale.
+ * The decision card and the bell share this, so both read the same in every locale. A
+ * forwarded ask can arrive without its tool call, so the title's own tool id decides; a
+ * legacy title is never shown raw.
  */
 export function permissionTitle(
   interaction: PendingInteraction,
@@ -45,8 +47,8 @@ export function permissionTitle(
       ? (input as Record<string, unknown>)
       : ({} as Record<string, unknown>);
   const named = legacyToolCallName(interaction.title);
-  if (named === undefined || named !== toolName) return interaction.title;
-  return permissionOperationTitle(named, fields) ?? interaction.title;
+  if (named === undefined) return interaction.title;
+  return permissionOperationTitle(named, named === toolName ? fields : {}) ?? named;
 }
 
 // "destructive tool call: fs_write_file", "shell command call: shell_bash", "external MCP tool call: …".
