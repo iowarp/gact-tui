@@ -81,6 +81,7 @@ import {
   type WorkbenchActivityView,
   type WorkbenchListColumnProps,
 } from './workbench-list-column';
+import type { RunsSelection } from './runs-explorer';
 import { useWorkbenchTabListSlot } from './use-workbench-tab-list-slot';
 import { WorkbenchTabListProvider } from './workbench-tab-list';
 import { useMcpAppTabSync } from './mcp-app-tab-sync';
@@ -255,6 +256,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const canvasVisible = useWorkspaceCanvasVisibility();
     const canvasControl = useWorkspaceCanvasControl();
     const [activityView, setActivityView] = useState<WorkbenchActivityView>('timeline');
+    const [runsSelected, setRunsSelected] = useState<RunsSelection>();
 
     // A shown canvas never has an empty pane: with nothing open it shows Files.
     const canvasEmpty = orderedTabs.length === 0;
@@ -389,6 +391,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             return;
           case 'science-log':
             openTab(scienceLogTab);
+            return;
+          case 'runs':
+            // Without a run, Runs shows what it showed last (its list or a record).
+            if (request.run) setRunsSelected({ handle: request.run, sessionId: request.sessionId });
+            showList('runs');
             return;
           case 'workspace-folder':
             if ((request.workspaceId ?? targetWorkspaceId) === workspaceId) {
@@ -552,6 +559,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       onOpenTerminal,
       onRefreshFiles,
       onSelectTab: setActiveTabId,
+      onRunsSelectedChange: setRunsSelected,
+      runsSelected,
       resources,
       resourcesError,
       resourcesPending,

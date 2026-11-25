@@ -325,7 +325,7 @@ msgid "{0, plural, one {# file} other {# files}}"
 msgstr ""
 
 #. placeholder {0}: filteredRows.length
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "{0, plural, one {# flow} other {# flows}}"
 msgstr ""
 
@@ -582,7 +582,7 @@ msgid "{0, plural, one {# row} other {# rows}}"
 msgstr ""
 
 #. placeholder {0}: filteredRows.length
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "{0, plural, one {# run} other {# runs}}"
 msgstr ""
 
@@ -8528,8 +8528,8 @@ msgid "Cancel sign-in"
 msgstr ""
 
 #: src/components/clio/async-task-list.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/source-operation-status.tsx
-#: src/routes/runs-page.tsx
 msgid "Cancel task"
 msgstr ""
 
@@ -8550,7 +8550,7 @@ msgid "Cancel this schedule?"
 msgstr ""
 
 #: src/components/clio/async-task-list.tsx
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Cancel this task?"
 msgstr ""
 
@@ -8565,9 +8565,9 @@ msgstr ""
 
 #: src/components/clio/run-actions.tsx
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/task-activity-row.tsx
-#: src/routes/runs-page.tsx
 msgid "Cancellation requested"
 msgstr ""
 
@@ -15313,7 +15313,7 @@ msgstr ""
 msgid "Execution time"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Executions"
 msgstr ""
 
@@ -15979,19 +15979,19 @@ msgstr ""
 msgid "Filter artifacts"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by execution type"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state: {stateLabel}"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state: {stateLabel}, {stateCountShown}"
 msgstr ""
 
@@ -16358,7 +16358,7 @@ msgstr ""
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/components/clio/composer-references.tsx
 #: src/components/clio/plugin-explorer.tsx
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Flows"
 msgstr ""
 
@@ -18267,7 +18267,7 @@ msgstr ""
 msgid "Independent conversation with shared files"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Index more sessions"
 msgstr ""
 
@@ -18332,7 +18332,7 @@ msgstr ""
 msgid "Indexing, {amount}"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Indexing…"
 msgstr ""
 
@@ -19408,7 +19408,7 @@ msgstr ""
 msgid "Keep reviewing"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Keep run"
 msgstr ""
 
@@ -20021,7 +20021,7 @@ msgstr ""
 msgid "Load more tags"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Load more tasks"
 msgstr ""
 
@@ -20337,7 +20337,7 @@ msgstr ""
 msgid "Loading flow…"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Loading flows"
 msgstr ""
 
@@ -20546,7 +20546,8 @@ msgstr ""
 msgid "Loading rows…"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/workbench-list-column.tsx
 msgid "Loading runs"
 msgstr ""
 
@@ -20754,12 +20755,12 @@ msgstr ""
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/model-download-search.tsx
 #: src/components/clio/offer-list-row.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-models-rows.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
 #: src/components/clio/workspace-directory-tree.tsx
-#: src/routes/runs-page.tsx
 msgid "Loading…"
 msgstr ""
 
@@ -22040,7 +22041,7 @@ msgstr ""
 msgid "More actions for the working plan"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "More available; search covers loaded runs."
 msgstr ""
 
@@ -23169,7 +23170,7 @@ msgstr ""
 msgid "No flow run is recorded for this task yet."
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "No flows started in the indexed conversations."
 msgstr ""
 
@@ -23713,7 +23714,7 @@ msgstr ""
 msgid "No run or tool activity is available."
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "No runs match the current search and filters."
 msgstr ""
 
@@ -25719,6 +25720,10 @@ msgstr ""
 
 #: src/components/clio/ndp-device-auth.tsx
 msgid "Opening NDP…"
+msgstr ""
+
+#: src/routes/runs-page.tsx
+msgid "Opening Runs"
 msgstr ""
 
 #: src/components/clio/provider-actions.ts
@@ -30016,7 +30021,7 @@ msgstr ""
 msgid "Requested by session {session}"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Requesting cancellation…"
 msgstr ""
 
@@ -30598,6 +30603,7 @@ msgstr ""
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/run-record.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-about.tsx
@@ -30634,7 +30640,6 @@ msgstr ""
 #: src/components/reui/cascader/cascader-i18n.tsx
 #: src/routes/connection-page.tsx
 #: src/routes/infrastructure-page.tsx
-#: src/routes/runs-page.tsx
 msgid "Retry"
 msgstr ""
 
@@ -31043,7 +31048,7 @@ msgstr ""
 msgid "Run and save response"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Run categories"
 msgstr ""
 
@@ -31052,7 +31057,7 @@ msgstr ""
 msgid "Run command"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Run explorer unavailable"
 msgstr ""
 
@@ -31183,12 +31188,12 @@ msgstr ""
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/memory-creation-log.tsx
-#: src/components/clio/navigation-header.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
+#: src/components/clio/use-workbench-strip.tsx
+#: src/components/clio/workbench-tab-storage.ts
 #: src/lib/global-search-commands.ts
-#: src/routes/runs-page.tsx
 msgid "Runs"
 msgstr ""
 
@@ -31244,6 +31249,10 @@ msgstr ""
 msgid "Runs commands"
 msgstr ""
 
+#: src/routes/runs-page.tsx
+msgid "Runs could not open"
+msgstr ""
+
 #: src/components/clio/service-installation-method.tsx
 msgid "Runs directly on this computer"
 msgstr ""
@@ -31282,6 +31291,10 @@ msgstr ""
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Runs on the connected agent host. The command starts when you add this connection."
+msgstr ""
+
+#: src/routes/runs-page.tsx
+msgid "Runs open beside a conversation. Add a workspace first."
 msgstr ""
 
 #: src/components/clio/settings-fleet.tsx
@@ -32171,11 +32184,11 @@ msgstr ""
 msgid "Search files…"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search flow, workspace, or state"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search flows"
 msgstr ""
 
@@ -32262,11 +32275,11 @@ msgstr ""
 msgid "Search results: choose a section"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search run, workspace, state, host, or task"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search runs"
 msgstr ""
 
@@ -33514,7 +33527,7 @@ msgstr ""
 msgid "Show"
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Show {count} more"
 msgstr ""
 
@@ -38160,7 +38173,7 @@ msgstr ""
 msgid "The task ended before its flow run was recorded."
 msgstr ""
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "The task owner is unavailable"
 msgstr ""
 

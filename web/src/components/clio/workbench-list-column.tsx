@@ -13,7 +13,7 @@ import {
   SearchIcon,
   TerminalSquareIcon,
 } from 'lucide-react';
-import { memo, useMemo, useState, type ReactNode } from 'react';
+import { lazy, memo, Suspense, useMemo, useState, type ReactNode } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,7 +56,13 @@ import { WORKBENCH_LIST_TITLES } from './workbench-tab-storage';
 import { plural, t, ph } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 
+import type { RunsSelection } from './runs-explorer';
+
 export type WorkbenchActivityView = 'timeline' | 'events' | 'relationships' | 'context';
+
+const RunsExplorer = lazy(() =>
+  import('./runs-explorer').then((module) => ({ default: module.RunsExplorer })),
+);
 
 /** Timeline leads; the event list, family graph and context window are views in More. */
 const ACTIVITY_VIEWS: readonly { value: WorkbenchActivityView; label: string; title: string }[] = [
@@ -116,6 +122,10 @@ export interface WorkbenchListColumnProps {
   newPage?: boolean;
   /** Opens a New page tab (the Browser list's empty state). */
   onNewBrowserPage?: () => void;
+  // Runs
+  /** The run whose record the Runs tab shows instead of its list. */
+  runsSelected?: RunsSelection;
+  onRunsSelectedChange?: (selected: RunsSelection | undefined) => void;
 }
 
 /**
@@ -135,6 +145,14 @@ export const WorkbenchListColumn = memo(function WorkbenchListColumn(
   const body =
     view === 'activity' ? (
       <ActivityViews {...props} title={title} />
+    ) : view === 'runs' ? (
+      <Suspense fallback={<StateView kind="loading" title={t`Loading runs`} />}>
+        <RunsExplorer
+          onSelectedChange={props.onRunsSelectedChange ?? (() => undefined)}
+          selected={props.runsSelected}
+          sessionId={props.sessionId}
+        />
+      </Suspense>
     ) : view === 'files' ? (
       <FilesList {...props} renderHeader={renderHeader} />
     ) : view === 'artifacts' ? (
@@ -332,6 +350,7 @@ function ListBody(props: WorkbenchListColumnProps) {
     case 'files':
     case 'artifacts':
     case 'activity':
+    case 'runs':
     case 'sources':
       return null;
     case 'terminal':

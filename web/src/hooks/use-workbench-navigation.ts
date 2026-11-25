@@ -4,6 +4,7 @@ import { connectionScope } from '@/lib/connection-scope';
 import { KNOWLEDGE_OPEN_EVENT, type KnowledgeOpenRequest } from '@/lib/knowledge-navigation';
 import { OPEN_VARIANT_TRY_EVENT, type OpenVariantTryDetail } from '@/lib/variant-try-tabs';
 import { OPEN_PLAN_TAB_EVENT, type OpenPlanTabDetail } from '@/lib/plan-tab';
+import { OPEN_RUNS_TAB_EVENT, type OpenRunsTabDetail } from '@/lib/runs-tab';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
 import { OPEN_MCP_APP_TAB_EVENT } from '@/components/clio/mcp-app-live-set';
@@ -96,6 +97,9 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
       return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
     if (request?.kind === 'artifact' && request.artifact?.workspace_id === workspaceId)
       return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
+    // /runs and /runs?run= deep links, redirected beside a conversation.
+    if (request?.kind === 'runs')
+      return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
     if (request?.kind === 'search' && typeof request.query === 'string')
       return { endpoint: settings.endpoint, key: `global-search:${location.key}`, request };
     // A workspace's "Open folder › In a tab" from the left bar, for a workspace not yet open.
@@ -186,6 +190,15 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     return () => window.removeEventListener(OPEN_PLAN_TAB_EVENT, show);
   }, [revealWorkbench]);
 
+  useEffect(() => {
+    const show = (event: Event) => {
+      const { run, sessionId } = (event as CustomEvent<OpenRunsTabDetail>).detail;
+      revealWorkbench({ kind: 'runs', run, sessionId });
+    };
+    window.addEventListener(OPEN_RUNS_TAB_EVENT, show);
+    return () => window.removeEventListener(OPEN_RUNS_TAB_EVENT, show);
+  }, [revealWorkbench]);
+
   const repositoryForFiles = useRepository();
   useEffect(() => {
     const open = (event: Event) => {
@@ -243,9 +256,10 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     (handle: string, label?: string) => revealWorkbench({ kind: 'flow', handle, label }),
     [revealWorkbench],
   );
+  // Every Open run shows the record in the Runs tab, among the system's other runs.
   const openRun = useCallback(
-    (handle: string, label?: string, sessionId?: string) =>
-      revealWorkbench({ kind: 'run', handle, label, sessionId }),
+    (handle: string, _label?: string, sessionId?: string) =>
+      revealWorkbench({ kind: 'runs', run: handle, sessionId }),
     [revealWorkbench],
   );
 

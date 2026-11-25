@@ -326,7 +326,7 @@ msgid "{0, plural, one {# file} other {# files}}"
 msgstr "{0, plural, one {# αρχείο} other {# αρχεία}}"
 
 #. placeholder {0}: filteredRows.length
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "{0, plural, one {# flow} other {# flows}}"
 msgstr "{0, plural, one {# ροή} other {# ροές}}"
 
@@ -583,7 +583,7 @@ msgid "{0, plural, one {# row} other {# rows}}"
 msgstr "{0, plural, one {# γραμμή} other {# γραμμές}}"
 
 #. placeholder {0}: filteredRows.length
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "{0, plural, one {# run} other {# runs}}"
 msgstr "{0, plural, one {# εκτέλεση} other {# εκτελέσεις}}"
 
@@ -8537,8 +8537,8 @@ msgid "Cancel sign-in"
 msgstr "Ακύρωση σύνδεσης"
 
 #: src/components/clio/async-task-list.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/source-operation-status.tsx
-#: src/routes/runs-page.tsx
 msgid "Cancel task"
 msgstr "Ακύρωση εργασίας"
 
@@ -8559,7 +8559,7 @@ msgid "Cancel this schedule?"
 msgstr "Ακύρωση αυτού του χρονοπρογραμματισμού;"
 
 #: src/components/clio/async-task-list.tsx
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Cancel this task?"
 msgstr "Ακύρωση αυτής της εργασίας;"
 
@@ -8574,9 +8574,9 @@ msgstr "Η ακύρωση ζητείται από τον κάτοχό της κ�
 
 #: src/components/clio/run-actions.tsx
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/task-activity-row.tsx
-#: src/routes/runs-page.tsx
 msgid "Cancellation requested"
 msgstr "Ζητήθηκε ακύρωση"
 
@@ -15322,7 +15322,7 @@ msgstr "Αποτέλεσμα εκτέλεσης"
 msgid "Execution time"
 msgstr "Χρόνος εκτέλεσης"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Executions"
 msgstr "Εκτελέσεις"
 
@@ -15988,19 +15988,19 @@ msgstr "Φιλτράρισμα δραστηριότητας, {hidden} κρυφέ
 msgid "Filter artifacts"
 msgstr "Φιλτράρισμα τεχνουργημάτων"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by execution type"
 msgstr "Φιλτράρισμα κατά τύπο εκτέλεσης"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state"
 msgstr "Φιλτράρισμα κατά κατάσταση"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state: {stateLabel}"
 msgstr "Φιλτράρισμα κατά κατάσταση: {stateLabel}"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state: {stateLabel}, {stateCountShown}"
 msgstr "Φιλτράρισμα κατά κατάσταση: {stateLabel}, {stateCountShown}"
 
@@ -16367,7 +16367,7 @@ msgstr "Ροή: {state} — {progress}"
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/components/clio/composer-references.tsx
 #: src/components/clio/plugin-explorer.tsx
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Flows"
 msgstr "Ροές"
 
@@ -18285,7 +18285,7 @@ msgstr "Μη συμβατό"
 msgid "Independent conversation with shared files"
 msgstr "Ανεξάρτητη συνομιλία με κοινόχρηστα αρχεία"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Index more sessions"
 msgstr "Ευρετηρίαση περισσότερων συνεδριών"
 
@@ -18350,7 +18350,7 @@ msgstr "Ευρετηρίαση σημειώσεων θησαυροφυλακίο
 msgid "Indexing, {amount}"
 msgstr "Ευρετηρίαση, {amount}"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Indexing…"
 msgstr "Ευρετηρίαση…"
 
@@ -19426,7 +19426,7 @@ msgstr "Διατήρηση πόρου"
 msgid "Keep reviewing"
 msgstr "Συνέχεια ελέγχου"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Keep run"
 msgstr "Διατήρηση εκτέλεσης"
 
@@ -20039,7 +20039,7 @@ msgstr "Φόρτωση περισσότερων συνεδριών"
 msgid "Load more tags"
 msgstr "Φόρτωση περισσότερων ετικετών"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Load more tasks"
 msgstr "Φόρτωση περισσότερων εργασιών"
 
@@ -20355,7 +20355,7 @@ msgstr "Φόρτωση αρχείων"
 msgid "Loading flow…"
 msgstr "Φόρτωση ροής…"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Loading flows"
 msgstr "Φόρτωση ροών"
 
@@ -20564,7 +20564,8 @@ msgstr "Φόρτωση γραμμών"
 msgid "Loading rows…"
 msgstr "Φόρτωση γραμμών…"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/workbench-list-column.tsx
 msgid "Loading runs"
 msgstr "Φόρτωση εκτελέσεων"
 
@@ -20772,12 +20773,12 @@ msgstr "Φόρτωση..."
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/model-download-search.tsx
 #: src/components/clio/offer-list-row.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-models-rows.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
 #: src/components/clio/workspace-directory-tree.tsx
-#: src/routes/runs-page.tsx
 msgid "Loading…"
 msgstr "Φόρτωση…"
 
@@ -22058,7 +22059,7 @@ msgstr "Περισσότερες ενέργειες για {title}"
 msgid "More actions for the working plan"
 msgstr "Περισσότερες ενέργειες για το σχέδιο εργασίας"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "More available; search covers loaded runs."
 msgstr "Υπάρχουν περισσότερες· η αναζήτηση καλύπτει τις φορτωμένες εκτελέσεις."
 
@@ -23187,7 +23188,7 @@ msgstr "Δεν καταγράφηκαν αρχεία για αυτή την κλ
 msgid "No flow run is recorded for this task yet."
 msgstr "Δεν έχει καταγραφεί ακόμη εκτέλεση ροής για αυτήν την εργασία."
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "No flows started in the indexed conversations."
 msgstr "Δεν ξεκίνησε καμία ροή στις ευρετηριασμένες συνομιλίες."
 
@@ -23731,7 +23732,7 @@ msgstr "Δεν δόθηκαν γραμμές για αυτή την προβολ
 msgid "No run or tool activity is available."
 msgstr "Δεν υπάρχει διαθέσιμη δραστηριότητα εκτελέσεων ή εργαλείων."
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "No runs match the current search and filters."
 msgstr "Καμία εκτέλεση δεν ταιριάζει με την τρέχουσα αναζήτηση και τα φίλτρα."
 
@@ -25738,6 +25739,10 @@ msgstr "Άνοιγμα του GitHub…"
 #: src/components/clio/ndp-device-auth.tsx
 msgid "Opening NDP…"
 msgstr "Άνοιγμα του NDP…"
+
+#: src/routes/runs-page.tsx
+msgid "Opening Runs"
+msgstr "Άνοιγμα Εκτελέσεων"
 
 #: src/components/clio/provider-actions.ts
 msgid "Opening sign-in…"
@@ -30034,7 +30039,7 @@ msgstr "Ζητήθηκε"
 msgid "Requested by session {session}"
 msgstr "Ζητήθηκε από τη συνεδρία {session}"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Requesting cancellation…"
 msgstr "Αίτημα ακύρωσης…"
 
@@ -30616,6 +30621,7 @@ msgstr "Ανάκτηση"
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/run-record.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-about.tsx
@@ -30652,7 +30658,6 @@ msgstr "Ανάκτηση"
 #: src/components/reui/cascader/cascader-i18n.tsx
 #: src/routes/connection-page.tsx
 #: src/routes/infrastructure-page.tsx
-#: src/routes/runs-page.tsx
 msgid "Retry"
 msgstr "Επανάληψη"
 
@@ -31061,7 +31066,7 @@ msgstr "Εκτέλεση ανάλυσης"
 msgid "Run and save response"
 msgstr "Εκτέλεση και αποθήκευση απόκρισης"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Run categories"
 msgstr "Κατηγορίες εκτελέσεων"
 
@@ -31070,7 +31075,7 @@ msgstr "Κατηγορίες εκτελέσεων"
 msgid "Run command"
 msgstr "Εκτέλεση εντολής"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Run explorer unavailable"
 msgstr "Η εξερεύνηση εκτελέσεων δεν είναι διαθέσιμη"
 
@@ -31201,12 +31206,12 @@ msgstr "Σε εκτέλεση, αλλά δεν έχει φορτωθεί ακό�
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/memory-creation-log.tsx
-#: src/components/clio/navigation-header.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
+#: src/components/clio/use-workbench-strip.tsx
+#: src/components/clio/workbench-tab-storage.ts
 #: src/lib/global-search-commands.ts
-#: src/routes/runs-page.tsx
 msgid "Runs"
 msgstr "Εκτελέσεις"
 
@@ -31262,6 +31267,10 @@ msgstr "Εκτελείται ως"
 msgid "Runs commands"
 msgstr "Εκτελεί εντολές"
 
+#: src/routes/runs-page.tsx
+msgid "Runs could not open"
+msgstr "Οι Εκτελέσεις δεν άνοιξαν"
+
 #: src/components/clio/service-installation-method.tsx
 msgid "Runs directly on this computer"
 msgstr "Εκτελείται απευθείας σε αυτόν τον υπολογιστή"
@@ -31301,6 +31310,10 @@ msgstr "Εκτελείται σε {ref}."
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Runs on the connected agent host. The command starts when you add this connection."
 msgstr "Εκτελείται στον συνδεδεμένο κεντρικό υπολογιστή του πράκτορα. Η εντολή ξεκινά όταν προσθέτετε αυτή τη σύνδεση."
+
+#: src/routes/runs-page.tsx
+msgid "Runs open beside a conversation. Add a workspace first."
+msgstr "Οι Εκτελέσεις ανοίγουν δίπλα σε μια συνομιλία. Προσθέστε πρώτα έναν χώρο εργασίας."
 
 #: src/components/clio/settings-fleet.tsx
 msgid "Runs the read-only explore helper that searches files and data. A fast model keeps wide surveys quick."
@@ -32189,11 +32202,11 @@ msgstr "Αναζήτηση αρχείων"
 msgid "Search files…"
 msgstr "Αναζήτηση αρχείων…"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search flow, workspace, or state"
 msgstr "Αναζήτηση ροής, χώρου εργασίας ή κατάστασης"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search flows"
 msgstr "Αναζήτηση ροών"
 
@@ -32280,11 +32293,11 @@ msgstr "Αποτελέσματα αναζήτησης"
 msgid "Search results: choose a section"
 msgstr "Αποτελέσματα αναζήτησης: επιλέξτε ενότητα"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search run, workspace, state, host, or task"
 msgstr "Αναζήτηση εκτέλεσης, χώρου εργασίας, κατάστασης, κεντρικού υπολογιστή ή εργασίας"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search runs"
 msgstr "Αναζήτηση εκτελέσεων"
 
@@ -33532,7 +33545,7 @@ msgstr "Παρέχεται με την υπηρεσία"
 msgid "Show"
 msgstr "Εμφάνιση"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Show {count} more"
 msgstr "Εμφάνιση {count} ακόμη"
 
@@ -38179,7 +38192,7 @@ msgstr "Η εργασία τερματίστηκε πριν καταγραφεί
 msgid "The task ended before its flow run was recorded."
 msgstr "Η εργασία τερματίστηκε πριν καταγραφεί η εκτέλεση της ροής της."
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "The task owner is unavailable"
 msgstr "Ο κάτοχος της εργασίας δεν είναι διαθέσιμος"
 

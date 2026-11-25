@@ -3,6 +3,7 @@ import { ArrowLeftIcon, CircleStopIcon, ClockIcon, ExternalLinkIcon } from 'luci
 import { lazy, Suspense, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { FrameBackContext } from '@/components/clio/primitives/frame-back';
 import { FrameBar, FrameCrumbs, FrameTab } from '@/components/clio/primitives/frame-bar';
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { StateView } from '@/components/clio/primitives/state-view';
@@ -199,6 +200,7 @@ export function RunTab({
   onStop,
   stopping = false,
   onClose,
+  embedded = false,
 }: {
   row: RunRow;
   stateLabel: string;
@@ -209,9 +211,11 @@ export function RunTab({
   /** Cancellation is requested or on its way. */
   stopping?: boolean;
   onClose: () => void;
+  /** Inside the Runs tab: the workbench's tab row names it, and Back returns to the list. */
+  embedded?: boolean;
 }) {
   const navigate = useNavigate();
-  const sheet = useMediaQuery('(max-width: 899px)');
+  const sheet = useMediaQuery('(max-width: 899px)') && !embedded;
   const href = runConversationHref(row, false);
   const flow = row.flowHandle && row.targetSessionId ? row.flowHandle : undefined;
   const stop = onStop ? { onStop, stopping } : undefined;
@@ -240,62 +244,72 @@ export function RunTab({
       className="flex h-full min-h-0 flex-col bg-background"
       data-maximized={sheet || undefined}
     >
-      <div
-        aria-label={t`Open runs`}
-        className="flex h-[38px] shrink-0 items-center gap-1 border-b border-border px-1.5"
-        role="tablist"
-      >
-        {sheet ? (
-          <IconButton
-            icon={<ArrowLeftIcon aria-hidden="true" />}
-            label={t`Back to runs`}
-            onClick={onClose}
-            size="sm"
+      {embedded ? null : (
+        <div
+          aria-label={t`Open runs`}
+          className="flex h-[38px] shrink-0 items-center gap-1 border-b border-border px-1.5"
+          role="tablist"
+        >
+          {sheet ? (
+            <IconButton
+              icon={<ArrowLeftIcon aria-hidden="true" />}
+              label={t`Back to runs`}
+              onClick={onClose}
+              size="sm"
+            />
+          ) : null}
+          <FrameTab
+            active
+            icon={<RunSourceIcon source={row.source} />}
+            label={row.label}
+            onClose={onClose}
+            onSelect={() => undefined}
           />
-        ) : null}
-        <FrameTab
-          active
-          icon={<RunSourceIcon source={row.source} />}
-          label={row.label}
-          onClose={onClose}
-          onSelect={() => undefined}
+        </div>
+      )}
+      <FrameBackContext.Provider value={embedded ? { label: t`Runs`, onBack: onClose } : undefined}>
+        <FrameBar
+          actions={
+            <>
+              {href ? (
+                <NamedTooltip label={t`Open conversation`}>
+                  <Button
+                    asChild
+                    className="text-muted-foreground hover:bg-hover hover:text-foreground"
+                    size="icon-xs"
+                    variant="ghost"
+                  >
+                    <Link aria-label={t`Open conversation`} to={href}>
+                      <ExternalLinkIcon aria-hidden="true" />
+                    </Link>
+                  </Button>
+                </NamedTooltip>
+              ) : null}
+              {actions}
+            </>
+          }
+          label={t`Run actions`}
+          format={stopButton}
+          rule={Boolean(stopButton)}
+          what={
+            <>
+              <span className="shrink-0" data-frame-position="">
+                <RunStateWord row={row} stateLabel={stateLabel} />
+              </span>
+              <span>{row.taskKind ? runKindName(row.taskKind) : sourceLabels[row.source]}</span>
+            </>
+          }
+          where={
+            <FrameCrumbs
+              parts={
+                embedded
+                  ? [{ label: row.label }]
+                  : [{ label: t`Runs`, onSelect: onClose }, { label: row.label }]
+              }
+            />
+          }
         />
-      </div>
-      <FrameBar
-        actions={
-          <>
-            {href ? (
-              <NamedTooltip label={t`Open conversation`}>
-                <Button
-                  asChild
-                  className="text-muted-foreground hover:bg-hover hover:text-foreground"
-                  size="icon-xs"
-                  variant="ghost"
-                >
-                  <Link aria-label={t`Open conversation`} to={href}>
-                    <ExternalLinkIcon aria-hidden="true" />
-                  </Link>
-                </Button>
-              </NamedTooltip>
-            ) : null}
-            {actions}
-          </>
-        }
-        label={t`Run actions`}
-        format={stopButton}
-        rule={Boolean(stopButton)}
-        what={
-          <>
-            <span className="shrink-0" data-frame-position="">
-              <RunStateWord row={row} stateLabel={stateLabel} />
-            </span>
-            <span>{row.taskKind ? runKindName(row.taskKind) : sourceLabels[row.source]}</span>
-          </>
-        }
-        where={
-          <FrameCrumbs parts={[{ label: t`Runs`, onSelect: onClose }, { label: row.label }]} />
-        }
-      />
+      </FrameBackContext.Provider>
       <div className="clio-scrollbar min-h-0 flex-1 overflow-y-auto" role="tabpanel">
         {flow && row.targetSessionId ? (
           <Suspense fallback={<StateView kind="loading" title={t`Loading the flow run`} />}>

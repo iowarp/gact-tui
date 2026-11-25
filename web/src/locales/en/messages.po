@@ -325,7 +325,7 @@ msgid "{0, plural, one {# file} other {# files}}"
 msgstr "{0, plural, one {# file} other {# files}}"
 
 #. placeholder {0}: filteredRows.length
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "{0, plural, one {# flow} other {# flows}}"
 msgstr "{0, plural, one {# flow} other {# flows}}"
 
@@ -582,7 +582,7 @@ msgid "{0, plural, one {# row} other {# rows}}"
 msgstr "{0, plural, one {# row} other {# rows}}"
 
 #. placeholder {0}: filteredRows.length
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "{0, plural, one {# run} other {# runs}}"
 msgstr "{0, plural, one {# run} other {# runs}}"
 
@@ -8536,8 +8536,8 @@ msgid "Cancel sign-in"
 msgstr "Cancel sign-in"
 
 #: src/components/clio/async-task-list.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/source-operation-status.tsx
-#: src/routes/runs-page.tsx
 msgid "Cancel task"
 msgstr "Cancel task"
 
@@ -8558,7 +8558,7 @@ msgid "Cancel this schedule?"
 msgstr "Cancel this schedule?"
 
 #: src/components/clio/async-task-list.tsx
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Cancel this task?"
 msgstr "Cancel this task?"
 
@@ -8573,9 +8573,9 @@ msgstr "Cancellation is requested from its owner and may take time to finish."
 
 #: src/components/clio/run-actions.tsx
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/task-activity-row.tsx
-#: src/routes/runs-page.tsx
 msgid "Cancellation requested"
 msgstr "Cancellation requested"
 
@@ -15321,7 +15321,7 @@ msgstr "Execution result"
 msgid "Execution time"
 msgstr "Execution time"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Executions"
 msgstr "Executions"
 
@@ -15987,19 +15987,19 @@ msgstr "Filter activity, {hidden} hidden"
 msgid "Filter artifacts"
 msgstr "Filter artifacts"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by execution type"
 msgstr "Filter by execution type"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state"
 msgstr "Filter by state"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state: {stateLabel}"
 msgstr "Filter by state: {stateLabel}"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state: {stateLabel}, {stateCountShown}"
 msgstr "Filter by state: {stateLabel}, {stateCountShown}"
 
@@ -16366,7 +16366,7 @@ msgstr "Flow: {state} — {progress}"
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/components/clio/composer-references.tsx
 #: src/components/clio/plugin-explorer.tsx
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Flows"
 msgstr "Flows"
 
@@ -18284,7 +18284,7 @@ msgstr "Incompatible"
 msgid "Independent conversation with shared files"
 msgstr "Independent conversation with shared files"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Index more sessions"
 msgstr "Index more sessions"
 
@@ -18349,7 +18349,7 @@ msgstr "Indexing vault notes"
 msgid "Indexing, {amount}"
 msgstr "Indexing, {amount}"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Indexing…"
 msgstr "Indexing…"
 
@@ -19425,7 +19425,7 @@ msgstr "Keep resource"
 msgid "Keep reviewing"
 msgstr "Keep reviewing"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Keep run"
 msgstr "Keep run"
 
@@ -20038,7 +20038,7 @@ msgstr "Load more sessions"
 msgid "Load more tags"
 msgstr "Load more tags"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Load more tasks"
 msgstr "Load more tasks"
 
@@ -20354,7 +20354,7 @@ msgstr "Loading files"
 msgid "Loading flow…"
 msgstr "Loading flow…"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Loading flows"
 msgstr "Loading flows"
 
@@ -20563,7 +20563,8 @@ msgstr "Loading rows"
 msgid "Loading rows…"
 msgstr "Loading rows…"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/workbench-list-column.tsx
 msgid "Loading runs"
 msgstr "Loading runs"
 
@@ -20771,12 +20772,12 @@ msgstr "Loading..."
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/model-download-search.tsx
 #: src/components/clio/offer-list-row.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-models-rows.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
 #: src/components/clio/workspace-directory-tree.tsx
-#: src/routes/runs-page.tsx
 msgid "Loading…"
 msgstr "Loading…"
 
@@ -22057,7 +22058,7 @@ msgstr "More actions for {title}"
 msgid "More actions for the working plan"
 msgstr "More actions for the working plan"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "More available; search covers loaded runs."
 msgstr "More available; search covers loaded runs."
 
@@ -23186,7 +23187,7 @@ msgstr "No files were recorded for this call."
 msgid "No flow run is recorded for this task yet."
 msgstr "No flow run is recorded for this task yet."
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "No flows started in the indexed conversations."
 msgstr "No flows started in the indexed conversations."
 
@@ -23730,7 +23731,7 @@ msgstr "No rows were provided for this data view."
 msgid "No run or tool activity is available."
 msgstr "No run or tool activity is available."
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "No runs match the current search and filters."
 msgstr "No runs match the current search and filters."
 
@@ -25737,6 +25738,10 @@ msgstr "Opening GitHub…"
 #: src/components/clio/ndp-device-auth.tsx
 msgid "Opening NDP…"
 msgstr "Opening NDP…"
+
+#: src/routes/runs-page.tsx
+msgid "Opening Runs"
+msgstr "Opening Runs"
 
 #: src/components/clio/provider-actions.ts
 msgid "Opening sign-in…"
@@ -30033,7 +30038,7 @@ msgstr "Requested"
 msgid "Requested by session {session}"
 msgstr "Requested by session {session}"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Requesting cancellation…"
 msgstr "Requesting cancellation…"
 
@@ -30615,6 +30620,7 @@ msgstr "Retrieval"
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/run-record.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-about.tsx
@@ -30651,7 +30657,6 @@ msgstr "Retrieval"
 #: src/components/reui/cascader/cascader-i18n.tsx
 #: src/routes/connection-page.tsx
 #: src/routes/infrastructure-page.tsx
-#: src/routes/runs-page.tsx
 msgid "Retry"
 msgstr "Retry"
 
@@ -31060,7 +31065,7 @@ msgstr "Run analysis"
 msgid "Run and save response"
 msgstr "Run and save response"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Run categories"
 msgstr "Run categories"
 
@@ -31069,7 +31074,7 @@ msgstr "Run categories"
 msgid "Run command"
 msgstr "Run command"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Run explorer unavailable"
 msgstr "Run explorer unavailable"
 
@@ -31200,12 +31205,12 @@ msgstr "Running, but no model is loaded yet."
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/memory-creation-log.tsx
-#: src/components/clio/navigation-header.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
+#: src/components/clio/use-workbench-strip.tsx
+#: src/components/clio/workbench-tab-storage.ts
 #: src/lib/global-search-commands.ts
-#: src/routes/runs-page.tsx
 msgid "Runs"
 msgstr "Runs"
 
@@ -31261,6 +31266,10 @@ msgstr "Runs as"
 msgid "Runs commands"
 msgstr "Runs commands"
 
+#: src/routes/runs-page.tsx
+msgid "Runs could not open"
+msgstr "Runs could not open"
+
 #: src/components/clio/service-installation-method.tsx
 msgid "Runs directly on this computer"
 msgstr "Runs directly on this computer"
@@ -31300,6 +31309,10 @@ msgstr "Runs on {ref}."
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Runs on the connected agent host. The command starts when you add this connection."
 msgstr "Runs on the connected agent host. The command starts when you add this connection."
+
+#: src/routes/runs-page.tsx
+msgid "Runs open beside a conversation. Add a workspace first."
+msgstr "Runs open beside a conversation. Add a workspace first."
 
 #: src/components/clio/settings-fleet.tsx
 msgid "Runs the read-only explore helper that searches files and data. A fast model keeps wide surveys quick."
@@ -32188,11 +32201,11 @@ msgstr "Search files"
 msgid "Search files…"
 msgstr "Search files…"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search flow, workspace, or state"
 msgstr "Search flow, workspace, or state"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search flows"
 msgstr "Search flows"
 
@@ -32279,11 +32292,11 @@ msgstr "Search results"
 msgid "Search results: choose a section"
 msgstr "Search results: choose a section"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search run, workspace, state, host, or task"
 msgstr "Search run, workspace, state, host, or task"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search runs"
 msgstr "Search runs"
 
@@ -33531,7 +33544,7 @@ msgstr "Shipped with the service"
 msgid "Show"
 msgstr "Show"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Show {count} more"
 msgstr "Show {count} more"
 
@@ -38178,7 +38191,7 @@ msgstr "The task ended before its flow run was recorded:"
 msgid "The task ended before its flow run was recorded."
 msgstr "The task ended before its flow run was recorded."
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "The task owner is unavailable"
 msgstr "The task owner is unavailable"
 

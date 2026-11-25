@@ -326,7 +326,7 @@ msgid "{0, plural, one {# file} other {# files}}"
 msgstr "{0, plural, one {# archivo} other {# archivos}}"
 
 #. placeholder {0}: filteredRows.length
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "{0, plural, one {# flow} other {# flows}}"
 msgstr "{0, plural, one {# flujo} other {# flujos}}"
 
@@ -583,7 +583,7 @@ msgid "{0, plural, one {# row} other {# rows}}"
 msgstr "{0, plural, one {# fila} other {# filas}}"
 
 #. placeholder {0}: filteredRows.length
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "{0, plural, one {# run} other {# runs}}"
 msgstr "{0, plural, one {# ejecución} other {# ejecuciones}}"
 
@@ -8537,8 +8537,8 @@ msgid "Cancel sign-in"
 msgstr "Cancelar el inicio de sesión"
 
 #: src/components/clio/async-task-list.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/source-operation-status.tsx
-#: src/routes/runs-page.tsx
 msgid "Cancel task"
 msgstr "Cancelar tarea"
 
@@ -8559,7 +8559,7 @@ msgid "Cancel this schedule?"
 msgstr "¿Cancelar esta programación?"
 
 #: src/components/clio/async-task-list.tsx
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Cancel this task?"
 msgstr "¿Cancelar esta tarea?"
 
@@ -8574,9 +8574,9 @@ msgstr "La cancelación se solicita a su propietario y puede tardar en completar
 
 #: src/components/clio/run-actions.tsx
 #: src/components/clio/run-presentation.ts
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/task-activity-row.tsx
-#: src/routes/runs-page.tsx
 msgid "Cancellation requested"
 msgstr "Cancelación solicitada"
 
@@ -15322,7 +15322,7 @@ msgstr "Resultado de la ejecución"
 msgid "Execution time"
 msgstr "Tiempo de ejecución"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Executions"
 msgstr "Ejecuciones"
 
@@ -15988,19 +15988,19 @@ msgstr "Filtrar actividad, {hidden} ocultas"
 msgid "Filter artifacts"
 msgstr "Filtrar artefactos"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by execution type"
 msgstr "Filtrar por tipo de ejecución"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state"
 msgstr "Filtrar por estado"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state: {stateLabel}"
 msgstr "Filtrar por estado: {stateLabel}"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Filter by state: {stateLabel}, {stateCountShown}"
 msgstr "Filtrar por estado: {stateLabel}, {stateCountShown}"
 
@@ -16367,7 +16367,7 @@ msgstr "Flujo: {state} — {progress}"
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/components/clio/composer-references.tsx
 #: src/components/clio/plugin-explorer.tsx
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Flows"
 msgstr "Flujos"
 
@@ -18285,7 +18285,7 @@ msgstr "Incompatible"
 msgid "Independent conversation with shared files"
 msgstr "Conversación independiente con archivos compartidos"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Index more sessions"
 msgstr "Indexar más sesiones"
 
@@ -18350,7 +18350,7 @@ msgstr "Indexando las notas de la bóveda"
 msgid "Indexing, {amount}"
 msgstr "Indexando, {amount}"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Indexing…"
 msgstr "Indexando…"
 
@@ -19426,7 +19426,7 @@ msgstr "Conservar recurso"
 msgid "Keep reviewing"
 msgstr "Seguir revisando"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Keep run"
 msgstr "Mantener la ejecución"
 
@@ -20039,7 +20039,7 @@ msgstr "Cargar más sesiones"
 msgid "Load more tags"
 msgstr "Cargar más etiquetas"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Load more tasks"
 msgstr "Cargar más tareas"
 
@@ -20355,7 +20355,7 @@ msgstr "Cargando archivos"
 msgid "Loading flow…"
 msgstr "Cargando flujo…"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Loading flows"
 msgstr "Cargando flujos"
 
@@ -20564,7 +20564,8 @@ msgstr "Cargando filas"
 msgid "Loading rows…"
 msgstr "Cargando filas…"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/workbench-list-column.tsx
 msgid "Loading runs"
 msgstr "Cargando ejecuciones"
 
@@ -20772,12 +20773,12 @@ msgstr "Cargando..."
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/model-download-search.tsx
 #: src/components/clio/offer-list-row.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-models-rows.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
 #: src/components/clio/workspace-directory-tree.tsx
-#: src/routes/runs-page.tsx
 msgid "Loading…"
 msgstr "Cargando…"
 
@@ -22058,7 +22059,7 @@ msgstr "Más acciones para {title}"
 msgid "More actions for the working plan"
 msgstr "Más acciones del plan de trabajo"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "More available; search covers loaded runs."
 msgstr "Hay más disponibles; la búsqueda abarca las ejecuciones cargadas."
 
@@ -23187,7 +23188,7 @@ msgstr "No se registraron archivos para esta llamada."
 msgid "No flow run is recorded for this task yet."
 msgstr "Aún no hay ninguna ejecución de flujo registrada para esta tarea."
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "No flows started in the indexed conversations."
 msgstr "No se inició ningún flujo en las conversaciones indexadas."
 
@@ -23731,7 +23732,7 @@ msgstr "No se proporcionaron filas para esta vista de datos."
 msgid "No run or tool activity is available."
 msgstr "No hay actividad de ejecuciones ni de herramientas disponible."
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "No runs match the current search and filters."
 msgstr "Ninguna ejecución coincide con la búsqueda y los filtros actuales."
 
@@ -25738,6 +25739,10 @@ msgstr "Abriendo GitHub…"
 #: src/components/clio/ndp-device-auth.tsx
 msgid "Opening NDP…"
 msgstr "Abriendo NDP…"
+
+#: src/routes/runs-page.tsx
+msgid "Opening Runs"
+msgstr "Abriendo Ejecuciones"
 
 #: src/components/clio/provider-actions.ts
 msgid "Opening sign-in…"
@@ -30034,7 +30039,7 @@ msgstr "Solicitado"
 msgid "Requested by session {session}"
 msgstr "Solicitado por la sesión {session}"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Requesting cancellation…"
 msgstr "Solicitando la cancelación…"
 
@@ -30616,6 +30621,7 @@ msgstr "Recuperación"
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/run-record.tsx
+#: src/components/clio/runs-explorer.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-about.tsx
@@ -30652,7 +30658,6 @@ msgstr "Recuperación"
 #: src/components/reui/cascader/cascader-i18n.tsx
 #: src/routes/connection-page.tsx
 #: src/routes/infrastructure-page.tsx
-#: src/routes/runs-page.tsx
 msgid "Retry"
 msgstr "Reintentar"
 
@@ -31061,7 +31066,7 @@ msgstr "Ejecutar análisis"
 msgid "Run and save response"
 msgstr "Ejecutar y guardar respuesta"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Run categories"
 msgstr "Categorías de ejecución"
 
@@ -31070,7 +31075,7 @@ msgstr "Categorías de ejecución"
 msgid "Run command"
 msgstr "Ejecutar comando"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Run explorer unavailable"
 msgstr "Explorador de ejecuciones no disponible"
 
@@ -31201,12 +31206,12 @@ msgstr "En ejecución, pero aún no hay ningún modelo cargado."
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/memory-creation-log.tsx
-#: src/components/clio/navigation-header.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
+#: src/components/clio/use-workbench-strip.tsx
+#: src/components/clio/workbench-tab-storage.ts
 #: src/lib/global-search-commands.ts
-#: src/routes/runs-page.tsx
 msgid "Runs"
 msgstr "Ejecuciones"
 
@@ -31262,6 +31267,10 @@ msgstr "Se ejecuta como"
 msgid "Runs commands"
 msgstr "Ejecuta comandos"
 
+#: src/routes/runs-page.tsx
+msgid "Runs could not open"
+msgstr "No se pudieron abrir las Ejecuciones"
+
 #: src/components/clio/service-installation-method.tsx
 msgid "Runs directly on this computer"
 msgstr "Se ejecuta directamente en este equipo"
@@ -31301,6 +31310,10 @@ msgstr "Se ejecuta en {ref}."
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Runs on the connected agent host. The command starts when you add this connection."
 msgstr "Se ejecuta en el host del agente conectado. El comando se inicia cuando añades esta conexión."
+
+#: src/routes/runs-page.tsx
+msgid "Runs open beside a conversation. Add a workspace first."
+msgstr "Ejecuciones se abre junto a una conversación. Añade antes un espacio de trabajo."
 
 #: src/components/clio/settings-fleet.tsx
 msgid "Runs the read-only explore helper that searches files and data. A fast model keeps wide surveys quick."
@@ -32189,11 +32202,11 @@ msgstr "Buscar archivos"
 msgid "Search files…"
 msgstr "Buscar archivos…"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search flow, workspace, or state"
 msgstr "Buscar flujo, espacio de trabajo o estado"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search flows"
 msgstr "Buscar flujos"
 
@@ -32280,11 +32293,11 @@ msgstr "Resultados de búsqueda"
 msgid "Search results: choose a section"
 msgstr "Resultados de la búsqueda: elige una sección"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search run, workspace, state, host, or task"
 msgstr "Buscar ejecución, espacio de trabajo, estado, host o tarea"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Search runs"
 msgstr "Buscar ejecuciones"
 
@@ -33532,7 +33545,7 @@ msgstr "Incluido con el servicio"
 msgid "Show"
 msgstr "Mostrar"
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "Show {count} more"
 msgstr "Mostrar {count} más"
 
@@ -38179,7 +38192,7 @@ msgstr "La tarea terminó antes de que se registrara la ejecución de su flujo:"
 msgid "The task ended before its flow run was recorded."
 msgstr "La tarea terminó antes de que se registrara la ejecución de su flujo."
 
-#: src/routes/runs-page.tsx
+#: src/components/clio/runs-explorer.tsx
 msgid "The task owner is unavailable"
 msgstr "El propietario de la tarea no está disponible"
 

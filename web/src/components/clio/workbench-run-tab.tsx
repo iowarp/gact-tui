@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLinkIcon } from 'lucide-react';
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
+import { openRunsTab } from '@/lib/runs-tab';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildRows } from '@/routes/runs-rows';
 import { useLiveStore } from '@/store/live-store';
@@ -49,21 +49,19 @@ export function WorkbenchRunTab({ tab }: { tab: Extract<WorkbenchTab, { kind: 'r
   );
   const label = row?.label ?? tab.label;
   const stateLabel = row ? runStateLabel(row, Boolean(row.cancelRequested)) : '';
-  const runsHref = `/runs?run=${encodeURIComponent(tab.handle)}`;
   return (
     <section aria-label={t`Run: ${label}`} className="flex h-full min-h-0 flex-col bg-background">
       <FrameBar
         actions={
           <NamedTooltip label={t`Open in Runs`}>
             <Button
-              asChild
+              aria-label={t`Open in Runs`}
               className="text-muted-foreground hover:bg-hover hover:text-foreground"
+              onClick={() => openRunsTab({ run: tab.handle, sessionId: tab.sessionId })}
               size="icon-xs"
               variant="ghost"
             >
-              <Link aria-label={t`Open in Runs`} to={runsHref}>
-                <ExternalLinkIcon aria-hidden="true" />
-              </Link>
+              <ExternalLinkIcon aria-hidden="true" />
             </Button>
           </NamedTooltip>
         }

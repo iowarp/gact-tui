@@ -1,6 +1,6 @@
 import {
-  ActivityIcon,
   CableIcon,
+  HistoryIcon,
   LanguagesIcon,
   MonitorIcon,
   MoonIcon,
@@ -96,7 +96,7 @@ export function globalSearchCommands(desktop: boolean): GlobalSearchCommand[] {
     {
       id: 'runs',
       label: t`Runs`,
-      icon: ActivityIcon,
+      icon: HistoryIcon,
       group: 'Navigation',
       keywords: 'tasks jobs work background',
       action: { route: '/runs' },
@@ -201,13 +201,7 @@ function languageCommands(): GlobalSearchCommand[] {
         icon: LanguagesIcon,
         group: 'Actions',
         trail: local,
-        keywords: [
-          t`Language`,
-          terms,
-          local,
-          englishLanguageName(language.locale),
-          language.locale,
-        ]
+        keywords: [t`Language`, terms, local, englishLanguageName(language.locale), language.locale]
           .filter(Boolean)
           .join(' '),
         action: { locale: language.locale },

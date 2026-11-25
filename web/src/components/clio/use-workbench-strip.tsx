@@ -7,6 +7,7 @@ import {
   FlaskConicalIcon,
   FolderIcon,
   GlobeIcon,
+  HistoryIcon,
   PaperclipIcon,
   TerminalSquareIcon,
 } from 'lucide-react';
@@ -139,6 +140,14 @@ export function useWorkbenchStrip({
   listItem('sources', t`Sources`, <PaperclipIcon />);
   listItem('artifacts', t`Artifacts`, <BoxIcon />);
   listItem('activity', t`Activity`, <ActivityIcon />, runningSubagents);
+  // Beside Activity: every task the system ran. No position of its own, so Agent,
+  // Terminal and Browser keep their keys.
+  stripItems.push({
+    id: 'runs',
+    label: t`Runs`,
+    icon: <HistoryIcon />,
+    pressed: listIsPressed('runs'),
+  });
   stripItems.push({
     id: 'agent',
     label: t`Agent`,

@@ -48,6 +48,8 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'flow'; handle: string; label?: string }
   /** A run's record (log, questions, job, conversation), by its task `handle`. */
   | { kind: 'run'; handle: string; label?: string; sessionId?: string }
+  /** The Runs tab: every task the system ran; `run` shows that one's record in it. */
+  | { kind: 'runs'; run?: string; sessionId?: string }
   /** A conversation's working plan, read only. */
   | { kind: 'plan'; sessionId?: string }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
@@ -83,7 +85,7 @@ export type ClioWorkbenchOpenRequest =
 /** The requests whose tab depends only on the request and the conversation. */
 export type TabOpenRequest = Exclude<
   ClioWorkbenchOpenRequest,
-  { kind: 'subagent' | 'resources' | 'session' | 'science-log' }
+  { kind: 'subagent' | 'resources' | 'session' | 'science-log' | 'runs' }
 >;
 
 /** The tab an open request makes, for the current conversation and workspace. */

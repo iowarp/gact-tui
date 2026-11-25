@@ -22,6 +22,7 @@ export const WORKBENCH_LIST_TITLES: Record<WorkbenchListView, string> = {
   sources: t`Sources`,
   artifacts: t`Artifacts`,
   activity: t`Activity`,
+  runs: t`Runs`,
   terminal: t`Terminal`,
   browser: t`Browser pages`,
 };
@@ -46,6 +47,7 @@ const TAB_LIST_VIEWS = new Set<string>([
   'sources',
   'artifacts',
   'activity',
+  'runs',
   'terminal',
   'browser',
 ] satisfies WorkbenchTabListView[]);
