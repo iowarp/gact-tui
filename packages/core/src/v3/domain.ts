@@ -288,7 +288,7 @@ export interface UserQuestion {
   prompt: string;
   status: WireValue<'pending' | 'answered' | 'cancelled' | 'expired'>;
   kind: WireValue<'freeform' | 'choice' | 'confirmation' | 'multi_choice'>;
-  options?: Array<{ label: string; value: string; description?: string }>;
+  options?: Array<{ label: string; value: string; description?: string; recommended?: boolean }>;
   allow_freeform?: boolean;
   answer?: string;
   selected_options?: string[];

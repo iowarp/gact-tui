@@ -61,6 +61,7 @@ export const userQuestionSchema = z.object({
         label: z.string(),
         value: z.string().default(''),
         description: z.string().optional(),
+        recommended: z.boolean().optional(),
       }),
     )
     .default([]),
