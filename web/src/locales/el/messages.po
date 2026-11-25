@@ -36736,19 +36736,19 @@ msgstr "Ο πράκτορας που εκτελούν οι νέες συνεδρ
 msgid "The agent places it"
 msgstr "Ο πράκτορας τον τοποθετεί"
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service restarted before this reply finished. It continued below."
 msgstr "Η υπηρεσία του πράκτορα επανεκκινήθηκε πριν ολοκληρωθεί αυτή η απάντηση. Συνεχίστηκε παρακάτω."
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service restarted before this reply finished. It is continuing on its own."
 msgstr "Η υπηρεσία του πράκτορα επανεκκινήθηκε πριν ολοκληρωθεί αυτή η απάντηση. Συνεχίζει μόνη της."
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service restarted before this reply finished. Your request was kept, so you can retry it."
 msgstr "Η υπηρεσία του πράκτορα επανεκκινήθηκε πριν ολοκληρωθεί αυτή η απάντηση. Το αίτημά σας διατηρήθηκε, οπότε μπορείτε να το δοκιμάσετε ξανά."
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service stopped before this reply finished. Your request was kept."
 msgstr "Η υπηρεσία του πράκτορα σταμάτησε πριν ολοκληρωθεί αυτή η απάντηση. Το αίτημά σας διατηρήθηκε."
 

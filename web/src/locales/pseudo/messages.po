@@ -36717,19 +36717,19 @@ msgstr ""
 msgid "The agent places it"
 msgstr ""
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service restarted before this reply finished. It continued below."
 msgstr ""
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service restarted before this reply finished. It is continuing on its own."
 msgstr ""
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service restarted before this reply finished. Your request was kept, so you can retry it."
 msgstr ""
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service stopped before this reply finished. Your request was kept."
 msgstr ""
 

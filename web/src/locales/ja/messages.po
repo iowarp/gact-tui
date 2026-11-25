@@ -36736,19 +36736,19 @@ msgstr "新しいセッションで実行されるエージェントです。そ
 msgid "The agent places it"
 msgstr "エージェントが配置"
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service restarted before this reply finished. It continued below."
 msgstr "この返信が終わる前にエージェントサービスが再起動しました。下で続きを実行しました。"
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service restarted before this reply finished. It is continuing on its own."
 msgstr "この返信が終わる前にエージェントサービスが再起動しました。自動的に続きを実行しています。"
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service restarted before this reply finished. Your request was kept, so you can retry it."
 msgstr "この返信が終わる前にエージェントサービスが再起動しました。リクエストは保持されているため、再試行できます。"
 
-#: src/components/clio/conversation-message-row.tsx
+#: src/components/clio/reply-ending.ts
 msgid "The agent service stopped before this reply finished. Your request was kept."
 msgstr "この返信が終わる前にエージェントサービスが停止しました。リクエストは保持されています。"
 

@@ -6,10 +6,9 @@ import { cn } from '@/lib/utils';
 import { formatClockTime, formatDateTime } from '@/lib/locale-format';
 import { Message, MessageContent } from '@/components/ai-elements/message';
 import { MessageBlockSequence, ReplyErrorLine } from './conversation-message-blocks';
-import { replyFailureCode, replyFailureReason } from './reply-failure';
+import { replyEnding } from './reply-ending';
 import { ReplyRecoveryActions } from './reply-failure-recovery';
 import { ConversationTurn } from './conversation-turn';
-import { replyCancelledByPerson } from './conversation-turn-model';
 import type { TurnEnd } from './conversation-activity-lane';
 import { VariantRunsForMessage } from './variant-runs-for-message';
 import { subagentsForTool } from './subagent-tool-link';
@@ -80,54 +79,16 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     message.id,
     useCallback(() => onDisplayModeChange('full'), [onDisplayModeChange]),
   );
-  const emptyResponseErrorCode =
-    typeof message.error_info?.error === 'string' ? message.error_info.error : undefined;
-  const emptyResponseErrorMessage =
-    typeof message.error_info?.message === 'string' ? message.error_info.message : undefined;
-  // The service stopping cancels a turn too (`reason: server_shutdown`); that is an
-  // interruption the person did not ask for, so it is said, not shown as their cancel.
-  const errorDetails = message.error_info?.details;
-  const stoppedByService =
-    emptyResponseErrorCode === 'cancelled' &&
-    typeof errorDetails === 'object' &&
-    errorDetails !== null &&
-    (errorDetails as Record<string, unknown>).reason === 'server_shutdown';
-  const restartInterrupted = emptyResponseErrorCode === 'server_restart_interrupted';
-  // The restart's recovery continues this turn by itself (`details.resuming`), so the
-  // row says so and offers no Retry, which would ask for the same work again (CC-O1).
-  const resumingAfterRestart =
-    restartInterrupted &&
-    typeof errorDetails === 'object' &&
-    errorDetails !== null &&
-    (errorDetails as Record<string, unknown>).resuming === true;
-  const interruptedByService = stoppedByService || restartInterrupted;
-  const interruptionReason = stoppedByService
-    ? t`The agent service stopped before this reply finished. Your request was kept.`
-    : restartInterrupted
-      ? resumedBy
-        ? t`The agent service restarted before this reply finished. It continued below.`
-        : resumingAfterRestart
-          ? t`The agent service restarted before this reply finished. It is continuing on its own.`
-          : t`The agent service restarted before this reply finished. Your request was kept, so you can retry it.`
-      : emptyResponseErrorMessage;
-  const emptyResponseWasClientCancelled = replyCancelledByPerson(message);
-  // An interruption by the service says so; any other failure says why it failed.
-  const failureReason = interruptedByService
-    ? interruptionReason
-    : replyFailureReason(replyFailureCode(message.error_info), emptyResponseErrorMessage);
+  const {
+    errorCode: emptyResponseErrorCode,
+    errorMessage: emptyResponseErrorMessage,
+    cancelledByPerson: emptyResponseWasClientCancelled,
+    interruptedByService,
+    failureReason,
+    retryable: canRetry,
+  } = replyEnding(message, resumedBy);
   const signInProvider = turnSignInProvider(message.error_info);
   const modelExhausted = turnModelExhausted(message.error_info);
-  // A reply the service failed as recoverable (a timed-out model call: error_info
-  // recoverable, recovery "retry") can be retried even when it streamed something
-  // first; only the person's own cancellation is not offered again, and a reply the
-  // restart already resumed is not retried, which would ask again (CC-O1).
-  const canRetry =
-    message.role === 'assistant' &&
-    !resumedBy &&
-    !resumingAfterRestart &&
-    (message.blocks.length === 0 ||
-      message.blocks.some((block) => block.type === 'error' && block.recoverable) ||
-      (message.error_info?.recoverable === true && !emptyResponseWasClientCancelled));
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
   const onRetryMessage = entities.onRetryMessage;
   const retryReply = canRetry && onRetryMessage ? () => void onRetryMessage(message.id) : undefined;

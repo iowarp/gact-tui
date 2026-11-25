@@ -12,6 +12,7 @@ import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import type { ThoughtSource } from './transcript-reasoning';
 import { isParentDelegation } from './parent-delegation';
 import { toolShowsDiff } from './declared-diff-key';
+import { replyStatesItsEnd } from './reply-ending';
 import { t } from '@lingui/core/macro';
 
 /**
@@ -534,31 +535,6 @@ function hasIterationContent(iteration: ConversationIteration): boolean {
 function messageCompletedNormally(message: Message): boolean {
   if (!message.completed_at && !message.stop_reason) return false;
   return !messageInterrupted(message);
-}
-
-/** The person cancelled this reply themselves; the service stopping is not that. */
-export function replyCancelledByPerson(message: Message): boolean {
-  const info = message.error_info;
-  const details = info?.details;
-  const serviceStopped =
-    typeof details === 'object' &&
-    details !== null &&
-    (details as Record<string, unknown>).reason === 'server_shutdown';
-  if (serviceStopped) return false;
-  return (
-    info?.error === 'cancelled' ||
-    (typeof info?.message === 'string' &&
-      info.message.trim().toLowerCase() === 'turn cancelled by client')
-  );
-}
-
-/** The reply's row shows a notice of how it ended: an error part or the service's reason. */
-export function replyStatesItsEnd(message: Message): boolean {
-  const reason = message.error_info?.message;
-  return (
-    message.blocks.some((block) => block.type === 'error') ||
-    (typeof reason === 'string' && reason.length > 0 && !replyCancelledByPerson(message))
-  );
 }
 
 function messageInterrupted(message: Message): boolean {
