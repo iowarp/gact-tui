@@ -15675,6 +15675,10 @@ msgstr "Fact forgotten"
 msgid "Facts"
 msgstr "Facts"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Facts about this conversation"
+msgstr "Facts about this conversation"
+
 #: src/components/clio/settings-memory.tsx
 msgid "Facts about you that every workspace can use. This switch applies to {workspaceName}."
 msgstr "Facts about you that every workspace can use. This switch applies to {workspaceName}."
@@ -33287,10 +33291,6 @@ msgstr "Session defaults"
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Session defaults could not be loaded."
 msgstr "Session defaults could not be loaded."
-
-#: src/components/clio/conversation-harness-injection.tsx
-msgid "Session facts"
-msgstr "Session facts"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Session ID"

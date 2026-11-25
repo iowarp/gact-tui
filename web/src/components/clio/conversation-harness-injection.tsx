@@ -57,7 +57,7 @@ const INJECTION_LABELS: Record<string, string> = {
   plan_stale: t`Plan not updated lately`,
   plan_person_edit: t`Plan edited by you`,
   explore_nudge: t`Explore suggestion`,
-  session_facts: t`Session facts`,
+  session_facts: t`Facts about this conversation`,
   child_report: t`Report instructions`,
   compaction_failed: t`Compaction failed`,
   compaction_skipped: t`Compaction skipped`,

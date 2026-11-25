@@ -15676,6 +15676,10 @@ msgstr "Dato olvidado"
 msgid "Facts"
 msgstr "Datos"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Facts about this conversation"
+msgstr "Datos de esta conversación"
+
 #: src/components/clio/settings-memory.tsx
 msgid "Facts about you that every workspace can use. This switch applies to {workspaceName}."
 msgstr "Datos sobre ti que todos los espacios de trabajo pueden usar. Este interruptor se aplica a {workspaceName}."
@@ -33288,10 +33292,6 @@ msgstr "Valores predeterminados de sesión"
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Session defaults could not be loaded."
 msgstr "No se pudieron cargar los valores predeterminados de sesión."
-
-#: src/components/clio/conversation-harness-injection.tsx
-msgid "Session facts"
-msgstr "Datos de la sesión"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Session ID"

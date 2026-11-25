@@ -15667,6 +15667,10 @@ msgstr ""
 msgid "Facts"
 msgstr ""
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Facts about this conversation"
+msgstr ""
+
 #: src/components/clio/settings-memory.tsx
 msgid "Facts about you that every workspace can use. This switch applies to {workspaceName}."
 msgstr ""
@@ -33269,10 +33273,6 @@ msgstr ""
 
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Session defaults could not be loaded."
-msgstr ""
-
-#: src/components/clio/conversation-harness-injection.tsx
-msgid "Session facts"
 msgstr ""
 
 #: src/components/clio/settings-access-rule-dialog.tsx

@@ -15676,6 +15676,10 @@ msgstr "事実を忘れました"
 msgid "Facts"
 msgstr "事実"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Facts about this conversation"
+msgstr "この会話についての事実"
+
 #: src/components/clio/settings-memory.tsx
 msgid "Facts about you that every workspace can use. This switch applies to {workspaceName}."
 msgstr "すべてのワークスペースで使用できる、あなたに関する事実。このスイッチは{workspaceName}に適用されます。"
@@ -33288,10 +33292,6 @@ msgstr "セッションの既定値"
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Session defaults could not be loaded."
 msgstr "セッションの既定値を読み込めませんでした。"
-
-#: src/components/clio/conversation-harness-injection.tsx
-msgid "Session facts"
-msgstr "セッションの情報"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Session ID"
