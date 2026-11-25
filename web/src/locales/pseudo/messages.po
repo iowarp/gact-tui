@@ -30775,7 +30775,6 @@ msgstr ""
 #: src/components/reui/cascader/cascader-i18n.tsx
 #: src/routes/connection-page.tsx
 #: src/routes/infrastructure-page.tsx
-#: src/routes/runs-page.tsx
 msgid "Retry"
 msgstr ""
 
@@ -31400,10 +31399,6 @@ msgstr ""
 
 #: src/lib/plugin-review.ts
 msgid "Runs commands"
-msgstr ""
-
-#: src/routes/runs-page.tsx
-msgid "Runs could not open"
 msgstr ""
 
 #: src/components/clio/service-installation-method.tsx

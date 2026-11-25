@@ -30793,7 +30793,6 @@ msgstr "検索取得"
 #: src/components/reui/cascader/cascader-i18n.tsx
 #: src/routes/connection-page.tsx
 #: src/routes/infrastructure-page.tsx
-#: src/routes/runs-page.tsx
 msgid "Retry"
 msgstr "再試行"
 
@@ -31419,10 +31418,6 @@ msgstr "実行ユーザー"
 #: src/lib/plugin-review.ts
 msgid "Runs commands"
 msgstr "コマンドを実行します"
-
-#: src/routes/runs-page.tsx
-msgid "Runs could not open"
-msgstr "実行を開けませんでした"
 
 #: src/components/clio/service-installation-method.tsx
 msgid "Runs directly on this computer"

@@ -90,7 +90,11 @@ export function RunsPage() {
     enabled: ownerSettled && !ownerSession,
     retry: false,
   });
-  const target = ownerSession ? conversationRoute(ownerSession) : (fallback.data ?? undefined);
+  // Unreachable or failing: land where the person was. That page keeps the bars and
+  // says what happened, with Retry and Manage connections; Runs opens once it loads.
+  const target = ownerSession
+    ? conversationRoute(ownerSession)
+    : (fallback.data ?? (fallback.isError ? remembered : undefined));
   const scope = connectionScope(settings);
   useEffect(() => {
     if (!target) return;
@@ -104,21 +108,6 @@ export function RunsPage() {
       },
     });
   }, [linkedSession, navigate, ownerSession?.id, run, scope, target]);
-  if (fallback.isError)
-    return (
-      <StateView
-        action={{
-          label: t`Retry`,
-          onClick: () => {
-            if (run) void owner.refetch();
-            void fallback.refetch();
-          },
-        }}
-        detail={fallback.error.message}
-        kind="error"
-        title={t`Runs could not open`}
-      />
-    );
   if (fallback.isSuccess && fallback.data === null)
     return (
       <StateView kind="empty" title={t`Runs open beside a conversation. Add a workspace first.`} />

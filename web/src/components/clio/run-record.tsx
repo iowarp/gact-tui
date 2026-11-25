@@ -591,19 +591,28 @@ function RunDetails({ row, live }: { row: RunRow; live: boolean }) {
     !Number.isNaN(started) && !Number.isNaN(ended) && ended >= started
       ? formatDuration(ended - started)
       : undefined;
+  const ranOn = row.source === 'flow' ? row.placement : row.host;
+  // The agent's own backend ("clio") is not a place; Workspace already says where.
+  const place = ranOn && ranOn !== 'clio' ? ranOn : row.source === 'flow' ? '' : undefined;
+  const tool = row.task?.tool ? toolOperationLabel(row.task.tool) : '';
   const facts: KeyValueItem[] = [
     { label: t`Kind`, value: row.taskKind ? runKindName(row.taskKind) : sourceLabels[row.source] },
-    {
-      label: row.source === 'flow' ? t`Placement` : t`Ran on`,
-      value: (row.source === 'flow' ? row.placement : row.host) || t`This computer`,
-    },
+    ...(place === undefined
+      ? []
+      : [
+          {
+            label: row.source === 'flow' ? t`Placement` : t`Ran on`,
+            value: place || t`This computer`,
+          },
+        ]),
     { label: t`Workspace`, value: row.workspaceLabel },
     ...(when(row.createdAt) ? [{ label: t`Started`, value: when(row.createdAt)! }] : []),
     ...(when(row.terminalAt)
       ? [{ label: t`Ended`, value: when(row.terminalAt)! }]
       : [{ label: t`Updated`, value: when(row.updatedAt) ?? t`Time unavailable` }]),
     ...(took ? [{ label: t`Took`, value: took }] : []),
-    ...(row.task?.tool ? [{ label: t`Tool`, value: toolOperationLabel(row.task.tool) }] : []),
+    // A tool without a declared name stays under Technical details.
+    ...(tool && tool !== row.task?.tool ? [{ label: t`Tool`, value: tool }] : []),
     ...(allowed.length
       ? [{ label: t`Allowed automatically`, value: formatList(allowed, { and: true }) }]
       : []),
@@ -695,6 +704,9 @@ export function RunRetry({ row }: { row: RunRow }) {
 export function RunRecord({ row }: { row: RunRow }) {
   const live = LIVE.includes(row.state);
   const job = row.task ? jobFromTask(row.task) : null;
+  // A delegated run's conversation already holds its steps and summary; one place shows them.
+  const delegated = row.taskKind === 'Subagent';
+  const { child } = useRunChildSession(row.handleId, delegated, live);
   return (
     <div className="grid min-w-0 gap-5" data-slot="run-record">
       {job ? (
@@ -702,7 +714,7 @@ export function RunRecord({ row }: { row: RunRow }) {
           <JobCard job={job} />
         </RunSection>
       ) : null}
-      <RunLog live={live} row={row} />
+      {delegated && child ? null : <RunLog live={live} row={row} />}
       <RunQuestions live={live} row={row} />
       <RunConversation live={live} row={row} />
       <RunDetails live={live} row={row} />
