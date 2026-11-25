@@ -154,7 +154,9 @@ const requiredImports = {
   // shared ListRow primitive (fixed status/source/workspace/state/time columns,
   // details in a popover) so runs align with the conversation rail and bell.
   // Reviewed at 1680/1280/1024/768 in light and dark (docs/design/rc1-campaign.md).
-  'web/src/routes/runs-page.tsx': [
+  // The runs list now lives in the right-strip Runs workbench tab; the route only
+  // redirects into it.
+  'web/src/components/clio/runs-explorer.tsx': [
     '@/components/clio/run-list-row',
     '@/components/clio/run-actions',
   ],
