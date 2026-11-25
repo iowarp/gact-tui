@@ -23986,6 +23986,10 @@ msgstr "δεν απομένει κανένα από τα μέλη του"
 msgid "None of these drafts was used."
 msgstr "Δεν χρησιμοποιήθηκε κανένα από αυτά τα πρόχειρα."
 
+#: src/components/clio/session-evidence-items.tsx
+msgid "none running"
+msgstr "καμία σε εκτέλεση"
+
 #: src/components/clio/flow-run-parts.tsx
 msgid "None written; the step receives the workflow's task and the answers it waits on."
 msgstr "Δεν έχουν γραφτεί. Το βήμα λαμβάνει την εργασία της ροής εργασιών και τις απαντήσεις που περιμένει."

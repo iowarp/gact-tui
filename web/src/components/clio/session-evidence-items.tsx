@@ -161,7 +161,7 @@ export function sessionEvidenceItems({
           {
             id: 'running' as const,
             count: activeCount,
-            summary: !activeCount && finishedWorkHidden ? 'none running' : undefined,
+            summary: !activeCount && finishedWorkHidden ? t`none running` : undefined,
             defaultOpen: true,
             content: (
               <AsyncTaskList

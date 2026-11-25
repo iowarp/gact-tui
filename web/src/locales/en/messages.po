@@ -23985,6 +23985,10 @@ msgstr "none of its members remain"
 msgid "None of these drafts was used."
 msgstr "None of these drafts was used."
 
+#: src/components/clio/session-evidence-items.tsx
+msgid "none running"
+msgstr "none running"
+
 #: src/components/clio/flow-run-parts.tsx
 msgid "None written; the step receives the workflow's task and the answers it waits on."
 msgstr "None written; the step receives the workflow's task and the answers it waits on."

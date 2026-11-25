@@ -23986,6 +23986,10 @@ msgstr "no queda ninguno de sus miembros"
 msgid "None of these drafts was used."
 msgstr "No se usó ninguno de estos borradores."
 
+#: src/components/clio/session-evidence-items.tsx
+msgid "none running"
+msgstr "ninguna en curso"
+
 #: src/components/clio/flow-run-parts.tsx
 msgid "None written; the step receives the workflow's task and the answers it waits on."
 msgstr "No hay ninguna; el paso recibe la tarea del flujo de trabajo y las respuestas que espera."

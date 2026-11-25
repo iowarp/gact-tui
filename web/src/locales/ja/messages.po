@@ -23986,6 +23986,10 @@ msgstr "メンバーが残っていません"
 msgid "None of these drafts was used."
 msgstr "これらの下書きはいずれも使用されませんでした。"
 
+#: src/components/clio/session-evidence-items.tsx
+msgid "none running"
+msgstr "実行中なし"
+
 #: src/components/clio/flow-run-parts.tsx
 msgid "None written; the step receives the workflow's task and the answers it waits on."
 msgstr "記述なし。ステップはワークフローのタスクと、待機している回答を受け取ります。"

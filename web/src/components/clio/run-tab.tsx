@@ -7,7 +7,7 @@ import { FrameBar, FrameCrumbs, FrameTab } from '@/components/clio/primitives/fr
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { StateView } from '@/components/clio/primitives/state-view';
 import { RunSourceIcon, RunStatusMark } from '@/components/clio/run-list-row';
-import { runConversationHref, runLook } from '@/components/clio/run-presentation';
+import { runConversationHref, runKindName, runLook } from '@/components/clio/run-presentation';
 import { taskProgressLabel } from '@/components/clio/task-progress-label';
 import { RunRecord, RunRetry } from '@/components/clio/run-record';
 import { useMediaQuery } from '@/hooks/use-media-query';
@@ -289,7 +289,7 @@ export function RunTab({
             <span className="shrink-0" data-frame-position="">
               <RunStateWord row={row} stateLabel={stateLabel} />
             </span>
-            <span>{row.taskKind ?? sourceLabels[row.source]}</span>
+            <span>{row.taskKind ? runKindName(row.taskKind) : sourceLabels[row.source]}</span>
           </>
         }
         where={
