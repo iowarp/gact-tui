@@ -13929,12 +13929,16 @@ msgstr "done"
 #: src/components/clio/model-picker-catalog.tsx
 #: src/components/clio/onboarding/tour-overlay.tsx
 #: src/components/clio/operation-progress.tsx
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/share-session-dialog.tsx
 #: src/components/clio/transcript-content-picker.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/lib/plan-status.ts
+msgid "Done"
+msgstr "Done"
+
+#: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
 msgid "Done"
 msgstr "Done"
 
@@ -14393,6 +14397,7 @@ msgid "Drop tokens less likely than this fraction of the most likely one."
 msgstr "Drop tokens less likely than this fraction of the most likely one."
 
 #: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
 msgid "Dropped"
 msgstr "Dropped"
 
@@ -18106,10 +18111,14 @@ msgstr "In place. {agent} works on your original folder, and its changes affect 
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/resource-processing-presentation.ts
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/session-rail-content.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/tool-result-primitives.tsx
+msgid "In progress"
+msgstr "In progress"
+
+#: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
 msgid "In progress"
 msgstr "In progress"
 
@@ -24963,13 +24972,17 @@ msgstr "open"
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/file-viewer-take.tsx
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Open"
 msgstr "Open"
 
 #: src/components/clio/settings-navigation.tsx
 msgctxt "keyboard hint verb"
+msgid "Open"
+msgstr "Open"
+
+#: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
 msgid "Open"
 msgstr "Open"
 

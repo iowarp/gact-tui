@@ -8,15 +8,34 @@ export interface PlanStep {
 
 export type PlanBlock = { kind: 'markdown'; text: string } | { kind: 'steps'; steps: PlanStep[] };
 
-// The state-word markers clio-agent's plan structure names, plus Markdown task boxes.
-const STEP = /^\s*(?:[-*+]|\d+[.)])\s+\[(open|active|closed|dropped|x| )\]\s*(.*)$/iu;
+// clio-agent's plan structure names open/active/closed/dropped; agents also write the
+// usual synonyms ([done], [in progress], [todo]) and Markdown task boxes.
+const STATE_WORDS: Record<string, PlanStepState> = {
+  open: 'open',
+  todo: 'open',
+  pending: 'open',
+  ' ': 'open',
+  active: 'active',
+  'in progress': 'active',
+  'in-progress': 'active',
+  in_progress: 'active',
+  doing: 'active',
+  closed: 'closed',
+  done: 'closed',
+  completed: 'closed',
+  complete: 'closed',
+  x: 'closed',
+  dropped: 'dropped',
+  abandoned: 'dropped',
+  skipped: 'dropped',
+  cancelled: 'dropped',
+  canceled: 'dropped',
+};
+const STEP = /^\s*(?:[-*+]|\d+[.)])\s+\[([^\]\n]{1,12})\]\s*(.*)$/u;
 const CONTINUATION = /^\s+\S/u;
 
-function stepState(marker: string): PlanStepState {
-  const word = marker.toLowerCase();
-  if (word === 'x') return 'closed';
-  if (word === ' ') return 'open';
-  return word as PlanStepState;
+function stepState(marker: string): PlanStepState | undefined {
+  return STATE_WORDS[marker === ' ' ? ' ' : marker.trim().toLowerCase()];
 }
 
 /**
@@ -37,9 +56,10 @@ export function planBlocks(text: string): PlanBlock[] {
   };
   for (const line of text.split(/\r?\n/u)) {
     const step = STEP.exec(line);
-    if (step) {
+    const state = step ? stepState(step[1]!) : undefined;
+    if (step && state) {
       flushProse();
-      steps.push({ state: stepState(step[1]!), text: step[2]!.trim() });
+      steps.push({ state, text: step[2]!.trim() });
       continue;
     }
     if (steps.length && CONTINUATION.test(line)) {

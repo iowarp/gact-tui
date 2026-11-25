@@ -55,10 +55,10 @@ const STEP_ICON_STATE: Record<PlanStepState, string> = {
 };
 
 function stepStateLabel(state: PlanStepState): string {
-  if (state === 'closed') return t`Done`;
-  if (state === 'active') return t`In progress`;
-  if (state === 'dropped') return t`Dropped`;
-  return t`Open`;
+  if (state === 'closed') return t({ message: 'Done', context: 'plan step state' });
+  if (state === 'active') return t({ message: 'In progress', context: 'plan step state' });
+  if (state === 'dropped') return t({ message: 'Dropped', context: 'plan step state' });
+  return t({ message: 'Open', context: 'plan step state' });
 }
 
 /**

@@ -13930,12 +13930,16 @@ msgstr "completada"
 #: src/components/clio/model-picker-catalog.tsx
 #: src/components/clio/onboarding/tour-overlay.tsx
 #: src/components/clio/operation-progress.tsx
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/share-session-dialog.tsx
 #: src/components/clio/transcript-content-picker.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 #: src/lib/plan-status.ts
+msgid "Done"
+msgstr "Hecho"
+
+#: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
 msgid "Done"
 msgstr "Hecho"
 
@@ -14394,6 +14398,7 @@ msgid "Drop tokens less likely than this fraction of the most likely one."
 msgstr "Descarta los tokens menos probables que esta fracción del más probable."
 
 #: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
 msgid "Dropped"
 msgstr "Descartado"
 
@@ -18107,10 +18112,14 @@ msgstr "En su ubicación. {agent} trabaja en tu carpeta original y sus cambios a
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/resource-processing-presentation.ts
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/session-rail-content.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/tool-result-primitives.tsx
+msgid "In progress"
+msgstr "En curso"
+
+#: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
 msgid "In progress"
 msgstr "En curso"
 
@@ -24964,7 +24973,6 @@ msgstr "abierta"
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/file-viewer-take.tsx
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Open"
 msgstr "Abrir"
@@ -24973,6 +24981,11 @@ msgstr "Abrir"
 msgctxt "keyboard hint verb"
 msgid "Open"
 msgstr "Abrir"
+
+#: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
+msgid "Open"
+msgstr "Pendiente"
 
 #: src/components/clio/workbench-list-column.tsx
 msgctxt "state"
