@@ -34,10 +34,34 @@ const SIDEBAR_WIDTH = '18.25rem';
 const SIDEBAR_WIDTH_MOBILE = '18rem';
 const SIDEBAR_WIDTH_ICON = '3rem';
 
+const SIDEBAR_WIDTH_KEY = 'clio.left-bar-width.v1';
+
+/**
+ * What the desktop bar layout keeps while the phone layout replaces it below 768px:
+ * the window's or the canvas's fold to undo, and the person's dragged width.
+ */
+type SidebarLayoutMemory = {
+  /** The layout last folded the bar for room (window or canvas). */
+  collapsed: boolean;
+  /** The layout, not the person, folded an open bar; it reopens once there is room. */
+  reopenOnWiden: boolean;
+  /** The width the person last dragged the open bar to, for this tab. */
+  personWidth: number | null;
+};
+
+function storedSidebarWidth(): number | null {
+  if (typeof window === 'undefined') return null;
+  const value = Number(window.sessionStorage.getItem(SIDEBAR_WIDTH_KEY));
+  return Number.isFinite(value) && value >= 216 && value <= 440 ? value : null;
+}
+
 type SidebarContextProps = {
   state: 'expanded' | 'collapsed';
+  readLayoutMemory: () => Readonly<SidebarLayoutMemory>;
+  updateLayoutMemory: (change: Partial<SidebarLayoutMemory>) => void;
   open: boolean;
-  setOpen: (open: boolean) => void;
+  /** `remember: false` folds or opens for the layout without replacing the person's stored choice. */
+  setOpen: (open: boolean, options?: { remember?: boolean }) => void;
   openMobile: boolean;
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
@@ -71,13 +95,27 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
+  const layoutMemory = React.useRef<SidebarLayoutMemory>({
+    collapsed: false,
+    reopenOnWiden: false,
+    personWidth: storedSidebarWidth(),
+  });
+  const readLayoutMemory = React.useCallback(() => layoutMemory.current, []);
+  const updateLayoutMemory = React.useCallback((change: Partial<SidebarLayoutMemory>) => {
+    Object.assign(layoutMemory.current, change);
+    if (change.personWidth != null) {
+      window.sessionStorage.setItem(SIDEBAR_WIDTH_KEY, String(change.personWidth));
+    } else if (change.personWidth === null) {
+      window.sessionStorage.removeItem(SIDEBAR_WIDTH_KEY);
+    }
+  }, []);
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen);
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
-    (value: boolean | ((value: boolean) => boolean)) => {
+    (value: boolean | ((value: boolean) => boolean), options?: { remember?: boolean }) => {
       const openState = typeof value === 'function' ? value(open) : value;
       if (setOpenProp) {
         setOpenProp(openState);
@@ -85,6 +123,7 @@ function SidebarProvider({
         _setOpen(openState);
       }
 
+      if (options?.remember === false) return;
       // This sets the cookie to keep the sidebar state.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
     },
@@ -106,6 +145,8 @@ function SidebarProvider({
   const contextValue = React.useMemo<SidebarContextProps>(
     () => ({
       state,
+      readLayoutMemory,
+      updateLayoutMemory,
       open,
       setOpen,
       isMobile,
@@ -114,7 +155,17 @@ function SidebarProvider({
       setOpenMobile,
       toggleSidebar,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar],
+    [
+      state,
+      readLayoutMemory,
+      updateLayoutMemory,
+      open,
+      setOpen,
+      isMobile,
+      openMobile,
+      setOpenMobile,
+      toggleSidebar,
+    ],
   );
 
   return (

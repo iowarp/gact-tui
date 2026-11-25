@@ -7,6 +7,7 @@ import {
   VIEWER_CAPTURE_MOUNT,
   VIEWER_CAPTURE_RELEASE,
   VIEWER_DEFERRED_ATTRIBUTE,
+  VIEWER_OFFSCREEN_ATTRIBUTE,
 } from './viewer-capture-mount';
 import { VIEWER_ARTIFACT_URI } from './viewer-file-schema';
 import { t } from '@lingui/core/macro';
@@ -98,13 +99,18 @@ export function ViewerFileGate({
       />
     );
   else body = <div key={mount}>{children}</div>;
-  const deferred = invalid === undefined && !missing && !lost && !near && captured === 0;
+  // Off screen covers both the placeholder and a viewer mounted only for a capture.
+  const offscreen = invalid === undefined && !missing && !lost && !near;
+  const deferred = offscreen && captured === 0;
   return (
     <div
       className="min-w-0"
       data-slot="viewer-file-gate"
       ref={frame}
-      {...{ [VIEWER_DEFERRED_ATTRIBUTE]: deferred ? '' : undefined }}
+      {...{
+        [VIEWER_DEFERRED_ATTRIBUTE]: deferred ? '' : undefined,
+        [VIEWER_OFFSCREEN_ATTRIBUTE]: offscreen ? '' : undefined,
+      }}
     >
       {body}
     </div>

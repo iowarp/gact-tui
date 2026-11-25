@@ -93,4 +93,6 @@ export interface SummonTargets {
     inputs: { name: string; description: string; required: boolean }[];
   }[];
   flows?: { id: string; plugin: string; description: string }[];
+  /** Plugins and connectors the person has that this conversation does not carry yet. */
+  plugins?: { id: string; name: string; kind: string; description: string }[];
 }

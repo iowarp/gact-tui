@@ -37,6 +37,17 @@ function isSourceLink(child: ReactNode): child is SourceLink {
   );
 }
 
+function textOf(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(textOf).join('');
+  if (isValidElement<{ children?: ReactNode }>(node)) return textOf(node.props.children);
+  return '';
+}
+
+/** A citation marker such as `1` or `[2]`, as opposed to a link named in prose. */
+function isNumberedCitation(link: SourceLink | undefined): boolean {
+  return link !== undefined && /^\s*\[?\d{1,3}\]?\s*$/u.test(textOf(link.props.children));
+}
 /** A compact, interactive source list retaining each link's existing routing. */
 export function MarkdownSourceGroup({ links }: { links: SourceLink[] }) {
   const [open, setOpen] = useState(false);
@@ -161,10 +172,18 @@ function groupSourceLinks(children: ReactNode): ReactNode {
     let end = index;
     while (end + 1 < parts.length) {
       let next = end + 1;
-      if (typeof parts[next] === 'string' && /^[\s\u00b7,;|]*$/u.test(parts[next] as string))
-        next += 1;
-      if (!isSourceLink(parts[next])) break;
-      links.push(parts[next] as SourceLink);
+      const between = typeof parts[next] === 'string' ? (parts[next] as string) : '';
+      if (between && /^[\s\u00b7,;|]*$/u.test(between)) next += 1;
+      const candidate = parts[next];
+      if (!isSourceLink(candidate)) break;
+      // "a, b and c" is prose naming its links: a comma or semicolon joins citations
+      // only when both sides are numbered ([1], [2]); a space, · or | joins any links.
+      if (
+        /[,;]/u.test(between) &&
+        !(isNumberedCitation(links.at(-1)) && isNumberedCitation(candidate))
+      )
+        break;
+      links.push(candidate);
       end = next;
     }
     if (links.length === 1) result.push(first);

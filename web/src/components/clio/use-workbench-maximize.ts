@@ -35,12 +35,14 @@ export function useWorkbenchMaximize() {
 
   const toggleMaximized = (trigger?: Element | null) => {
     // Maximize covers the conversation only: the left bar stays, and the
-    // strip comes along inside the canvas.
+    // strip comes along inside the canvas. The shell's keeper says which layout's
+    // box the canvas covers (it sits outside both in the DOM).
     const anchor = trigger ?? maximizeButtonRef.current;
+    const kept = anchor?.closest('[data-workbench-keeper]')?.getAttribute('data-workbench-keeper');
     setScope(
-      anchor?.closest('[data-slot=sheet-content]')
+      kept === 'sheet' || anchor?.closest('[data-slot=sheet-content]')
         ? 'sheet'
-        : anchor?.closest('[data-workbench-maximize-host]')
+        : kept === 'section' || anchor?.closest('[data-workbench-maximize-host]')
           ? 'section'
           : 'window',
     );
@@ -90,7 +92,12 @@ export function useMaximizedSectionBounds(
   const [bounds, setBounds] = useState<CSSProperties>();
   useLayoutEffect(() => {
     if (!active) return;
-    const section = canvasRef.current?.closest('[data-workbench-maximize-host]');
+    const canvas = canvasRef.current;
+    const section =
+      canvas?.closest('[data-workbench-maximize-host]') ??
+      (canvas?.closest('[data-workbench-keeper]')
+        ? document.querySelector('[data-workbench-maximize-host]')
+        : null);
     if (!section) return;
     let frame = 0;
     const measure = () => {

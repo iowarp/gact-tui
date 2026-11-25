@@ -60,6 +60,7 @@ import {
   interactionRootSessionId,
   legacyPendingInteractions,
 } from '@/lib/pending-interaction-contract';
+import { STORE_REFUSED } from '@/components/clio/composer-failure';
 
 interface UseWorkspaceDataInput {
   contextTargetId: string;
@@ -655,14 +656,20 @@ export function useWorkspaceData({
       approvals.error ??
       questions.error ??
       attentionInteractionsError ??
-      (normalizedInteractions.data?.degradations ?? []).map(
-        (degradation) =>
-          new Error(
-            degradation.reason.startsWith('clio_core_')
-              ? 'A saved session has a damaged data record. Its interactive responses are unavailable.'
-              : degradation.detail,
-          ),
-      )[0] ??
+      (normalizedInteractions.data?.degradations ?? []).map((degradation) => {
+        // A store refusing writes holds running work; the service's sentence says what
+        // to do (store full, disk low), and the notice is titled for it by its name.
+        if (degradation.reason === STORE_REFUSED) {
+          const error = new Error(degradation.detail);
+          error.name = STORE_REFUSED;
+          return error;
+        }
+        return new Error(
+          degradation.reason.startsWith('clio_core_')
+            ? 'A saved session has a damaged data record. Its interactive responses are unavailable.'
+            : degradation.detail,
+        );
+      })[0] ??
       undefined,
     // `capabilities` failing is a degradation, not a failed response read: the
     // legacy ledgers above still run and still answer, so every pending

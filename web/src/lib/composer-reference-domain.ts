@@ -30,9 +30,18 @@ export function referenceIdentity(part: ReferencePart): string {
     : `${part.ref_kind}:${part.ref_id}:${part.revision ?? ''}`;
 }
 
-const SUMMON_KINDS: ReadonlySet<string> = new Set(['subagent', 'workflow', 'flow', 'server']);
+const SUMMON_KINDS: ReadonlySet<string> = new Set([
+  'subagent',
+  'workflow',
+  'flow',
+  'server',
+  'plugin',
+]);
 
-/** A subagent, workflow, flow or MCP server the person can `@`-summon, as the popover lists it. */
+/**
+ * A subagent, workflow, flow, MCP server, or a plugin to add, that the person can
+ * `@`-summon, as the popover lists it.
+ */
 export function isSummonReference<T extends { kind: string }>(
   reference: T,
 ): reference is T & { kind: SummonPart['target_kind'] } {
@@ -83,6 +92,7 @@ const REFERENCE_KIND_LABELS: Record<string, { noun: string; title: string }> = {
   evidence_source: { noun: t`source`, title: t`Source` },
   flow: { noun: t`flow`, title: t`Flow` },
   plan: { noun: t`plan`, title: t`Plan` },
+  plugin: { noun: t`plugin`, title: t`Plugin` },
   resource: { noun: t`source`, title: t`Source` },
   server: { noun: t`tools`, title: t`Tools` },
   session: { noun: t`conversation`, title: t`Conversation` },
@@ -115,7 +125,8 @@ export function toMessagePart(reference: WorkspaceReference): ReferencePart {
     reference.kind === 'subagent' ||
     reference.kind === 'workflow' ||
     reference.kind === 'flow' ||
-    reference.kind === 'server'
+    reference.kind === 'server' ||
+    reference.kind === 'plugin'
   ) {
     return { type: 'summon', target_kind: reference.kind, target: reference.id };
   }
@@ -138,7 +149,8 @@ export function toMessagePart(reference: WorkspaceReference): ReferencePart {
 
 /**
  * The session's summon targets as popover rows: Agents (subagents), Workflows,
- * Flows and Tools (servers).
+ * Flows, Tools (servers) and Plugins to add (what the person has that this
+ * conversation does not carry yet; naming one asks the agent to offer it).
  */
 export function summonReferences(targets?: SummonTargets): WorkspaceReference[] {
   if (!targets) return [];
@@ -188,6 +200,15 @@ export function summonReferences(targets?: SummonTargets): WorkspaceReference[] 
           .join(' — '),
       ),
     ),
+    ...(targets.plugins ?? []).map((plugin) =>
+      row(
+        'plugin',
+        plugin.id,
+        [plugin.name && plugin.name !== plugin.id ? plugin.name : '', plugin.description]
+          .filter(Boolean)
+          .join(' — '),
+      ),
+    ),
   ];
 }
 
@@ -229,7 +250,9 @@ export function typedSummons(
   picked: readonly ReferencePart[],
 ): SummonPart[] {
   if (!targets) return [];
+  // A plugin to add comes first so a name the conversation already has wins.
   const kinds = new Map<string, SummonPart['target_kind']>([
+    ...(targets.plugins ?? []).map((plugin) => [plugin.id, 'plugin'] as const),
     ...targets.servers.map((server) => [server.name, 'server'] as const),
     ...(targets.flows ?? []).map((flow) => [flow.id, 'flow'] as const),
     ...(targets.workflows ?? []).map((workflow) => [workflow.id, 'workflow'] as const),

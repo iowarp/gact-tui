@@ -49,6 +49,15 @@ msgstr "、未保存の変更"
 msgid ", your answer"
 msgstr "、あなたの回答"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "; dashed: {overlay}"
+msgstr "、破線: {overlay}"
+
+#. The label of the control the person pressed, quoted
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "“{control}”"
+msgstr "「{control}」"
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "“{label}” is per-node; a threshold needs per-element values, so the threshold is off."
 msgstr "「{label}」はノードごとの値です。しきい値には要素ごとの値が必要なため、しきい値はオフになっています。"
@@ -264,6 +273,11 @@ msgstr "{0, plural, one {#件のコメントをエージェントに送信しま
 msgid "{0, plural, one {# dataset} other {# datasets}}"
 msgstr "{0, plural, one {#件のデータセット} other {#件のデータセット}}"
 
+#. placeholder {0}: run.denied
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# denied} other {# denied}}"
+msgstr "{0, plural, other {#件拒否}}"
+
 #. placeholder {0}: model.downloads
 #: src/components/clio/model-download-search.tsx
 msgid "{0, plural, one {# download} other {# downloads}}"
@@ -471,6 +485,11 @@ msgstr "{0, plural, one {#個のプラグイン} other {#個のプラグイン}}
 msgid "{0, plural, one {# problem} other {# problems}}"
 msgstr "{0, plural, one {#件の問題} other {#件の問題}}"
 
+#. placeholder {0}: profiles.length
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{0, plural, one {# profile} other {# profiles}}"
+msgstr "{0, plural, one {プロファイル # 件} other {プロファイル # 件}}"
+
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
 msgid "{0, plural, one {# prompt family available.} other {# prompt families available.}}"
@@ -616,6 +635,11 @@ msgstr "{0, plural, one {#ステップ、{state}} other {#ステップ、{state}
 #: src/components/clio/workbench-variant-try-tab.tsx
 msgid "{0, plural, one {# step} other {# steps}}"
 msgstr "{0, plural, one {#ステップ} other {#ステップ}}"
+
+#. placeholder {0}: run.interrupted
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# stopped} other {# stopped}}"
+msgstr "{0, plural, other {#件停止}}"
 
 #. placeholder {0}: request.data.events
 #: src/components/clio/ndp-endpoint-operation.tsx
@@ -797,6 +821,11 @@ msgstr "{0, plural, one {#文字以上入力してください。} other {#文�
 msgid "{0, plural, one {Enter no more than # character.} other {Enter no more than # characters.}}"
 msgstr "{0, plural, one {#文字以内で入力してください。} other {#文字以内で入力してください。}}"
 
+#. placeholder {0}: focus.length
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{0, plural, one {Exclude # picked profile} other {Exclude # picked profiles}}"
+msgstr "{0, plural, one {選択したプロファイル # 件を除外} other {選択したプロファイル # 件を除外}}"
+
 #. placeholder {0}: result.added.length
 #: src/components/clio/provider-model-refresh.ts
 msgid "{0, plural, one {Found # new model after updating the client.} other {Found # new models after updating the client.}}"
@@ -976,21 +1005,6 @@ msgstr "{0, plural, one {#個のステップと待機対象を示すワークフ
 #: src/components/clio/permission-operation-details.tsx
 msgid "{0, plural, one {writes to # folder} other {writes to # folders}}"
 msgstr "{0, plural, one {#個のフォルダーに書き込み} other {#個のフォルダーに書き込み}}"
-
-#. placeholder {0}: run.denied
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# denied}}"
-msgstr "{0, plural, other {#件拒否}}"
-
-#. placeholder {0}: run.failed
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# failed}}"
-msgstr "{0, plural, other {#件失敗}}"
-
-#. placeholder {0}: run.interrupted
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# stopped}}"
-msgstr "{0, plural, other {#件停止}}"
 
 #. placeholder {0}: /^[aeiou]/iu.test(agentName) ? 'an' : 'a'
 #: src/components/clio/clio-menu.tsx
@@ -1852,6 +1866,14 @@ msgstr "他{count}件: {tags}"
 msgid "{count} of {total} brought in"
 msgstr "{total}件中{count}件を含める"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{count} profiles of {variable} against {vertical}, {excluded} excluded"
+msgstr "{vertical} に対する {variable} のプロファイル {count} 件、除外 {excluded} 件"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{count} profiles, {excluded} excluded"
+msgstr "プロファイル {count} 件、除外 {excluded} 件"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "{count} rejected"
 msgstr "{count}件を却下"
@@ -1881,6 +1903,10 @@ msgstr "{count}件、一度に最大{atOnce}件"
 msgid "{count}+ links"
 msgstr "{count}件以上のリンク"
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "{cut, plural, one {Message (the record kept its start; # more character was cut)} other {Message (the record kept its start; # more characters were cut)}}"
+msgstr "{cut, plural, other {メッセージ (記録には冒頭のみ保存。残り # 文字は省略されました)}}"
+
 #: src/hooks/use-execution-provenance.ts
 msgid "{danglingEdges, plural, one {# relationship references missing nodes} other {# relationships reference missing nodes}}"
 msgstr "{danglingEdges, plural, one {#件の関係が存在しないノードを参照しています} other {#件の関係が存在しないノードを参照しています}}"
@@ -1896,10 +1922,6 @@ msgstr "{delegated, plural, one {#件のタスクを委任} other {#件のタス
 #: src/lib/transcript-message-preview.ts
 msgid "{delegates, plural, one {# delegate} other {# delegates}}"
 msgstr "{delegates, plural, one {#件の委任先} other {#件の委任先}}"
-
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{denied} denied"
-msgstr "{denied}件拒否"
 
 #: src/components/clio/settings-session-defaults.tsx
 msgid "{description} Workspace and organization rules still apply."
@@ -1986,6 +2008,10 @@ msgstr "{edited, plural, one {#個のファイルを編集} other {#個のファ
 msgid "{elapsed} elapsed. Setup continues if you leave this page. {agent} will notify you when it finishes."
 msgstr "経過時間：{elapsed}。このページを離れてもセットアップは続行され、完了すると{agent}から通知されます。"
 
+#: src/components/clio/job-card.tsx
+msgid "{elapsed} of {limit}"
+msgstr "{limit} 中 {elapsed}"
+
 #: src/components/clio/composer.tsx
 msgid "{enteredId} is ambiguous; use {alternatives}"
 msgstr "{enteredId}はあいまいです。{alternatives}を使用してください"
@@ -2015,7 +2041,6 @@ msgstr "{failed, plural, other {# 件を有効にできませんでした}}"
 msgid "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
 msgstr "{failed, plural, one {#件失敗} other {#件失敗}}"
 
-#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/nested-tool-calls.tsx
 msgid "{failed} failed"
 msgstr "{failed}件失敗"
@@ -2206,6 +2231,10 @@ msgstr "{hidden, plural, one {他#件のワークスペース} other {他#件の
 msgid "{hidden, plural, one {# more} other {# more}}"
 msgstr "{hidden, plural, one {他#件} other {他#件}}"
 
+#: src/components/clio/layered-map-category-legend.tsx
+msgid "{hidden, plural, one {+# more} other {+# more}}"
+msgstr "{hidden, plural, one {他#件} other {他#件}}"
+
 #: src/components/clio/knowledge-note-body.tsx
 msgid "{hidden} more"
 msgstr "他{hidden}件"
@@ -2272,10 +2301,6 @@ msgstr "入力{input}、出力{output}"
 msgid "{input} input, {output} output tokens"
 msgstr "入力{input}トークン、出力{output}トークン"
 
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{interrupted} stopped"
-msgstr "{interrupted}件停止"
-
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr "{returned}件中{kept}件を保持"
@@ -2325,6 +2350,10 @@ msgstr "{kind}：{title}、{state}"
 #: src/components/clio/pending-interactions.tsx
 msgid "{kind}: {words}"
 msgstr "{kind}：{words}"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "{km} km, {level}: {value}"
+msgstr "{km} km、{level}: {value}"
 
 #: src/components/clio/refresh-button.tsx
 msgid "{label} — refreshing"
@@ -2861,6 +2890,10 @@ msgstr "{name}（{count}）"
 msgid "{name} (fork of {forkOf})"
 msgstr "{name}（{forkOf}のフォーク）"
 
+#: src/components/clio/job-card.tsx
+msgid "{name} ×{nodes}"
+msgstr "{name} ×{nodes}"
+
 #: src/components/clio/provider-panel-footer.tsx
 #: src/components/clio/skill-tool-result.tsx
 #: src/components/clio/workbench-variant-try-tab.tsx
@@ -3262,6 +3295,10 @@ msgstr "{plugin}のサブエージェント"
 msgid "{plugin} tools"
 msgstr "{plugin}のツール"
 
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "{position} of {count}"
+msgstr "{position} / {count}"
+
 #: src/components/clio/a2ui-carousel.tsx
 #: src/components/clio/pending-interactions.tsx
 msgid "{position} of {total}"
@@ -3486,6 +3523,10 @@ msgstr "{path}に対して{rule}"
 #: src/components/clio/tool-operation.ts
 msgid "{running, plural, one {# running} other {# running}}"
 msgstr "{running, plural, one {#件実行中} other {#件実行中}}"
+
+#: src/components/clio/job-card.tsx
+msgid "{running} of {nodes} running"
+msgstr "{nodes} ?? {running} ?????"
 
 #: src/lib/variant-runs.ts
 msgid "{running} of {total} running"
@@ -4243,6 +4284,14 @@ msgstr "{value}°"
 msgid "{valueLabel} colour scale"
 msgstr "{valueLabel}のカラースケール"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{variable} {unit} against {vertical} {verticalUnit}"
+msgstr "{vertical} {verticalUnit} に対する {variable} {unit}"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "{variable} along {km} km against {vertical}, {stations} stations"
+msgstr "{km} km にわたる {vertical} に対する {variable}、観測点 {stations} 点"
+
 #: src/components/clio/attention-center.tsx
 msgid "{verb, select, approval {{title} wants approval} question {{title} asked a question} value {{title} needs a value} form {{title} shows a form} request {{title} sent a request} command {{title} wants to run a command} other {{title} needs you}}"
 msgstr "{verb, select, approval {{title}が承認を求めています} question {{title}が質問しました} value {{title}が値を必要としています} form {{title}がフォームを表示しています} request {{title}がリクエストを送信しました} command {{title}がコマンドの実行を求めています} other {{title}が対応を求めています}}"
@@ -4464,6 +4513,10 @@ msgstr "3Dビューポート"
 msgid "6 months"
 msgstr "6か月"
 
+#: src/widget-gallery-demos.ts
+msgid "600 profiles against a model"
+msgstr "600 件のプロファイルとモデルの比較"
+
 #: src/components/clio/managed-service-target-utils.ts
 msgid "64-bit"
 msgstr "64ビット"
@@ -4556,6 +4609,10 @@ msgstr "汎用モデル: 会話ができます。"
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "A git repository URL or a folder on the service's host."
 msgstr "gitリポジトリのURL、またはサービスのホスト上のフォルダー。"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "A grid layer could not be read: {reason}"
+msgstr "格子レイヤーを読み込めませんでした: {reason}"
 
 #: src/components/clio/answer-hook-notice.tsx
 msgid "a hook"
@@ -5050,6 +5107,7 @@ msgstr "他のセッションへのアクセス"
 msgid "Access token"
 msgstr "アクセストークン"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-document-helpers.ts
 #: src/components/clio/session-usage-readout.tsx
 msgid "Account"
@@ -5356,6 +5414,10 @@ msgstr "別のコンピューターを追加…"
 msgid "Add answer to chat"
 msgstr "回答をチャットに追加"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Add as an injection"
+msgstr "インジェクションとして追加"
+
 #: src/components/clio/composer-file-upload.tsx
 msgid "Add attachments"
 msgstr "添付ファイルを追加"
@@ -5523,6 +5585,10 @@ msgstr "チャットに追加"
 msgid "Add to message"
 msgstr "メッセージに追加"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Add to the tool list"
+msgstr "ツール一覧に追加"
+
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Add to workspace"
 msgstr "ワークスペースに追加"
@@ -5616,6 +5682,10 @@ msgstr "{addedBy}が追加"
 #: src/lib/plugin-presentation.ts
 msgid "Added by you"
 msgstr "自分で追加"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "Added the plugin {target} as you asked"
+msgstr "依頼どおりプラグイン {target} を追加しました"
 
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Added:"
@@ -6415,6 +6485,10 @@ msgstr "解析"
 msgid "Analysis: <0>{0}</0>"
 msgstr "解析：<0>{0}</0>"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "and {more} more"
+msgstr "ほか {more} 件"
+
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Angle"
 msgstr "角度"
@@ -6548,11 +6622,11 @@ msgstr "権限リクエストに回答しました"
 
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "Answered automatically with the default, as nobody was watching this run: {answer}"
-msgstr ""
+msgstr "この実行を見ている人がいなかったため、既定値で自動的に回答しました：{answer}"
 
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "Answered automatically: nobody was watching this run, so the agent went ahead on its own judgment"
-msgstr ""
+msgstr "自動的に回答しました：この実行を見ている人がいなかったため、エージェントが自らの判断で進めました"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Answered by you"
@@ -7073,6 +7147,10 @@ msgstr "会話で依頼"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "asked questions"
 msgstr "質問しました"
+
+#: src/components/clio/summon-chip.tsx
+msgid "Asked to add the plugin {target}"
+msgstr "プラグイン {target} の追加を依頼"
 
 #: src/components/clio/flow-step-details.tsx
 msgid "Asked to answer as"
@@ -8376,6 +8454,10 @@ msgstr "ダウンロードをキャンセルしますか？"
 msgid "Cancel downloading “{label}”? Cleanup must finish before this task settles."
 msgstr "「{label}」のダウンロードをキャンセルしますか？このタスクが完了する前にクリーンアップを終える必要があります。"
 
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Cancel drawing"
+msgstr "描画をキャンセル"
+
 #: src/components/clio/plugin-source-editor.tsx
 msgid "Cancel editing"
 msgstr "編集をキャンセル"
@@ -8488,6 +8570,7 @@ msgstr "キャンセル済み"
 #: src/components/clio/deploy-progress.tsx
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
@@ -9814,6 +9897,10 @@ msgstr "ターミナルをクリア"
 msgid "Clear timer for {title}"
 msgstr "{title}のタイマーをクリア"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Click a curve to pick it."
+msgstr "曲線をクリックして選択します。"
+
 #: src/components/clio/a2ui-chart.tsx
 msgid "Click a point to select it. {primary}-click selects its curve. Shift-click toggles a point; {primaryShift}-click merges or removes a curve. Drag selects points; {primary}-drag selects curves. {alt}-drag pans and {primary}-scroll zooms."
 msgstr "ポイントをクリックすると選択されます。{primary}+クリックでその曲線を選択します。Shift+クリックでポイントの選択を切り替え、{primaryShift}+クリックで曲線を結合または削除します。ドラッグでポイントを、{primary}+ドラッグで曲線を選択します。{alt}+ドラッグでパン、{primary}+スクロールでズームします。"
@@ -9839,9 +9926,21 @@ msgstr "要素をクリックして選択します。"
 msgid "Click the second face. Esc cancels."
 msgstr "2 つ目の面をクリックしてください。Esc で取り消します。"
 
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Click to add points, then Finish path."
+msgstr "クリックして点を追加し、「経路を完了」を押します。"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Click to place the point."
+msgstr "クリックして点を置きます。"
+
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Click two faces."
 msgstr "2 つの面をクリックしてください。"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Click two opposite corners."
+msgstr "対角の 2 点をクリックします。"
 
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Click two points. Vertices and edges snap."
@@ -10144,6 +10243,7 @@ msgid "Collections and transfers through Globus"
 msgstr "Globus経由のコレクションと転送"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 msgid "colored by {field}"
 msgstr "{field}で色分け"
 
@@ -10151,6 +10251,10 @@ msgstr "{field}で色分け"
 #: src/components/clio/settings-folders.tsx
 msgid "Colour"
 msgstr "色"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Colour scale from {low} to {high} {unit}, {stops} stops"
+msgstr "カラースケール {low} から {high} {unit}、{stops} 段階"
 
 #: src/components/clio/model-picker-catalog.tsx
 #: src/components/reui/data-grid/data-grid-column-header.tsx
@@ -10331,6 +10435,10 @@ msgstr "このエージェントの作業コンテキストを圧縮しますか
 msgid "Compact this conversation?"
 msgstr "この会話を圧縮しますか？"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Compact, then add"
+msgstr "圧縮してから追加"
+
 #: src/components/clio/conversation-summarization.tsx
 msgid "Compacted here, earlier messages summarized"
 msgstr "ここで圧縮、以前のメッセージを要約"
@@ -10384,6 +10492,10 @@ msgstr "圧縮の設定"
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Compaction skipped"
 msgstr "圧縮をスキップしました"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "Compacts the conversation before the agent's next step; its tools go in with it."
+msgstr "エージェントの次のステップの前に会話を圧縮し、その際にツールを追加します。"
 
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "Compacts the conversation now; the change goes in with it."
@@ -13493,6 +13605,10 @@ msgstr "実行されませんでした"
 msgid "did not run or cancelled"
 msgstr "未実行またはキャンセル"
 
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "Didn’t finish"
+msgstr "完了しませんでした"
+
 #: src/components/clio/provider-auth-panel.tsx
 msgid "Didn't finish? Paste the address or code here"
 msgstr "完了しませんでしたか？ここにアドレスまたはコードを貼り付けてください"
@@ -13666,6 +13782,10 @@ msgstr "モバイル用のサイドバーを表示します。"
 msgid "Distance"
 msgstr "距離"
 
+#: src/components/clio/a2ui-section.tsx
+msgid "Distance (km) along the path; vertical: {vertical} {units}"
+msgstr "経路に沿った距離 (km)、鉛直: {vertical} {units}"
+
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "Do you want to proceed?"
 msgstr "続行しますか？"
@@ -13785,6 +13905,7 @@ msgstr "完了"
 #: src/components/clio/comments/comment-editor.tsx
 #: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/deploy-progress.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/managed-service-inventory.tsx
 #: src/components/clio/mcp-sign-in.tsx
 #: src/components/clio/model-acquisition.tsx
@@ -14200,6 +14321,14 @@ msgstr "ドラッグしてメッシュノードを選択"
 #: src/components/clio/a2ui-chart.tsx
 msgid "Drag to select points. {primary}-drag selects whole curves. Shift adds or removes."
 msgstr "ドラッグしてポイントを選択します。{primary}+ドラッグで曲線全体を選択します。Shiftで追加または削除します。"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Draw a box"
+msgstr "範囲を描く"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Draw a path"
+msgstr "経路を描く"
 
 #: src/components/clio/mcp-app-frame-menu.tsx
 msgid "Drawing"
@@ -14630,6 +14759,7 @@ msgid "End time"
 msgstr "終了時刻"
 
 #: src/components/clio/attention-center.tsx
+#: src/components/clio/job-card.tsx
 msgid "Ended"
 msgstr "終了"
 
@@ -14858,6 +14988,7 @@ msgid "error"
 msgstr "エラー"
 
 #: src/components/clio/agent-plugin-tree.tsx
+#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 #: src/components/clio/workspace-resource-derivatives.tsx
@@ -14898,6 +15029,10 @@ msgstr "候補の回答と改良を評価します。"
 #: src/components/clio/variant-pick-card.tsx
 msgid "Evaluation criteria"
 msgstr "評価基準"
+
+#: src/widget-gallery-demos.ts
+msgid "Event centres"
+msgstr "イベントの中心"
 
 #: src/components/clio/ndp-workflow-form.tsx
 #: src/components/clio/workbench-list-column.tsx
@@ -15051,6 +15186,14 @@ msgstr "Excelブック"
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Excerpt {number}"
 msgstr "抜粋{number}"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Exclude"
+msgstr "除外"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Excluded profiles"
+msgstr "除外したプロファイル"
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -15437,6 +15580,7 @@ msgstr "失敗"
 #: src/components/clio/deploy-progress.tsx
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/message-completion-footer.tsx
 #: src/components/clio/model-inventory-row.tsx
@@ -15505,6 +15649,10 @@ msgstr "高速モデル"
 #: src/components/clio/response-rating.tsx
 msgid "Feedback saved"
 msgstr "フィードバックを保存しました"
+
+#: src/components/clio/job-card.tsx
+msgid "Feeds"
+msgstr "渡す"
 
 #: src/components/clio/table-query-rows.ts
 msgid "fewer"
@@ -15858,6 +16006,10 @@ msgstr "モデルを探す"
 msgid "Find a previous decision, locate a passage, or ask what your files say.<0/>Press Enter to search with the selected model."
 msgstr "以前の決定を探したり、一節を見つけたり、ファイルの内容について質問したりできます。<0/>Enterを押すと、選択したモデルで検索します。"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Find a profile"
+msgstr "プロファイルを検索"
+
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "Find a shortcut"
 msgstr "ショートカットを検索"
@@ -15928,6 +16080,10 @@ msgstr "インストールするリリースを検索中"
 msgid "Finish"
 msgstr "完了"
 
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Finish path"
+msgstr "経路を完了"
+
 #: src/components/clio/managed-services.tsx
 msgid "Finish setting up your local model runtime"
 msgstr "ローカルのモデルランタイムのセットアップを完了してください"
@@ -15953,6 +16109,7 @@ msgid "Finish with a return URL"
 msgstr "戻り先URLで完了"
 
 #: src/components/clio/composer-run-announcer.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/operation-progress.tsx
 msgid "Finished"
@@ -15978,6 +16135,10 @@ msgstr "完了した作業"
 #: src/components/clio/run-tab.tsx
 msgid "Finished."
 msgstr "完了しました。"
+
+#: src/components/clio/job-card.tsx
+msgid "Finishing"
+msgstr "終了処理中"
 
 #: src/lib/runtime-install-progress.ts
 msgid "Finishing the installation"
@@ -16838,7 +16999,7 @@ msgstr "このネットワークからのアップデート確認に対するGit
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "Give {name} {asked}?"
-msgstr ""
+msgstr "{name} に {asked} を渡しますか？"
 
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
@@ -17453,6 +17614,10 @@ msgstr "{title}の開始方法"
 msgid "How hard the model thinks before it answers. Default is the model's own level."
 msgstr "モデルが回答する前にどれだけ考えるか。デフォルトはモデル自体のレベルです。"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "How it joins this turn"
+msgstr "このターンへの加え方"
+
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "How long"
 msgstr "期間"
@@ -17618,6 +17783,10 @@ msgstr "何も開かない場合は、GmailまたはOutlookを選択してくだ
 #: src/components/clio/obsidian-source-form.tsx
 msgid "If required"
 msgstr "必要な場合"
+
+#: src/components/clio/job-card.tsx
+msgid "If this is wrong"
+msgstr "????????"
 
 #: src/widget-gallery-demos.ts
 msgid "Illustrative load field"
@@ -17987,6 +18156,10 @@ msgstr "接続名には文字または数字を含めてください"
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Include a letter or number in the extension name"
 msgstr "拡張機能名に文字または数字を含めてください"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Include all"
+msgstr "すべて含める"
 
 #: src/components/clio/session-access.tsx
 msgid "Include delegated children"
@@ -18993,6 +19166,10 @@ msgstr "出所は不明です"
 msgid "Its source is not known, version {version}"
 msgstr "出所は不明です、バージョン{version}"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Its tools join the tool list now; the prompt cache is rebuilt on the next call."
+msgstr "ツールはすぐにツール一覧に加わります。プロンプトキャッシュは次の呼び出しで再構築されます。"
+
 #: src/components/clio/attention-away.ts
 msgid "Its turn is done"
 msgstr "ターンが完了しました"
@@ -19012,6 +19189,22 @@ msgstr "ビューが検証に合格しませんでした。"
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Its view was not shown. {reason}"
 msgstr "ビューは表示されませんでした。{reason}"
+
+#: src/components/clio/job-card.tsx
+msgid "JARVIS notes"
+msgstr "JARVIS ???"
+
+#: src/components/clio/job-card.tsx
+msgid "Job"
+msgstr "ジョブ"
+
+#: src/components/clio/job-card.tsx
+msgid "Job on {site}"
+msgstr "{site} のジョブ"
+
+#: src/components/clio/infrastructure-jobs.tsx
+msgid "Jobs"
+msgstr "ジョブ"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "JPG image"
@@ -19066,6 +19259,7 @@ msgstr "最新に移動"
 msgid "Kafka topic"
 msgstr "Kafkaトピック"
 
+#: src/components/clio/a2ui-profile-stack.tsx
 #: src/components/clio/primitives/row-confirm.tsx
 #: src/components/clio/settings-access-rule-row.tsx
 #: src/components/clio/settings-model-server-row.tsx
@@ -19097,6 +19291,10 @@ msgstr "{product}をシステムトレイ（デスクトップにある場合）
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Keep {product} running?"
 msgstr "{product}を実行したままにしますか？"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Keep {profile}"
+msgstr "{profile} を保持"
 
 #: src/components/clio/resource-dialogs.tsx
 msgid "Keep {workspace}"
@@ -19374,9 +19572,17 @@ msgstr "LaTeXソース"
 msgid "LaTeX workspace"
 msgstr "LaTeXワークスペース"
 
+#: src/widget-gallery-demos.ts
+msgid "Layered map"
+msgstr "レイヤーマップ"
+
 #: src/components/clio/data-filter-popover.tsx
 msgid "Layered on top of the agent's own query."
 msgstr "エージェント自身のクエリに重ねて適用されます。"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Layers"
+msgstr "レイヤー"
 
 #: src/widget-gallery-demos.ts
 msgid "Layout and media"
@@ -20811,6 +21017,7 @@ msgstr "管理対象パッケージ"
 msgid "Manual entry"
 msgstr "手動入力"
 
+#: src/components/clio/a2ui-layered-map.tsx
 #: src/components/clio/a2ui-presentation.ts
 #: src/widget-gallery-demos.ts
 msgid "Map"
@@ -20820,6 +21027,7 @@ msgstr "地図"
 msgid "Map background unavailable"
 msgstr "地図の背景を利用できません"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Map category colours"
 msgstr "地図のカテゴリの色"
@@ -21324,6 +21532,10 @@ msgstr "マージ"
 msgid "Merges, replaces and retires remembered facts."
 msgstr "記憶された事実を統合、置き換え、廃止します。"
 
+#: src/widget-gallery-demos.ts
+msgid "Meridional section"
+msgstr "南北断面"
+
 #: src/components/mermaidcn/mermaid.tsx
 msgid "Mermaid diagram"
 msgstr "Mermaid図"
@@ -21336,6 +21548,7 @@ msgstr "Mermaidソース"
 msgid "Mesh unavailable"
 msgstr "メッシュを利用できません"
 
+#: src/components/clio/flow-run-parts.tsx
 #: src/lib/transcript-message-preview.ts
 msgid "Message"
 msgstr "メッセージ"
@@ -21937,6 +22150,10 @@ msgstr "右へ移動"
 msgid "Moved to {label}"
 msgstr "{label}に移動しました"
 
+#: src/components/clio/send-script-to-background.tsx
+msgid "Moved to the background"
+msgstr "バックグラウンドに移動しました"
+
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "Moved to version {headVersion}"
 msgstr "バージョン{headVersion}に移動"
@@ -22475,6 +22692,10 @@ msgstr "次のステップ"
 msgid "Next tab"
 msgstr "次のタブ"
 
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Next time"
+msgstr "次の時刻"
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "Next try"
 msgstr "次の試行"
@@ -22692,6 +22913,10 @@ msgstr "完了した作業はありません。"
 msgid "No completion was recorded. Inspect the captured output before running this action again."
 msgstr "完了が記録されていません。このアクションを再実行する前に、キャプチャされた出力を確認してください。"
 
+#: src/components/clio/job-card.tsx
+msgid "No components described"
+msgstr "コンポーネントの記述がありません"
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "No computer matches"
 msgstr "一致するコンピューターはありません"
@@ -22729,6 +22954,10 @@ msgstr "{path}の受領証明が返されませんでした"
 #: src/lib/search-source-text.ts
 msgid "No daily limit; paced"
 msgstr "1 日の上限なし。間隔を空けて実行"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "no data"
+msgstr "データなし"
 
 #: src/components/clio/a2ui-raster-viewport.tsx
 msgid "No data"
@@ -23216,7 +23445,7 @@ msgstr "このサービスでは論文やデータセットのソースを利用
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "No part of this model is named {names}, so its opacity is not applied."
-msgstr ""
+msgstr "このモデルには {names} という名前のパーツがないため、その不透明度は適用されません。"
 
 #: src/components/clio/latex-workspace.tsx
 msgid "No PDF: the build stopped before making one"
@@ -23270,6 +23499,10 @@ msgstr "問題は見つかりませんでした。"
 #: src/components/clio/latex-list.tsx
 msgid "No problems."
 msgstr "問題はありません。"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "No profiles in this table."
+msgstr "この表にはプロファイルがありません。"
 
 #: src/components/clio/settings-prompts.tsx
 msgid "No prompt families in this view."
@@ -23636,6 +23869,14 @@ msgstr "まだワークスペースはありません。"
 #: src/components/clio/settings-report-problem-preview.tsx
 msgid "No, only reply outcomes"
 msgstr "いいえ、返信の結果のみ"
+
+#: src/components/clio/job-card.tsx
+msgid "Node {first}"
+msgstr "ノード {first}"
+
+#: src/components/clio/job-card.tsx
+msgid "Nodes {first} to {last}"
+msgstr "ノード {first}〜{last}"
 
 #: src/components/clio/agent-tab-values.ts
 msgid "None"
@@ -24254,6 +24495,10 @@ msgstr "{shown}と一致するものはありません"
 #: src/components/clio/attention-center.tsx
 msgid "Nothing needs you."
 msgstr "対応が必要なものはありません。"
+
+#: src/components/clio/pending-interaction-notices.tsx
+msgid "Nothing new can be recorded"
+msgstr "新しい内容を記録できません"
 
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
@@ -25897,6 +26142,10 @@ msgstr "部分的な結果"
 msgid "partially selected"
 msgstr "一部選択"
 
+#: src/components/clio/job-card.tsx
+msgid "Partition"
+msgstr "パーティション"
+
 #: src/components/clio/cad-parts-panel.tsx
 msgid "Parts"
 msgstr "部品"
@@ -26240,6 +26489,10 @@ msgstr "試行を選択"
 msgid "picked entry {winner}"
 msgstr "エントリー{winner}を選択"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Picked profile"
+msgstr "選択したプロファイル"
+
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx
 #: src/components/clio/workspace-actions-menu.tsx
@@ -26290,6 +26543,10 @@ msgstr "固定、エージェントに添付"
 #: src/components/clio/context-sources.tsx
 msgid "Pinned, in last request"
 msgstr "固定、前回のリクエストに含む"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Place a point"
+msgstr "点を置く"
 
 #: src/components/clio/run-tab.tsx
 msgid "Placement"
@@ -26385,6 +26642,14 @@ msgstr "{axis} = {position} の平面。上側を残します。断面は塗り�
 msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
 msgstr "{axis} = {position} の平面。下側を残します。断面は塗りつぶされます。"
 
+#: src/components/clio/job-card.tsx
+msgid "Planned"
+msgstr "計画済み"
+
+#: src/widget-gallery-demos.ts
+msgid "Planned stations"
+msgstr "予定の観測点"
+
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/lib/tool-domain-labels.ts
 msgid "Planning"
@@ -26433,6 +26698,10 @@ msgstr "観測点BKL1の鉛直変位をグラフにしてください。"
 msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr "グラフ、表、レポートは会話内にファイルカードとして表示されます。"
 
+#: src/lib/composer-reference-domain.ts
+msgid "plugin"
+msgstr "プラグイン"
+
 #: src/components/clio/a2ui-surface.tsx
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
@@ -26441,6 +26710,7 @@ msgstr "グラフ、表、レポートは会話内にファイルカードとし
 #: src/components/clio/plugin-explorer.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/lib/agent-needs.ts
+#: src/lib/composer-reference-domain.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
 msgstr "プラグイン"
@@ -26549,6 +26819,10 @@ msgstr "このパックのプラグイン"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "同時に削除されるプラグイン"
+
+#: src/components/clio/composer-references.tsx
+msgid "Plugins to add"
+msgstr "追加できるプラグイン"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -26911,6 +27185,10 @@ msgstr "前のスライド"
 msgid "Previous tab"
 msgstr "前のタブ"
 
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Previous time"
+msgstr "前の時刻"
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "Previous try"
 msgstr "前の試行"
@@ -27041,6 +27319,14 @@ msgstr "プロファイル名"
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
 msgstr "プロフィールを保存しました"
+
+#: src/widget-gallery-demos.ts
+msgid "Profile stack"
+msgstr "プロファイルスタック"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Profiles"
+msgstr "プロファイル"
 
 #: src/components/clio/settings-tools-header.tsx
 msgid "Programmatic tool calling: who calls the tool"
@@ -27525,6 +27811,10 @@ msgstr "キューが別の場所で変更されたため、新しい順序は適
 msgid "Queue is empty"
 msgstr "キューは空です"
 
+#: src/components/clio/job-card.tsx
+msgid "Queue reason"
+msgstr "待機理由"
+
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "queued"
@@ -27542,6 +27832,7 @@ msgstr "待機中"
 
 #: src/components/clio/conversation-message-row.tsx
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/resource-availability.ts
@@ -27576,6 +27867,10 @@ msgstr "待機中のメッセージ"
 #: src/components/clio/run-tab.tsx
 msgid "queued on {host}"
 msgstr "{host}で待機中"
+
+#: src/components/clio/job-card.tsx
+msgid "Queued, position {position}"
+msgstr "待機中、{position} 番目"
 
 #: src/components/clio/composer-run-announcer.tsx
 msgid "Queued, waiting to start"
@@ -27642,6 +27937,10 @@ msgstr "実行場所"
 #: src/components/clio/tool-operation-result.tsx
 msgid "Ran on {model}"
 msgstr "{model}で実行"
+
+#: src/components/clio/job-card.tsx
+msgid "Ran out of time"
+msgstr "時間切れ"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Ran without asking"
@@ -27974,9 +28273,17 @@ msgstr "モデルの詳細を読み取り中…"
 msgid "Reading plugin…"
 msgstr "プラグインを読み取り中…"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Reading profiles"
+msgstr "プロファイルを読み込み中"
+
 #: src/components/clio/service-management-panel.tsx
 msgid "Reading recent logs from {hostLabel}…"
 msgstr "{hostLabel}から最近のログを読み込み中…"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "Reading section"
+msgstr "断面を読み込み中"
 
 #: src/components/clio/source-files-browser.tsx
 msgid "Reading source files…"
@@ -30669,6 +30976,7 @@ msgstr "実行中"
 #: src/components/clio/flow-diagram-source.ts
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/session-rail-layout.ts
@@ -32024,9 +32332,11 @@ msgstr "レコード間の秒数"
 msgid "Secret access key"
 msgstr "シークレットアクセスキー"
 
+#: src/components/clio/a2ui-section.tsx
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/cad-model-view.tsx
 #: src/components/clio/cad-tool-panels.tsx
+#: src/widget-gallery-demos.ts
 msgid "Section"
 msgstr "セクション"
 
@@ -32070,6 +32380,10 @@ msgstr "エージェント、コンピューター、サービスがどのよう
 #: src/widget-preview-app.tsx
 msgid "See linked views"
 msgstr "連動ビューを見る"
+
+#: src/components/clio/job-card.tsx
+msgid "See script"
+msgstr "スクリプトを表示"
 
 #: src/components/clio/extension-discover.tsx
 msgid "See server documentation"
@@ -32378,6 +32692,15 @@ msgstr "応答を送信"
 #: src/lib/onboarding/tour-script.ts
 msgid "Send this request too."
 msgstr "このリクエストも送信してください。"
+
+#: src/components/clio/a2ui-layered-map.tsx
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Send to agent"
+msgstr "エージェントに送信"
+
+#: src/components/clio/send-script-to-background.tsx
+msgid "Send to background"
+msgstr "バックグラウンドへ送る"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Send your saved NDP account token to this API. The Endpoint must accept your account and grant access."
@@ -33163,6 +33486,7 @@ msgstr "完了済みを表示"
 msgid "Show completed {count}"
 msgstr "完了済み{count}件を表示"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/managed-service-host-facts.tsx
 #: src/components/clio/model-inventory-row.tsx
 msgid "Show details"
@@ -33193,6 +33517,7 @@ msgstr "送信したとおりに表示"
 
 #: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
 msgstr "表示を減らす"
@@ -33789,9 +34114,14 @@ msgstr "ソースを煮込む"
 msgid "Simple tomato pasta"
 msgstr "シンプルなトマトパスタ"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/permission-operation-details.tsx
 msgid "Site"
 msgstr "サイト"
+
+#: src/components/clio/job-card.tsx
+msgid "site default"
+msgstr "サイトの既定値"
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Site-provided"
@@ -33948,13 +34278,10 @@ msgid "Some background work is no longer attached to this service and may contin
 msgstr "一部のバックグラウンド処理はこのサービスに接続されておらず、サービス停止後も続行する可能性があります。"
 
 #: src/components/clio/conversation-activity-lane.tsx
-msgid "Some calls failed"
-msgstr "一部の呼び出しが失敗しました"
-
-#: src/components/clio/conversation-activity-lane.tsx
 msgid "Some calls were denied"
 msgstr "一部の呼び出しが拒否されました"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Some category colours repeat; use labels or filter to compare them."
 msgstr "一部のカテゴリの色が重複しています。比較するにはラベルを使うかフィルターを使用してください。"
@@ -34485,6 +34812,7 @@ msgid "Started the workflow {target} as you asked"
 msgstr "ご依頼どおりワークフロー{target}を開始しました"
 
 #: src/components/clio/composer-attachments.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/workspace-terminal-panel.tsx
 #: src/hooks/use-connection-availability.ts
@@ -34579,6 +34907,10 @@ msgstr "ベース"
 #: src/components/clio/save-user-agent-dialog.tsx
 msgid "Starts from {parentName} and keeps your changes. Updates to {parentName} reach this agent in its next conversation."
 msgstr "{parentName}をベースに、あなたの変更を保持します。{parentName}のアップデートは、次の会話からこのエージェントに反映されます。"
+
+#: src/components/clio/job-card.tsx
+msgid "Starts in"
+msgstr "開始まで"
 
 #: src/lib/mcp-service-presentation.ts
 msgid "Starts when used"
@@ -35112,6 +35444,10 @@ msgstr "ストリーム"
 msgid "Streams results"
 msgstr "ストリームの結果"
 
+#: src/components/clio/job-card.tsx
+msgid "Streams to"
+msgstr "ストリーム送信"
+
 #: src/components/clio/science-log-panel.tsx
 msgid "Strength"
 msgstr "強度"
@@ -35261,6 +35597,10 @@ msgstr "送信"
 #: src/components/clio/question-bundle-response.tsx
 msgid "Submit all answers"
 msgstr "すべての回答を送信"
+
+#: src/components/clio/job-card.tsx
+msgid "Submitted"
+msgstr "投入済み"
 
 #: src/lib/fleet-usage.ts
 msgid "Subscription"
@@ -35711,6 +36051,10 @@ msgid "Temperature"
 msgstr "温度"
 
 #: src/widget-gallery-demos.ts
+msgid "Temperature anomaly"
+msgstr "気温偏差"
+
+#: src/widget-gallery-demos.ts
 msgid "Temperature field"
 msgstr "温度場"
 
@@ -35968,6 +36312,10 @@ msgstr "エージェントがまだプランを作成しています。"
 #: src/components/clio/task-activity-row.tsx
 msgid "The agent is stopping. New input stays queued until its current execution exits."
 msgstr "エージェントを停止しています。現在の実行が終了するまで、新しい入力はキューに保持されます。"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "The agent is told about its tools and can call them now; the prompt cache is kept until the next compaction."
+msgstr "エージェントにツールが知らされ、すぐに呼び出せます。プロンプトキャッシュは次回の圧縮まで保持されます。"
 
 #: src/components/clio/mcp-app-look-waiting-notice.tsx
 msgid "The agent is waiting to see this view."
@@ -36470,6 +36818,10 @@ msgid "The flow has not started any task yet."
 msgstr "フローはまだタスクを開始していません。"
 
 #: src/components/clio/flow-run-parts.tsx
+msgid "The flow hit an error"
+msgstr "フローでエラーが発生しました"
+
+#: src/components/clio/flow-run-parts.tsx
 msgid "The flow saw"
 msgstr "フローが受け取った結果"
 
@@ -36851,6 +37203,22 @@ msgstr "プランは空です。"
 msgid "The plan was not saved: {message}"
 msgstr "計画は保存されませんでした: {message}"
 
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added"
+msgstr "プラグイン {target} は追加されませんでした"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: {reason}"
+msgstr "プラグイン {target} は追加されませんでした: {reason}"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: the turn was stopped first"
+msgstr "プラグイン {target} は追加されませんでした: 先にターンが停止されました"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: you chose Not now"
+msgstr "プラグイン {target} は追加されませんでした: 「後で」を選びました"
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "プラグインの変更はエージェントのシステムプロンプトに反映されました。"
@@ -36887,6 +37255,10 @@ msgstr "プロセスは開始されましたが、サービスの準備完了は
 #: src/components/clio/workspace-resource-view.tsx
 msgid "The processor completed without publishing any structured collections for this document."
 msgstr "プロセッサーは、このドキュメントの構造化コレクションを公開せずに完了しました。"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "The profiles could not be read"
+msgstr "プロファイルを読み込めませんでした"
 
 #: src/lib/mcp-preparation.ts
 msgid "The program that runs this server is not installed on the agent’s computer."
@@ -37135,9 +37507,21 @@ msgstr "スクリプトは1つの結果に添付できる上限までファイ�
 msgid "The script had already attached as many files as one result may carry, so the model did not see this PDF."
 msgstr "スクリプトは1つの結果に添付できる上限までファイルを添付済みだったため、モデルはこのPDFを見ていません。"
 
+#: src/components/clio/send-script-to-background.tsx
+msgid "The script had already finished or moved."
+msgstr "スクリプトはすでに終了したか、移動済みでした。"
+
 #: src/components/clio/injection-presentation.ts
 msgid "The script sent no text."
 msgstr "スクリプトはテキストを送信しませんでした。"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "The section could not be read"
+msgstr "断面を読み込めませんでした"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "The section is not a registered file"
+msgstr "断面は登録済みのファイルではありません"
 
 #: src/components/clio/a2ui-tabs.tsx
 msgid "The selected dashboard tab is unavailable."
@@ -38523,6 +38907,10 @@ msgstr "この実行は停止され、その後再開されました。"
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
 msgstr "この保存されたビューはデコードできませんでした。正確な記録は「エビデンス」に残っています。"
 
+#: src/components/clio/conversation-turn-model.ts
+msgid "This script's own row is in an earlier part of the conversation. Its calls are listed here."
+msgstr "このスクリプト自体の行は会話の前の部分にあります。その呼び出しをここに表示します。"
+
 #: src/routes/infrastructure-page.tsx
 msgid "This section could not load completely"
 msgstr "このセクションを完全には読み込めませんでした"
@@ -38844,11 +39232,17 @@ msgid "Thursday"
 msgstr "木曜日"
 
 #: src/components/clio/a2ui-date-time-input.tsx
+#: src/components/clio/a2ui-layered-map.tsx
 #: src/components/clio/date-time-field.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Time"
 msgstr "時刻"
+
+#: src/components/clio/job-card.tsx
+msgctxt "job wall time"
+msgid "Time"
+msgstr "時間"
 
 #: src/components/clio/work-record-controls.tsx
 msgid "Time limit (seconds)"
@@ -39775,6 +40169,7 @@ msgstr "このコンピューターでは利用できません"
 msgid "Unavailable options"
 msgstr "利用できないオプション"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Uncategorized"
 msgstr "未分類"
@@ -40884,6 +41279,8 @@ msgstr "1より大きい値にすると直近のトークンを繰り返しに�
 msgid "Values: {values}"
 msgstr "値: {values}"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+#: src/components/clio/a2ui-section.tsx
 #: src/components/clio/environment-table.tsx
 msgid "Variable"
 msgstr "変数"
@@ -41348,6 +41745,10 @@ msgstr "入力待ち"
 msgid "Waiting for more conversation messages"
 msgstr "会話のメッセージがさらに届くのを待っています"
 
+#: src/components/clio/job-card.tsx
+msgid "Waiting for nodes"
+msgstr "ノード待ち"
+
 #: src/components/clio/transcript-tool-bodies.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Waiting for output"
@@ -41465,6 +41866,10 @@ msgstr "待機対象"
 #: src/widget-gallery-demos.ts
 msgid "Warm"
 msgstr "温める"
+
+#: src/widget-gallery-demos.ts
+msgid "Warm events over a month"
+msgstr "1 か月間の高温イベント"
 
 #: src/components/clio/settings-appearance.tsx
 msgid "Warm ink with verdigris accents."
@@ -42400,6 +42805,10 @@ msgstr "このメッセージでフロー{target}をリクエストしました"
 msgid "You asked for the workflow {target} on this message"
 msgstr "このメッセージでワークフロー{target}をリクエストしました"
 
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "You asked to add the plugin {target} for this message"
+msgstr "このメッセージのためにプラグイン {target} の追加を依頼しました"
+
 #: src/components/clio/permission-request-text.ts
 msgid "You blocked it"
 msgstr "あなたがブロックしました"
@@ -42514,6 +42923,10 @@ msgstr "あなたの回答"
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Your change could not be saved."
 msgstr "変更を保存できませんでした。"
+
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "Your choice"
+msgstr "あなたの選択"
 
 #. placeholder {0}: tab.comment
 #: src/components/clio/workbench-variant-try-tab.tsx

@@ -73,6 +73,52 @@ function renderPending(
 }
 
 describe('ClioPendingInteractions', () => {
+  // Live 2026-11-19: this consent was a radio list, a "Choice" heading and Send response.
+  it('answers a form that is one short choice with one button per option', async () => {
+    const user = userEvent.setup();
+    const interaction = pending('mcp_task_input', {
+      prompt: 'Allow searches through the literature sources?',
+      requires_human_response: true,
+      actions: ['answer', 'cancel'],
+      payload: {
+        mode: 'form',
+        fields: [
+          {
+            name: 'choice',
+            type: 'string',
+            title: 'Choice',
+            enum: ['approve', 'decline'],
+            enum_names: [
+              'Allow searches through the literature sources',
+              "Don't use the literature sources",
+            ],
+            default: 'approve',
+            required: true,
+          },
+        ],
+      },
+    });
+    const onResponse = renderPending([interaction]);
+
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send response' })).toBeNull();
+    expect(
+      screen.getByRole('button', { name: /Allow searches through the literature sources/u }),
+    ).toBeVisible();
+    // Like yes/no, Enter gives no consent the person did not choose.
+    screen
+      .getByRole('button', { name: /Allow searches through the literature sources/u })
+      .closest<HTMLElement>('[data-slot="ask-card"]')!
+      .focus();
+    await user.keyboard('{Enter}');
+    expect(onResponse).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: /Don't use the literature sources/u }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'answer',
+      metadata: { choice: 'decline' },
+    });
+  });
+
   it('renders structured defaults and submits the complete field map', async () => {
     const user = userEvent.setup();
     const interaction = pending('mcp_task_input', {
@@ -143,6 +189,51 @@ describe('ClioPendingInteractions', () => {
         include_uncertain: true,
         outputs: ['table'],
       },
+    });
+  });
+
+  it('answers an approval with a folded setting on its buttons, sending the setting too', async () => {
+    const user = userEvent.setup();
+    const approval = pending('question', {
+      source: { protocol: 'mcp', tool_name: 'mcp_elicitation' },
+      prompt: 'Start the pipeline as a service?',
+      requires_human_response: true,
+      actions: ['answer', 'cancel'],
+      payload: {
+        mode: 'form',
+        question_kind: 'freeform',
+        answer_metadata: { running_services: 'keep them running' },
+        fields: [
+          {
+            name: 'approve',
+            type: 'string',
+            title: 'Answer',
+            enum: ['approve', 'decline'],
+            enum_names: ['Approve', 'Decline'],
+            required: true,
+          },
+          {
+            name: 'running_services',
+            type: 'string',
+            title: "The site's running services",
+            description: 'A service of relay still runs on Ares.',
+            enum: ['end them when this job is submitted', 'keep them running'],
+            default: 'keep them running',
+          },
+        ],
+      },
+    });
+    const onResponse = renderPending([approval]);
+
+    expect(screen.queryByRole('button', { name: 'Send response' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'keep them running' })).toBeChecked();
+    expect(screen.getByText('A service of relay still runs on Ares.')).toBeVisible();
+    await user.click(screen.getByRole('radio', { name: 'end them when this job is submitted' }));
+    await user.click(screen.getByRole('button', { name: /Approve/u }));
+    expect(onResponse).toHaveBeenCalledWith(approval, {
+      action: 'answer',
+      metadata: { approve: 'approve', running_services: 'end them when this job is submitted' },
     });
   });
 

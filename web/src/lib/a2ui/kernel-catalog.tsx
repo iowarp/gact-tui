@@ -8,7 +8,6 @@ import {
 } from '@a2ui/web_core/v0_9';
 import type { ResolvedChildRef } from '@a2ui/web_core/v0_9';
 import {
-  CheckBox,
   Column,
   Card,
   Divider,
@@ -26,6 +25,7 @@ import { lazy, Suspense, type CSSProperties } from 'react';
 import { z } from 'zod';
 import { ClioDateTimeInput } from '@/components/clio/a2ui-date-time-input';
 import { ClioA2UIButton } from '@/components/clio/a2ui-button';
+import { ClioCheckBox } from '@/components/clio/a2ui-checkbox';
 import {
   Confirmation,
   ConfirmationAction,
@@ -60,6 +60,9 @@ import { ClioMermaidCatalogComponent } from '@/components/clio/a2ui-mermaid-cata
 import { ClioMcpAppCatalogComponent } from '@/components/clio/a2ui-mcp-app-catalog';
 import { ClioMeshViewportCatalogComponent } from '@/components/clio/a2ui-mesh-viewport-catalog';
 import { ClioRasterViewportCatalogComponent } from '@/components/clio/a2ui-raster-viewport-catalog';
+import { ClioLayeredMapCatalogComponent } from '@/components/clio/a2ui-layered-map-catalog';
+import { ClioSectionCatalogComponent } from '@/components/clio/a2ui-section-catalog';
+import { ClioProfileStackCatalogComponent } from '@/components/clio/a2ui-profile-stack-catalog';
 import { ClioSliderCatalogComponent } from '@/components/clio/a2ui-slider-catalog';
 import { ClioTimeSeriesFallbackCatalogComponent } from '@/components/clio/a2ui-time-series-fallback';
 import { ClioWorkflowCatalogComponent } from '@/components/clio/a2ui-workflow-catalog';
@@ -684,7 +687,7 @@ const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   Divider,
   ClioA2UIButton,
   TextField,
-  CheckBox,
+  ClioCheckBox,
   ClioChoicePicker,
   Slider,
   ClioDateTimeInput,
@@ -706,6 +709,9 @@ const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   ClioPickerCatalogComponent,
   ClioMeshViewportCatalogComponent,
   ClioRasterViewportCatalogComponent,
+  ClioLayeredMapCatalogComponent,
+  ClioSectionCatalogComponent,
+  ClioProfileStackCatalogComponent,
   ClioMcpAppCatalogComponent,
   ClioSliderCatalogComponent,
   ClioWorkflowCatalogComponent,

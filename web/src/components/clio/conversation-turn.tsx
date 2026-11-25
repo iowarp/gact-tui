@@ -21,11 +21,14 @@ import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { transcriptActivitySummary } from './transcript-activity-summary';
 import { IterationReasoningText, TranscriptIterationText } from './transcript-iteration-text';
 import { FlowRunCard } from './flow-run-card';
+import { JobCards } from './tool-job-cards';
+import { useSessionJobRows } from '@/hooks/use-job-snapshots';
+import type { JobSnapshot } from '@/lib/job-snapshot';
 import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-presentation';
 import { toolSandboxBoundary } from './sandbox-boundary';
 import { TurnSandboxNotices } from './sandbox-boundary-notice';
 import { useShownMcpAppIds } from './mcp-app-live-set';
-import { ActivityLane } from './conversation-activity-lane';
+import { ActivityLane, type TurnEnd } from './conversation-activity-lane';
 import {
   IterationDetail,
   McpAppActivity,
@@ -46,11 +49,15 @@ interface ConversationTurnProps {
   answerStarted?: boolean;
   /** Open the last live group until a newer entry arrives, unless the reader chose otherwise. */
   followLiveActivity?: boolean;
-  /**
-   * These calls are the agent's latest work and it is still going. They stay as
-   * rows until it moves past them, then fold into their counted row.
-   */
+  /** These calls are the agent's latest work and it is still going. */
   turnLive?: boolean;
+  /**
+   * The turn these calls belong to is still running. Every run stays as rows while
+   * it works and folds into its counted row only once the turn has ended.
+   */
+  turnRunning?: boolean;
+  /** How the turn ended when it didn't finish, given to its last calls only. */
+  turnEnd?: TurnEnd;
   /**
    * The live message's latest calls: a call held for approval before the service
    * projects it is shown here, even when a context injection follows these calls.
@@ -160,6 +167,8 @@ function withWaitingCalls(
 export function ConversationTurn({
   followLiveActivity = false,
   turnLive = false,
+  turnRunning = false,
+  turnEnd,
   holdsWaitingCalls = turnLive,
   iterations: recordedIterations,
   mode,
@@ -177,6 +186,8 @@ export function ConversationTurn({
 }: ConversationTurnProps) {
   // Apps whose card shows something live stand apart from the folded activity.
   const shownMcpApps = useShownMcpAppIds();
+  // A job the person waits on stands apart too, so a folded group never hides it.
+  const jobRows = useSessionJobRows(mode === 'chain' && flowCards ? messageSessionId : undefined);
   const iterations = withWaitingCalls(
     withoutRestatedAnswers(recordedIterations, interactions),
     holdsWaitingCalls ? interactions : undefined,
@@ -220,12 +231,16 @@ export function ConversationTurn({
       (entry) => entry.kind === 'mcp_app' && shownMcpApps.has(entry.block.app_instance_id),
     ),
   );
-  if (mode === 'chain' && (boundaries.size > 0 || hasActiveApp || flowStarts.size > 0)) {
+  if (
+    mode === 'chain' &&
+    (boundaries.size > 0 || hasActiveApp || flowStarts.size > 0 || jobRows.size > 0)
+  ) {
     const sections: Array<
       | { kind: 'activity'; iterations: ConversationIteration[] }
       | { kind: 'review'; interaction: PendingInteraction }
       | { kind: 'app'; entry: McpAppActivityEntry }
       | { kind: 'flow'; id: string; flow: FlowToolDescriptor & { handle: string } }
+      | { kind: 'jobs'; id: string; jobs: JobSnapshot[] }
     > = [];
     let group: ConversationIteration[] = [];
     for (const iteration of iterations) {
@@ -252,11 +267,13 @@ export function ConversationTurn({
         }
         const reviews = entry.kind === 'tool' ? boundaries.get(entry.id) : undefined;
         const flow = entry.kind === 'tool' ? flowStarts.get(entry.id) : undefined;
-        if (!reviews && !flow) return;
+        const jobs = entry.kind === 'tool' ? jobRows.get(entry.id) : undefined;
+        if (!reviews && !flow && !jobs) return;
         appendSegment(index + 1);
         sections.push({ kind: 'activity', iterations: group });
         group = [];
         if (flow) sections.push({ kind: 'flow', id: entry.id, flow });
+        if (jobs) sections.push({ kind: 'jobs', id: entry.id, jobs });
         reviews?.forEach((interaction) => sections.push({ kind: 'review', interaction }));
         start = index + 1;
       });
@@ -265,6 +282,7 @@ export function ConversationTurn({
     }
     if (group.length) sections.push({ kind: 'activity', iterations: group });
     const activityInteractions = interactions?.filter((item) => !planReviews.includes(item));
+    const lastActivity = sections.findLastIndex((section) => section.kind === 'activity');
     return (
       <div className="flex min-w-0 flex-col gap-4" data-slot="plan-review-sequence">
         {sections.map((section, index) =>
@@ -282,6 +300,8 @@ export function ConversationTurn({
               key={`flow:${section.id}`}
               sessionId={messageSessionId!}
             />
+          ) : section.kind === 'jobs' ? (
+            <JobCards jobs={section.jobs} key={`jobs:${section.id}`} />
           ) : section.kind === 'app' ? (
             <McpAppActivity
               key={section.entry.id}
@@ -295,6 +315,8 @@ export function ConversationTurn({
               iterations={section.iterations}
               followLiveActivity={followLiveActivity && index === sections.length - 1}
               turnLive={turnLive && index === sections.length - 1}
+              turnRunning={turnRunning}
+              turnEnd={index === lastActivity ? turnEnd : undefined}
               holdsWaitingCalls={false}
               mode={mode}
               subagents={subagents}
@@ -397,7 +419,8 @@ export function ConversationTurn({
                 group={group}
                 label={summary.label}
                 live={followLiveActivity && index === groups.length - 1}
-                turnLive={laneLive}
+                turnLive={turnRunning || laneLive}
+                turnEnd={index === blocks.length - 1 ? turnEnd : undefined}
                 subagents={subagents}
                 interactions={interactions}
                 rowInputs={[

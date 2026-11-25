@@ -4,9 +4,28 @@ import {
   FIRST_PAINT_PROBES_MS,
   RESIZE_RECHECK_MS,
   paintVerdict,
+  reportedUndrawn,
   watchFirstPaint,
   type PaintVerdict,
 } from './mcp-app-first-paint';
+
+describe('reportedUndrawn', () => {
+  it('takes the view at its word when it says it shows nothing', () => {
+    expect(
+      reportedUndrawn({
+        content: [{ type: 'text', text: 'Not drawn yet: this view has not reached ParaView.' }],
+        structuredContent: { scene: 's1', drawn: false, waiting: 'connecting' },
+      }),
+    ).toBe('Not drawn yet: this view has not reached ParaView.');
+    expect(reportedUndrawn({ structuredContent: { drawn: false } })).toBe('');
+  });
+
+  it('claims nothing for a view that does not say it is undrawn', () => {
+    expect(reportedUndrawn({ structuredContent: { scene: 's1', time: 3 } })).toBeNull();
+    expect(reportedUndrawn({ structuredContent: { drawn: true } })).toBeNull();
+    expect(reportedUndrawn({ content: [{ type: 'text', text: 'x' }] })).toBeNull();
+  });
+});
 
 function shot(painted: Record<string, number>, skipped: string[] = []): McpAppSnapshot {
   return {

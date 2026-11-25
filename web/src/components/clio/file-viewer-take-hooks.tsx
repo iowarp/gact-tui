@@ -17,6 +17,7 @@ import type { WorkspaceReference } from '@clio/core/v3';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useOpenFileInBrowser } from '@/hooks/use-open-file-in-browser';
 import { useRepository } from '@/hooks/use-repository';
+import { browserTabBlob } from '@/lib/browser-tab-blob';
 import { copyText } from '@/lib/clipboard';
 import {
   addReferenceToComposer,
@@ -277,7 +278,7 @@ export function useOpenTake(
       if (!tab) throw new Error(t`The browser blocked the new tab.`);
       tab.opener = null;
       const url = URL.createObjectURL(
-        new Blob([(await bytes()) as BlobPart], { type: identity.mediaType }),
+        browserTabBlob(await bytes(), identity.mediaType, identity.name),
       );
       tab.location.href = url;
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);

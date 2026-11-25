@@ -1,5 +1,6 @@
 import type { A2UISurface, PendingInteraction } from '@clio/core/v3';
 import { createContext } from 'react';
+import { surfaceComponents } from './surface-components';
 
 export interface SurfaceQuestionTarget {
   sessionId: string;
@@ -30,19 +31,7 @@ export function questionTabPath(
   surface: A2UISurface,
   answerAction: string,
 ): ReadonlyMap<string, string> {
-  const components = new Map<string, Record<string, unknown>>();
-  for (const envelope of surface.messages) {
-    if (!envelope || typeof envelope !== 'object') continue;
-    const update = (envelope as Record<string, unknown>)['updateComponents'] as
-      | { components?: unknown }
-      | undefined;
-    if (!Array.isArray(update?.components)) continue;
-    for (const value of update.components) {
-      if (!value || typeof value !== 'object') continue;
-      const component = value as Record<string, unknown>;
-      if (typeof component['id'] === 'string') components.set(component['id'], component);
-    }
-  }
+  const components = surfaceComponents(surface);
   const hasAnswer = (value: unknown): boolean => {
     if (Array.isArray(value)) return value.some(hasAnswer);
     if (!value || typeof value !== 'object') return false;

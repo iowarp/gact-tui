@@ -114,7 +114,7 @@ export type MessageBlock = MessageBlockContext &
         /** A subagent, workflow, flow or MCP server the person named to handle their message. */
         id: string;
         type: 'summon';
-        target_kind: 'subagent' | 'workflow' | 'flow' | 'server' | 'unknown';
+        target_kind: 'subagent' | 'workflow' | 'flow' | 'server' | 'plugin' | 'unknown';
         target: string;
       }
     | {
