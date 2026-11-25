@@ -77,6 +77,7 @@ export type ClioQueryNamespace =
   | 'message-assignment'
   | 'flow-questions'
   | 'task-child-session'
+  | 'run-child-session'
   | 'run-log'
   | 'run-snapshot'
   | 'run-conversation'

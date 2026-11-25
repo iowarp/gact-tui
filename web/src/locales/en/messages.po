@@ -19038,6 +19038,10 @@ msgstr "It may have been deleted or moved."
 msgid "It may have been deleted, or it belongs to another connection."
 msgstr "It may have been deleted, or it belongs to another connection."
 
+#: src/components/clio/workbench-run-tab.tsx
+msgid "It may have been removed, or it belongs to another conversation. Runs lists every run."
+msgstr "It may have been removed, or it belongs to another conversation. Runs lists every run."
+
 #: src/components/clio/observability-provenance.tsx
 msgid "It may still be running, or its final update may be missing."
 msgstr "It may still be running, or its final update may be missing."
@@ -22983,6 +22987,10 @@ msgstr "No context snapshot is available for this agent."
 #: src/components/clio/settings-report-problem.tsx
 msgid "No conversation"
 msgstr "No conversation"
+
+#: src/components/clio/run-record.tsx
+msgid "No conversation recorded"
+msgstr "No conversation recorded"
 
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
@@ -36683,6 +36691,10 @@ msgstr "The conversation"
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
 msgstr "The conversation changed while it was being read. A later pass can read the new messages."
 
+#: src/components/clio/run-record.tsx
+msgid "The conversation could not be found."
+msgstr "The conversation could not be found."
+
 #. placeholder {0}: conversation.error.message
 #: src/components/clio/run-record.tsx
 msgid "The conversation could not be read: {0}"
@@ -36691,6 +36703,10 @@ msgstr "The conversation could not be read: {0}"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "The conversation did not establish a confident answer."
 msgstr "The conversation did not establish a confident answer."
+
+#: src/components/clio/run-record.tsx
+msgid "The conversation starts when the run does."
+msgstr "The conversation starts when the run does."
 
 #: src/components/clio/composer-failure.ts
 msgid "The conversation store is refusing writes."
@@ -39015,6 +39031,10 @@ msgstr "This run continues one that was stopped. Steps that finished were kept; 
 #: src/components/clio/workbench-run-tab.tsx
 msgid "This run could not be read"
 msgstr "This run could not be read"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "This run is not in this conversation"
+msgstr "This run is not in this conversation"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "This run was stopped"

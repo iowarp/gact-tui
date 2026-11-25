@@ -19021,6 +19021,10 @@ msgstr ""
 msgid "It may have been deleted, or it belongs to another connection."
 msgstr ""
 
+#: src/components/clio/workbench-run-tab.tsx
+msgid "It may have been removed, or it belongs to another conversation. Runs lists every run."
+msgstr ""
+
 #: src/components/clio/observability-provenance.tsx
 msgid "It may still be running, or its final update may be missing."
 msgstr ""
@@ -22965,6 +22969,10 @@ msgstr ""
 
 #: src/components/clio/settings-report-problem.tsx
 msgid "No conversation"
+msgstr ""
+
+#: src/components/clio/run-record.tsx
+msgid "No conversation recorded"
 msgstr ""
 
 #: src/components/clio/settings-context-history.tsx
@@ -36665,6 +36673,10 @@ msgstr ""
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
 msgstr ""
 
+#: src/components/clio/run-record.tsx
+msgid "The conversation could not be found."
+msgstr ""
+
 #. placeholder {0}: conversation.error.message
 #: src/components/clio/run-record.tsx
 msgid "The conversation could not be read: {0}"
@@ -36672,6 +36684,10 @@ msgstr ""
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "The conversation did not establish a confident answer."
+msgstr ""
+
+#: src/components/clio/run-record.tsx
+msgid "The conversation starts when the run does."
 msgstr ""
 
 #: src/components/clio/composer-failure.ts
@@ -38996,6 +39012,10 @@ msgstr ""
 
 #: src/components/clio/workbench-run-tab.tsx
 msgid "This run could not be read"
+msgstr ""
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "This run is not in this conversation"
 msgstr ""
 
 #: src/components/clio/flow-run-parts.tsx

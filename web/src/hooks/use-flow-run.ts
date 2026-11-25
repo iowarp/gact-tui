@@ -205,3 +205,24 @@ export function useTaskChildSession(handle: string | undefined, enabled = true):
   });
   return task.data ?? '';
 }
+
+/**
+ * A run record's child session: polled while the run is live and its child
+ * not yet known, so a queued subagent's conversation appears once it starts.
+ */
+export function useRunChildSession(
+  handle: string | undefined,
+  enabled: boolean,
+  live: boolean,
+): { child: string; pending: boolean; failed: boolean } {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const task = useQuery({
+    queryKey: queryKeys.key('run-child-session', settings.endpoint, handle ?? ''),
+    enabled: Boolean(handle) && enabled,
+    queryFn: async ({ signal }) => (await repository.agentTask(handle!, signal)).child_session_id,
+    refetchInterval: (query) => (live && !query.state.data ? FLOW_RUN_POLL_MS : false),
+    retry: false,
+  });
+  return { child: task.data ?? '', pending: task.isPending, failed: task.isError };
+}

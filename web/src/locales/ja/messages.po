@@ -19039,6 +19039,10 @@ msgstr "削除または移動された可能性があります。"
 msgid "It may have been deleted, or it belongs to another connection."
 msgstr "削除されたか、別の接続に属している可能性があります。"
 
+#: src/components/clio/workbench-run-tab.tsx
+msgid "It may have been removed, or it belongs to another conversation. Runs lists every run."
+msgstr "削除されたか、別の会話のものです。すべての実行は「実行」にあります。"
+
 #: src/components/clio/observability-provenance.tsx
 msgid "It may still be running, or its final update may be missing."
 msgstr "まだ実行中か、最終更新が欠落している可能性があります。"
@@ -22984,6 +22988,10 @@ msgstr "このエージェントのコンテキストスナップショットは
 #: src/components/clio/settings-report-problem.tsx
 msgid "No conversation"
 msgstr "会話なし"
+
+#: src/components/clio/run-record.tsx
+msgid "No conversation recorded"
+msgstr "会話は記録されていません"
 
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
@@ -36684,6 +36692,10 @@ msgstr "会話"
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
 msgstr "読み取り中に会話が変更されました。後の処理で新しいメッセージを読み取れます。"
 
+#: src/components/clio/run-record.tsx
+msgid "The conversation could not be found."
+msgstr "会話が見つかりませんでした。"
+
 #. placeholder {0}: conversation.error.message
 #: src/components/clio/run-record.tsx
 msgid "The conversation could not be read: {0}"
@@ -36692,6 +36704,10 @@ msgstr "会話を読み込めませんでした: {0}"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "The conversation did not establish a confident answer."
 msgstr "会話から確実な回答を得られませんでした。"
+
+#: src/components/clio/run-record.tsx
+msgid "The conversation starts when the run does."
+msgstr "実行が始まると会話も始まります。"
 
 #: src/components/clio/composer-failure.ts
 msgid "The conversation store is refusing writes."
@@ -39016,6 +39032,10 @@ msgstr "この実行は停止した実行の続きです。完了したステッ
 #: src/components/clio/workbench-run-tab.tsx
 msgid "This run could not be read"
 msgstr "この実行を読み込めませんでした"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "This run is not in this conversation"
+msgstr "この実行はこの会話にありません"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "This run was stopped"

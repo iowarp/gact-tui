@@ -23,7 +23,7 @@ import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/ke
 import { runConversationHref } from '@/components/clio/run-presentation';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 import { callerName } from '@/components/clio/tool-presentation';
-import { useTaskChildSession } from '@/hooks/use-flow-run';
+import { useRunChildSession } from '@/hooks/use-flow-run';
 import { useRepository } from '@/hooks/use-repository';
 import { formatDuration } from '@/lib/format';
 import { jobFromTask } from '@/lib/job-snapshot';
@@ -324,7 +324,7 @@ function RunQuestions({ row, live }: { row: RunRow; live: boolean }) {
   const { settings } = useConnectionSettings();
   const sessionId = row.ownerSessionId ?? row.targetSessionId ?? '';
   const delegated = row.taskKind === 'Subagent';
-  const child = useTaskChildSession(row.handleId, delegated);
+  const { child } = useRunChildSession(row.handleId, delegated, live);
   const questions = useQuery({
     queryKey: queryKeys.key('flow-questions', settings.endpoint, sessionId),
     enabled: Boolean(sessionId),
@@ -405,7 +405,8 @@ function speaker(message: Message): string {
 function RunConversation({ row, live }: { row: RunRow; live: boolean }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const child = useTaskChildSession(row.handleId, row.taskKind === 'Subagent');
+  const lookup = useRunChildSession(row.handleId, row.taskKind === 'Subagent', live);
+  const child = lookup.child;
   const conversation = useQuery({
     queryKey: queryKeys.key('run-conversation', settings.endpoint, child),
     enabled: Boolean(child),
@@ -433,7 +434,19 @@ function RunConversation({ row, live }: { row: RunRow; live: boolean }) {
       }
       title={t`Conversation`}
     >
-      {!child || conversation.isPending ? (
+      {lookup.failed ? (
+        <RecordLine
+          icon={<CircleAlertIcon />}
+          text={t`The conversation could not be found.`}
+          tone="error"
+        />
+      ) : !child && !lookup.pending ? (
+        <RecordLine
+          icon={<TerminalIcon />}
+          text={live ? t`The conversation starts when the run does.` : t`No conversation recorded`}
+          tone="muted"
+        />
+      ) : !child || conversation.isPending ? (
         <RecordLine icon={<TerminalIcon />} text={t`Reading the conversation`} tone="muted" />
       ) : conversation.isError ? (
         <RecordLine

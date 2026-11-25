@@ -32,7 +32,8 @@ export function WorkbenchRunTab({ tab }: { tab: Extract<WorkbenchTab, { kind: 'r
   const task = useQuery({
     queryKey: queryKeys.key('run-snapshot', settings.endpoint, tab.sessionId, tab.handle),
     queryFn: ({ signal }) => repository.sessionTask(tab.sessionId, tab.handle, signal),
-    refetchInterval: (query) => (query.state.data?.terminal_at ? false : RUN_TAB_POLL_MS),
+    refetchInterval: (query) =>
+      query.state.data === null || query.state.data?.terminal_at ? false : RUN_TAB_POLL_MS,
     retry: false,
   });
   const row = useMemo(
@@ -91,6 +92,12 @@ export function WorkbenchRunTab({ tab }: { tab: Extract<WorkbenchTab, { kind: 'r
             detail={task.error.message}
             kind="error"
             title={t`This run could not be read`}
+          />
+        ) : task.data === null ? (
+          <StateView
+            detail={t`It may have been removed, or it belongs to another conversation. Runs lists every run.`}
+            kind="empty"
+            title={t`This run is not in this conversation`}
           />
         ) : (
           <StateView kind="loading" title={t`Reading the run`} />

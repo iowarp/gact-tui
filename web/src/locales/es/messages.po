@@ -19039,6 +19039,10 @@ msgstr "Puede que se haya eliminado o movido."
 msgid "It may have been deleted, or it belongs to another connection."
 msgstr "Puede que se haya eliminado o que pertenezca a otra conexión."
 
+#: src/components/clio/workbench-run-tab.tsx
+msgid "It may have been removed, or it belongs to another conversation. Runs lists every run."
+msgstr "Puede que se haya eliminado o que pertenezca a otra conversación. Ejecuciones muestra todas las ejecuciones."
+
 #: src/components/clio/observability-provenance.tsx
 msgid "It may still be running, or its final update may be missing."
 msgstr "Puede que siga en ejecución o que falte su actualización final."
@@ -22984,6 +22988,10 @@ msgstr "No hay ninguna instantánea del contexto disponible para este agente."
 #: src/components/clio/settings-report-problem.tsx
 msgid "No conversation"
 msgstr "Ninguna conversación"
+
+#: src/components/clio/run-record.tsx
+msgid "No conversation recorded"
+msgstr "No hay conversación registrada"
 
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
@@ -36684,6 +36692,10 @@ msgstr "La conversación"
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
 msgstr "La conversación cambió mientras se leía. Una pasada posterior puede leer los mensajes nuevos."
 
+#: src/components/clio/run-record.tsx
+msgid "The conversation could not be found."
+msgstr "No se encontró la conversación."
+
 #. placeholder {0}: conversation.error.message
 #: src/components/clio/run-record.tsx
 msgid "The conversation could not be read: {0}"
@@ -36692,6 +36704,10 @@ msgstr "No se pudo leer la conversación: {0}"
 #: src/components/clio/agent-answer-activity.tsx
 msgid "The conversation did not establish a confident answer."
 msgstr "La conversación no permitió establecer una respuesta fiable."
+
+#: src/components/clio/run-record.tsx
+msgid "The conversation starts when the run does."
+msgstr "La conversación empieza cuando empiece la ejecución."
 
 #: src/components/clio/composer-failure.ts
 msgid "The conversation store is refusing writes."
@@ -39016,6 +39032,10 @@ msgstr "Esta ejecución continúa una que se detuvo. Se conservaron los pasos te
 #: src/components/clio/workbench-run-tab.tsx
 msgid "This run could not be read"
 msgstr "No se pudo leer esta ejecución"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "This run is not in this conversation"
+msgstr "Esta ejecución no está en esta conversación"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "This run was stopped"

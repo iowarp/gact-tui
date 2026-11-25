@@ -19039,6 +19039,10 @@ msgstr "Μπορεί να έχει διαγραφεί ή μετακινηθεί.
 msgid "It may have been deleted, or it belongs to another connection."
 msgstr "Μπορεί να έχει διαγραφεί ή να ανήκει σε άλλη σύνδεση."
 
+#: src/components/clio/workbench-run-tab.tsx
+msgid "It may have been removed, or it belongs to another conversation. Runs lists every run."
+msgstr "Μπορεί να έχει αφαιρεθεί ή να ανήκει σε άλλη συνομιλία. Οι Εκτελέσεις δείχνουν κάθε εκτέλεση."
+
 #: src/components/clio/observability-provenance.tsx
 msgid "It may still be running, or its final update may be missing."
 msgstr "Μπορεί να εκτελείται ακόμη ή να λείπει η τελική του ενημέρωση."
@@ -22984,6 +22988,10 @@ msgstr "Δεν υπάρχει διαθέσιμο στιγμιότυπο πλαι
 #: src/components/clio/settings-report-problem.tsx
 msgid "No conversation"
 msgstr "Καμία συνομιλία"
+
+#: src/components/clio/run-record.tsx
+msgid "No conversation recorded"
+msgstr "Δεν καταγράφηκε συνομιλία"
 
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
@@ -36684,6 +36692,10 @@ msgstr "Η συνομιλία"
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
 msgstr "Η συνομιλία άλλαξε ενώ διαβαζόταν. Ένα μεταγενέστερο πέρασμα μπορεί να διαβάσει τα νέα μηνύματα."
 
+#: src/components/clio/run-record.tsx
+msgid "The conversation could not be found."
+msgstr "Η συνομιλία δεν βρέθηκε."
+
 #. placeholder {0}: conversation.error.message
 #: src/components/clio/run-record.tsx
 msgid "The conversation could not be read: {0}"
@@ -36692,6 +36704,10 @@ msgstr "Δεν ήταν δυνατή η ανάγνωση της συνομιλί
 #: src/components/clio/agent-answer-activity.tsx
 msgid "The conversation did not establish a confident answer."
 msgstr "Η συνομιλία δεν κατέληξε σε μια βέβαιη απάντηση."
+
+#: src/components/clio/run-record.tsx
+msgid "The conversation starts when the run does."
+msgstr "Η συνομιλία ξεκινά με την εκτέλεση."
 
 #: src/components/clio/composer-failure.ts
 msgid "The conversation store is refusing writes."
@@ -39016,6 +39032,10 @@ msgstr "Αυτή η εκτέλεση συνεχίζει μία που σταμά
 #: src/components/clio/workbench-run-tab.tsx
 msgid "This run could not be read"
 msgstr "Δεν ήταν δυνατή η ανάγνωση αυτής της εκτέλεσης"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "This run is not in this conversation"
+msgstr "Αυτή η εκτέλεση δεν είναι σε αυτήν τη συνομιλία"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "This run was stopped"
