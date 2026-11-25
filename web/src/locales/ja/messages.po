@@ -8483,11 +8483,11 @@ msgstr "{name}に接続できません"
 msgid "Can't reach {name}, retrying"
 msgstr "{name}に接続できません。再試行しています"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Can't reach the {agent}"
 msgstr "{agent} に接続できません"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Can't reach the {agent}, retrying"
 msgstr "{agent} に接続できません。再試行しています"
 
@@ -9197,7 +9197,7 @@ msgstr "タスクの状態を確認"
 msgid "Check that {agent} is running, then retry."
 msgstr "{agent}が実行中であることを確認してから、再試行してください。"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Check that it's running, then retry. Runs appear once it answers."
 msgstr "実行中かどうか確認してから、再試行してください。応答があり次第、実行が表示されます。"
 
@@ -16504,7 +16504,7 @@ msgstr "フロー：{state} — {progress}"
 msgid "Flows"
 msgstr "フロー"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Flows couldn't be loaded"
 msgstr "フローを読み込めませんでした"
 
@@ -20505,7 +20505,7 @@ msgstr "ファイルを読み込み中"
 msgid "Loading flow…"
 msgstr "フローを読み込み中…"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Loading flows"
 msgstr "フローを読み込み中"
 
@@ -20714,7 +20714,7 @@ msgstr "行を読み込み中"
 msgid "Loading rows…"
 msgstr "行を読み込み中…"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 #: src/components/clio/workbench-list-column.tsx
 msgid "Loading runs"
 msgstr "実行を読み込み中"
@@ -30811,7 +30811,7 @@ msgstr "検索取得"
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/run-record.tsx
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-about.tsx
@@ -30880,7 +30880,7 @@ msgstr "インストールを再試行"
 msgid "Retry loading rating"
 msgstr "評価の読み込みを再試行"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Retry now"
 msgstr "今すぐ再試行"
 
@@ -31454,11 +31454,11 @@ msgstr "ワークスペースの許可されたフォルダー内でコマンド
 msgid "Runs after a completed turn or idle delay, at the next background check."
 msgstr "ターンの完了後またはアイドル時間の経過後、次回のバックグラウンド確認で実行されます。"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Runs appear once it answers."
 msgstr "応答があり次第、実行が表示されます。"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Runs are taking longer than usual"
 msgstr "実行の読み込みに通常より時間がかかっています"
 
@@ -31470,7 +31470,7 @@ msgstr "実行ユーザー"
 msgid "Runs commands"
 msgstr "コマンドを実行します"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Runs couldn't be loaded"
 msgstr "実行を読み込めませんでした"
 
@@ -35605,7 +35605,7 @@ msgstr "この会話が開始した作業を停止しますか？"
 msgid "Stop this run?"
 msgstr "この実行を停止しますか？"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Stop waiting"
 msgstr "待機を中止"
 
@@ -35669,7 +35669,7 @@ msgstr "停止または拒否"
 msgid "Stopped waiting for {label}"
 msgstr "{label} の待機を停止しました"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Stopped waiting for runs"
 msgstr "実行の待機を中止しました"
 
@@ -36397,7 +36397,7 @@ msgstr "タスクとプロセス"
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/run-record.tsx
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-model-server-details.tsx
@@ -36596,15 +36596,15 @@ msgstr "そのツール呼び出しはトランスクリプトにありません
 msgid "That view is not one of this conversation's study views."
 msgstr "そのビューはこの会話のスタディビューではありません。"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "The {agent} answered with an error. Retry in a moment."
 msgstr "{agent} がエラーを返しました。少し待ってから再試行してください。"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "The {agent} can't be reached."
 msgstr "{agent} に接続できません。"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "The {agent} hasn't answered yet."
 msgstr "{agent} からまだ応答がありません。"
 

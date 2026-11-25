@@ -8483,11 +8483,11 @@ msgstr "Δεν είναι δυνατή η πρόσβαση στο {name}"
 msgid "Can't reach {name}, retrying"
 msgstr "Δεν είναι δυνατή η σύνδεση με {name}, γίνεται επανάληψη"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Can't reach the {agent}"
 msgstr "Δεν υπάρχει σύνδεση με {agent}"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Can't reach the {agent}, retrying"
 msgstr "Δεν υπάρχει σύνδεση με {agent}· νέα προσπάθεια"
 
@@ -9197,7 +9197,7 @@ msgstr "Έλεγχος κατάστασης εργασίας"
 msgid "Check that {agent} is running, then retry."
 msgstr "Βεβαιωθείτε ότι το {agent} εκτελείται και δοκιμάστε ξανά."
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Check that it's running, then retry. Runs appear once it answers."
 msgstr "Βεβαιωθείτε ότι εκτελείται και δοκιμάστε ξανά. Οι εκτελέσεις θα εμφανιστούν μόλις απαντήσει."
 
@@ -16504,7 +16504,7 @@ msgstr "Ροή: {state} — {progress}"
 msgid "Flows"
 msgstr "Ροές"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Flows couldn't be loaded"
 msgstr "Δεν ήταν δυνατή η φόρτωση των ροών"
 
@@ -20505,7 +20505,7 @@ msgstr "Φόρτωση αρχείων"
 msgid "Loading flow…"
 msgstr "Φόρτωση ροής…"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Loading flows"
 msgstr "Φόρτωση ροών"
 
@@ -20714,7 +20714,7 @@ msgstr "Φόρτωση γραμμών"
 msgid "Loading rows…"
 msgstr "Φόρτωση γραμμών…"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 #: src/components/clio/workbench-list-column.tsx
 msgid "Loading runs"
 msgstr "Φόρτωση εκτελέσεων"
@@ -30811,7 +30811,7 @@ msgstr "Ανάκτηση"
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/run-record.tsx
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-about.tsx
@@ -30880,7 +30880,7 @@ msgstr "Επανάληψη εγκατάστασης"
 msgid "Retry loading rating"
 msgstr "Επανάληψη φόρτωσης αξιολόγησης"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Retry now"
 msgstr "Επανάληψη τώρα"
 
@@ -31454,11 +31454,11 @@ msgstr "Εκτελεί μια εντολή μέσα στους επιτρεπό�
 msgid "Runs after a completed turn or idle delay, at the next background check."
 msgstr "Εκτελείται μετά από ολοκληρωμένο γύρο ή καθυστέρηση αδράνειας, στον επόμενο έλεγχο παρασκηνίου."
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Runs appear once it answers."
 msgstr "Οι εκτελέσεις θα εμφανιστούν μόλις απαντήσει."
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Runs are taking longer than usual"
 msgstr "Οι εκτελέσεις αργούν περισσότερο από το συνηθισμένο"
 
@@ -31470,7 +31470,7 @@ msgstr "Εκτελείται ως"
 msgid "Runs commands"
 msgstr "Εκτελεί εντολές"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Runs couldn't be loaded"
 msgstr "Δεν ήταν δυνατή η φόρτωση των εκτελέσεων"
 
@@ -35605,7 +35605,7 @@ msgstr "Διακοπή της εργασίας που ξεκίνησε αυτή 
 msgid "Stop this run?"
 msgstr "Διακοπή αυτής της εκτέλεσης;"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Stop waiting"
 msgstr "Διακοπή αναμονής"
 
@@ -35669,7 +35669,7 @@ msgstr "σταμάτησε ή απορρίφθηκε"
 msgid "Stopped waiting for {label}"
 msgstr "Η αναμονή για {label} σταμάτησε"
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Stopped waiting for runs"
 msgstr "Η αναμονή για τις εκτελέσεις διακόπηκε"
 
@@ -36397,7 +36397,7 @@ msgstr "Εργασίες και διεργασίες"
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/run-record.tsx
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-model-server-details.tsx
@@ -36596,15 +36596,15 @@ msgstr "Αυτή η κλήση εργαλείου δεν υπάρχει στα �
 msgid "That view is not one of this conversation's study views."
 msgstr "Αυτή η προβολή δεν είναι μία από τις προβολές μελέτης αυτής της συνομιλίας."
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "The {agent} answered with an error. Retry in a moment."
 msgstr "Το {agent} απάντησε με σφάλμα. Δοκιμάστε ξανά σε λίγο."
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "The {agent} can't be reached."
 msgstr "Δεν υπάρχει σύνδεση με {agent}."
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "The {agent} hasn't answered yet."
 msgstr "Δεν έχει απαντήσει ακόμη: {agent}."
 

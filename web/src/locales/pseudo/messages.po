@@ -8474,11 +8474,11 @@ msgstr ""
 msgid "Can't reach {name}, retrying"
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Can't reach the {agent}"
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Can't reach the {agent}, retrying"
 msgstr ""
 
@@ -9188,7 +9188,7 @@ msgstr ""
 msgid "Check that {agent} is running, then retry."
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Check that it's running, then retry. Runs appear once it answers."
 msgstr ""
 
@@ -16495,7 +16495,7 @@ msgstr ""
 msgid "Flows"
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Flows couldn't be loaded"
 msgstr ""
 
@@ -20487,7 +20487,7 @@ msgstr ""
 msgid "Loading flow…"
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Loading flows"
 msgstr ""
 
@@ -20696,7 +20696,7 @@ msgstr ""
 msgid "Loading rows…"
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 #: src/components/clio/workbench-list-column.tsx
 msgid "Loading runs"
 msgstr ""
@@ -30793,7 +30793,7 @@ msgstr ""
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
 #: src/components/clio/run-record.tsx
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-about.tsx
@@ -30862,7 +30862,7 @@ msgstr ""
 msgid "Retry loading rating"
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Retry now"
 msgstr ""
 
@@ -31436,11 +31436,11 @@ msgstr ""
 msgid "Runs after a completed turn or idle delay, at the next background check."
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Runs appear once it answers."
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Runs are taking longer than usual"
 msgstr ""
 
@@ -31452,7 +31452,7 @@ msgstr ""
 msgid "Runs commands"
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Runs couldn't be loaded"
 msgstr ""
 
@@ -35586,7 +35586,7 @@ msgstr ""
 msgid "Stop this run?"
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Stop waiting"
 msgstr ""
 
@@ -35650,7 +35650,7 @@ msgstr ""
 msgid "Stopped waiting for {label}"
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "Stopped waiting for runs"
 msgstr ""
 
@@ -36378,7 +36378,7 @@ msgstr ""
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/run-record.tsx
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-model-server-details.tsx
@@ -36577,15 +36577,15 @@ msgstr ""
 msgid "That view is not one of this conversation's study views."
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "The {agent} answered with an error. Retry in a moment."
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "The {agent} can't be reached."
 msgstr ""
 
-#: src/components/clio/runs-explorer.tsx
+#: src/components/clio/runs-load-state.tsx
 msgid "The {agent} hasn't answered yet."
 msgstr ""
 

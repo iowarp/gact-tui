@@ -19,7 +19,7 @@ import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-butt
 import { MenuRow } from '@/components/clio/primitives/menu-row';
 import { SegmentedControl } from '@/components/clio/primitives/segmented-control';
 import { StateView } from '@/components/clio/primitives/state-view';
-import { TechnicalDetails } from '@/components/clio/technical-details';
+import { runsLoadState } from '@/components/clio/runs-load-state';
 import { RunActions } from '@/components/clio/run-actions';
 import { RunListRow } from '@/components/clio/run-list-row';
 import { RunTab } from '@/components/clio/run-tab';
@@ -50,7 +50,6 @@ import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import { useStalled } from '@/hooks/use-stalled';
-import { vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildFlowRows, buildRows, retainFlowTools, type RunRow } from '@/routes/runs-rows';
 import { matchesRunState } from '@/lib/session-agent-tasks';
@@ -373,6 +372,17 @@ export function RunsExplorer({
     setStoppedWaiting(true);
     void queryClient.cancelQueries({ queryKey: queryKeys.key('tasks', settings.endpoint) });
   };
+  const loadState = runsLoadState({
+    error,
+    loading,
+    stoppedWaiting,
+    unreachable,
+    stalled,
+    flows: category === 'flows',
+    onRefresh: () => void refreshRuns(),
+    onRetry: retryLoading,
+    onStopWaiting: stopWaiting,
+  });
   const groups = useMemo(() => {
     const byGroup = new Map<RunGroup, RunRow[]>();
     for (const row of shownRows) {
@@ -610,108 +620,57 @@ export function RunsExplorer({
       className="@container/runs clio-scrollbar min-h-0 flex-1 overflow-y-auto px-1.5 pt-1 pb-2"
       data-run-list=""
     >
-      {error ? (
-        // The person reads why in words; the service's own message and address are technical detail.
-        <StateView
-          action={{ label: t`Retry`, onClick: () => void refreshRuns() }}
-          detail={
-            unreachable || isNetworkFailure(error)
-              ? t`Check that it's running, then retry. Runs appear once it answers.`
-              : t`The ${ph({ agent: vocab.agent })} answered with an error. Retry in a moment.`
-          }
-          kind="error"
-          title={
-            unreachable || isNetworkFailure(error)
-              ? t`Can't reach the ${ph({ agent: vocab.agent })}`
-              : category === 'flows'
-                ? t`Flows couldn't be loaded`
-                : t`Runs couldn't be loaded`
-          }
-        >
-          <TechnicalDetails className="mt-1 text-meta" title={t`Technical details`}>
-            <p className="mt-1 font-mono text-label break-all text-muted-foreground">
-              {error.message}
-            </p>
-          </TechnicalDetails>
-        </StateView>
-      ) : loading && stoppedWaiting ? (
-        <StateView
-          action={{ label: t`Retry`, onClick: retryLoading }}
-          detail={unreachable ? t`The ${ph({ agent: vocab.agent })} can't be reached.` : undefined}
-          kind="unavailable"
-          title={t`Stopped waiting for runs`}
-        />
-      ) : loading && (unreachable || stalled) ? (
-        <StateView
-          action={{ label: t`Retry now`, onClick: retryLoading }}
-          detail={
-            unreachable
-              ? t`Runs appear once it answers.`
-              : t`The ${ph({ agent: vocab.agent })} hasn't answered yet.`
-          }
-          kind="loading"
-          secondaryAction={{ label: t`Stop waiting`, onClick: stopWaiting }}
-          title={
-            unreachable
-              ? t`Can't reach the ${ph({ agent: vocab.agent })}, retrying`
-              : t`Runs are taking longer than usual`
-          }
-        />
-      ) : loading ? (
-        <StateView
-          kind="loading"
-          title={category === 'flows' ? t`Loading flows` : t`Loading runs`}
-        />
-      ) : filteredRows.length === 0 ? (
-        category === 'flows' && !search ? (
-          <StateView
-            action={
-              canIndexMore
-                ? {
-                    label: flowsIndexing ? t`Indexing…` : t`Index more sessions`,
-                    onClick: indexMore,
-                  }
-                : undefined
-            }
-            detail={footerNote}
-            kind="empty"
-            title={t`No flows started in the indexed conversations.`}
-          />
+      {loadState ??
+        (filteredRows.length === 0 ? (
+          category === 'flows' && !search ? (
+            <StateView
+              action={
+                canIndexMore
+                  ? {
+                      label: flowsIndexing ? t`Indexing…` : t`Index more sessions`,
+                      onClick: indexMore,
+                    }
+                  : undefined
+              }
+              detail={footerNote}
+              kind="empty"
+              title={t`No flows started in the indexed conversations.`}
+            />
+          ) : (
+            <StateView kind="empty" title={t`No runs match the current search and filters.`} />
+          )
         ) : (
-          <StateView kind="empty" title={t`No runs match the current search and filters.`} />
-        )
-      ) : (
-        groups.map(({ group, rows: groupRows }) => (
-          <section
-            // i18n-ignore: element id
-            aria-labelledby={`runs-group-${group}`}
-            className="mb-1 max-w-[840px]"
-            key={group}
-          >
-            <h2
-              className="flex h-6 items-center gap-2 px-2 text-caption font-semibold text-muted-foreground"
-              id={`runs-group-${group}`}
+          groups.map(({ group, rows: groupRows }) => (
+            <section
+              // i18n-ignore: element id
+              aria-labelledby={`runs-group-${group}`}
+              className="mb-1 max-w-[840px]"
+              key={group}
             >
-              <span>{RUN_GROUP_LABELS[group]}</span>
-              <span className="font-normal tabular-nums">{groupRows.length}</span>
-            </h2>
-            {groupRows.map((row) => (
-              <RunsPageRow
-                canStop={Boolean(canStopRow(row))}
-                cancelRequested={
-                  Boolean(row.cancelRequested) || requestedCancellation.has(row.handleId)
-                }
-                key={row.handleId}
-                onCancel={confirmCancel}
-                onSelect={selectRun}
-                pending={cancel.isPending && cancel.variables?.handleId === row.handleId}
-                row={row}
-                selected={row.handleId === selectedHandle}
-              />
-            ))}
-          </section>
-        ))
-      )}
+              <h2
+                className="flex h-6 items-center gap-2 px-2 text-caption font-semibold text-muted-foreground"
+                id={`runs-group-${group}`}
+              >
+                <span>{RUN_GROUP_LABELS[group]}</span>
+                <span className="font-normal tabular-nums">{groupRows.length}</span>
+              </h2>
+              {groupRows.map((row) => (
+                <RunsPageRow
+                  canStop={Boolean(canStopRow(row))}
+                  cancelRequested={
+                    Boolean(row.cancelRequested) || requestedCancellation.has(row.handleId)
+                  }
+                  key={row.handleId}
+                  onCancel={confirmCancel}
+                  onSelect={selectRun}
+                  pending={cancel.isPending && cancel.variables?.handleId === row.handleId}
+                  row={row}
+                  selected={row.handleId === selectedHandle}
+                />
+              ))}
+            </section>
+          ))
+        ))}
       {showFooter && !(filteredRows.length === 0 && category === 'flows' && !search) ? (
         <div className="mt-1 flex h-8 max-w-[840px] min-w-0 items-center gap-3 px-2 text-label whitespace-nowrap text-muted-foreground">
           {footerNote ? <span className="min-w-0 truncate">{footerNote}</span> : null}
@@ -813,9 +772,4 @@ export function RunsExplorer({
       </AlertDialog>
     </div>
   );
-}
-
-/** A request that never reached the service, as the transport reports it. */
-function isNetworkFailure(error: Error): boolean {
-  return (error as { code?: unknown }).code === 'network_unavailable';
 }
