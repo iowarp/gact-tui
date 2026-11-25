@@ -1,5 +1,5 @@
 import type { ToolInvocation } from '@clio/core/v3';
-import { t } from '@lingui/core/macro';
+import { plural, t } from '@lingui/core/macro';
 
 /** Keep retained checklist calls distinct from asynchronous task controls. */
 export function withTodoPresentation(tool: ToolInvocation): ToolInvocation {
@@ -11,11 +11,19 @@ export function withTodoPresentation(tool: ToolInvocation): ToolInvocation {
       ? {
           ...tool.presentation,
           action: t`Update Todos`,
-          summary: tool.presentation.summary
-            .replace(/^(\d+) tasks? changed$/u, '$1 todos changed')
-            .replace(/^1 todos changed$/u, '1 todo changed')
-            .replace(/^No tasks in this list$/u, 'No todos in this list'),
+          summary: todoSummary(tool.presentation.summary),
         }
       : undefined,
   };
+}
+
+/** The agent's English count line ("3 tasks changed"), in the person's language as todos. */
+function todoSummary(summary: string): string {
+  const changed = /^(\d+) tasks? changed$/u.exec(summary.trim());
+  if (changed) {
+    const count = Number(changed[1]);
+    return plural(count, { one: '# todo changed', other: '# todos changed' });
+  }
+  if (/^No tasks in this list$/u.test(summary.trim())) return t`No todos in this list`;
+  return summary;
 }

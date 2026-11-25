@@ -20,6 +20,10 @@ export interface PendingInteractionField {
   default?: unknown;
   enum?: unknown[];
   enum_names?: string[];
+  /** What each option means, aligned with `enum` (from titled `oneOf` descriptions). */
+  enum_descriptions?: string[];
+  /** The option the asker recommends. It is marked, never preselected or sent for the person. */
+  recommended?: unknown;
   multi?: boolean;
   item_type?: WireValue<'string' | 'number' | 'integer' | 'boolean'>;
   min_items?: number;

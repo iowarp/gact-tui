@@ -29,6 +29,12 @@ export function runKindName(kind: string): string {
       return t`Question`;
     case 'Code':
       return t`Script`;
+    case 'MCP':
+      return t`Tool`;
+    case 'Download':
+      return t`Download`;
+    case 'Indexing':
+      return t`Indexing`;
     default:
       return kind;
   }

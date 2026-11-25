@@ -52,12 +52,21 @@ export function TranscriptReasoningPassage({
   // A passage with more to read is open while it streams and folds once it settles,
   // unless the reader chose.
   const [open, setOpen] = useTranscriptDisclosure(key, streaming && hasDetails);
-  const heading = firstLine
+  // A provider can record several headings on one line ("**Designing setup****Adding
+  // diagnostics**"): the row names the first, the tooltip lists them all.
+  const headings = firstLine
     .replace(/^\s{0,3}#{1,6}\s+/u, '')
-    .replace(/\*\*\*\*|____/gu, ' ')
-    .replace(/(\*\*|__)(.*?)\1/gu, '$2')
-    .replace(/`([^`]+)`/gu, '$1')
-    .trim();
+    .split(/\*\*\*\*|____/u)
+    .map((part) =>
+      part
+        .replace(/(\*\*|__)(.*?)\1/gu, '$2')
+        .replace(/^(\*\*|__)|(\*\*|__)$/gu, '')
+        .replace(/`([^`]+)`/gu, '$1')
+        .trim(),
+    )
+    .filter(Boolean);
+  const heading = headings[0] ?? '';
+  const headingTitle = headings.join('\n');
   const titled = heading.length > 0 && /^\s{0,3}(?:#{1,6}\s|\*\*|__)/u.test(firstLine);
   const name = thoughtName(duration, streaming);
   return (
@@ -82,14 +91,14 @@ export function TranscriptReasoningPassage({
         }
         icon={<BrainIcon aria-hidden="true" />}
         name={
-          <span data-slot="reasoning-summary" title={heading || undefined}>
+          <span data-slot="reasoning-summary" title={headingTitle || undefined}>
             {name}
           </span>
         }
         // A provider's recorded heading ("**Checking image visibility**") says what the
         // thought was about; plain reasoning stays folded behind the row.
         recap={titled ? heading : undefined}
-        recapTitle={titled ? heading : undefined}
+        recapTitle={titled ? headingTitle : undefined}
         actions={trimmed ? <CopyAction value={trimmed} label={t`Copy thought`} /> : null}
         elapsed={null}
         status={

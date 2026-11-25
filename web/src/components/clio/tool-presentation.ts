@@ -66,6 +66,12 @@ const OFFER_ACTIONS: Record<string, string> = {
   List: t({ message: 'List', context: 'verb: tool action' }),
 };
 
+/** A sentence ("Describe relay, a site, or an operation") describes a tool; it does not name a call. */
+export function readsAsDescription(text: string): boolean {
+  const value = text.trim();
+  return /[,;:.!?]/u.test(value) || value.split(/\s+/u).length > 4;
+}
+
 /** Keep protocol identifiers in details and use the same operation label everywhere. */
 export function getToolActionLabel(tool: ToolInvocation): string {
   if (tool.name === 'ask_user')
@@ -74,6 +80,17 @@ export function getToolActionLabel(tool: ToolInvocation): string {
   const offer = tool.name === 'offer_plugin' ? tool.presentation?.action : undefined;
   if (offer && OFFER_ACTIONS[offer]) return OFFER_ACTIONS[offer]!;
   if (isA2uiCatalogLookup(tool)) return t`Inspect widget catalog`;
+  // An MCP or other undeclared tool is named by its own name, never by a title that reads
+  // as its description ("List the packages relay can run" is relay_packages_read).
+  if (!TOOL_OPERATIONS[tool.name] && !tool.presentation?.action?.trim()) {
+    const title = tool.title?.trim() ?? '';
+    const asWords = tool.name
+      .replace(/[_.-]+/gu, ' ')
+      .trim()
+      .toLocaleLowerCase();
+    if (!title || readsAsDescription(title) || title.toLocaleLowerCase() === asWords)
+      return tool.name;
+  }
   let action = tool.presentation?.action || tool.title || tool.name;
   const title = tool.title?.trim();
   // A family presenter must not replace a named operation (Restart agent,

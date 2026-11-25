@@ -13,6 +13,8 @@ export interface InjectionPresentation {
   senderSessionId?: string;
   /** Background scripts the message came from, each shown in Work by its handle. */
   tasks?: { handle: string; label: string }[];
+  /** The task a result notice reports: rows name it by the tool call that started it. */
+  task?: { kind: string; handle: string; status: string };
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -51,9 +53,10 @@ export function injectionPresentation(
   if (source === 'attention' && body?.type === 'clio.code.notify' && Array.isArray(body.tasks))
     return backgroundNotices(body.tasks);
 
-  const task = /^\[CLIO; [a-z_]+; ([A-Za-z]+) [^\s:]+: ([a-z_]+)/u.exec(text);
+  const task = /^\[CLIO; [a-z_]+; ([A-Za-z]+) ([^\s:]+): ([a-z_]+)/u.exec(text);
   if (!task) return null;
-  const label = `${humanizeProtocolValue(task[1])} ${humanizeProtocolValue(task[2]).toLowerCase()}`;
+  const notice = { kind: task[1]!, handle: task[2]!, status: task[3]! };
+  const label = taskNoticeLabel(notice.kind, notice.status);
   // Native tasks wrap the tool result. Its structured content is canonical;
   // content[] is the alternate MCP representation, not another copy to display.
   const result = body && 'result_type' in body ? body.result : payload;
@@ -87,6 +90,7 @@ export function injectionPresentation(
     const stderr = typeof shell.stderr === 'string' ? shell.stderr : '';
     return {
       label,
+      task: notice,
       terminal: {
         id: 'notification-output',
         type: 'terminal',
@@ -111,10 +115,38 @@ ${stderr}`,
   if (output === null || output === undefined)
     output = body?.error ?? t`No result body was recorded.`;
   return typeof output === 'string'
-    ? { label, text: output, format: 'markdown' }
-    : { label, text: JSON.stringify(output, null, 2), format: 'json' };
+    ? { label, task: notice, text: output, format: 'markdown' }
+    : { label, task: notice, text: JSON.stringify(output, null, 2), format: 'json' };
 }
 
+/** "Tool task failed", "Command finished": a task notice by what ran and how it ended. */
+export function taskNoticeLabel(kind: string, status: string, name?: string): string {
+  const task =
+    name ||
+    (kind === 'MCP'
+      ? t`Tool task`
+      : kind === 'Shell'
+        ? t`Command`
+        : kind === 'Code'
+          ? t`Script`
+          : kind === 'Subagent'
+            ? t`Delegated agent`
+            : humanizeProtocolValue(kind));
+  switch (status) {
+    case 'completed':
+      return t`${ph({ task })} finished`;
+    case 'failed':
+      return t`${ph({ task })} failed`;
+    case 'cancelled':
+      return t`${ph({ task })} cancelled`;
+    case 'input_required':
+      return t`${ph({ task })} needs your input`;
+    case 'working':
+      return t`${ph({ task })} running`;
+    default:
+      return `${task}: ${humanizeProtocolValue(status).toLocaleLowerCase()}`;
+  }
+}
 /** A background script's notifies, grouped by script; their data stays in the exact text. */
 function backgroundNotices(tasks: unknown[]): InjectionPresentation {
   const scripts = tasks.flatMap((item) => {

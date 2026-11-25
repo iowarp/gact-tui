@@ -23,8 +23,10 @@ import { JobCard } from '@/components/clio/job-card';
 import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/key-value-grid';
 import { runConversationHref, runKindName } from '@/components/clio/run-presentation';
 import { TechnicalDetails } from '@/components/clio/technical-details';
-import { callerName } from '@/components/clio/tool-presentation';
+import { getToolActionLabel, getToolSubject } from '@/components/clio/tool-presentation';
+import { TOOL_OPERATIONS } from '@/components/clio/tool-operation-contract';
 import { useRunChildSession } from '@/hooks/use-flow-run';
+import { useRunQuestions } from '@/hooks/use-run-questions';
 import { useRepository } from '@/hooks/use-repository';
 import { formatDuration } from '@/lib/format';
 import { jobFromTask } from '@/lib/job-snapshot';
@@ -172,7 +174,9 @@ function chunkEntries(chunk: ObservedTaskChunk, key: string, prose: boolean): Lo
   if (Array.isArray(value.tools) && value.tools.length) {
     const names = value.tools
       .map((tool) => (typeof tool === 'string' ? tool : (record(tool)?.name ?? record(tool)?.tool)))
-      .filter((name): name is string => typeof name === 'string' && Boolean(name));
+      .filter((name): name is string => typeof name === 'string' && Boolean(name))
+      // A native tool by its operation's name ("Load skill"), an MCP tool by its own.
+      .map((name) => TOOL_OPERATIONS[name]?.action ?? name);
     if (names.length)
       entries.push({
         key: `${key}:tools`,
@@ -340,27 +344,7 @@ function questionState(question: PendingInteraction): string {
 
 /** The questions this run asked and how each was answered, oldest first. */
 function RunQuestions({ row, live }: { row: RunRow; live: boolean }) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const sessionId = row.ownerSessionId ?? row.targetSessionId ?? '';
-  const delegated = row.taskKind === 'Subagent';
-  const { child } = useRunChildSession(row.handleId, delegated, live);
-  const questions = useQuery({
-    queryKey: queryKeys.key('flow-questions', settings.endpoint, sessionId),
-    enabled: Boolean(sessionId),
-    queryFn: ({ signal }) => repository.flowQuestions(sessionId, signal),
-    refetchInterval: live ? RUN_POLL_MS : false,
-    retry: false,
-  });
-  const invocation = row.task?.invocation_id;
-  const asked = (questions.data ?? [])
-    .filter(
-      (question) =>
-        question.task_id === row.handleId ||
-        (invocation && question.source.invocation_id === invocation) ||
-        (child && (question.owner_session_id === child || question.attended_session_id === child)),
-    )
-    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const asked = useRunQuestions(row, live);
   if (!asked.length) return null;
   const answerHref = runConversationHref(row, false);
   return (
@@ -382,7 +366,7 @@ function RunQuestions({ row, live }: { row: RunRow; live: boolean }) {
                     ? t`Asked ${formatDateTime(question.created_at)}`
                     : t`No answer recorded`}
               </p>
-              {question.status === 'pending' && answerHref ? (
+              {question.status === 'pending' && answerHref && row.state !== 'waiting_user' ? (
                 <Button
                   asChild
                   className="mt-1 ml-6 justify-self-start"
@@ -411,8 +395,19 @@ function messageTools(message: Message, tools: ReadonlyMap<string, ToolInvocatio
   return message.blocks.flatMap((block) => {
     if (block.type !== 'tool' || !('tool_id' in block)) return [];
     const tool = tools.get(String(block.tool_id));
-    return tool ? [callerName(tool)] : [];
+    return tool ? [usedToolName(tool)] : [];
   });
+}
+
+/** An internal handle ("task_f2cbda60…", "sess_…") names nothing a person can read. */
+const OPAQUE_ID = /^[a-z]+_[0-9a-f]{8,}$/iu;
+
+/** "Write file: notes/a.txt", in the interface language; a bare handle is left out. */
+function usedToolName(tool: ToolInvocation): string {
+  const action = TOOL_OPERATIONS[tool.name]?.action ?? getToolActionLabel(tool);
+  const subject = getToolSubject(tool);
+  const target = (subject?.label || subject?.text || '').trim();
+  return target && !OPAQUE_ID.test(target) ? `${action}: ${target}` : action;
 }
 
 function speaker(message: Message): string {

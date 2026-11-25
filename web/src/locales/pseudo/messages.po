@@ -675,6 +675,11 @@ msgstr ""
 msgid "{0, plural, one {# tool available} other {# tools available}}"
 msgstr ""
 
+#. placeholder {0}: loaded.length
+#: src/components/clio/tool-search-presentation.ts
+msgid "{0, plural, one {# tool loaded} other {# tools loaded}}"
+msgstr ""
+
 #. placeholder {0}: section.count
 #. placeholder {0}: server.tools
 #. placeholder {0}: server.tools_count
@@ -1760,6 +1765,10 @@ msgstr ""
 
 #: src/components/clio/flow-run-presentation.ts
 msgid "{count, plural, one {# task} other {# tasks}}"
+msgstr ""
+
+#: src/components/clio/todo-tool-presentation.ts
+msgid "{count, plural, one {# todo changed} other {# todos changed}}"
 msgstr ""
 
 #: src/components/clio/agent-package-items.ts
@@ -3658,6 +3667,10 @@ msgstr ""
 msgid "{server} server, from {title}"
 msgstr ""
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "{server} view, opened by {tool}"
+msgstr ""
+
 #: src/components/clio/service-installation-method.tsx
 msgid "{service} {method} variant"
 msgstr ""
@@ -3952,6 +3965,26 @@ msgstr ""
 msgid "{target}, marked, {share}"
 msgstr ""
 
+#: src/components/clio/injection-presentation.ts
+msgid "{task} cancelled"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} failed"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} finished"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} needs your input"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} running"
+msgstr ""
+
 #: src/routes/runs-page-copy.tsx
 msgid "{task}. The owner will settle cancellation after required cleanup."
 msgstr ""
@@ -4161,6 +4194,10 @@ msgstr ""
 
 #: src/lib/plugin-presentation.ts
 msgid "{total, plural, one {{active} of # member in this conversation} other {{active} of # members in this conversation}}"
+msgstr ""
+
+#: src/components/clio/run-tab.tsx
+msgid "{total, plural, one {{done} of # step} other {{done} of # steps}}"
 msgstr ""
 
 #: src/components/clio/task-progress-label.ts
@@ -5067,6 +5104,11 @@ msgid "Absolute path"
 msgstr ""
 
 #: src/components/clio/memory-inbox.tsx
+msgid "Accept"
+msgstr ""
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Accept"
 msgstr ""
 
@@ -6222,6 +6264,11 @@ msgstr ""
 msgid "Allow"
 msgstr ""
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Allow"
+msgstr ""
+
 #. placeholder {0}: folderName(root)
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "Allow {0}"
@@ -6895,6 +6942,11 @@ msgstr ""
 
 #: src/widget-gallery-demos.ts
 #: src/widget-gallery-scenarios.ts
+msgid "Approve"
+msgstr ""
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Approve"
 msgstr ""
 
@@ -8435,6 +8487,11 @@ msgstr ""
 #: src/components/reui/date-selector.tsx
 #: src/providers/connection-provider.tsx
 #: src/routes/connection-page.tsx
+msgid "Cancel"
+msgstr ""
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Cancel"
 msgstr ""
 
@@ -10302,6 +10359,7 @@ msgstr ""
 
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
@@ -11313,6 +11371,10 @@ msgstr ""
 msgid "Context frames unavailable"
 msgstr ""
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Context from a tool's view"
+msgstr ""
+
 #: src/components/clio/settings-schema-copy.ts
 msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
 msgstr ""
@@ -11390,6 +11452,11 @@ msgstr ""
 #: src/components/clio/managed-service-target.tsx
 #: src/components/clio/service-management-confirm-dialog.tsx
 #: src/components/clio/settings-source-connect.tsx
+msgid "Continue"
+msgstr ""
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Continue"
 msgstr ""
 
@@ -13043,6 +13110,11 @@ msgstr ""
 msgid "Decline"
 msgstr ""
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Decline"
+msgstr ""
+
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Declined by you"
 msgstr ""
@@ -13167,6 +13239,10 @@ msgstr ""
 
 #: src/components/clio/study-tree.tsx
 msgid "Delegated"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "Delegated agent"
 msgstr ""
 
 #: src/components/clio/tool-operation-result.tsx
@@ -13351,6 +13427,11 @@ msgstr ""
 
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/permission-response.tsx
+msgid "Deny"
+msgstr ""
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Deny"
 msgstr ""
 
@@ -13979,6 +14060,7 @@ msgstr ""
 #: src/components/clio/file-viewer-take.tsx
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/resource-states.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/settings-app-updates.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
@@ -15590,6 +15672,10 @@ msgstr ""
 msgid "Facts"
 msgstr ""
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Facts about this conversation"
+msgstr ""
+
 #: src/components/clio/settings-memory.tsx
 msgid "Facts about you that every workspace can use. This switch applies to {workspaceName}."
 msgstr ""
@@ -16088,6 +16174,10 @@ msgstr ""
 
 #: src/components/clio/source-provider-info.tsx
 msgid "Find datasets in National Data Platform catalogs, then download a copy or link selected resources. NDP originals cannot be changed through this connection. Sign in for protected data."
+msgstr ""
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Find files"
 msgstr ""
 
 #: src/components/clio/tool-operation-contract.ts
@@ -18259,6 +18349,7 @@ msgstr ""
 msgid "Index more sessions"
 msgstr ""
 
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Indexing"
@@ -20033,6 +20124,14 @@ msgstr ""
 
 #: src/components/clio/mcp-app-frame-menu.tsx
 msgid "Load the view again. What it shows is kept by its service."
+msgstr ""
+
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tool"
+msgstr ""
+
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tools"
 msgstr ""
 
 #: src/components/clio/memory-document-dialog.tsx
@@ -22779,6 +22878,11 @@ msgstr ""
 msgid "No"
 msgstr ""
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "No"
+msgstr ""
+
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "No {facet} in the listed models"
 msgstr ""
@@ -23848,6 +23952,10 @@ msgstr ""
 msgid "No terminal here"
 msgstr ""
 
+#: src/components/clio/todo-tool-presentation.ts
+msgid "No todos in this list"
+msgstr ""
+
 #: src/components/clio/catalog-toolset.tsx
 msgid "No tools from this source."
 msgstr ""
@@ -24157,6 +24265,7 @@ msgid "not executed, context cleared"
 msgstr ""
 
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/tool-search-presentation.ts
 msgid "Not found"
 msgstr ""
 
@@ -28708,6 +28817,7 @@ msgid "Recent session excerpts"
 msgstr ""
 
 #: src/components/clio/plan-decision-controls.tsx
+#: src/components/clio/question-choice-card.tsx
 msgid "Recommended"
 msgstr ""
 
@@ -29115,6 +29225,11 @@ msgid "Reinstall runtime"
 msgstr ""
 
 #: src/components/clio/memory-inbox.tsx
+msgid "Reject"
+msgstr ""
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Reject"
 msgstr ""
 
@@ -31049,6 +31164,7 @@ msgstr ""
 
 #: src/components/clio/permission-operation-labels.ts
 #: src/components/clio/tool-operation-contract.ts
+#: src/routes/runs-rows.ts
 msgid "Run command"
 msgstr ""
 
@@ -31974,6 +32090,7 @@ msgstr ""
 msgid "score {score}"
 msgstr ""
 
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
@@ -33176,10 +33293,6 @@ msgstr ""
 msgid "Session defaults could not be loaded."
 msgstr ""
 
-#: src/components/clio/conversation-harness-injection.tsx
-msgid "Session facts"
-msgstr ""
-
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Session ID"
 msgstr ""
@@ -34296,6 +34409,10 @@ msgstr ""
 msgid "Site: {host}"
 msgstr ""
 
+#: src/components/clio/interaction-frame-header.tsx
+msgid "Site: {site}"
+msgstr ""
+
 #: src/widget-gallery.tsx
 msgid "Sites"
 msgstr ""
@@ -34313,7 +34430,6 @@ msgstr ""
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
-#: src/components/clio/skill-tool-presentation.ts
 #: src/components/clio/subagent-card.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Skill"
@@ -34376,6 +34492,11 @@ msgstr ""
 
 #: src/components/clio/private-local-details.tsx
 msgid "Skills and plugins"
+msgstr ""
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Skip"
 msgstr ""
 
 #: src/components/clio/onboarding/tour-overlay.tsx
@@ -39623,6 +39744,7 @@ msgstr ""
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-tools-header.tsx
@@ -39769,6 +39891,10 @@ msgstr ""
 
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "Tool task"
 msgstr ""
 
 #: src/lib/composer-reference-domain.ts
@@ -41759,6 +41885,10 @@ msgstr ""
 msgid "View connector"
 msgstr ""
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "View context"
+msgstr ""
+
 #: src/components/clio/mcp-app-surface.tsx
 msgid "View ended"
 msgstr ""
@@ -42047,6 +42177,7 @@ msgstr ""
 #: src/components/clio/composer-run-announcer.tsx
 #: src/components/clio/flow-run-edit-list.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/work-kind-status.tsx
 msgid "Waiting for your answer"
@@ -42965,6 +43096,11 @@ msgstr ""
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
+msgid "Yes"
+msgstr ""
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Yes"
 msgstr ""
 

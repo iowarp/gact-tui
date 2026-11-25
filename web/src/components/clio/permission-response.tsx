@@ -9,7 +9,7 @@ import { FlowTrustDetails } from './flow-trust-details';
 import { pendingInteractionDomId } from './interaction-control';
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { PermissionOperationDetails, PermissionPaths } from './permission-operation-details';
-import { permissionTitle } from './permission-operation-labels';
+import { legacyToolCallName, permissionTitle } from './permission-operation-labels';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { t, ph, plural } from '@lingui/core/macro';
 import { formatList } from '@/lib/locale-format';
@@ -245,7 +245,19 @@ export function PermissionResponse({
       id={pendingInteractionDomId(interaction.id)}
       kind="permission"
       spokenDetail={flowTrust ? undefined : spokenToolCall(toolName, args, script?.code)}
-      title={title}
+      title={
+        // A title CLIO named from the tool keeps the tool's id beside it, faint.
+        toolName &&
+        title !== interaction.title &&
+        legacyToolCallName(interaction.title) === toolName ? (
+          <>
+            {title}{' '}
+            <span className="font-mono text-caption font-normal text-faint">{toolName}</span>
+          </>
+        ) : (
+          title
+        )
+      }
       titleText={title}
     >
       <AskBody>

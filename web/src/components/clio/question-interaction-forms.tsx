@@ -28,9 +28,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { openExternalUrl } from '@/tauri/external-url';
 import { serverOwnerName } from '@/lib/a2ui/server-surface';
 import { cn } from '@/lib/utils';
-import { binaryPair, type BinaryOption, type BinaryPair } from '@/lib/binary-answers';
+import { answerWord, binaryPair, type BinaryOption, type BinaryPair } from '@/lib/binary-answers';
 import { AskBody, AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { BinaryAsk } from './ask-binary';
+import { withDeclaredChoices } from '@/lib/declared-choices';
+import { QuestionChoiceRows, type QuestionChoice } from './question-choice-card';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
 import { useQuestionDraftValue } from './question-answer-context';
 import { ph, plural, t } from '@lingui/core/macro';
@@ -50,7 +52,7 @@ interface QuestionSurfaceProps {
 /** Structured MCP elicitation form using the server-projected field schema. */
 export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   const { interaction } = props;
-  const fields = interaction.payload?.fields ?? [];
+  const fields = withDeclaredChoices(interaction, interaction.payload?.fields ?? []);
   const [values, setValues] = useQuestionDraftValue(interaction.id, 'fields', () =>
     initialValues(interaction),
   );
@@ -132,12 +134,12 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     );
   }
 
-  const choice = choiceButtonsField(fields);
+  const choice = choiceField(fields);
   if (choice) {
-    // One choice of a few options is answered by pressing its button. As with yes/no, Enter
-    // picks none of them, so no keypress can give a consent the person did not choose.
+    // One choice is answered by pressing its option. As with yes/no, a pair's Enter picks
+    // neither, so no keypress can give a consent the person did not choose.
     const busy = props.disabled || sending;
-    const answer = async (value: string) => {
+    const answer = async (value: unknown) => {
       setSending(true);
       try {
         await props.onResponse(interaction, {
@@ -169,28 +171,20 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
         ) : null}
         {pair ? (
           <BinaryAsk
-            accept={{ label: pair.accept.label, onChoose: () => answer(String(pair.accept.value)) }}
-            decline={{
-              label: pair.decline.label,
-              onChoose: () => answer(String(pair.decline.value)),
-            }}
+            accept={{ label: pair.accept.label, onChoose: () => answer(pair.accept.value) }}
+            decline={{ label: pair.decline.label, onChoose: () => answer(pair.decline.value) }}
             disabled={props.disabled}
-            label={choice.title || t`Answer`}
+            label={fieldTitle(choice)}
           />
         ) : (
-          <AskOptions aria-label={choice.title || t`Answer`}>
-            {(choice.enum as string[]).map((value, index) => (
-              <AskButton
-                disabled={busy}
-                key={value}
-                number={index + 1}
-                onClick={() => void answer(value)}
-                primary={index === 0}
-              >
-                {choice.enum_names?.[index] || value}
-              </AskButton>
-            ))}
-          </AskOptions>
+          <QuestionChoiceRows
+            choices={fieldChoices(choice)}
+            disabled={busy}
+            label={fieldTitle(choice)}
+            mode="answer"
+            noEnter
+            onChoose={(index) => void answer(choice.enum?.[Number(index)])}
+          />
         )}
       </QuestionFrame>
     );
@@ -218,21 +212,29 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   );
 
   if (answerChoice) {
-    // The form's one required choice answers it on the card's buttons, which stay in view
+    // The form's one open choice answers it on the shared option rows, which stay in view
     // under a capped card; the other fields (already filled) sit above them, compact.
     const options = answerChoice.enum ?? [];
+    const others = fields.filter((field) => field.name !== answerChoice.name);
     return (
       <QuestionFrame {...props} escapeAnswers={Boolean(answerPair)}>
         <AskError error={props.responseError} />
-        <AskBody>
-          <AskSection className="pb-0.5">
-            <FieldGroup className="gap-2.5 text-menu" ref={fieldsRef}>
-              {fields
-                .filter((field) => field.name !== answerChoice.name)
-                .map((field) => renderField(field, true))}
-            </FieldGroup>
-          </AskSection>
-        </AskBody>
+        {answerChoice.description || others.length ? (
+          <AskBody>
+            {answerChoice.description ? (
+              <AskSection className="text-meta text-muted-foreground">
+                {answerChoice.description}
+              </AskSection>
+            ) : null}
+            {others.length ? (
+              <AskSection className="pb-0.5">
+                <FieldGroup className="gap-2.5 text-menu" ref={fieldsRef}>
+                  {others.map((field) => renderField(field, true))}
+                </FieldGroup>
+              </AskSection>
+            ) : null}
+          </AskBody>
+        ) : null}
         {errors[answerChoice.name] ? (
           <AskSection className="text-meta text-destructive" role="alert">
             {errors[answerChoice.name]}
@@ -249,22 +251,17 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
               onChoose: () => submit({ [answerChoice.name]: answerPair.decline.value }),
             }}
             disabled={props.disabled}
-            label={answerChoice.title || t`Answer`}
+            label={fieldTitle(answerChoice)}
           />
         ) : (
-          <AskOptions aria-label={answerChoice.title || t`Answer`}>
-            {options.map((option, index) => (
-              <AskButton
-                disabled={props.disabled || sending}
-                key={String(option)}
-                number={index + 1}
-                onClick={() => void submit({ [answerChoice.name]: option })}
-                primary={index === 0}
-              >
-                {answerChoice.enum_names?.[index] ?? String(option)}
-              </AskButton>
-            ))}
-          </AskOptions>
+          <QuestionChoiceRows
+            choices={fieldChoices(answerChoice)}
+            disabled={props.disabled || sending}
+            label={fieldTitle(answerChoice)}
+            mode="answer"
+            noEnter
+            onChoose={(index) => void submit({ [answerChoice.name]: options[Number(index)] })}
+          />
         )}
       </QuestionFrame>
     );
@@ -326,26 +323,63 @@ function urlOriginTrust(payload: PendingInteraction['payload']): string | undefi
  * sources?" was a radio list, a "Choice" heading and a separate Send response.
  */
 function fieldPair(field: PendingInteractionField): BinaryPair<BinaryOption<unknown>> | undefined {
+  // Options that say what they mean (relay's spend approval) keep that line on the choice rows.
+  if (field.enum_descriptions?.some((line) => line?.trim())) return undefined;
   const values = field.enum ?? [];
-  return binaryPair(
+  const pair = binaryPair(
     values.map((value, index) => ({
       value,
-      label: field.enum_names?.[index] || String(value),
+      label: optionLabel(field, value, index),
     })),
   );
+  // Paired on the producer's English words; shown in the interface language.
+  return pair
+    ? {
+        accept: { ...pair.accept, label: answerWord(pair.accept.label) },
+        decline: { ...pair.decline, label: answerWord(pair.decline.label) },
+      }
+    : undefined;
 }
 
-function choiceButtonsField(
+/** A bare schema id (`compute_job`) read as words (`Compute job`); other text stays as written. */
+function readableId(id: string): string {
+  if (!/^[a-z0-9]+(?:[_.-][a-z0-9]+)*$/u.test(id)) return id;
+  const words = id.replace(/[_.-]+/gu, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** What a field is called: its schema title, never the bare id the title falls back to. */
+function fieldTitle(field: PendingInteractionField): string {
+  const title = field.title?.trim();
+  return title && title !== field.name ? title : readableId(field.name);
+}
+
+/** An option as the person reads it: its declared name, else its value as words. */
+function optionLabel(field: PendingInteractionField, value: unknown, index: number): string {
+  const named = field.enum_names?.[index]?.trim();
+  if (named) return named;
+  return typeof value === 'string' ? readableId(value) : String(value);
+}
+
+/** A field's options on the shared choice rows, the asker's recommendation (else the schema's default) marked. */
+function fieldChoices(field: PendingInteractionField): QuestionChoice[] {
+  const pick = field.recommended ?? field.default;
+  const hasDefault = pick !== undefined && pick !== null;
+  return (field.enum ?? []).map((value, index) => ({
+    value: String(index),
+    label: optionLabel(field, value, index),
+    description: field.enum_descriptions?.[index]?.trim() || undefined,
+    recommended: hasDefault && Object.is(pick, value),
+  }));
+}
+
+/** A form that is one single choice answers on its options: pressing one sends it. */
+function choiceField(
   fields: readonly PendingInteractionField[],
 ): PendingInteractionField | undefined {
   const [field] = fields;
-  if (fields.length !== 1 || !field || field.multi || field.type !== 'string') return undefined;
-  const options = field.enum ?? [];
-  return options.length >= 2 &&
-    options.length <= 3 &&
-    options.every((option) => typeof option === 'string' && option !== '')
-    ? field
-    : undefined;
+  if (fields.length !== 1 || !field || field.multi) return undefined;
+  return (field.enum?.length ?? 0) >= 2 ? field : undefined;
 }
 
 /** Explicit URL consent; nothing is opened or fetched during render. */
@@ -484,7 +518,7 @@ function SchemaField({
     const selected = Array.isArray(value) ? value : [];
     return (
       <Field className="!w-full scroll-my-6" data-invalid={Boolean(error)}>
-        <FieldTitle>{field.title}</FieldTitle>
+        <FieldTitle>{fieldTitle(field)}</FieldTitle>
         {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
         <div className="grid gap-2" data-slot="checkbox-group">
           {enumValues.map((option, index) => {
@@ -509,7 +543,7 @@ function SchemaField({
                   }
                 />
                 <FieldContent>
-                  <FieldTitle>{field.enum_names?.[index] ?? key}</FieldTitle>
+                  <FieldTitle>{optionLabel(field, key, index)}</FieldTitle>
                 </FieldContent>
               </Label>
             );
@@ -522,7 +556,7 @@ function SchemaField({
   if (enumValues.length > 0) {
     return (
       <Field className="!w-full scroll-my-6" data-invalid={Boolean(error)}>
-        <FieldTitle>{field.title}</FieldTitle>
+        <FieldTitle>{fieldTitle(field)}</FieldTitle>
         {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
         <RadioGroup
           className={compact ? 'flex flex-wrap gap-x-4 gap-y-1' : undefined}
@@ -541,7 +575,7 @@ function SchemaField({
             >
               <RadioGroupItem id={`${id}-${index}`} value={String(option)} />
               <FieldContent>
-                <FieldTitle>{field.enum_names?.[index] ?? String(option)}</FieldTitle>
+                <FieldTitle>{optionLabel(field, option, index)}</FieldTitle>
               </FieldContent>
             </Label>
           ))}
@@ -554,7 +588,7 @@ function SchemaField({
     // Yes and No are separate choices so an unanswered field never reads as "no".
     return (
       <Field className="!w-full scroll-my-6" data-invalid={Boolean(error)}>
-        <FieldTitle id={`${id}-title`}>{field.title}</FieldTitle>
+        <FieldTitle id={`${id}-title`}>{fieldTitle(field)}</FieldTitle>
         {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
         <RadioGroup
           aria-invalid={Boolean(error)}
@@ -598,7 +632,7 @@ function SchemaField({
   };
   return (
     <Field className="!w-full scroll-my-6" data-invalid={Boolean(error)}>
-      <FieldLabel htmlFor={id}>{field.title}</FieldLabel>
+      <FieldLabel htmlFor={id}>{fieldTitle(field)}</FieldLabel>
       {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
       {textarea ? (
         <Textarea {...controlProps} rows={3} />
@@ -611,7 +645,7 @@ function SchemaField({
 }
 
 function initialValues(interaction: PendingInteraction): Record<string, unknown> {
-  const fields = interaction.payload?.fields ?? [];
+  const fields = withDeclaredChoices(interaction, interaction.payload?.fields ?? []);
   const prefills = interaction.payload?.answer_metadata ?? {};
   return Object.fromEntries(
     fields.map((field) => [
@@ -635,19 +669,17 @@ function loneBooleanField(
 }
 
 /**
- * The one short required choice of a form whose other fields need no answer from the
- * person (relay's approval with a setting folded in, say): choosing it answers the form.
+ * The one open choice of a form whose other fields need no answer from the person (relay's
+ * approval with a setting folded in, say): choosing it answers the form.
  */
 function answerChoiceField(
   fields: readonly PendingInteractionField[],
 ): PendingInteractionField | undefined {
   if (fields.length < 2) return undefined;
-  const choices = fields.filter((field) => {
-    const count = field.enum?.length ?? 0;
-    return field.required && !field.multi && count >= 2 && count <= 4;
-  });
-  if (choices.length !== 1) return undefined;
-  const [choice] = choices;
+  const choices = fields.filter((field) => !field.multi && (field.enum?.length ?? 0) >= 2);
+  const open = choices.filter((field) => field.default === undefined || field.default === null);
+  const choice = choices.length === 1 ? choices[0] : open.length === 1 ? open[0] : undefined;
+  if (!choice) return undefined;
   return fields.every(
     (field) =>
       field === choice ||
