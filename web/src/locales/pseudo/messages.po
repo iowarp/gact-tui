@@ -1532,6 +1532,10 @@ msgstr ""
 msgid "{command} was not run"
 msgstr ""
 
+#: src/components/clio/run-list-row.tsx
+msgid "{completed} of {total}"
+msgstr ""
+
 #: src/components/clio/conversation-fork-checkpoint.tsx
 msgid "{copied} Files remain shared."
 msgstr ""
@@ -6307,6 +6311,10 @@ msgstr ""
 msgid "Allowed actions"
 msgstr ""
 
+#: src/components/clio/run-record.tsx
+msgid "Allowed automatically"
+msgstr ""
+
 #: src/components/clio/permission-request-text.ts
 msgid "Allowed by an access rule"
 msgstr ""
@@ -7902,6 +7910,10 @@ msgstr ""
 #: src/components/clio/settings-health-views.tsx
 #: src/components/clio/settings-permissions-requests.tsx
 msgid "Blocked"
+msgstr ""
+
+#: src/components/clio/run-record.tsx
+msgid "Blocked automatically"
 msgstr ""
 
 #: src/components/clio/permission-request-text.ts
@@ -31148,6 +31160,10 @@ msgstr ""
 msgid "Running flow {flow}"
 msgstr ""
 
+#: src/components/clio/run-list-row.tsx
+msgid "Running for {duration}"
+msgstr ""
+
 #: src/components/clio/rail-runs.tsx
 msgid "Running in this conversation"
 msgstr ""
@@ -39709,6 +39725,7 @@ msgid "Tool gateway"
 msgstr ""
 
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/run-record.tsx
 msgid "Tool id"
 msgstr ""
 
@@ -39842,6 +39859,11 @@ msgstr ""
 
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Tools that leave"
+msgstr ""
+
+#. placeholder {0}: formatList(labels, { and: true })
+#: src/components/clio/run-record.tsx
+msgid "Tools used: {0}"
 msgstr ""
 
 #: src/components/clio/settings-tools-tabs.tsx
@@ -41349,11 +41371,6 @@ msgstr ""
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/settings-usage.tsx
 msgid "Used"
-msgstr ""
-
-#. placeholder {0}: formatList(names, { and: true })
-#: src/components/clio/run-record.tsx
-msgid "Used {0}"
 msgstr ""
 
 #: src/components/clio/workbench-activity-detail.tsx

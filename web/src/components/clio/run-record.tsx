@@ -23,7 +23,10 @@ import { JobCard } from '@/components/clio/job-card';
 import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/key-value-grid';
 import { runConversationHref, runKindName } from '@/components/clio/run-presentation';
 import { TechnicalDetails } from '@/components/clio/technical-details';
-import { callerName } from '@/components/clio/tool-presentation';
+import { toolOperationLabel } from '@/components/clio/tool-presentation';
+import { toolOperation } from '@/components/clio/tool-operation';
+import type { OperationContext } from '@/components/clio/tool-operation-data';
+import { useLiveStore } from '@/store/live-store';
 import { useRunChildSession } from '@/hooks/use-flow-run';
 import { useRepository } from '@/hooks/use-repository';
 import { formatDuration } from '@/lib/format';
@@ -173,11 +176,12 @@ function chunkEntries(chunk: ObservedTaskChunk, key: string, prose: boolean): Lo
     const names = value.tools
       .map((tool) => (typeof tool === 'string' ? tool : (record(tool)?.name ?? record(tool)?.tool)))
       .filter((name): name is string => typeof name === 'string' && Boolean(name));
-    if (names.length)
+    const labels = [...new Set(names.map(toolOperationLabel))];
+    if (labels.length)
       entries.push({
         key: `${key}:tools`,
         kind: 'line',
-        text: t`Used ${formatList(names, { and: true })}`,
+        text: t`Tools used: ${formatList(labels, { and: true })}`,
         icon: 'tool',
       });
   }
@@ -338,8 +342,27 @@ function questionState(question: PendingInteraction): string {
   }
 }
 
-/** The questions this run asked and how each was answered, oldest first. */
-function RunQuestions({ row, live }: { row: RunRow; live: boolean }) {
+/** A permission the approval mode or an access rule settled without asking anyone. */
+const AUTOMATIC_DECISION =
+  /^(?:destructive tool|external MCP tool) (['"])(.+?)\1 (allowed|blocked|covered) by /iu;
+
+function automaticDecision(
+  question: PendingInteraction,
+): { tool: string; allowed: boolean } | undefined {
+  if (question.kind !== 'permission' || question.status === 'pending') return undefined;
+  const match = AUTOMATIC_DECISION.exec(question.title.trim());
+  if (!match) return undefined;
+  return {
+    tool: question.source.tool_name || match[2]!,
+    allowed: match[3]!.toLowerCase() !== 'blocked',
+  };
+}
+
+/**
+ * The questions this run asked, oldest first, apart from the permissions its
+ * approval mode settled on its own: those were never put to anyone.
+ */
+function useRunInteractions(row: RunRow, live: boolean) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const sessionId = row.ownerSessionId ?? row.targetSessionId ?? '';
@@ -352,15 +375,32 @@ function RunQuestions({ row, live }: { row: RunRow; live: boolean }) {
     refetchInterval: live ? RUN_POLL_MS : false,
     retry: false,
   });
-  const invocation = row.task?.invocation_id;
-  const asked = (questions.data ?? [])
-    .filter(
-      (question) =>
-        question.task_id === row.handleId ||
-        (invocation && question.source.invocation_id === invocation) ||
-        (child && (question.owner_session_id === child || question.attended_session_id === child)),
-    )
-    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  return useMemo(() => {
+    const invocation = row.task?.invocation_id;
+    const mine = (questions.data ?? [])
+      .filter(
+        (question) =>
+          question.task_id === row.handleId ||
+          (invocation && question.source.invocation_id === invocation) ||
+          (child &&
+            (question.owner_session_id === child || question.attended_session_id === child)),
+      )
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const allowed = new Set<string>();
+    const blocked = new Set<string>();
+    const asked: PendingInteraction[] = [];
+    for (const question of mine) {
+      const decision = automaticDecision(question);
+      if (!decision) asked.push(question);
+      else (decision.allowed ? allowed : blocked).add(toolOperationLabel(decision.tool));
+    }
+    return { asked, allowed: [...allowed], blocked: [...blocked] };
+  }, [child, questions.data, row.handleId, row.task?.invocation_id]);
+}
+
+/** The questions this run asked and how each was answered, oldest first. */
+function RunQuestions({ row, live }: { row: RunRow; live: boolean }) {
+  const { asked } = useRunInteractions(row, live);
   if (!asked.length) return null;
   const answerHref = runConversationHref(row, false);
   return (
@@ -407,11 +447,35 @@ function messageText(message: Message): string {
     .trim();
 }
 
-function messageTools(message: Message, tools: ReadonlyMap<string, ToolInvocation>): string[] {
+/**
+ * A call as the transcript's row names it (its operation and target), with a
+ * task target named by its run rather than its id.
+ */
+function toolLine(
+  tool: ToolInvocation,
+  context: OperationContext,
+  runNames: ReadonlyMap<string, string>,
+): string {
+  const operation = toolOperation(tool, context);
+  const targets = operation.subjects
+    .map((subject) => {
+      const handle = subject.id?.startsWith('operation-') ? subject.id.slice(10) : '';
+      return runNames.get(handle) || subject.label || subject.text || '';
+    })
+    .filter(Boolean);
+  return targets.length ? `${operation.action} ${formatList(targets)}` : operation.action;
+}
+
+function messageTools(
+  message: Message,
+  tools: ReadonlyMap<string, ToolInvocation>,
+  context: OperationContext,
+  runNames: ReadonlyMap<string, string>,
+): string[] {
   return message.blocks.flatMap((block) => {
     if (block.type !== 'tool' || !('tool_id' in block)) return [];
     const tool = tools.get(String(block.tool_id));
-    return tool ? [callerName(tool)] : [];
+    return tool ? [toolLine(tool, context, runNames)] : [];
   });
 }
 
@@ -434,14 +498,35 @@ function RunConversation({ row, live }: { row: RunRow; live: boolean }) {
     refetchInterval: live ? RUN_POLL_MS : false,
     retry: false,
   });
+  // The runs in the owner's tree, so a call that waits on one names it.
+  const ownerId = row.ownerSessionId ?? row.targetSessionId ?? '';
+  const treeTasks = useQuery({
+    queryKey: queryKeys.key('run-tree-tasks', settings.endpoint, ownerId),
+    enabled: Boolean(child && ownerId),
+    queryFn: ({ signal }) => repository.sessionTasks(ownerId, { limit: 100 }, signal),
+    refetchInterval: live ? RUN_POLL_MS : false,
+    retry: false,
+  });
+  const runNames = useMemo(
+    () =>
+      new Map(
+        (treeTasks.data?.tasks ?? [])
+          .filter((task) => task.label)
+          .map((task) => [task.handle, task.label!]),
+      ),
+    [treeTasks.data],
+  );
+  const subagents = useLiveStore((state) => state.entities.subagents);
+  const context = useMemo<OperationContext>(() => ({ subagents }), [subagents]);
   if (row.taskKind !== 'Subagent') return null;
   const href =
     child && row.workspaceId
       ? `/workspaces/${encodeURIComponent(row.workspaceId)}/sessions/${encodeURIComponent(child)}`
       : undefined;
   const tools = new Map((conversation.data?.tools ?? []).map((tool) => [tool.id, tool]));
+  const used = (message: Message) => messageTools(message, tools, context, runNames);
   const messages = (conversation.data?.messages ?? []).filter(
-    (message) => messageText(message) || messageTools(message, tools).length,
+    (message) => messageText(message) || used(message).length,
   );
   return (
     <RunSection
@@ -481,7 +566,7 @@ function RunConversation({ row, live }: { row: RunRow; live: boolean }) {
           ) : null}
           {messages.map((message) => {
             const text = messageText(message);
-            const used = messageTools(message, tools);
+            const calls = used(message);
             return (
               <li className="grid min-w-0 gap-1" key={message.id}>
                 <div className="flex min-w-0 items-baseline gap-2">
@@ -491,7 +576,7 @@ function RunConversation({ row, live }: { row: RunRow; live: boolean }) {
                   </span>
                 </div>
                 {text ? <RecordMarkdown text={text} /> : null}
-                {used.map((name, index) => (
+                {calls.map((name, index) => (
                   <RecordLine
                     icon={<WrenchIcon />}
                     key={`${name}:${index}`}
@@ -515,7 +600,8 @@ function when(iso: string | undefined): string | undefined {
 }
 
 /** What ran where and when, in words; backend ids stay under Technical details. */
-function RunDetails({ row }: { row: RunRow }) {
+function RunDetails({ row, live }: { row: RunRow; live: boolean }) {
+  const { allowed, blocked } = useRunInteractions(row, live);
   const started = row.createdAt ? Date.parse(row.createdAt) : Number.NaN;
   const ended = row.terminalAt ? Date.parse(row.terminalAt) : Number.NaN;
   const took =
@@ -534,7 +620,13 @@ function RunDetails({ row }: { row: RunRow }) {
       ? [{ label: t`Ended`, value: when(row.terminalAt)! }]
       : [{ label: t`Updated`, value: when(row.updatedAt) ?? t`Time unavailable` }]),
     ...(took ? [{ label: t`Took`, value: took }] : []),
-    ...(row.task?.tool ? [{ label: t`Tool`, value: row.task.tool, mono: true }] : []),
+    ...(row.task?.tool ? [{ label: t`Tool`, value: toolOperationLabel(row.task.tool) }] : []),
+    ...(allowed.length
+      ? [{ label: t`Allowed automatically`, value: formatList(allowed, { and: true }) }]
+      : []),
+    ...(blocked.length
+      ? [{ label: t`Blocked automatically`, value: formatList(blocked, { and: true }) }]
+      : []),
   ];
   const backend = row.task?.backend;
   const ids: KeyValueItem[] = [
@@ -544,6 +636,7 @@ function RunDetails({ row }: { row: RunRow }) {
     ...(backend?.task_id ? [{ label: t`Backend task`, value: backend.task_id, mono: true }] : []),
     ...(backend?.server ? [{ label: t`Server`, value: backend.server, mono: true }] : []),
     ...(backend?.queue ? [{ label: t`Queue`, value: backend.queue, mono: true }] : []),
+    ...(row.task?.tool ? [{ label: t`Tool id`, value: row.task.tool, mono: true }] : []),
     ...(row.task?.invocation_id
       ? [{ label: t`Call`, value: row.task.invocation_id, mono: true }]
       : []),
@@ -629,7 +722,7 @@ export function RunRecord({ row }: { row: RunRow }) {
       <RunLog live={live} row={row} />
       <RunQuestions live={live} row={row} />
       <RunConversation live={live} row={row} />
-      <RunDetails row={row} />
+      <RunDetails live={live} row={row} />
     </div>
   );
 }

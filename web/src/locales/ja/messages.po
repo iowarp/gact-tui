@@ -1533,6 +1533,10 @@ msgstr "{computer}上の{command}"
 msgid "{command} was not run"
 msgstr "{command}は実行されませんでした"
 
+#: src/components/clio/run-list-row.tsx
+msgid "{completed} of {total}"
+msgstr "{completed} / {total}"
+
 #: src/components/clio/conversation-fork-checkpoint.tsx
 msgid "{copied} Files remain shared."
 msgstr "{copied}ファイルは引き続き共有されます。"
@@ -6316,6 +6320,10 @@ msgstr "このワークスペースで{folder}を許可しました"
 msgid "Allowed actions"
 msgstr "許可されたアクション"
 
+#: src/components/clio/run-record.tsx
+msgid "Allowed automatically"
+msgstr "自動的に許可"
+
 #: src/components/clio/permission-request-text.ts
 msgid "Allowed by an access rule"
 msgstr "アクセスルールにより許可"
@@ -7912,6 +7920,10 @@ msgstr "ブロック"
 #: src/components/clio/settings-permissions-requests.tsx
 msgid "Blocked"
 msgstr "ブロック"
+
+#: src/components/clio/run-record.tsx
+msgid "Blocked automatically"
+msgstr "自動的にブロック"
 
 #: src/components/clio/permission-request-text.ts
 msgid "Blocked by a hook"
@@ -31166,6 +31178,10 @@ msgstr "コマンドを実行中"
 msgid "Running flow {flow}"
 msgstr "フロー{flow}を実行中"
 
+#: src/components/clio/run-list-row.tsx
+msgid "Running for {duration}"
+msgstr "{duration} 実行中"
+
 #: src/components/clio/rail-runs.tsx
 msgid "Running in this conversation"
 msgstr "この会話で実行中"
@@ -39728,6 +39744,7 @@ msgid "Tool gateway"
 msgstr "ツールゲートウェイ"
 
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/run-record.tsx
 msgid "Tool id"
 msgstr "ツールID"
 
@@ -39862,6 +39879,11 @@ msgstr "ツールのページ"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Tools that leave"
 msgstr "削除されるツール"
+
+#. placeholder {0}: formatList(labels, { and: true })
+#: src/components/clio/run-record.tsx
+msgid "Tools used: {0}"
+msgstr "使用したツール: {0}"
 
 #: src/components/clio/settings-tools-tabs.tsx
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
@@ -41369,11 +41391,6 @@ msgstr "使用"
 #: src/components/clio/settings-usage.tsx
 msgid "Used"
 msgstr "使用"
-
-#. placeholder {0}: formatList(names, { and: true })
-#: src/components/clio/run-record.tsx
-msgid "Used {0}"
-msgstr "{0} を使用"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Used as"

@@ -1533,6 +1533,10 @@ msgstr "{command} στο {computer}"
 msgid "{command} was not run"
 msgstr "Η εντολή {command} δεν εκτελέστηκε"
 
+#: src/components/clio/run-list-row.tsx
+msgid "{completed} of {total}"
+msgstr "{completed} από {total}"
+
 #: src/components/clio/conversation-fork-checkpoint.tsx
 msgid "{copied} Files remain shared."
 msgstr "{copied} Τα αρχεία παραμένουν κοινόχρηστα."
@@ -6316,6 +6320,10 @@ msgstr "Επιτράπηκε το {folder} για αυτόν τον χώρο ε�
 msgid "Allowed actions"
 msgstr "Επιτρεπόμενες ενέργειες"
 
+#: src/components/clio/run-record.tsx
+msgid "Allowed automatically"
+msgstr "Επιτράπηκε αυτόματα"
+
 #: src/components/clio/permission-request-text.ts
 msgid "Allowed by an access rule"
 msgstr "Επιτράπηκε από κανόνα πρόσβασης"
@@ -7912,6 +7920,10 @@ msgstr "Αποκλεισμός"
 #: src/components/clio/settings-permissions-requests.tsx
 msgid "Blocked"
 msgstr "Αποκλεισμένο"
+
+#: src/components/clio/run-record.tsx
+msgid "Blocked automatically"
+msgstr "Αποκλείστηκε αυτόματα"
 
 #: src/components/clio/permission-request-text.ts
 msgid "Blocked by a hook"
@@ -31166,6 +31178,10 @@ msgstr "εκτελεί εντολές"
 msgid "Running flow {flow}"
 msgstr "Εκτέλεση της ροής {flow}"
 
+#: src/components/clio/run-list-row.tsx
+msgid "Running for {duration}"
+msgstr "Σε εκτέλεση εδώ και {duration}"
+
 #: src/components/clio/rail-runs.tsx
 msgid "Running in this conversation"
 msgstr "Εκτελούνται σε αυτήν τη συνομιλία"
@@ -39728,6 +39744,7 @@ msgid "Tool gateway"
 msgstr "Πύλη εργαλείων"
 
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/run-record.tsx
 msgid "Tool id"
 msgstr "Αναγνωριστικό εργαλείου"
 
@@ -39862,6 +39879,11 @@ msgstr "Σελίδες Εργαλείων"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Tools that leave"
 msgstr "Εργαλεία που φεύγουν"
+
+#. placeholder {0}: formatList(labels, { and: true })
+#: src/components/clio/run-record.tsx
+msgid "Tools used: {0}"
+msgstr "Εργαλεία που χρησιμοποιήθηκαν: {0}"
 
 #: src/components/clio/settings-tools-tabs.tsx
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
@@ -41369,11 +41391,6 @@ msgstr "χρησιμοποιήθηκε"
 #: src/components/clio/settings-usage.tsx
 msgid "Used"
 msgstr "Χρησιμοποιήθηκε"
-
-#. placeholder {0}: formatList(names, { and: true })
-#: src/components/clio/run-record.tsx
-msgid "Used {0}"
-msgstr "Χρησιμοποίησε {0}"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Used as"

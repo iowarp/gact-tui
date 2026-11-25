@@ -1532,6 +1532,10 @@ msgstr "{command} on {computer}"
 msgid "{command} was not run"
 msgstr "{command} was not run"
 
+#: src/components/clio/run-list-row.tsx
+msgid "{completed} of {total}"
+msgstr "{completed} of {total}"
+
 #: src/components/clio/conversation-fork-checkpoint.tsx
 msgid "{copied} Files remain shared."
 msgstr "{copied} Files remain shared."
@@ -6315,6 +6319,10 @@ msgstr "Allowed {folder} for this workspace"
 msgid "Allowed actions"
 msgstr "Allowed actions"
 
+#: src/components/clio/run-record.tsx
+msgid "Allowed automatically"
+msgstr "Allowed automatically"
+
 #: src/components/clio/permission-request-text.ts
 msgid "Allowed by an access rule"
 msgstr "Allowed by an access rule"
@@ -7911,6 +7919,10 @@ msgstr "Block"
 #: src/components/clio/settings-permissions-requests.tsx
 msgid "Blocked"
 msgstr "Blocked"
+
+#: src/components/clio/run-record.tsx
+msgid "Blocked automatically"
+msgstr "Blocked automatically"
 
 #: src/components/clio/permission-request-text.ts
 msgid "Blocked by a hook"
@@ -31165,6 +31177,10 @@ msgstr "running commands"
 msgid "Running flow {flow}"
 msgstr "Running flow {flow}"
 
+#: src/components/clio/run-list-row.tsx
+msgid "Running for {duration}"
+msgstr "Running for {duration}"
+
 #: src/components/clio/rail-runs.tsx
 msgid "Running in this conversation"
 msgstr "Running in this conversation"
@@ -39727,6 +39743,7 @@ msgid "Tool gateway"
 msgstr "Tool gateway"
 
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/run-record.tsx
 msgid "Tool id"
 msgstr "Tool id"
 
@@ -39861,6 +39878,11 @@ msgstr "Tools pages"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Tools that leave"
 msgstr "Tools that leave"
+
+#. placeholder {0}: formatList(labels, { and: true })
+#: src/components/clio/run-record.tsx
+msgid "Tools used: {0}"
+msgstr "Tools used: {0}"
 
 #: src/components/clio/settings-tools-tabs.tsx
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
@@ -41368,11 +41390,6 @@ msgstr "used"
 #: src/components/clio/settings-usage.tsx
 msgid "Used"
 msgstr "Used"
-
-#. placeholder {0}: formatList(names, { and: true })
-#: src/components/clio/run-record.tsx
-msgid "Used {0}"
-msgstr "Used {0}"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Used as"
