@@ -1,5 +1,6 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { ph, t } from '@lingui/core/macro';
+import { TOOL_OPERATIONS } from './tool-operation-contract';
 
 const OPERATIONS: Record<string, string> = {
   fs_read_file: t`Read file`,
@@ -48,7 +49,8 @@ export function permissionTitle(
   return permissionOperationTitle(named, fields) ?? interaction.title;
 }
 
-const LEGACY_TITLE = /^(?:destructive |external MCP )?tool call: (.+)$/u;
+// "destructive tool call: fs_write_file", "shell command call: shell_bash", "external MCP tool call: …".
+const LEGACY_TITLE = /^(?:[\p{L} ]+ )?(?:tool|command) call: (\S+)$/u;
 
 /** The tool a legacy agent title ("destructive tool call: fs_write_file") names, if it is one. */
 export function legacyToolCallName(title: string | undefined): string | undefined {
@@ -65,7 +67,7 @@ export function permissionOperationTitle(
       ? t`Connect ${ph({ source: String(fields.label) })}`
       : t`Connect source`;
   if (toolName === 'connected_data_download') return t`Download source`;
-  return permissionOperationLabel(toolName, fields);
+  return permissionOperationLabel(toolName, fields) ?? TOOL_OPERATIONS[toolName]?.action;
 }
 
 /** The command a permission would run and the computer it runs on, when the request names them. */

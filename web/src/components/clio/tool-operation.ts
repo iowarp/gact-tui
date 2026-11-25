@@ -223,6 +223,39 @@ function endedWithoutOutput(tool: ToolInvocation, output: unknown): boolean {
   );
 }
 
+/** One argument as the row reads it: its first line, short; a list as its first value and "+N". */
+function argumentText(value: unknown): string | undefined {
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string') {
+    const line = value.trim().split('\n')[0]!.trim();
+    if (!line) return undefined;
+    return line.length > 60 ? `${line.slice(0, 59)}…` : line;
+  }
+  if (Array.isArray(value)) {
+    const scalars = value.filter((item) => ['string', 'number', 'boolean'].includes(typeof item));
+    if (!scalars.length || scalars.length !== value.length) return undefined;
+    const first = argumentText(scalars[0]);
+    return first && scalars.length > 1 ? `${first} +${scalars.length - 1}` : first;
+  }
+  return undefined;
+}
+
+/**
+ * An undeclared (MCP or plugin) call's target: its key arguments as `key=value`, up to
+ * three, in the order given. CLIO's own bookkeeping arguments (`_clio…`) are never shown.
+ */
+export function argumentSubjects(input: Record<string, unknown>): ToolPresentationBlock[] {
+  return Object.entries(input)
+    .filter(([key]) => !key.startsWith('_'))
+    .flatMap(([key, value]) => {
+      const shown = argumentText(value);
+      return shown
+        ? [{ id: `argument-${key}`, type: 'text' as const, label: `${key}=${shown}` }]
+        : [];
+    })
+    .slice(0, 3);
+}
+
 /** A read-only semantic projection shared by transcript and Evidence. No fetches or cached indexes. */
 export function toolOperation(tool: ToolInvocation, context: OperationContext = {}): ToolOperation {
   const definition = TOOL_OPERATIONS[tool.name];
@@ -265,6 +298,7 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
   )
     operation.subjects = [{ id: 'result-path', type: 'text', label: String(result?.path) }];
   if (!definition) {
+    if (!operation.subjects.length) operation.subjects = argumentSubjects(input);
     const summary = tool.presentation?.summary?.trim();
     if (summary && /^(?:\d|No\b|Lines\b|Empty\b)/u.test(summary))
       operation.metadata = countSummary(summary);

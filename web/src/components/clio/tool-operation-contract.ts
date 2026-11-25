@@ -206,7 +206,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   },
   plan_exit: define(t`Review plan`),
   write_todos: define(t`Update todos`),
-  load_skill: { ...define(t`Load skill`), presentedAction: true },
+  load_skill: { ...define(t`Load skill`, 'declared', 'skill_id'), presentedAction: true },
   web_search: search(t`Search web`),
   web_fetch: define(
     t({ message: 'Read', context: 'verb: tool action' }),

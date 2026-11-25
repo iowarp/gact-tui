@@ -24,6 +24,7 @@ import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/ke
 import { runConversationHref, runKindName } from '@/components/clio/run-presentation';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 import { callerName } from '@/components/clio/tool-presentation';
+import { TOOL_OPERATIONS } from '@/components/clio/tool-operation-contract';
 import { useRunChildSession } from '@/hooks/use-flow-run';
 import { useRepository } from '@/hooks/use-repository';
 import { formatDuration } from '@/lib/format';
@@ -172,7 +173,9 @@ function chunkEntries(chunk: ObservedTaskChunk, key: string, prose: boolean): Lo
   if (Array.isArray(value.tools) && value.tools.length) {
     const names = value.tools
       .map((tool) => (typeof tool === 'string' ? tool : (record(tool)?.name ?? record(tool)?.tool)))
-      .filter((name): name is string => typeof name === 'string' && Boolean(name));
+      .filter((name): name is string => typeof name === 'string' && Boolean(name))
+      // A native tool by its operation's name ("Load skill"), an MCP tool by its own.
+      .map((name) => TOOL_OPERATIONS[name]?.action ?? name);
     if (names.length)
       entries.push({
         key: `${key}:tools`,

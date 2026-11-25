@@ -675,6 +675,11 @@ msgstr ""
 msgid "{0, plural, one {# tool available} other {# tools available}}"
 msgstr ""
 
+#. placeholder {0}: loaded.length
+#: src/components/clio/tool-search-presentation.ts
+msgid "{0, plural, one {# tool loaded} other {# tools loaded}}"
+msgstr ""
+
 #. placeholder {0}: section.count
 #. placeholder {0}: server.tools
 #. placeholder {0}: server.tools_count
@@ -20034,6 +20039,14 @@ msgstr ""
 msgid "Load the view again. What it shows is kept by its service."
 msgstr ""
 
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tool"
+msgstr ""
+
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tools"
+msgstr ""
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "loaded {count}×"
 msgstr ""
@@ -24155,6 +24168,7 @@ msgid "not executed, context cleared"
 msgstr ""
 
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/tool-search-presentation.ts
 msgid "Not found"
 msgstr ""
 
@@ -28702,6 +28716,7 @@ msgid "Recent session excerpts"
 msgstr ""
 
 #: src/components/clio/plan-decision-controls.tsx
+#: src/components/clio/question-choice-card.tsx
 msgid "Recommended"
 msgstr ""
 
@@ -34282,6 +34297,10 @@ msgstr ""
 msgid "Site: {host}"
 msgstr ""
 
+#: src/components/clio/interaction-frame-header.tsx
+msgid "Site: {site}"
+msgstr ""
+
 #: src/widget-gallery.tsx
 msgid "Sites"
 msgstr ""
@@ -34299,7 +34318,6 @@ msgstr ""
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
-#: src/components/clio/skill-tool-presentation.ts
 #: src/components/clio/subagent-card.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Skill"

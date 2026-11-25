@@ -49,6 +49,7 @@ import { withTaskWaitInterruption } from './task-wait-presentation';
 import { withTodoPresentation } from './todo-tool-presentation';
 import { withStorageToolPresentation } from './storage-tool-presentation';
 import { withSkillPresentation } from './skill-tool-presentation';
+import { withToolSearchPresentation } from './tool-search-presentation';
 import { answeredQuestionReading, withQuestionPresentation } from './question-tool-presentation';
 import { QuestionAnswerReader } from './question-answer-reader';
 import { useQuestionAnswer } from './question-answer-context';
@@ -172,10 +173,12 @@ export function ClioToolInvocation({
         withQuestionPresentation(
           withMemoryPresentation(
             withResourcePresentation(
-              withSkillPresentation(
-                withTaskWaitInterruption(
-                  withTodoPresentation(
-                    withStorageToolPresentation(withPermissionDecision(tool, interactions)),
+              withToolSearchPresentation(
+                withSkillPresentation(
+                  withTaskWaitInterruption(
+                    withTodoPresentation(
+                      withStorageToolPresentation(withPermissionDecision(tool, interactions)),
+                    ),
                   ),
                 ),
               ),
@@ -400,48 +403,46 @@ export function ClioToolInvocation({
           </ToolDetailsContent>
         ) : expanded && !delegateOnly ? (
           <ToolDetailsContent
-              inline
-              title={t`${actionLabel}: Result`}
-              bounded={
-                !presentedTool.presentation?.blocks.some((block) => block.type === 'terminal')
-              }
-            >
-              {failure && !declaredFailure && !(stopped && declaredOutcome) ? (
-                <p
-                  role={stopped ? undefined : 'alert'}
-                  className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${stopped ? 'text-muted-foreground' : status === 'unknown' || status === 'denied' ? 'text-warning' : 'text-destructive'}`}
-                >
-                  {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
-                </p>
-              ) : null}
-              {flowResult && flow?.handle && (sessionId || tool.session_id) ? (
-                <Suspense fallback={<p role="status">{t`Loading flow…`}</p>}>
-                  <OperationFlow
-                    flow={{ ...flow, handle: flow.handle }}
-                    sessionId={sessionId || tool.session_id}
-                  />
-                </Suspense>
-              ) : operation.kind !== 'declared' ? (
-                <ToolOperationResult operation={operation} tool={presentedTool} />
-              ) : isA2uiCatalogLookup(presentedTool) && status === 'succeeded' ? (
-                <p className="text-muted-foreground">
-                  {t`Widget catalog loaded. Use technical details to inspect the full catalog.`}
-                </p>
-              ) : (
-                <ToolResultPresentation
-                  tool={withoutRowQuery(presentedTool, operation.query)}
-                  subjectId={subject?.id}
-                  summaryInHeader
+            inline
+            title={t`${actionLabel}: Result`}
+            bounded={!presentedTool.presentation?.blocks.some((block) => block.type === 'terminal')}
+          >
+            {failure && !declaredFailure && !(stopped && declaredOutcome) ? (
+              <p
+                role={stopped ? undefined : 'alert'}
+                className={`whitespace-pre-wrap [overflow-wrap:anywhere] ${stopped ? 'text-muted-foreground' : status === 'unknown' || status === 'denied' ? 'text-warning' : 'text-destructive'}`}
+              >
+                {failure.length > 1200 ? `${failure.slice(0, 1200)}…` : failure}
+              </p>
+            ) : null}
+            {flowResult && flow?.handle && (sessionId || tool.session_id) ? (
+              <Suspense fallback={<p role="status">{t`Loading flow…`}</p>}>
+                <OperationFlow
+                  flow={{ ...flow, handle: flow.handle }}
+                  sessionId={sessionId || tool.session_id}
                 />
-              )}
-              {operation.scope ? (
-                <p className="text-muted-foreground">
-                  <Trans>
-                    Scope: <PresentationLink block={operation.scope} />
-                  </Trans>
-                </p>
-              ) : null}
-            </ToolDetailsContent>
+              </Suspense>
+            ) : operation.kind !== 'declared' ? (
+              <ToolOperationResult operation={operation} tool={presentedTool} />
+            ) : isA2uiCatalogLookup(presentedTool) && status === 'succeeded' ? (
+              <p className="text-muted-foreground">
+                {t`Widget catalog loaded. Use technical details to inspect the full catalog.`}
+              </p>
+            ) : (
+              <ToolResultPresentation
+                tool={withoutRowQuery(presentedTool, operation.query)}
+                subjectId={subject?.id}
+                summaryInHeader
+              />
+            )}
+            {operation.scope ? (
+              <p className="text-muted-foreground">
+                <Trans>
+                  Scope: <PresentationLink block={operation.scope} />
+                </Trans>
+              </p>
+            ) : null}
+          </ToolDetailsContent>
         ) : null}
         {/* A script's own tool calls are rows one step in under it, not repeated in its result. */}
         {expanded && delegateChild ? (

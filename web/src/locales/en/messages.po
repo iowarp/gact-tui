@@ -675,6 +675,11 @@ msgstr "{0, plural, one {# tool available. Compose a plugin to add it to an agen
 msgid "{0, plural, one {# tool available} other {# tools available}}"
 msgstr "{0, plural, one {# tool available} other {# tools available}}"
 
+#. placeholder {0}: loaded.length
+#: src/components/clio/tool-search-presentation.ts
+msgid "{0, plural, one {# tool loaded} other {# tools loaded}}"
+msgstr "{0, plural, one {# tool loaded} other {# tools loaded}}"
+
 #. placeholder {0}: section.count
 #. placeholder {0}: server.tools
 #. placeholder {0}: server.tools_count
@@ -20051,6 +20056,14 @@ msgstr "Load the rest"
 msgid "Load the view again. What it shows is kept by its service."
 msgstr "Load the view again. What it shows is kept by its service."
 
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tool"
+msgstr "Load tool"
+
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tools"
+msgstr "Load tools"
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "loaded {count}×"
 msgstr "loaded {count}×"
@@ -24172,6 +24185,7 @@ msgid "not executed, context cleared"
 msgstr "not executed, context cleared"
 
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/tool-search-presentation.ts
 msgid "Not found"
 msgstr "Not found"
 
@@ -28719,6 +28733,7 @@ msgid "Recent session excerpts"
 msgstr "Recent session excerpts"
 
 #: src/components/clio/plan-decision-controls.tsx
+#: src/components/clio/question-choice-card.tsx
 msgid "Recommended"
 msgstr "Recommended"
 
@@ -34299,6 +34314,10 @@ msgstr "Site-provided"
 msgid "Site: {host}"
 msgstr "Site: {host}"
 
+#: src/components/clio/interaction-frame-header.tsx
+msgid "Site: {site}"
+msgstr "Site: {site}"
+
 #: src/widget-gallery.tsx
 msgid "Sites"
 msgstr "Sites"
@@ -34316,7 +34335,6 @@ msgstr "Size unavailable"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
-#: src/components/clio/skill-tool-presentation.ts
 #: src/components/clio/subagent-card.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Skill"

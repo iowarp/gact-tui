@@ -676,6 +676,11 @@ msgstr "{0, plural, one {# herramienta disponible. Compón un complemento para a
 msgid "{0, plural, one {# tool available} other {# tools available}}"
 msgstr "{0, plural, one {# herramienta disponible} other {# herramientas disponibles}}"
 
+#. placeholder {0}: loaded.length
+#: src/components/clio/tool-search-presentation.ts
+msgid "{0, plural, one {# tool loaded} other {# tools loaded}}"
+msgstr "{0, plural, one {# herramienta cargada} other {# herramientas cargadas}}"
+
 #. placeholder {0}: section.count
 #. placeholder {0}: server.tools
 #. placeholder {0}: server.tools_count
@@ -20052,6 +20057,14 @@ msgstr "Cargar el resto"
 msgid "Load the view again. What it shows is kept by its service."
 msgstr "Carga la vista de nuevo. Lo que muestra lo conserva su servicio."
 
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tool"
+msgstr "Cargar herramienta"
+
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tools"
+msgstr "Cargar herramientas"
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "loaded {count}×"
 msgstr "cargado {count}×"
@@ -24173,6 +24186,7 @@ msgid "not executed, context cleared"
 msgstr "no ejecutado, contexto borrado"
 
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/tool-search-presentation.ts
 msgid "Not found"
 msgstr "No encontrado"
 
@@ -28720,6 +28734,7 @@ msgid "Recent session excerpts"
 msgstr "Extractos recientes de la sesión"
 
 #: src/components/clio/plan-decision-controls.tsx
+#: src/components/clio/question-choice-card.tsx
 msgid "Recommended"
 msgstr "Recomendado"
 
@@ -34300,6 +34315,10 @@ msgstr "Proporcionado por el sitio"
 msgid "Site: {host}"
 msgstr "Sitio: {host}"
 
+#: src/components/clio/interaction-frame-header.tsx
+msgid "Site: {site}"
+msgstr "Sitio: {site}"
+
 #: src/widget-gallery.tsx
 msgid "Sites"
 msgstr "Sitios"
@@ -34317,7 +34336,6 @@ msgstr "Tamaño no disponible"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
-#: src/components/clio/skill-tool-presentation.ts
 #: src/components/clio/subagent-card.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Skill"

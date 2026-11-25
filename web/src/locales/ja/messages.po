@@ -676,6 +676,11 @@ msgstr "{0, plural, one {#個のツールが利用可能です。エージェン
 msgid "{0, plural, one {# tool available} other {# tools available}}"
 msgstr "{0, plural, one {#個のツールが利用可能} other {#個のツールが利用可能}}"
 
+#. placeholder {0}: loaded.length
+#: src/components/clio/tool-search-presentation.ts
+msgid "{0, plural, one {# tool loaded} other {# tools loaded}}"
+msgstr "{0, plural, other {# 個のツールを読み込みました}}"
+
 #. placeholder {0}: section.count
 #. placeholder {0}: server.tools
 #. placeholder {0}: server.tools_count
@@ -20052,6 +20057,14 @@ msgstr "残りを読み込む"
 msgid "Load the view again. What it shows is kept by its service."
 msgstr "ビューを再読み込みします。表示内容はサービス側に保持されます。"
 
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tool"
+msgstr "ツールを読み込む"
+
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tools"
+msgstr "ツールを読み込む"
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "loaded {count}×"
 msgstr "{count}回読み込み"
@@ -24173,6 +24186,7 @@ msgid "not executed, context cleared"
 msgstr "未実行、コンテキストをクリア済み"
 
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/tool-search-presentation.ts
 msgid "Not found"
 msgstr "見つかりません"
 
@@ -28720,6 +28734,7 @@ msgid "Recent session excerpts"
 msgstr "最近のセッションの抜粋"
 
 #: src/components/clio/plan-decision-controls.tsx
+#: src/components/clio/question-choice-card.tsx
 msgid "Recommended"
 msgstr "推奨"
 
@@ -34300,6 +34315,10 @@ msgstr "サイト提供"
 msgid "Site: {host}"
 msgstr "サイト: {host}"
 
+#: src/components/clio/interaction-frame-header.tsx
+msgid "Site: {site}"
+msgstr "サイト: {site}"
+
 #: src/widget-gallery.tsx
 msgid "Sites"
 msgstr "地点"
@@ -34317,7 +34336,6 @@ msgstr "サイズ不明"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
-#: src/components/clio/skill-tool-presentation.ts
 #: src/components/clio/subagent-card.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Skill"

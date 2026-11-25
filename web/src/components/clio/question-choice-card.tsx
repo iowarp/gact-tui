@@ -9,6 +9,8 @@ export interface QuestionChoice {
   value: string;
   label: string;
   description?: string;
+  /** The option the asker recommends: marked, and the one ↵ picks. */
+  recommended?: boolean;
 }
 
 /**
@@ -34,6 +36,8 @@ export function QuestionChoiceRows({
   label: string;
   onChoose: (value: string) => void;
 }) {
+  const recommended = choices.findIndex((choice) => choice.recommended);
+  const enterPicks = recommended >= 0 ? recommended : 0;
   return (
     <AskRows aria-label={plainQuestionText(label)} role={mode === 'pick' ? 'radiogroup' : 'group'}>
       {choices.map((choice, index) => {
@@ -46,9 +50,23 @@ export function QuestionChoiceRows({
             // Only the number key leads the row; a chosen row ends in the check column.
             detail={detail}
             disabled={disabled}
-            highlighted={mode === 'answer' && index === 0}
+            highlighted={mode === 'answer' && index === enterPicks}
             key={choice.value}
-            label={text}
+            label={
+              choice.recommended ? (
+                <>
+                  {text}
+                  <span
+                    className="ml-2 text-label text-muted-foreground"
+                    data-slot="ask-row-recommended"
+                  >
+                    {t`Recommended`}
+                  </span>
+                </>
+              ) : (
+                text
+              )
+            }
             number={index + 1}
             onClick={() => onChoose(choice.value)}
             role={mode === 'answer' ? undefined : mode === 'pick' ? 'radio' : 'checkbox'}
