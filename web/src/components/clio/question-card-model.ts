@@ -1,10 +1,13 @@
 import type { PendingInteraction } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 import { serverOwnerName } from '@/lib/a2ui/server-surface';
 import { isVariantPickInteraction } from '@/lib/variant-runs';
 import { useQuestionAnswer } from './question-answer-context';
 
 /** The words of the question: its prompt, or its title when it has none. */
 export function questionPrompt(interaction: PendingInteraction): string {
+  // The core's degraded row carries an English title; the reader's language says it here.
+  if (interaction.kind === 'unknown') return t`This response could not be read.`;
   return interaction.source.tool_name === 'plan_exit'
     ? interaction.title
     : (interaction.prompt ?? interaction.title);
@@ -22,6 +25,18 @@ export function plainQuestionText(text: string): string {
 /** Task cancellation belongs to Work's identifying confirmation, not dismissal. */
 export function canDismissQuestion(interaction: PendingInteraction): boolean {
   return !interaction.payload?.task_handle && (interaction.actions ?? []).includes('cancel');
+}
+
+/**
+ * An MCP form ask can be declined, which tells its server "no" without an answer. A task's
+ * input request cannot be dismissed, so this is its one way out short of answering.
+ */
+export function declinesElicitation(interaction: PendingInteraction): boolean {
+  return (
+    interaction.source.protocol === 'mcp' &&
+    interaction.payload?.mode === 'form' &&
+    (interaction.actions ?? []).includes('answer')
+  );
 }
 
 /** Whether the main composer can carry this question's own answer. */

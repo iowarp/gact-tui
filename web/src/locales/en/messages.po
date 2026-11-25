@@ -13169,6 +13169,7 @@ msgid "Declared as a structured value."
 msgstr "Declared as a structured value."
 
 #: src/components/clio/connector-setup-response.tsx
+#: src/components/clio/interaction-frame-header.tsx
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Decline"
 msgstr "Decline"
@@ -39336,6 +39337,10 @@ msgstr "This reply used"
 #: src/components/clio/conversation-message-row.tsx
 msgid "This reply was interrupted"
 msgstr "This reply was interrupted"
+
+#: src/components/clio/question-card-model.ts
+msgid "This response could not be read."
+msgstr "This response could not be read."
 
 #: src/components/clio/pending-a2ui-response.tsx
 msgid "This response has no {a2ui} surface to open."

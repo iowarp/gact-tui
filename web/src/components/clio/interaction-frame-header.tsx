@@ -152,13 +152,14 @@ export function QuestionCard({
   );
 }
 
-/** The quiet hints under a question: answer in the composer, and Esc to dismiss. */
+/** The quiet hints under a question: answer in the composer, and Esc to dismiss or decline. */
 export function QuestionFooter({
   interaction,
   allowsComposer,
   composerOnly,
   disabled,
   onDismiss,
+  onDecline,
   children,
 }: {
   interaction: PendingInteraction;
@@ -168,11 +169,13 @@ export function QuestionFooter({
   composerOnly?: boolean;
   disabled?: boolean;
   onDismiss?: () => void;
+  /** Says no to an MCP form ask without answering it. */
+  onDecline?: () => void;
   children?: ReactNode;
 }) {
   const composer = useComposerAnswer(interaction);
   const showComposer = allowsComposer && composer.available;
-  if (!showComposer && !onDismiss && !children) return null;
+  if (!showComposer && !onDismiss && !onDecline && !children) return null;
   return (
     <AskFooter>
       {children}
@@ -199,6 +202,10 @@ export function QuestionFooter({
           onClick={onDismiss}
         >
           {t`Dismiss`}
+        </AskHint>
+      ) : onDecline ? (
+        <AskHint askKey="Escape" disabled={disabled} onClick={onDecline}>
+          {t`Decline`}
         </AskHint>
       ) : null}
     </AskFooter>

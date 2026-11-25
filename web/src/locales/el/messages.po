@@ -13170,6 +13170,7 @@ msgid "Declared as a structured value."
 msgstr "Δηλώθηκε ως δομημένη τιμή."
 
 #: src/components/clio/connector-setup-response.tsx
+#: src/components/clio/interaction-frame-header.tsx
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Decline"
 msgstr "Άρνηση"
@@ -39337,6 +39338,10 @@ msgstr "Αυτή η απάντηση χρησιμοποίησε"
 #: src/components/clio/conversation-message-row.tsx
 msgid "This reply was interrupted"
 msgstr "Αυτή η απάντηση διακόπηκε"
+
+#: src/components/clio/question-card-model.ts
+msgid "This response could not be read."
+msgstr "Δεν ήταν δυνατή η ανάγνωση αυτής της απάντησης."
 
 #: src/components/clio/pending-a2ui-response.tsx
 msgid "This response has no {a2ui} surface to open."
