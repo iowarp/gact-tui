@@ -46,6 +46,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import type { ClioContextTarget } from '@/lib/context-targets';
+import type { SessionAttention } from '@/lib/session-attention';
 import {
   getPresentationOverrideCount,
   subscribePresentationOverrides,
@@ -74,6 +75,8 @@ export interface ClioObservabilityDockProps {
   diffs: readonly SessionDiff[];
   messages: readonly Message[];
   interactions?: readonly PendingInteraction[];
+  /** What waits on the person here, as the bell counts it (null: nothing); the rail button shows its total. */
+  attention?: SessionAttention | null;
   /** The workspace's folders (its own and those the person allowed), for Evidence. */
   workspaceFolders?: readonly WorkspaceSourceFolder[];
   processes: readonly AsyncProcess[];
@@ -226,6 +229,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
                 processes: props.processes,
                 subagents: props.subagents,
                 interactions: props.interactions,
+                attention: props.attention,
                 seenFailed,
               })
             }

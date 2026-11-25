@@ -385,13 +385,16 @@ function fieldChoices(field: PendingInteractionField): QuestionChoice[] {
   }));
 }
 
-/** A form that is one single choice answers on its options: pressing one sends it. */
+/**
+ * A form that is one single choice answers on its options: pressing one sends it. One
+ * option is still a choice (W17's "gcc@11.4.0"): its button answers, and Decline remains.
+ */
 function choiceField(
   fields: readonly PendingInteractionField[],
 ): PendingInteractionField | undefined {
   const [field] = fields;
   if (fields.length !== 1 || !field || field.multi) return undefined;
-  return (field.enum?.length ?? 0) >= 2 ? field : undefined;
+  return (field.enum?.length ?? 0) >= 1 ? field : undefined;
 }
 
 /** Explicit URL consent; nothing is opened or fetched during render. */
@@ -688,7 +691,13 @@ function answerChoiceField(
   fields: readonly PendingInteractionField[],
 ): PendingInteractionField | undefined {
   if (fields.length < 2) return undefined;
-  const choices = fields.filter((field) => !field.multi && (field.enum?.length ?? 0) >= 2);
+  // A one-option enum with a value already set is a fixed setting, not a question.
+  const choices = fields.filter(
+    (field) =>
+      !field.multi &&
+      ((field.enum?.length ?? 0) >= 2 ||
+        (field.enum?.length === 1 && (field.default === undefined || field.default === null))),
+  );
   const open = choices.filter((field) => field.default === undefined || field.default === null);
   const choice = choices.length === 1 ? choices[0] : open.length === 1 ? open[0] : undefined;
   if (!choice) return undefined;

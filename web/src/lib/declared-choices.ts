@@ -154,7 +154,9 @@ export function withDeclaredChoices(
           field.enum!.some((value) => Object.is(value, option.value)),
         )
       : declared.options;
-    if (known.length < 2) return field;
+    // A declared list that names fewer of the field's options than it offers is not this
+    // field's list; a lone option (one compiler that works) is still the whole choice.
+    if (!known.length || known.length < Math.min(2, field.enum?.length || 0)) return field;
     return {
       ...field,
       title:
