@@ -15,6 +15,7 @@ import {
   getToolInterruptionDetail,
 } from './tool-presentation';
 import { PresentationLink } from './presentation-link';
+import { toolDecline } from './tool-declined';
 import type { ToolOperation } from './tool-operation';
 import { clioStatusLabel } from './status';
 import { humanFailureText } from './composer-failure';
@@ -73,8 +74,11 @@ export function ToolCompactRow({
   const cancelled = status === 'cancelled';
   // A call the person refused folds into the spec's decision row: "Denied · target · you denied it".
   const denied = !waiting && status === 'denied';
-  const failure =
-    (interrupted ? getToolInterruptionDetail(tool) : undefined) || getToolFailureDetail(tool);
+  // A no to what the call asked is the person's answer: muted, never a failure or a stop.
+  const declined = !waiting && !denied && Boolean(toolDecline(tool));
+  const failure = declined
+    ? undefined
+    : (interrupted ? getToolInterruptionDetail(tool) : undefined) || getToolFailureDetail(tool);
   // The status mark's name and the outcome's hover read as a sentence; a trace or a
   // validation dump stays in the expanded call and its technical details.
   const failureText = failure
@@ -88,16 +92,18 @@ export function ToolCompactRow({
     ? t`Waiting for you`
     : denied
       ? t`Denied`
-      : interrupted
-        ? failure || clioStatusLabel(status)
-        : cancelled
-          ? t`Stopped`
-          : failureText
-            ? t`${ph({ status: clioStatusLabel(status) })}: ${failureText}`
-            : clioStatusLabel(status);
+      : declined
+        ? t`You declined`
+        : interrupted
+          ? failure || clioStatusLabel(status)
+          : cancelled
+            ? t`Stopped`
+            : failureText
+              ? t`${ph({ status: clioStatusLabel(status) })}: ${failureText}`
+              : clioStatusLabel(status);
   const tone: StatusTone = waiting
     ? 'running'
-    : interrupted || cancelled || denied
+    : interrupted || cancelled || denied || declined
       ? 'stopped'
       : active
         ? 'running'
@@ -176,6 +182,7 @@ export function ToolCompactRow({
   const failureWord =
     !waiting &&
     !denied &&
+    !declined &&
     !active &&
     !success &&
     !interrupted &&
@@ -185,10 +192,15 @@ export function ToolCompactRow({
         : (exitCodeOf(tool) ?? outcomeWord(status))
       : undefined;
   const outcome =
-    waiting || failureWord || denied || control ? (
+    waiting || failureWord || denied || declined || control ? (
       <>
         {waiting}
         {control}
+        {declined ? (
+          <span data-slot="tool-outcome" className="text-muted-foreground">
+            {t({ message: 'you declined', context: 'tool outcome' })}
+          </span>
+        ) : null}
         {denied ? (
           <span data-slot="tool-outcome" className="text-warning">
             {tool.presentation?.blocks.find((block) => block.id === 'permission-decision')?.text ||

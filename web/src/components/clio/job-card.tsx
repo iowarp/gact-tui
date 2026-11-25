@@ -61,6 +61,9 @@ function jobStatusLabel(job: JobSnapshot): string {
           return t`Failed`;
         case 'cancelled':
           return t`Cancelled`;
+        // The person said no to the job's ask, so nothing was submitted.
+        case 'declined':
+          return t`You declined`;
         case 'timed_out':
           return t`Ran out of time`;
         case PAST_LIMIT:

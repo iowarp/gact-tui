@@ -43496,8 +43496,15 @@ msgstr ""
 msgid "You chose to continue"
 msgstr ""
 
+#: src/components/clio/tool-compact-row.tsx
+msgctxt "tool outcome"
+msgid "you declined"
+msgstr ""
+
 #: src/components/clio/agent-answer-activity.tsx
-#: src/components/clio/tool-result-presentation.tsx
+#: src/components/clio/job-card.tsx
+#: src/components/clio/tool-compact-row.tsx
+#: src/components/clio/tool-declined.ts
 msgid "You declined"
 msgstr ""
 

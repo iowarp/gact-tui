@@ -48,30 +48,12 @@ import { PresentationNavigation } from './presentation-navigation';
 import { ReportTabs } from './report-tabs';
 import { childReports } from '@/lib/child-reports';
 import { STRUCTURED_RESULT_BLOCK, structuredResultReading } from './structured-result-reading';
+import { declineBlock, isDeclineBlock, toolDecline } from './tool-declined';
 import { t } from '@lingui/core/macro';
 
 /** The agent's fixed English block labels, said in the reader's language. */
 function blockLabel(label: string): string {
   return label === 'Request failed' ? t`Request failed` : label;
-}
-
-// "Operation op_… on ares is cancelled. declined: the person declined: Approve …?"
-const DECLINED = /\bdeclined: the (?:person|user) declined(?::\s*([\s\S]+))?$/u;
-
-/**
- * A call the person declined is their decision, not a failure: it reads as what they
- * declined, without the error panel the agent's "Request failed" would draw.
- */
-function declinedBlock(block: ToolPresentationBlock): ToolPresentationBlock | undefined {
-  if (block.severity !== 'error' || !block.text) return undefined;
-  const match = DECLINED.exec(block.text.trim());
-  if (!match) return undefined;
-  const { severity: _severity, ...rest } = block;
-  return {
-    ...rest,
-    label: t`You declined`,
-    text: match[1]?.trim() || block.text,
-  };
 }
 
 /** Render only the declared presentation contract. Raw results stay technical. */
@@ -123,10 +105,15 @@ function ToolResultBody({
       : subject?.target === 'resource'
         ? subject.label || subject.uri || ''
         : '';
-  const blocks = getToolResultBlocks(tool, subjectId)
+  // The person's no is the call's outcome, in place of a refusal's error or the result's outline.
+  const decline = toolDecline(tool);
+  const presented = getToolResultBlocks(tool, subjectId);
+  const blocks = (
+    decline
+      ? [declineBlock(decline), ...presented.filter((block) => !isDeclineBlock(block))]
+      : presented
+  )
     .map((block) => {
-      const declined = declinedBlock(block);
-      if (declined) return declined;
       if (block.id === STRUCTURED_RESULT_BLOCK && block.type === 'markdown') {
         const reading = structuredResultReading(tool, block);
         return reading ? { ...block, text: reading } : block;

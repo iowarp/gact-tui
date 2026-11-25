@@ -1,5 +1,6 @@
 import { flowToolDescriptor } from './flow-tool-presentation';
 import { toolResultRecord } from './tool-result-shared';
+import { toolDecline } from './tool-declined';
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { formatDuration } from '@/lib/format';
 import type { ClioStatusValue } from './status';
@@ -299,7 +300,7 @@ const GENERIC_STOPPED = /^(?:execution )?cancell?ed\.?$/iu;
  * reason the service recorded is kept as that outcome's text.
  */
 export function withStoppedOutcome(tool: ToolInvocation): ToolInvocation {
-  if (getToolStatus(tool) !== 'cancelled') return tool;
+  if (getToolStatus(tool) !== 'cancelled' || toolDecline(tool)) return tool;
   const blocks = tool.presentation?.blocks ?? [];
   if (blocks.some((block) => block.id === 'execution-outcome')) return tool;
   const cancellation = (text?: string) =>
@@ -371,6 +372,8 @@ function failureDetail(tool: ToolInvocation): string | undefined {
   }
   if (!['failed', 'denied', 'cancelled', 'degraded'].includes(getToolStatus(tool)))
     return undefined;
+  // The person's no to what the call asked is an answer, even where a producer refused.
+  if (toolDecline(tool)) return undefined;
   const blocks = tool.presentation?.blocks ?? [];
   const errors = blocks
     .filter((block) => block.severity === 'error')

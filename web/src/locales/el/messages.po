@@ -43515,8 +43515,15 @@ msgstr "Ακυρώσατε το αίτημα"
 msgid "You chose to continue"
 msgstr "Επιλέξατε να συνεχίσετε"
 
+#: src/components/clio/tool-compact-row.tsx
+msgctxt "tool outcome"
+msgid "you declined"
+msgstr "το απορρίψατε"
+
 #: src/components/clio/agent-answer-activity.tsx
-#: src/components/clio/tool-result-presentation.tsx
+#: src/components/clio/job-card.tsx
+#: src/components/clio/tool-compact-row.tsx
+#: src/components/clio/tool-declined.ts
 msgid "You declined"
 msgstr "Απορρίψατε"
 

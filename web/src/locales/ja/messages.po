@@ -43515,8 +43515,15 @@ msgstr "リクエストをキャンセルしました"
 msgid "You chose to continue"
 msgstr "続行を選択しました"
 
+#: src/components/clio/tool-compact-row.tsx
+msgctxt "tool outcome"
+msgid "you declined"
+msgstr "あなたが辞退"
+
 #: src/components/clio/agent-answer-activity.tsx
-#: src/components/clio/tool-result-presentation.tsx
+#: src/components/clio/job-card.tsx
+#: src/components/clio/tool-compact-row.tsx
+#: src/components/clio/tool-declined.ts
 msgid "You declined"
 msgstr "辞退しました"
 
