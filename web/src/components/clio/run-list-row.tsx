@@ -249,26 +249,29 @@ export const RunListRow = memo(function RunListRow({
       }
       columns={
         <>
-          <span
-            className="flex w-[34px] shrink-0 items-center @[560px]/runs:hidden"
-            data-slot="run-progress"
-          >
-            {percent === undefined ? null : (
-              <span
-                aria-label={t`${percent}% done`}
-                aria-valuemax={100}
-                aria-valuemin={0}
-                aria-valuenow={percent}
-                className="h-[3px] w-full overflow-hidden rounded-full bg-muted"
-                role="progressbar"
-              >
+          {/* The box is narrow: it gives the name the progress slot when there is no percent. */}
+          {rail && percent === undefined ? null : (
+            <span
+              className="flex w-[34px] shrink-0 items-center @[560px]/runs:hidden"
+              data-slot="run-progress"
+            >
+              {percent === undefined ? null : (
                 <span
-                  className="block h-full rounded-full bg-primary"
-                  style={{ width: `${percent}%` }}
-                />
-              </span>
-            )}
-          </span>
+                  aria-label={t`${percent}% done`}
+                  aria-valuemax={100}
+                  aria-valuemin={0}
+                  aria-valuenow={percent}
+                  className="h-[3px] w-full overflow-hidden rounded-full bg-muted"
+                  role="progressbar"
+                >
+                  <span
+                    className="block h-full rounded-full bg-primary"
+                    style={{ width: `${percent}%` }}
+                  />
+                </span>
+              )}
+            </span>
+          )}
           <span
             className={cn(
               'w-[64px] shrink-0 truncate text-caption text-muted-foreground tabular-nums',
