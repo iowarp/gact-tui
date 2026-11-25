@@ -3,6 +3,7 @@ import {
   conversationTurnPresentation,
   type ConversationTurnPresentation,
 } from './conversation-turn-model';
+import { continuesSentence, textPartSeparator } from './text-part-join';
 
 interface LiveActivityOptions {
   messages: readonly Message[];
@@ -158,6 +159,39 @@ export function placeContinuedActivity(
           iterations: afterSegments.flatMap((segment) =>
             segment.kind === 'iterations' ? segment.iterations : [],
           ),
+        });
+        owner = afterSegments.length ? message : target;
+      } else if (
+        trailing?.kind === 'block' &&
+        leading?.kind === 'block' &&
+        trailing.block.type === 'text' &&
+        leading.block.type === 'text' &&
+        (trailing.block.channel ?? null) === (leading.block.channel ?? null) &&
+        (trailing.block.agent_id ?? '') === (leading.block.agent_id ?? '') &&
+        continuesSentence(trailing.block.text, leading.block.text)
+      ) {
+        // One sentence cut by an internal turn boundary reads as one passage (#67).
+        const joined = {
+          kind: 'block' as const,
+          block: {
+            ...trailing.block,
+            text:
+              trailing.block.text +
+              textPartSeparator(trailing.block.text, leading.block.text, false) +
+              leading.block.text,
+            streaming: leading.block.streaming,
+          },
+        };
+        const movedId = leading.block.id;
+        const afterSegments = after.segments.slice(1);
+        presentations.set(target.id, {
+          ...before,
+          segments: [...before.segments.slice(0, -1), joined],
+        });
+        presentations.set(message.id, {
+          ...after,
+          segments: afterSegments,
+          residualBlocks: after.residualBlocks.filter((block) => block.id !== movedId),
         });
         owner = afterSegments.length ? message : target;
       } else owner = message;

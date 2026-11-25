@@ -82,17 +82,10 @@ export function getToolActionLabel(tool: ToolInvocation): string {
   const offer = tool.name === 'offer_plugin' ? tool.presentation?.action : undefined;
   if (offer && OFFER_ACTIONS[offer]) return OFFER_ACTIONS[offer]!;
   if (isA2uiCatalogLookup(tool)) return t`Inspect widget catalog`;
-  // An MCP or other undeclared tool is named by its own name, never by a title that reads
-  // as its description ("List the packages relay can run" is relay_packages_read).
-  if (!TOOL_OPERATIONS[tool.name] && !tool.presentation?.action?.trim()) {
-    const title = tool.title?.trim() ?? '';
-    const asWords = tool.name
-      .replace(/[_.-]+/gu, ' ')
-      .trim()
-      .toLocaleLowerCase();
-    if (!title || readsAsDescription(title) || title.toLocaleLowerCase() === asWords)
-      return tool.name;
-  }
+  // An MCP or other undeclared tool is named by its own name, never by its title: a title
+  // reads as a description ("List the packages relay can run" is relay_packages_read) or
+  // as a label beside other calls of the same server that show their names (#65).
+  if (!TOOL_OPERATIONS[tool.name] && !tool.presentation?.action?.trim()) return tool.name;
   let action = tool.presentation?.action || tool.title || tool.name;
   const title = tool.title?.trim();
   // A family presenter must not replace a named operation (Restart agent,

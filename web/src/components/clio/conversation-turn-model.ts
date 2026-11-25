@@ -13,6 +13,7 @@ import type { ThoughtSource } from './transcript-reasoning';
 import { isParentDelegation } from './parent-delegation';
 import { toolShowsDiff } from './declared-diff-key';
 import { replyStatesItsEnd } from './reply-ending';
+import { textPartSeparator } from './text-part-join';
 import { t } from '@lingui/core/macro';
 
 /**
@@ -277,9 +278,8 @@ function fallbackIterations(
       // below, since separate Markdown blocks would break its spans.
       if (last >= 0) {
         const previousText = current.nextThoughts[last] ?? '';
-        const separator =
-          followsThought || /\s$/u.test(previousText) || /^\s/u.test(block.text) ? '' : '\n\n';
-        current.nextThoughts[last] = previousText + separator + block.text;
+        current.nextThoughts[last] =
+          previousText + textPartSeparator(previousText, block.text, followsThought) + block.text;
         current.streaming ||= Boolean(block.streaming);
         consumed.add(block.id);
         joinThought = true;
@@ -431,12 +431,14 @@ function fallbackIterations(
       (previous.block.channel ?? null) === (block.channel ?? null) &&
       (previous.block.agent_id ?? '') === (block.agent_id ?? '')
     ) {
-      // A stream cut mid-sentence keeps its own spacing; separate steps stay paragraphs.
-      const separator =
-        followsText || /\s$/u.test(previous.block.text) || /^\s/u.test(block.text) ? '' : '\n\n';
+      // A stream cut keeps its own spacing, a sentence left open continues, and
+      // separate steps stay paragraphs (#67).
       previous.block = {
         ...previous.block,
-        text: previous.block.text + separator + block.text,
+        text:
+          previous.block.text +
+          textPartSeparator(previous.block.text, block.text, followsText) +
+          block.text,
         streaming: block.streaming,
       };
     } else {

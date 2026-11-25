@@ -4,6 +4,7 @@ import { formatDuration } from '@/lib/format';
 import { getToolActionLabel } from './tool-presentation';
 import { TOOL_OPERATIONS, type OperationDefinition } from './tool-operation-contract';
 import {
+  isGenericSubject,
   operationAnswer,
   operationInput,
   operationOutput,
@@ -85,11 +86,7 @@ function subjectFromInput(
   context: OperationContext,
   declared?: ToolPresentationBlock,
 ): ToolPresentationBlock[] {
-  if (
-    declared &&
-    !['Task', 'Tasks', 'Subagent', 'Session'].includes(declared.label ?? '') &&
-    declared.id !== 'wait-targets'
-  )
+  if (declared && !isGenericSubject(declared.label) && declared.id !== 'wait-targets')
     return [declared];
   for (const key of definition.subjects ?? []) {
     const values = operationStrings(input[key]);
