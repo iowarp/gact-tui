@@ -91,11 +91,24 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     typeof errorDetails === 'object' &&
     errorDetails !== null &&
     (errorDetails as Record<string, unknown>).reason === 'server_shutdown';
-  const interruptedByService =
-    stoppedByService || emptyResponseErrorCode === 'server_restart_interrupted';
+  const restartInterrupted = emptyResponseErrorCode === 'server_restart_interrupted';
+  // The restart's recovery continues this turn by itself (`details.resuming`), so the
+  // row says so and offers no Retry, which would ask for the same work again (CC-O1).
+  const resumingAfterRestart =
+    restartInterrupted &&
+    typeof errorDetails === 'object' &&
+    errorDetails !== null &&
+    (errorDetails as Record<string, unknown>).resuming === true;
+  const interruptedByService = stoppedByService || restartInterrupted;
   const interruptionReason = stoppedByService
     ? t`The agent service stopped before this reply finished. Your request was kept.`
-    : emptyResponseErrorMessage;
+    : restartInterrupted
+      ? resumedBy
+        ? t`The agent service restarted before this reply finished. It continued below.`
+        : resumingAfterRestart
+          ? t`The agent service restarted before this reply finished. It is continuing on its own.`
+          : t`The agent service restarted before this reply finished. Your request was kept, so you can retry it.`
+      : emptyResponseErrorMessage;
   const emptyResponseWasClientCancelled =
     !stoppedByService &&
     (emptyResponseErrorCode === 'cancelled' ||
@@ -113,6 +126,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const canRetry =
     message.role === 'assistant' &&
     !resumedBy &&
+    !resumingAfterRestart &&
     (message.blocks.length === 0 ||
       message.blocks.some((block) => block.type === 'error' && block.recoverable) ||
       (message.error_info?.recoverable === true && !emptyResponseWasClientCancelled));

@@ -36724,6 +36724,18 @@ msgid "The agent places it"
 msgstr "El agente la coloca"
 
 #: src/components/clio/conversation-message-row.tsx
+msgid "The agent service restarted before this reply finished. It continued below."
+msgstr "El servicio del agente se reinició antes de que terminara esta respuesta. Continuó más abajo."
+
+#: src/components/clio/conversation-message-row.tsx
+msgid "The agent service restarted before this reply finished. It is continuing on its own."
+msgstr "El servicio del agente se reinició antes de que terminara esta respuesta. Está continuando por sí solo."
+
+#: src/components/clio/conversation-message-row.tsx
+msgid "The agent service restarted before this reply finished. Your request was kept, so you can retry it."
+msgstr "El servicio del agente se reinició antes de que terminara esta respuesta. Se conservó tu solicitud, así que puedes reintentarla."
+
+#: src/components/clio/conversation-message-row.tsx
 msgid "The agent service stopped before this reply finished. Your request was kept."
 msgstr "El servicio del agente se detuvo antes de que terminara esta respuesta. Se conservó tu solicitud."
 
