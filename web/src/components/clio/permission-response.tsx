@@ -1,6 +1,7 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { BotIcon, FileCode2Icon, ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
 import { flowTrustRequest } from '@/lib/plugin-review';
+import { answerWord } from '@/lib/binary-answers';
 import { cn } from '@/lib/utils';
 import { AskBody, AskCard, AskDetails, AskError, AskSection, type AskFact } from './ask-card';
 import { BinaryAsk, type BinaryAnswer } from './ask-binary';
@@ -32,9 +33,17 @@ const KNOWN_ACTIONS = new Set(['deny', ...SCOPES.map((scope) => scope.action)]);
  * A person acting on a server's surface answers one question for all of that server's
  * view-only tools, so the lasting answer leads: allowing once would ask again at the next
  * control. On a plugin page the page's own context is the session, so it reads as the page.
+ * A question whose allow is kept beyond the call (`consent.lasting`, such as a connector's
+ * server running outside the sandbox) answers with the plain Allow, never "Allow once".
  */
 function surfaceScopes(interaction: PendingInteraction, scopes: typeof SCOPES): typeof SCOPES {
   const consent = interaction.payload?.consent;
+  if (consent?.lasting === true && consent.scope !== 'server_surface') {
+    const allow = answerWord('Allow');
+    return scopes.map((scope) =>
+      scope.action === 'allow' ? { ...scope, label: allow, name: allow } : scope,
+    );
+  }
   if (consent?.scope !== 'server_surface') return scopes;
   const lasting = scopes.find((scope) => scope.action === 'allow_session');
   if (!lasting) return scopes;

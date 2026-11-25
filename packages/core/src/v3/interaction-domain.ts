@@ -84,9 +84,13 @@ export interface PendingInteractionPayload {
   tool_call?: { tool_name?: string; input?: unknown };
   /** The run_code script a nested call's question was asked from. */
   script?: { call_id: string; code: string };
-  /** One question for a server's view-only tools while a person acts on its surface. */
+  /**
+   * One question for a server's view-only tools while a person acts on its surface; or,
+   * with `lasting`, a question whose allow is kept beyond the call (worded Allow, not once).
+   */
   consent?: {
     scope: string;
+    lasting?: boolean;
     place?: string;
     place_title?: string;
     server_title?: string;

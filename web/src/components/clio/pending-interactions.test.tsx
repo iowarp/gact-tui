@@ -167,6 +167,24 @@ describe('ClioPendingInteractions', () => {
     expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'allow_session' });
   });
 
+  it('words a kept allow as Allow, never Allow once', async () => {
+    const user = userEvent.setup();
+    const interaction = pending('permission', {
+      id: 'permission:perm_outside',
+      title: "Let KiCad's server run outside CLIO's sandbox?",
+      payload: {
+        permission_id: 'perm_outside',
+        consent: { scope: 'connector_outside_sandbox', connector: 'kicad', lasting: true },
+      },
+      actions: ['allow', 'deny'],
+    });
+    const onResponse = renderPending([interaction]);
+
+    expect(screen.queryByRole('button', { name: 'Allow once' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Allow' }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'allow' });
+  });
+
   it('shows an unrecognized server-offered action as disabled, never hides it', () => {
     const interaction = pending('permission', {
       id: 'permission:future',
