@@ -2,19 +2,11 @@ import type { PendingInteraction } from '@clio/core/v3';
 import { BotIcon, FileCode2Icon, ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
 import { flowTrustRequest } from '@/lib/plugin-review';
 import { cn } from '@/lib/utils';
-import {
-  AskBody,
-  AskButton,
-  AskCard,
-  AskDetails,
-  AskError,
-  AskOptions,
-  AskSection,
-  type AskFact,
-} from './ask-card';
+import { AskBody, AskCard, AskDetails, AskError, AskSection, type AskFact } from './ask-card';
+import { BinaryAsk, type BinaryAnswer } from './ask-binary';
 import { AskCode } from './ask-code';
 import { FlowTrustDetails } from './flow-trust-details';
-import { pendingInteractionDomId, respondFromControl } from './interaction-control';
+import { pendingInteractionDomId } from './interaction-control';
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { PermissionOperationDetails, PermissionPaths } from './permission-operation-details';
 import { permissionTitle } from './permission-operation-labels';
@@ -208,7 +200,13 @@ export function PermissionResponse({
       ? t`Run script`
       : permissionTitle(interaction, toolName);
   const scriptLines = script ? script.code.replace(/\n$/u, '').split('\n').length : 0;
-  const respond = (action: string) => respondFromControl(onResponse(interaction, { action }));
+  const answers = scopes.map(
+    (scope): BinaryAnswer => ({
+      label: flowTrust ? t`Trust and run` : scope.label,
+      name: flowTrust ? t`Trust and run` : scope.name,
+      onChoose: () => onResponse(interaction, { action: scope.action }),
+    }),
+  );
   const owner = askedBy(interaction, ownerLabel, showOwner);
   const cwd = interaction.payload?.execution?.cwd;
   const args = toolCall?.input === undefined ? undefined : agentArguments(toolCall.input);
@@ -292,39 +290,25 @@ export function PermissionResponse({
         />
       ) : null}
       <AskError error={responseError} />
-      <AskOptions aria-label={t`Decision`}>
-        {scopes.map((scope, index) => (
-          <AskButton
-            aria-label={flowTrust ? t`Trust and run` : scope.name}
-            disabled={disabled}
-            // i18n-ignore: key name
-            hint={index === 0 ? 'Enter' : undefined}
-            key={scope.action}
-            number={index + 1}
-            onClick={() => respond(scope.action)}
-            primary={index === 0}
-          >
-            {flowTrust ? t`Trust and run` : scope.label}
-          </AskButton>
-        ))}
-        {(interaction.actions ?? [])
+      {/* The first scope accepts (Enter); the lasting scopes are further ways to accept. */}
+      <BinaryAsk
+        accept={answers[0]}
+        alternatives={answers.slice(1)}
+        decline={
+          offered('deny')
+            ? { label: t`Deny`, onChoose: () => onResponse(interaction, { action: 'deny' }) }
+            : undefined
+        }
+        disabled={disabled}
+        enterAccepts
+        label={t`Decision`}
+        unavailable={(interaction.actions ?? [])
           .filter((action) => !KNOWN_ACTIONS.has(action))
-          .map((action) => (
-            <AskButton disabled key={action} title={t`This client cannot offer "${action}" yet.`}>
-              {action}
-            </AskButton>
-          ))}
-        {offered('deny') ? (
-          <AskButton
-            disabled={disabled}
-            // i18n-ignore: key name
-            hint="Escape"
-            onClick={() => respond('deny')}
-          >
-            {t`Deny`}
-          </AskButton>
-        ) : null}
-      </AskOptions>
+          .map((action) => ({
+            label: action,
+            title: t`This client cannot offer "${action}" yet.`,
+          }))}
+      />
       {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
         <AskDetails hint={t`raw arguments, as the agent sent them`}>
           <div className="grid gap-2.5">

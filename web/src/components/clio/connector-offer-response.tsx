@@ -19,7 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AskBody, AskButton, AskCard, AskError, AskOptions, AskSection } from './ask-card';
+import { AskBody, AskCard, AskError, AskSection } from './ask-card';
+import { BinaryAsk } from './ask-binary';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import type { ClioPendingInteractionsProps } from './pending-interactions';
@@ -246,35 +247,32 @@ export function ConnectorOfferResponse({
           </AskBody>
         ) : null}
         <AskError error={responseError} />
-        <AskOptions
-          aria-label={t`Decision`}
+        <BinaryAsk
+          accept={
+            offered('submit')
+              ? {
+                  disabled: !payload || unfilled.length > 0,
+                  label: asking ? t`Save` : t({ message: 'Add', context: 'verb' }),
+                  onChoose: add,
+                  title: addTip || undefined,
+                }
+              : undefined
+          }
           // In a narrow card the options are a column; one line, so the row of what it
           // brings is as wide as the card and truncates instead of widening every button.
           className="mt-2 @max-[420px]/ask:flex-nowrap"
+          decline={
+            offered('decline')
+              ? {
+                  label: t`Not now`,
+                  onChoose: () => onResponse(interaction, { action: 'decline' }),
+                }
+              : undefined
+          }
+          disabled={disabled}
+          enterAccepts
+          label={t`Decision`}
         >
-          {offered('submit') ? (
-            <AskButton
-              disabled={disabled || !payload || unfilled.length > 0}
-              // i18n-ignore: key name
-              hint={unfilled.length ? undefined : 'Enter'}
-              number={1}
-              onClick={add}
-              primary
-              title={addTip || undefined}
-            >
-              {asking ? t`Save` : t({ message: 'Add', context: 'verb' })}
-            </AskButton>
-          ) : null}
-          {offered('decline') ? (
-            <AskButton
-              disabled={disabled}
-              // i18n-ignore: key name
-              hint="Escape"
-              onClick={() => respondFromControl(onResponse(interaction, { action: 'decline' }))}
-            >
-              {t`Not now`}
-            </AskButton>
-          ) : null}
           {offered('submit') && !asking ? (
             <Select
               disabled={disabled}
@@ -337,7 +335,7 @@ export function ConnectorOfferResponse({
               </button>
             ) : null}
           </div>
-        </AskOptions>
+        </BinaryAsk>
         {settings.length && settingsOpen ? (
           <AskSection className="max-h-64 overflow-y-auto" id={settingsId}>
             <ConnectorNeedRows {...needProps} needs={settings} />

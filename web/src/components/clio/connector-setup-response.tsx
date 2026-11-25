@@ -10,7 +10,8 @@ import { PlugIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useConnector, useInvalidateConnectors, useSessionConnector } from '@/hooks/use-connectors';
 import { connectorStatus } from '@/lib/connector-presentation';
-import { AskBody, AskButton, AskCard, AskError, AskOptions, AskSection } from './ask-card';
+import { AskBody, AskCard, AskError, AskSection } from './ask-card';
+import { BinaryAsk } from './ask-binary';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
 import { AgentNeedsResponse } from './agent-needs-response';
 import { ConnectorOfferResponse } from './connector-offer-response';
@@ -143,31 +144,29 @@ function ConnectorSetupCard({
         </AskSection>
       </AskBody>
       <AskError error={responseError} />
-      <AskOptions aria-label={t`Decision`}>
-        {offered('submit') ? (
-          <AskButton
-            disabled={disabled || !payload || unfilled.length > 0}
-            // i18n-ignore: key name
-            hint={unfilled.length ? undefined : 'Enter'}
-            number={1}
-            onClick={submit}
-            primary
-            title={unfilled.length ? t`Fill the required rows first` : undefined}
-          >
-            {t`Continue`}
-          </AskButton>
-        ) : null}
-        {offered('decline') ? (
-          <AskButton
-            disabled={disabled}
-            // i18n-ignore: key name
-            hint="Escape"
-            onClick={() => respondFromControl(onResponse(interaction, { action: 'decline' }))}
-          >
-            {t`Decline`}
-          </AskButton>
-        ) : null}
-      </AskOptions>
+      <BinaryAsk
+        accept={
+          offered('submit')
+            ? {
+                disabled: !payload || unfilled.length > 0,
+                label: t`Continue`,
+                onChoose: submit,
+                title: unfilled.length ? t`Fill the required rows first` : undefined,
+              }
+            : undefined
+        }
+        decline={
+          offered('decline')
+            ? {
+                label: t`Decline`,
+                onChoose: () => onResponse(interaction, { action: 'decline' }),
+              }
+            : undefined
+        }
+        disabled={disabled}
+        enterAccepts
+        label={t`Decision`}
+      />
       {signingIn && id ? (
         <McpSignInDialog
           name={id}

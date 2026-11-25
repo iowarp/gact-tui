@@ -5,9 +5,9 @@ import {
   type PendingInteractionResponse,
   type PluginPage,
 } from '@clio/core/v3';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangleIcon } from 'lucide-react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { isPendingInteractionEvent } from '@/hooks/use-session-live-stream';
@@ -20,8 +20,14 @@ import {
   pluginsUpdatedByFrame,
   releasePluginPage,
   rereadPluginPages,
+  seedPluginPage,
   usePluginPageState,
 } from '@/lib/a2ui/plugin-tab-store';
+import {
+  readStoredPluginPage,
+  storePluginPage,
+  type StoredPluginPage,
+} from '@/lib/a2ui/plugin-page-snapshot';
 import {
   invalidateA2uiSessionCatalogs,
   useA2uiCatalogRegistry,
@@ -40,6 +46,7 @@ import { ClioPendingInteractions } from './pending-interactions';
 import { PluginOpenWaitingLine, PluginOpenWaitingState } from './plugin-open-waiting';
 import { PluginOpenSteps } from './plugin-open-steps';
 import { PluginPageBrowser } from './plugin-page-browser';
+import { RingSpinner } from './primitives/ring-spinner';
 import { StateView } from './primitives/state-view';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ServerSurfaceRefusalRow } from './server-surface-refusal-row';
@@ -47,6 +54,8 @@ import { ph, t } from '@lingui/core/macro';
 
 /** After a dropped stream, wait this long before listening again. Unit: ms. */
 const RECONNECT_MS = 2_000;
+/** A live view is stored this long after it last changed, so a burst of updates writes once. Unit: ms. */
+const STORE_DELAY_MS = 500;
 
 /**
  * Follows a page's context while the page shows: its surfaces' `plugin_page.*`
@@ -101,6 +110,23 @@ function usePluginPageStream(contextSessionId: string | undefined) {
 }
 
 /**
+ * The context's stored catalog reads, entered as already stale so the live
+ * reads still run. A read that already answered is kept.
+ */
+function seedStoredCatalogs(queryClient: QueryClient, stored: StoredPluginPage): void {
+  const context = stored.contextSessionId;
+  if (!context) return;
+  const seeds: [string, unknown][] = [
+    ['a2ui-catalogs', stored.catalogs],
+    ['a2ui-capabilities', stored.capabilities],
+  ];
+  for (const [name, data] of seeds) {
+    if (data === undefined || queryClient.getQueryData([name, context]) !== undefined) continue;
+    queryClient.setQueryData([name, context], data, { updatedAt: 0 });
+  }
+}
+
+/**
  * A plugin's own page in the main area (its left-bar entry): the surfaces its
  * server sends for the page, full width, with the questions and consent the
  * server asks shown on the page. Any plugin can offer one; the content is the
@@ -118,10 +144,35 @@ export function PluginPageView({ page }: { page: PluginPage }) {
     [repository, pageId],
   );
   const cancel = useCallback(() => cancelPluginPageOpen(pageId), [pageId]);
+  const scope = connectionScope(settings);
   const needsRead = !state || state.stale;
+  // Before the first paint: the last stored view shows while the live read runs.
+  useLayoutEffect(() => {
+    if (!needsRead) return;
+    const stored = readStoredPluginPage(scope, pageId);
+    if (stored) {
+      seedPluginPage(pageId, stored);
+      seedStoredCatalogs(queryClient, stored);
+    }
+    reopen();
+  }, [needsRead, reopen, scope, pageId, queryClient]);
+  // Each live view is kept for the next open.
   useEffect(() => {
-    if (needsRead) reopen();
-  }, [needsRead, reopen]);
+    if (!state || state.stored || state.status !== 'ready' || state.surfaces.length === 0) return;
+    const timer = window.setTimeout(() => {
+      const context = state.contextSessionId;
+      storePluginPage(scope, pageId, {
+        surfaces: state.surfaces,
+        owner: state.owner,
+        contextSessionId: context,
+        catalogs: context ? queryClient.getQueryData(['a2ui-catalogs', context]) : undefined,
+        capabilities: context
+          ? queryClient.getQueryData(['a2ui-capabilities', context])
+          : undefined,
+      });
+    }, STORE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [state, scope, pageId, queryClient]);
   // The page's surfaces and watch end when it leaves the screen.
   useEffect(() => () => releasePluginPage(pageId), [pageId]);
   const contextSessionId = state?.contextSessionId ?? page.context_session_id ?? undefined;
@@ -261,7 +312,7 @@ export function PluginPageView({ page }: { page: PluginPage }) {
             key={surface.id}
             onRemoteAction={onRemoteAction}
             ownerAttribution={false}
-            readOnly={unavailable}
+            readOnly={unavailable || Boolean(state.stored)}
             surface={surface}
           />
         ))}
@@ -279,7 +330,21 @@ export function PluginPageView({ page }: { page: PluginPage }) {
     >
       <div className="clio-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         <div className="@container mx-auto flex w-full max-w-[960px] min-w-0 flex-col gap-3 px-4 pt-5 pb-8 sm:px-6">
-          <SettingsSectionHeading title={label} />
+          <SettingsSectionHeading
+            actions={
+              state?.stored ? (
+                <span
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                  data-slot="plugin-page-updating"
+                  role="status"
+                >
+                  <RingSpinner />
+                  {t`Updating`}
+                </span>
+              ) : undefined
+            }
+            title={label}
+          />
           {body}
         </div>
       </div>

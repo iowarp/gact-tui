@@ -11,6 +11,7 @@ import {
 } from '@/lib/agent-needs';
 import { cn } from '@/lib/utils';
 import { AskBody, AskButton, AskCard, AskError, AskOptions, AskSection } from './ask-card';
+import { BinaryAsk } from './ask-binary';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import type { ClioPendingInteractionsProps } from './pending-interactions';
@@ -130,81 +131,101 @@ export function AgentNeedsResponse({
         </AskSection>
       </AskBody>
       <AskError error={responseError} />
-      <AskOptions aria-label={t`Decision`} className="mt-2">
-        {asking && offered('submit') ? (
-          <AskButton
-            disabled={disabled || !payload || !chosen.length}
-            // i18n-ignore: key name
-            hint="Enter"
-            number={1}
-            onClick={enable}
-            primary
-            title={
-              unfilled.length
-                ? t`Those with an empty required value ask for it when first used.`
-                : undefined
-            }
-          >
-            {chosen.length === items.length
-              ? t`Enable all`
-              : t`Enable ${ph({ count: chosen.length })}`}
-          </AskButton>
-        ) : null}
-        {asking && offered('decline') ? (
-          <AskButton
-            disabled={disabled}
-            // i18n-ignore: key name
-            hint="Escape"
-            onClick={() => respondFromControl(onResponse(interaction, { action: 'decline' }))}
-          >
-            {t`Not now`}
-          </AskButton>
-        ) : null}
-        {!asking && failed.length && offered('submit') ? (
-          <AskButton
-            disabled={disabled}
-            number={1}
-            onClick={() =>
-              respondFromControl(
-                onResponse(interaction, {
-                  action: 'submit',
-                  metadata: { items: failed.map((item) => item.id) },
-                }),
-              )
-            }
-          >
-            {t`Try again`}
-          </AskButton>
-        ) : null}
-        {!asking && offered('dismiss') ? (
-          <AskButton
-            disabled={disabled}
-            // i18n-ignore: key name
-            hint={phase === 'done' ? 'Enter' : 'Escape'}
-            onClick={() => respondFromControl(onResponse(interaction, { action: 'dismiss' }))}
-            primary={phase === 'done' && !failed.length}
-            title={phase === 'working' ? t`It goes on in the background.` : undefined}
-          >
-            {phase === 'working' ? t`Hide` : t`Close`}
-          </AskButton>
-        ) : null}
-        {settingsCount ? (
-          <button
-            aria-controls={settingsId}
-            aria-expanded={showSettings}
-            className="flex h-7 w-fit shrink-0 items-center gap-1 rounded-[4px] px-1 text-xs whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-            data-slot="agent-needs-settings"
-            onClick={() => setShowSettings((open) => !open)}
-            type="button"
-          >
-            <ChevronRightIcon
-              aria-hidden="true"
-              className={cn('size-3.5 transition-transform', showSettings && 'rotate-90')}
-            />
-            {t`Settings (${ph({ count: settingsCount })})`}
-          </button>
-        ) : null}
-      </AskOptions>
+      {asking ? (
+        <BinaryAsk
+          accept={
+            offered('submit')
+              ? {
+                  disabled: !payload || !chosen.length,
+                  label:
+                    chosen.length === items.length
+                      ? t`Enable all`
+                      : t`Enable ${ph({ count: chosen.length })}`,
+                  onChoose: enable,
+                  title: unfilled.length
+                    ? t`Those with an empty required value ask for it when first used.`
+                    : undefined,
+                }
+              : undefined
+          }
+          className="mt-2"
+          decline={
+            offered('decline')
+              ? {
+                  label: t`Not now`,
+                  onChoose: () => onResponse(interaction, { action: 'decline' }),
+                }
+              : undefined
+          }
+          disabled={disabled}
+          enterAccepts
+          label={t`Decision`}
+        >
+          {settingsCount ? (
+            <button
+              aria-controls={settingsId}
+              aria-expanded={showSettings}
+              className="flex h-7 w-fit shrink-0 items-center gap-1 rounded-[4px] px-1 text-xs whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+              data-slot="agent-needs-settings"
+              onClick={() => setShowSettings((open) => !open)}
+              type="button"
+            >
+              <ChevronRightIcon
+                aria-hidden="true"
+                className={cn('size-3.5 transition-transform', showSettings && 'rotate-90')}
+              />
+              {t`Settings (${ph({ count: settingsCount })})`}
+            </button>
+          ) : null}
+        </BinaryAsk>
+      ) : (
+        <AskOptions aria-label={t`Decision`} className="mt-2">
+          {failed.length > 0 && offered('submit') ? (
+            <AskButton
+              disabled={disabled}
+              number={1}
+              onClick={() =>
+                respondFromControl(
+                  onResponse(interaction, {
+                    action: 'submit',
+                    metadata: { items: failed.map((item) => item.id) },
+                  }),
+                )
+              }
+            >
+              {t`Try again`}
+            </AskButton>
+          ) : null}
+          {offered('dismiss') ? (
+            <AskButton
+              disabled={disabled}
+              // i18n-ignore: key name
+              hint={phase === 'done' ? 'Enter' : 'Escape'}
+              onClick={() => respondFromControl(onResponse(interaction, { action: 'dismiss' }))}
+              primary={phase === 'done' && !failed.length}
+              title={phase === 'working' ? t`It goes on in the background.` : undefined}
+            >
+              {phase === 'working' ? t`Hide` : t`Close`}
+            </AskButton>
+          ) : null}
+          {settingsCount ? (
+            <button
+              aria-controls={settingsId}
+              aria-expanded={showSettings}
+              className="flex h-7 w-fit shrink-0 items-center gap-1 rounded-[4px] px-1 text-xs whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+              data-slot="agent-needs-settings"
+              onClick={() => setShowSettings((open) => !open)}
+              type="button"
+            >
+              <ChevronRightIcon
+                aria-hidden="true"
+                className={cn('size-3.5 transition-transform', showSettings && 'rotate-90')}
+              />
+              {t`Settings (${ph({ count: settingsCount })})`}
+            </button>
+          ) : null}
+        </AskOptions>
+      )}
       {asking && showSettings ? (
         <AskSection className="mt-2 grid max-h-64 gap-2 overflow-y-auto" id={settingsId}>
           {items.map((item) => (
