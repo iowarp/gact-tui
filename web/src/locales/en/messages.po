@@ -489,12 +489,6 @@ msgstr "{0, plural, one {# problem} other {# problems}}"
 msgid "{0, plural, one {# profile} other {# profiles}}"
 msgstr "{0, plural, one {# profile} other {# profiles}}"
 
-#. placeholder {0}: profiles.length - excluded.size
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "{0, plural, one {# profile kept} other {# profiles kept}}"
-msgstr "{0, plural, one {# profile kept} other {# profiles kept}}"
-
-
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
 msgid "{0, plural, one {# prompt family available.} other {# prompt families available.}}"
@@ -15199,10 +15193,6 @@ msgstr "Exclude"
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Excluded profiles"
 msgstr "Excluded profiles"
-
-msgid "Exclude selected"
-msgstr "Exclude selected"
-
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -33817,10 +33807,6 @@ msgstr "Showing {shown} of {total} rows, downsampled ({method})."
 #: src/components/clio/table-query-rows.ts
 msgid "Showing {shown} of {total} rows."
 msgstr "Showing {shown} of {total} rows."
-
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "Showing 500 of {count}; search to narrow."
-msgstr "Showing 500 of {count}; search to narrow."
 
 #: src/components/clio/workbench-resource-browser.tsx
 msgid "Showing part of this workspace; filter to find the rest."

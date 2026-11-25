@@ -490,12 +490,6 @@ msgstr "{0, plural, one {# πρόβλημα} other {# προβλήματα}}"
 msgid "{0, plural, one {# profile} other {# profiles}}"
 msgstr "{0, plural, one {# προφίλ} other {# προφίλ}}"
 
-#. placeholder {0}: profiles.length - excluded.size
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "{0, plural, one {# profile kept} other {# profiles kept}}"
-msgstr "{0, plural, one {# προφίλ διατηρείται} other {# προφίλ διατηρούνται}}"
-
-
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
 msgid "{0, plural, one {# prompt family available.} other {# prompt families available.}}"
@@ -15200,10 +15194,6 @@ msgstr "Εξαίρεση"
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Excluded profiles"
 msgstr "Εξαιρούμενα προφίλ"
-
-msgid "Exclude selected"
-msgstr "Εξαίρεση επιλεγμένων"
-
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -33818,10 +33808,6 @@ msgstr "Εμφανίζονται {shown} από {total} γραμμές, με υ�
 #: src/components/clio/table-query-rows.ts
 msgid "Showing {shown} of {total} rows."
 msgstr "Εμφανίζονται {shown} από {total} γραμμές."
-
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "Showing 500 of {count}; search to narrow."
-msgstr "Εμφανίζονται 500 από {count}· αναζητήστε για περιορισμό."
 
 #: src/components/clio/workbench-resource-browser.tsx
 msgid "Showing part of this workspace; filter to find the rest."

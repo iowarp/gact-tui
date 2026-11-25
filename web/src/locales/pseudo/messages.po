@@ -487,11 +487,6 @@ msgstr ""
 #. placeholder {0}: profiles.length
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "{0, plural, one {# profile} other {# profiles}}"
-
-#. placeholder {0}: profiles.length - excluded.size
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "{0, plural, one {# profile kept} other {# profiles kept}}"
-
 msgstr ""
 
 #. placeholder {0}: result.prompt_count
@@ -15189,9 +15184,6 @@ msgstr ""
 
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Excluded profiles"
-
-msgid "Exclude selected"
-
 msgstr ""
 
 #: src/components/clio/context-canvas-panel.tsx
@@ -26634,6 +26626,7 @@ msgstr ""
 
 #: src/components/clio/job-card.tsx
 msgid "Planned"
+msgstr ""
 
 #: src/widget-gallery-demos.ts
 msgid "Planned stations"
@@ -33796,10 +33789,6 @@ msgstr ""
 
 #: src/components/clio/table-query-rows.ts
 msgid "Showing {shown} of {total} rows."
-msgstr ""
-
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "Showing 500 of {count}; search to narrow."
 msgstr ""
 
 #: src/components/clio/workbench-resource-browser.tsx

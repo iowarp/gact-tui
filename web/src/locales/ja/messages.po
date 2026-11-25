@@ -490,12 +490,6 @@ msgstr "{0, plural, one {#件の問題} other {#件の問題}}"
 msgid "{0, plural, one {# profile} other {# profiles}}"
 msgstr "{0, plural, one {プロファイル # 件} other {プロファイル # 件}}"
 
-#. placeholder {0}: profiles.length - excluded.size
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "{0, plural, one {# profile kept} other {# profiles kept}}"
-msgstr "{0, plural, other {# 件のプロファイルを保持}}"
-
-
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
 msgid "{0, plural, one {# prompt family available.} other {# prompt families available.}}"
@@ -15200,10 +15194,6 @@ msgstr "除外"
 #: src/components/clio/a2ui-profile-stack.tsx
 msgid "Excluded profiles"
 msgstr "除外したプロファイル"
-
-msgid "Exclude selected"
-msgstr "選択項目を除外"
-
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -33818,10 +33808,6 @@ msgstr "{total}行中{shown}行を表示しています（{method}でダウン�
 #: src/components/clio/table-query-rows.ts
 msgid "Showing {shown} of {total} rows."
 msgstr "{total}行中{shown}行を表示しています。"
-
-#: src/components/clio/a2ui-profile-stack.tsx
-msgid "Showing 500 of {count}; search to narrow."
-msgstr "{count} 件中 500 件を表示中。検索で絞り込めます。"
 
 #: src/components/clio/workbench-resource-browser.tsx
 msgid "Showing part of this workspace; filter to find the rest."
