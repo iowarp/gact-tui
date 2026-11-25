@@ -28,7 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { openExternalUrl } from '@/tauri/external-url';
 import { serverOwnerName } from '@/lib/a2ui/server-surface';
 import { cn } from '@/lib/utils';
-import { binaryPair, type BinaryOption, type BinaryPair } from '@/lib/binary-answers';
+import { answerWord, binaryPair, type BinaryOption, type BinaryPair } from '@/lib/binary-answers';
 import { AskBody, AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { BinaryAsk } from './ask-binary';
 import { withDeclaredChoices } from '@/lib/declared-choices';
@@ -322,12 +322,19 @@ function urlOriginTrust(payload: PendingInteraction['payload']): string | undefi
  */
 function fieldPair(field: PendingInteractionField): BinaryPair<BinaryOption<unknown>> | undefined {
   const values = field.enum ?? [];
-  return binaryPair(
+  const pair = binaryPair(
     values.map((value, index) => ({
       value,
       label: optionLabel(field, value, index),
     })),
   );
+  // Paired on the producer's English words; shown in the interface language.
+  return pair
+    ? {
+        accept: { ...pair.accept, label: answerWord(pair.accept.label) },
+        decline: { ...pair.decline, label: answerWord(pair.decline.label) },
+      }
+    : undefined;
 }
 
 /** A bare schema id (`compute_job`) read as words (`Compute job`); other text stays as written. */

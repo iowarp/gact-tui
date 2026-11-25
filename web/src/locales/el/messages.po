@@ -5092,6 +5092,11 @@ msgstr "Απόλυτη διαδρομή"
 msgid "Accept"
 msgstr "Αποδοχή"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Accept"
+msgstr "Αποδοχή"
+
 #: src/lib/provider-availability.ts
 msgid "Accepted"
 msgstr "Αποδεκτό"
@@ -6244,6 +6249,11 @@ msgstr "Όλα τα εργαλεία εγγραφής και διαγραφής"
 msgid "Allow"
 msgstr "Να επιτρέπεται"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Allow"
+msgstr "Να επιτραπεί"
+
 #. placeholder {0}: folderName(root)
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "Allow {0}"
@@ -6917,6 +6927,11 @@ msgstr "έγκριση"
 
 #: src/widget-gallery-demos.ts
 #: src/widget-gallery-scenarios.ts
+msgid "Approve"
+msgstr "Έγκριση"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Approve"
 msgstr "Έγκριση"
 
@@ -8457,6 +8472,11 @@ msgstr "Δεν είναι δυνατή η εκκίνηση"
 #: src/components/reui/date-selector.tsx
 #: src/providers/connection-provider.tsx
 #: src/routes/connection-page.tsx
+msgid "Cancel"
+msgstr "Ακύρωση"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Cancel"
 msgstr "Ακύρωση"
 
@@ -11414,6 +11434,11 @@ msgstr "Παράθυρο πλαισίου"
 msgid "Continue"
 msgstr "Συνέχεια"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Continue"
+msgstr "Συνέχεια"
+
 #: src/components/clio/tool-operation-contract.ts
 msgid "Continue after"
 msgstr "Συνέχεια μετά από"
@@ -13064,6 +13089,11 @@ msgstr "Δηλώθηκε ως δομημένη τιμή."
 msgid "Decline"
 msgstr "Άρνηση"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Decline"
+msgstr "Άρνηση"
+
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Declined by you"
 msgstr "Απορρίφθηκε από εσάς"
@@ -13372,6 +13402,11 @@ msgstr "Απορρίφθηκε αίτημα δικαιωμάτων"
 
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/permission-response.tsx
+msgid "Deny"
+msgstr "Απόρριψη"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Deny"
 msgstr "Απόρριψη"
 
@@ -16111,6 +16146,10 @@ msgstr "Εύρεση και διατήρηση χρήσιμων μηνυμάτω
 #: src/components/clio/source-provider-info.tsx
 msgid "Find datasets in National Data Platform catalogs, then download a copy or link selected resources. NDP originals cannot be changed through this connection. Sign in for protected data."
 msgstr "Βρείτε σύνολα δεδομένων στους καταλόγους της National Data Platform και, στη συνέχεια, κάντε λήψη ενός αντιγράφου ή συνδέστε επιλεγμένους πόρους. Τα πρωτότυπα του NDP δεν μπορούν να αλλάξουν μέσω αυτής της σύνδεσης. Συνδεθείτε για προστατευμένα δεδομένα."
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Find files"
+msgstr "Εύρεση αρχείων"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "Find models"
@@ -22818,6 +22857,11 @@ msgstr "Επόμενη, προηγούμενη περιοχή"
 msgid "No"
 msgstr "Όχι"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "No"
+msgstr "Όχι"
+
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "No {facet} in the listed models"
 msgstr "Δεν υπάρχει {facet} στα μοντέλα της λίστας"
@@ -29159,6 +29203,11 @@ msgstr "Επανεγκατάσταση περιβάλλοντος εκτέλεσ
 msgid "Reject"
 msgstr "Απόρριψη"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Reject"
+msgstr "Απόρριψη"
+
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
 msgid "rejected"
@@ -34414,6 +34463,11 @@ msgstr "Δεξιότητες και πρόσθετα"
 #: src/components/clio/private-local-details.tsx
 msgid "Skills and plugins"
 msgstr "Δεξιότητες και πρόσθετα"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Skip"
+msgstr "Παράλειψη"
 
 #: src/components/clio/onboarding/tour-overlay.tsx
 msgid "Skip tour"
@@ -43005,6 +43059,11 @@ msgstr "Έτος"
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
+msgid "Yes"
+msgstr "Ναι"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Yes"
 msgstr "Ναι"
 

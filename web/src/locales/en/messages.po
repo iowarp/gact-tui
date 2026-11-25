@@ -5091,6 +5091,11 @@ msgstr "Absolute path"
 msgid "Accept"
 msgstr "Accept"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Accept"
+msgstr "Accept"
+
 #: src/lib/provider-availability.ts
 msgid "Accepted"
 msgstr "Accepted"
@@ -6243,6 +6248,11 @@ msgstr "All write and delete tools"
 msgid "Allow"
 msgstr "Allow"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Allow"
+msgstr "Allow"
+
 #. placeholder {0}: folderName(root)
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "Allow {0}"
@@ -6916,6 +6926,11 @@ msgstr "approve"
 
 #: src/widget-gallery-demos.ts
 #: src/widget-gallery-scenarios.ts
+msgid "Approve"
+msgstr "Approve"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Approve"
 msgstr "Approve"
 
@@ -8456,6 +8471,11 @@ msgstr "Can't start"
 #: src/components/reui/date-selector.tsx
 #: src/providers/connection-provider.tsx
 #: src/routes/connection-page.tsx
+msgid "Cancel"
+msgstr "Cancel"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -11413,6 +11433,11 @@ msgstr "Context window"
 msgid "Continue"
 msgstr "Continue"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Continue"
+msgstr "Continue"
+
 #: src/components/clio/tool-operation-contract.ts
 msgid "Continue after"
 msgstr "Continue after"
@@ -13063,6 +13088,11 @@ msgstr "Declared as a structured value."
 msgid "Decline"
 msgstr "Decline"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Decline"
+msgstr "Decline"
+
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Declined by you"
 msgstr "Declined by you"
@@ -13371,6 +13401,11 @@ msgstr "Denied a permission request"
 
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/permission-response.tsx
+msgid "Deny"
+msgstr "Deny"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Deny"
 msgstr "Deny"
 
@@ -16110,6 +16145,10 @@ msgstr "Find and keep useful messages"
 #: src/components/clio/source-provider-info.tsx
 msgid "Find datasets in National Data Platform catalogs, then download a copy or link selected resources. NDP originals cannot be changed through this connection. Sign in for protected data."
 msgstr "Find datasets in National Data Platform catalogs, then download a copy or link selected resources. NDP originals cannot be changed through this connection. Sign in for protected data."
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Find files"
+msgstr "Find files"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "Find models"
@@ -22817,6 +22856,11 @@ msgstr "Next, previous region"
 msgid "No"
 msgstr "No"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "No"
+msgstr "No"
+
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "No {facet} in the listed models"
 msgstr "No {facet} in the listed models"
@@ -29158,6 +29202,11 @@ msgstr "Reinstall runtime"
 msgid "Reject"
 msgstr "Reject"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Reject"
+msgstr "Reject"
+
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
 msgid "rejected"
@@ -34413,6 +34462,11 @@ msgstr "Skills & plugins"
 #: src/components/clio/private-local-details.tsx
 msgid "Skills and plugins"
 msgstr "Skills and plugins"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Skip"
+msgstr "Skip"
 
 #: src/components/clio/onboarding/tour-overlay.tsx
 msgid "Skip tour"
@@ -43004,6 +43058,11 @@ msgstr "Year"
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
+msgid "Yes"
+msgstr "Yes"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Yes"
 msgstr "Yes"
 

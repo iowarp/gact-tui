@@ -23,7 +23,7 @@ import { JobCard } from '@/components/clio/job-card';
 import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/key-value-grid';
 import { runConversationHref, runKindName } from '@/components/clio/run-presentation';
 import { TechnicalDetails } from '@/components/clio/technical-details';
-import { callerName } from '@/components/clio/tool-presentation';
+import { getToolActionLabel, getToolSubject } from '@/components/clio/tool-presentation';
 import { TOOL_OPERATIONS } from '@/components/clio/tool-operation-contract';
 import { useRunChildSession } from '@/hooks/use-flow-run';
 import { useRunQuestions } from '@/hooks/use-run-questions';
@@ -395,8 +395,19 @@ function messageTools(message: Message, tools: ReadonlyMap<string, ToolInvocatio
   return message.blocks.flatMap((block) => {
     if (block.type !== 'tool' || !('tool_id' in block)) return [];
     const tool = tools.get(String(block.tool_id));
-    return tool ? [callerName(tool)] : [];
+    return tool ? [usedToolName(tool)] : [];
   });
+}
+
+/** An internal handle ("task_f2cbda60…", "sess_…") names nothing a person can read. */
+const OPAQUE_ID = /^[a-z]+_[0-9a-f]{8,}$/iu;
+
+/** "Write file: notes/a.txt", in the interface language; a bare handle is left out. */
+function usedToolName(tool: ToolInvocation): string {
+  const action = TOOL_OPERATIONS[tool.name]?.action ?? getToolActionLabel(tool);
+  const subject = getToolSubject(tool);
+  const target = (subject?.label || subject?.text || '').trim();
+  return target && !OPAQUE_ID.test(target) ? `${action}: ${target}` : action;
 }
 
 function speaker(message: Message): string {

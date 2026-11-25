@@ -81,6 +81,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
     'path',
   ),
   fs_search_text: search(t({ message: 'Search', context: 'verb: tool action' }), 'path'),
+  fs_glob: { ...search(t`Find files`, 'path'), query: 'pattern' },
   fs_read_file: define(t`Read file`, 'declared', 'path'),
   fs_write_file: { ...define(t`Write file`, 'declared', 'path'), instruction: 'content' },
   fs_edit_file: define(t`Edit file`, 'declared', 'path'),

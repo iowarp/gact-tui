@@ -48,9 +48,14 @@ const SINGULAR: Record<string, string> = {
 
 /** A producer's count recap as row metadata, reading "1 file matches" rather than "1 files match". */
 function countSummary(summary: string): string {
-  return summary.replace(
-    /^1 (files|lines|matches|results|hits|items|rows|tasks|entries)\b( match\b)?/u,
-    (_, noun: string, verb?: string) => `1 ${SINGULAR[noun]}${verb ? ' matches' : ''}`,
+  return (
+    summary
+      // "7 files match **/contract.yaml": the pattern is the call's argument, the count its result.
+      .replace(/^((?:\d[\d,]*|No) files? match(?:es)?) \S.*$/u, '$1')
+      .replace(
+        /^1 (files|lines|matches|results|hits|items|rows|tasks|entries)\b( match\b)?/u,
+        (_, noun: string, verb?: string) => `1 ${SINGULAR[noun]}${verb ? ' matches' : ''}`,
+      )
   );
 }
 

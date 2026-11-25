@@ -34,6 +34,8 @@ export function useRunQuestions(row: RunRow, live: boolean): PendingInteraction[
   const backendTask = row.task?.backend?.task_id;
   return (questions.data ?? [])
     .filter((question) => {
+      // A permission the approval mode granted on its own asked no one; it is audit, not a question.
+      if (String(question.status) === 'auto_approved') return false;
       const payload = record(question.payload);
       return (
         question.task_id === row.handleId ||

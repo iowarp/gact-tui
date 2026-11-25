@@ -5092,6 +5092,11 @@ msgstr "絶対パス"
 msgid "Accept"
 msgstr "承認"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Accept"
+msgstr "承認"
+
 #: src/lib/provider-availability.ts
 msgid "Accepted"
 msgstr "承認済み"
@@ -6244,6 +6249,11 @@ msgstr "すべての書き込み・削除ツール"
 msgid "Allow"
 msgstr "許可"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Allow"
+msgstr "許可"
+
 #. placeholder {0}: folderName(root)
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "Allow {0}"
@@ -6917,6 +6927,11 @@ msgstr "承認待ち"
 
 #: src/widget-gallery-demos.ts
 #: src/widget-gallery-scenarios.ts
+msgid "Approve"
+msgstr "承認"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Approve"
 msgstr "承認"
 
@@ -8457,6 +8472,11 @@ msgstr "起動できません"
 #: src/components/reui/date-selector.tsx
 #: src/providers/connection-provider.tsx
 #: src/routes/connection-page.tsx
+msgid "Cancel"
+msgstr "キャンセル"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Cancel"
 msgstr "キャンセル"
 
@@ -11414,6 +11434,11 @@ msgstr "コンテキストウィンドウ"
 msgid "Continue"
 msgstr "続行"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Continue"
+msgstr "続行"
+
 #: src/components/clio/tool-operation-contract.ts
 msgid "Continue after"
 msgstr "完了後に続行"
@@ -13064,6 +13089,11 @@ msgstr "構造化された値として宣言されています。"
 msgid "Decline"
 msgstr "辞退"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Decline"
+msgstr "辞退"
+
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Declined by you"
 msgstr "あなたが辞退"
@@ -13372,6 +13402,11 @@ msgstr "権限リクエストを拒否しました"
 
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/permission-response.tsx
+msgid "Deny"
+msgstr "拒否"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Deny"
 msgstr "拒否"
 
@@ -16111,6 +16146,10 @@ msgstr "役立つメッセージを見つけて残す"
 #: src/components/clio/source-provider-info.tsx
 msgid "Find datasets in National Data Platform catalogs, then download a copy or link selected resources. NDP originals cannot be changed through this connection. Sign in for protected data."
 msgstr "National Data Platformのカタログでデータセットを探し、コピーをダウンロードするか、選択したリソースをリンクします。この接続ではNDPの元データは変更できません。保護されたデータにはサインインしてください。"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Find files"
+msgstr "ファイルを検索"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "Find models"
@@ -22818,6 +22857,11 @@ msgstr "次・前の領域"
 msgid "No"
 msgstr "いいえ"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "No"
+msgstr "いいえ"
+
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "No {facet} in the listed models"
 msgstr "一覧のモデルに{facet}はありません"
@@ -29159,6 +29203,11 @@ msgstr "ランタイムを再インストール"
 msgid "Reject"
 msgstr "却下"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Reject"
+msgstr "却下"
+
 #: src/components/clio/flow-run-presentation.ts
 msgctxt "flow step state"
 msgid "rejected"
@@ -34414,6 +34463,11 @@ msgstr "スキルとプラグイン"
 #: src/components/clio/private-local-details.tsx
 msgid "Skills and plugins"
 msgstr "スキルとプラグイン"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Skip"
+msgstr "スキップ"
 
 #: src/components/clio/onboarding/tour-overlay.tsx
 msgid "Skip tour"
@@ -43005,6 +43059,11 @@ msgstr "年"
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
+msgid "Yes"
+msgstr "はい"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Yes"
 msgstr "はい"
 
