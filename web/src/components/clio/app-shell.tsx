@@ -665,9 +665,12 @@ export function ClioAppShell({
           <SheetContent
             // Under the split breakpoint the workbench slides over the conversation at 86%,
             // whichever tab is open; the spec's shadow sets the conversation strip beside
-            // it underneath, not cut off. The sheet is the canvas's box: the keeper over it
-            // draws the canvas and takes its input, so the sheet itself is see-through.
-            className="w-[86vw] bg-transparent p-0 pointer-events-none shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_60%,transparent)] data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_75%,transparent)] [&>[data-slot=sheet-close]]:right-12 [body[data-canvas-maximized]_&]:inset-0 [body[data-canvas-maximized]_&]:w-screen [body[data-canvas-maximized]_&]:max-w-none [body[data-canvas-maximized]_&]:border-0 sm:[body[data-canvas-maximized]_&]:max-w-none data-[state=closed]:invisible"
+            // it underneath, not cut off. On a phone 86% would leave a clipped strip of
+            // transcript and a canvas under the spec's 320px floor, so it takes the full
+            // width and closes from its own tab row. The sheet is the canvas's box: the
+            // keeper over it draws the canvas and takes its input, so the sheet itself is
+            // see-through.
+            className="w-screen bg-transparent p-0 pointer-events-none shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_60%,transparent)] data-[side=right]:w-screen md:w-[86vw] md:data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_75%,transparent)] [&>[data-slot=sheet-close]]:right-12 [body[data-canvas-maximized]_&]:inset-0 [body[data-canvas-maximized]_&]:w-screen [body[data-canvas-maximized]_&]:max-w-none [body[data-canvas-maximized]_&]:border-0 sm:[body[data-canvas-maximized]_&]:max-w-none data-[state=closed]:invisible"
             // Land on the canvas rather than on whichever icon button comes first (which
             // would also pop its tooltip); the keeper is placed over the sheet a frame on.
             onOpenAutoFocus={(event) => {

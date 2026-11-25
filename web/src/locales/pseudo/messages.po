@@ -10132,6 +10132,7 @@ msgid "Close working copy"
 msgstr ""
 
 #: src/components/clio/app-shell.tsx
+#: src/components/clio/workbench.tsx
 msgid "Close workspace canvas"
 msgstr ""
 

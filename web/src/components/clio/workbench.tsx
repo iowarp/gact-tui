@@ -6,7 +6,7 @@ import type {
   WorkspaceFileEntry,
   WorkspaceResource,
 } from '@clio/core/v3';
-import { Maximize2Icon, Minimize2Icon } from 'lucide-react';
+import { Maximize2Icon, Minimize2Icon, PanelRightIcon } from 'lucide-react';
 import {
   forwardRef,
   startTransition,
@@ -23,6 +23,7 @@ import { Root as DismissableLayer } from '@radix-ui/react-dismissable-layer';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useShortcut } from '@/lib/shortcuts/hooks';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { IconButton } from './primitives/icon-button';
 import type { FrameBack } from './primitives/frame-back';
@@ -255,6 +256,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     const canvasVisible = useWorkspaceCanvasVisibility();
     const canvasControl = useWorkspaceCanvasControl();
+    // Below the phone breakpoint the canvas is always the full-width sheet.
+    const phoneSheet = useIsMobile();
     const [activityView, setActivityView] = useState<WorkbenchActivityView>('timeline');
     const [runsSelected, setRunsSelected] = useState<RunsSelection>();
 
@@ -659,16 +662,32 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 stripRef={tabStripRef}
                 tabs={orderedTabs}
                 trailing={
-                  <IconButton
-                    icon={maximized ? <Minimize2Icon /> : <Maximize2Icon />}
-                    label={maximized ? t`Restore canvas beside conversation` : t`Maximize canvas`}
-                    onClick={(event) => toggleMaximized(event.currentTarget)}
-                    ref={maximizeButtonRef}
-                    shortcut="maximize"
-                    // Hugging its icon, clear of the file toolbar's More button under it.
-                    shortcutSide="under-icon"
-                    tooltipSide="bottom"
-                  />
+                  phoneSheet ? (
+                    // A phone sheet already covers the conversation and its canvas toggle:
+                    // there is nothing to maximize into, so the row closes it instead.
+                    <IconButton
+                      icon={<PanelRightIcon />}
+                      label={t`Close workspace canvas`}
+                      onClick={() => {
+                        setMaximized(false);
+                        canvasControl?.hide?.();
+                      }}
+                      shortcut="right-pocket"
+                      shortcutSide="under-icon"
+                      tooltipSide="bottom"
+                    />
+                  ) : (
+                    <IconButton
+                      icon={maximized ? <Minimize2Icon /> : <Maximize2Icon />}
+                      label={maximized ? t`Restore canvas beside conversation` : t`Maximize canvas`}
+                      onClick={(event) => toggleMaximized(event.currentTarget)}
+                      ref={maximizeButtonRef}
+                      shortcut="maximize"
+                      // Hugging its icon, clear of the file toolbar's More button under it.
+                      shortcutSide="under-icon"
+                      tooltipSide="bottom"
+                    />
+                  )
                 }
               />
               {orderedTabs.map((tab) => (
