@@ -686,6 +686,35 @@ describe('conversationTurnPresentation', () => {
     });
   });
 
+  it('leaves the interruption to the reply notice when the service says why (#54)', () => {
+    const message: Message = {
+      id: 'assistant_restarted',
+      session_id: 'session_1',
+      run_id: 'turn_restarted',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      completed_at: '2026-08-24T00:01:00Z',
+      stop_reason: 'error',
+      error_info: {
+        error: 'server_restart_interrupted',
+        message: 'The agent service restarted before this response completed.',
+        recoverable: true,
+      },
+      blocks: [
+        {
+          id: 'partial_thought',
+          type: 'text',
+          text: 'Resolve the region first.',
+          channel: 'next_thought',
+        },
+      ],
+    };
+
+    expect(conversationTurnPresentation(message, tools).iterations[0]).toMatchObject({
+      interrupted: false,
+    });
+  });
+
   it('keeps the server-provided response recovery text as the chain label', () => {
     const message: Message = {
       id: 'assistant_retry',

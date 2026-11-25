@@ -9,6 +9,7 @@ import { MessageBlockSequence, ReplyErrorLine } from './conversation-message-blo
 import { replyFailureCode, replyFailureReason } from './reply-failure';
 import { ReplyRecoveryActions } from './reply-failure-recovery';
 import { ConversationTurn } from './conversation-turn';
+import { replyCancelledByPerson } from './conversation-turn-model';
 import type { TurnEnd } from './conversation-activity-lane';
 import { VariantRunsForMessage } from './variant-runs-for-message';
 import { subagentsForTool } from './subagent-tool-link';
@@ -109,10 +110,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
           ? t`The agent service restarted before this reply finished. It is continuing on its own.`
           : t`The agent service restarted before this reply finished. Your request was kept, so you can retry it.`
       : emptyResponseErrorMessage;
-  const emptyResponseWasClientCancelled =
-    !stoppedByService &&
-    (emptyResponseErrorCode === 'cancelled' ||
-      emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client');
+  const emptyResponseWasClientCancelled = replyCancelledByPerson(message);
   // An interruption by the service says so; any other failure says why it failed.
   const failureReason = interruptedByService
     ? interruptionReason

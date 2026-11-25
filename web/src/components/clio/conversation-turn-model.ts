@@ -446,7 +446,9 @@ function fallbackIterations(
   insertFeedback(previousPartId);
   flush(
     messageCompletedNormally(message) && !current.activity.some((entry) => entry.kind === 'tool'),
-    messageInterrupted(message),
+    // A reply whose own notice already says it stopped (an error part, or the service's
+    // reason) gets no second Interrupted mark for the same event (#54).
+    messageInterrupted(message) && !replyStatesItsEnd(message),
   );
   return { compactionRecords, consumed, iterations, segments };
 }
@@ -532,6 +534,31 @@ function hasIterationContent(iteration: ConversationIteration): boolean {
 function messageCompletedNormally(message: Message): boolean {
   if (!message.completed_at && !message.stop_reason) return false;
   return !messageInterrupted(message);
+}
+
+/** The person cancelled this reply themselves; the service stopping is not that. */
+export function replyCancelledByPerson(message: Message): boolean {
+  const info = message.error_info;
+  const details = info?.details;
+  const serviceStopped =
+    typeof details === 'object' &&
+    details !== null &&
+    (details as Record<string, unknown>).reason === 'server_shutdown';
+  if (serviceStopped) return false;
+  return (
+    info?.error === 'cancelled' ||
+    (typeof info?.message === 'string' &&
+      info.message.trim().toLowerCase() === 'turn cancelled by client')
+  );
+}
+
+/** The reply's row shows a notice of how it ended: an error part or the service's reason. */
+export function replyStatesItsEnd(message: Message): boolean {
+  const reason = message.error_info?.message;
+  return (
+    message.blocks.some((block) => block.type === 'error') ||
+    (typeof reason === 'string' && reason.length > 0 && !replyCancelledByPerson(message))
+  );
 }
 
 function messageInterrupted(message: Message): boolean {
