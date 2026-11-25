@@ -6,6 +6,7 @@ import type {
 } from '@clio/core/v3';
 import type { CommandMenuScope } from '@/lib/command-menu-scopes';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
+import { planTabId } from '@/lib/plan-tab';
 import { workspaceFilePath } from '@/lib/workspace-file-path';
 import { useLiveStore } from '@/store/live-store';
 import { resourceDisplayName } from './host-folder';
@@ -45,6 +46,8 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'subagent'; subagent: SubagentRun }
   /** A flow run (a workflow, a council, ...) recorded under the task `handle`. */
   | { kind: 'flow'; handle: string; label?: string }
+  /** A conversation's working plan, read only. */
+  | { kind: 'plan'; sessionId?: string }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
   /** `view` names the timeline tab's view; without one, Activity shows its list. */
   | { kind: 'session'; view?: ObservabilityView }
@@ -158,6 +161,16 @@ export function tabForOpenRequest(
         sessionId,
         workspaceId,
       };
+    case 'plan': {
+      const owner = request.sessionId ?? sessionId;
+      return {
+        id: planTabId(owner),
+        kind: 'plan',
+        label: t`Working plan`,
+        sessionId: owner,
+        workspaceId,
+      };
+    }
     case 'terminal':
       return {
         id: `terminal:${sessionId}`,

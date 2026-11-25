@@ -23,6 +23,7 @@ import { resourceDisplayName } from './host-folder';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { AgentCompositionView } from './agent-composition-view';
 import { WorkbenchFlowTab } from './workbench-flow-tab';
+import { WorkbenchPlanTab } from './workbench-plan-tab';
 import { WorkbenchVariantTryTab } from './workbench-variant-try-tab';
 import { deferredComponent } from '@/lib/deferred-chunk';
 import { ArtifactBrowser, FileBrowser } from './workbench-resource-browser';
@@ -145,19 +146,7 @@ export function WorkbenchTabContent({
   switch (tab.kind) {
     case 'work':
       return sessionId ? (
-        <SessionWorkView
-          key={sessionId}
-          sessionId={sessionId}
-          onOpenFile={(path) =>
-            onOpenTab({
-              id: `workspace-file:${workspaceId}:${path}`,
-              kind: 'workspace-file',
-              label: fileName(path),
-              path,
-              workspaceId,
-            })
-          }
-        />
+        <SessionWorkView key={sessionId} sessionId={sessionId} />
       ) : (
         sessionView
       );
@@ -398,6 +387,21 @@ export function WorkbenchTabContent({
       );
     case 'flow':
       return <WorkbenchFlowTab onOpenSubagent={onOpenSubagent} tab={tab} />;
+    case 'plan':
+      return (
+        <WorkbenchPlanTab
+          onOpenFile={(path) =>
+            onOpenTab({
+              id: `workspace-file:${tab.workspaceId}:${path}`,
+              kind: 'workspace-file',
+              label: fileName(path),
+              path,
+              workspaceId: tab.workspaceId,
+            })
+          }
+          tab={tab}
+        />
+      );
     case 'terminal':
       return <WorkspaceTerminalPanel cwd={tab.cwd} sessionId={tab.sessionId} tabId={tab.id} />;
     case 'browser':

@@ -11758,6 +11758,7 @@ msgid "Copied the note path."
 msgstr ""
 
 #: src/components/clio/file-viewer-take-hooks.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "Copied the path."
 msgstr ""
 
@@ -11947,6 +11948,7 @@ msgstr ""
 #: src/components/clio/file-viewer-take-hooks.tsx
 #: src/components/clio/skill-tool-result.tsx
 #: src/components/clio/tool-compact-row.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 #: src/components/clio/workbench-tab-row.tsx
 msgid "Copy path"
 msgstr ""
@@ -12196,6 +12198,10 @@ msgstr ""
 
 #: src/components/clio/text-file-copy-action.tsx
 msgid "Could not copy the file text."
+msgstr ""
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Could not copy the path."
 msgstr ""
 
 #: src/components/clio/agent-library-row.tsx
@@ -13915,6 +13921,7 @@ msgstr ""
 #: src/components/clio/model-picker-catalog.tsx
 #: src/components/clio/onboarding/tour-overlay.tsx
 #: src/components/clio/operation-progress.tsx
+#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/share-session-dialog.tsx
 #: src/components/clio/transcript-content-picker.tsx
@@ -14375,6 +14382,10 @@ msgstr ""
 
 #: src/components/clio/settings-models-form.ts
 msgid "Drop tokens less likely than this fraction of the most likely one."
+msgstr ""
+
+#: src/components/clio/session-plan-section.tsx
+msgid "Dropped"
 msgstr ""
 
 #: src/components/clio/settings-access-rule-row.tsx
@@ -18078,6 +18089,7 @@ msgstr ""
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/resource-processing-presentation.ts
+#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/session-rail-content.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/tool-result-primitives.tsx
@@ -20609,6 +20621,10 @@ msgstr ""
 msgid "Loading the page"
 msgstr ""
 
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Loading the plan"
+msgstr ""
+
 #: src/components/clio/script-run-body.tsx
 msgid "Loading the rest…"
 msgstr ""
@@ -21934,6 +21950,7 @@ msgstr ""
 #: src/components/clio/async-task-list.tsx
 #: src/components/clio/file-viewer-take.tsx
 #: src/components/clio/mcp-app-frame-menu.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "More actions"
 msgstr ""
 
@@ -21954,6 +21971,10 @@ msgstr ""
 #: src/components/clio/extension-library-panes.tsx
 #: src/components/clio/plugin-explorer.tsx
 msgid "More actions for {title}"
+msgstr ""
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "More actions for the working plan"
 msgstr ""
 
 #: src/routes/runs-page.tsx
@@ -24925,6 +24946,7 @@ msgstr ""
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/file-viewer-take.tsx
+#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Open"
 msgstr ""
@@ -25448,6 +25470,10 @@ msgstr ""
 
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Open the output in a browser tab"
+msgstr ""
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Open the plan file"
 msgstr ""
 
 #: src/lib/onboarding/tour-script.ts
@@ -26605,6 +26631,10 @@ msgstr ""
 
 #: src/components/clio/injection-presentation.ts
 msgid "Plan sent back"
+msgstr ""
+
+#: src/components/clio/session-plan-section.tsx
+msgid "Plan steps"
 msgstr ""
 
 #: src/components/clio/plan-decision-controls.tsx
@@ -28150,6 +28180,10 @@ msgstr ""
 
 #: src/components/clio/context-sources.tsx
 msgid "Read only, in last request"
+msgstr ""
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Read or cite the Markdown the agent keeps."
 msgstr ""
 
 #: src/components/clio/tool-invocation.tsx
@@ -37183,6 +37217,10 @@ msgstr ""
 msgid "The pick was cancelled. {unused}"
 msgstr ""
 
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "The plan could not be loaded."
+msgstr ""
+
 #: src/components/clio/session-plan-section.tsx
 msgid "The plan file is empty."
 msgstr ""
@@ -38542,6 +38580,10 @@ msgstr ""
 
 #: src/components/clio/agent-composition-view.tsx
 msgid "This conversation has no resolved agent"
+msgstr ""
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "This conversation has no working plan yet."
 msgstr ""
 
 #: src/components/clio/workspace-route-surfaces.tsx
@@ -42428,6 +42470,15 @@ msgstr ""
 
 #: src/components/clio/file-viewer-take.tsx
 msgid "Working on it"
+msgstr ""
+
+#: src/components/clio/workbench-open-request.ts
+#: src/components/clio/workbench-tab-storage.ts
+msgid "Working plan"
+msgstr ""
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Working plan actions"
 msgstr ""
 
 #: src/components/clio/document-workspace.tsx

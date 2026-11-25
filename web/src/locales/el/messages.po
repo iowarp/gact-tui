@@ -11767,6 +11767,7 @@ msgid "Copied the note path."
 msgstr "Η διαδρομή της σημείωσης αντιγράφηκε."
 
 #: src/components/clio/file-viewer-take-hooks.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "Copied the path."
 msgstr "Η διαδρομή αντιγράφηκε."
 
@@ -11956,6 +11957,7 @@ msgstr "Αντιγραφή γονικής ανάθεσης"
 #: src/components/clio/file-viewer-take-hooks.tsx
 #: src/components/clio/skill-tool-result.tsx
 #: src/components/clio/tool-compact-row.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 #: src/components/clio/workbench-tab-row.tsx
 msgid "Copy path"
 msgstr "Αντιγραφή διαδρομής"
@@ -12206,6 +12208,10 @@ msgstr "Δεν ήταν δυνατή η αντιγραφή του πρόχειρ
 #: src/components/clio/text-file-copy-action.tsx
 msgid "Could not copy the file text."
 msgstr "Δεν ήταν δυνατή η αντιγραφή του κειμένου του αρχείου."
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Could not copy the path."
+msgstr "Δεν ήταν δυνατή η αντιγραφή της διαδρομής."
 
 #: src/components/clio/agent-library-row.tsx
 #: src/lib/extension-library-entries.ts
@@ -13924,6 +13930,7 @@ msgstr "ολοκληρώθηκε"
 #: src/components/clio/model-picker-catalog.tsx
 #: src/components/clio/onboarding/tour-overlay.tsx
 #: src/components/clio/operation-progress.tsx
+#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/share-session-dialog.tsx
 #: src/components/clio/transcript-content-picker.tsx
@@ -14385,6 +14392,10 @@ msgstr "Αποθέστε τα οπουδήποτε σε αυτό το παράθ
 #: src/components/clio/settings-models-form.ts
 msgid "Drop tokens less likely than this fraction of the most likely one."
 msgstr "Απορρίπτει tokens λιγότερο πιθανά από αυτό το κλάσμα του πιο πιθανού."
+
+#: src/components/clio/session-plan-section.tsx
+msgid "Dropped"
+msgstr "Εγκαταλείφθηκε"
 
 #: src/components/clio/settings-access-rule-row.tsx
 msgid "Duplicate rule"
@@ -18096,6 +18107,7 @@ msgstr "Επί τόπου. Ο {agent} εργάζεται στον αρχικό �
 #: src/components/clio/infrastructure-activity.tsx
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/resource-processing-presentation.ts
+#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/session-rail-content.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/tool-result-primitives.tsx
@@ -20627,6 +20639,10 @@ msgstr "Φόρτωση της συνδεδεμένης προβολής…"
 msgid "Loading the page"
 msgstr "Φόρτωση της σελίδας"
 
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Loading the plan"
+msgstr "Φόρτωση του σχεδίου"
+
 #: src/components/clio/script-run-body.tsx
 msgid "Loading the rest…"
 msgstr "Φόρτωση του υπολοίπου…"
@@ -21952,6 +21968,7 @@ msgstr "Περισσότερα για {type}"
 #: src/components/clio/async-task-list.tsx
 #: src/components/clio/file-viewer-take.tsx
 #: src/components/clio/mcp-app-frame-menu.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "More actions"
 msgstr "Περισσότερες ενέργειες"
 
@@ -21973,6 +21990,10 @@ msgstr "Περισσότερες ενέργειες για {name}"
 #: src/components/clio/plugin-explorer.tsx
 msgid "More actions for {title}"
 msgstr "Περισσότερες ενέργειες για {title}"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "More actions for the working plan"
+msgstr "Περισσότερες ενέργειες για το σχέδιο εργασίας"
 
 #: src/routes/runs-page.tsx
 msgid "More available; search covers loaded runs."
@@ -24943,6 +24964,7 @@ msgstr "ανοιχτή"
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/command-menu.tsx
 #: src/components/clio/file-viewer-take.tsx
+#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Open"
 msgstr "Άνοιγμα"
@@ -25467,6 +25489,10 @@ msgstr "Ανοίξτε τον αρχικό χώρο εργασίας για να
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Open the output in a browser tab"
 msgstr "Άνοιγμα της εξόδου σε καρτέλα προγράμματος περιήγησης"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Open the plan file"
+msgstr "Άνοιγμα του αρχείου σχεδίου"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "Open the plot."
@@ -26624,6 +26650,10 @@ msgstr "Ο έλεγχος του σχεδίου έληξε"
 #: src/components/clio/injection-presentation.ts
 msgid "Plan sent back"
 msgstr "Το σχέδιο επιστράφηκε"
+
+#: src/components/clio/session-plan-section.tsx
+msgid "Plan steps"
+msgstr "Βήματα σχεδίου"
 
 #: src/components/clio/plan-decision-controls.tsx
 msgid "Plan still writing…"
@@ -28169,6 +28199,10 @@ msgstr "Μόνο για ανάγνωση, συνημμένο στον πράκτ
 #: src/components/clio/context-sources.tsx
 msgid "Read only, in last request"
 msgstr "Μόνο για ανάγνωση, στο τελευταίο αίτημα"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Read or cite the Markdown the agent keeps."
+msgstr "Διαβάστε ή παραθέστε το Markdown που τηρεί ο πράκτορας."
 
 #: src/components/clio/tool-invocation.tsx
 msgid "Read resource"
@@ -37202,6 +37236,10 @@ msgstr "Η επιλογή έκλεισε. {unused}"
 msgid "The pick was cancelled. {unused}"
 msgstr "Η επιλογή ακυρώθηκε. {unused}"
 
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "The plan could not be loaded."
+msgstr "Δεν ήταν δυνατή η φόρτωση του σχεδίου."
+
 #: src/components/clio/session-plan-section.tsx
 msgid "The plan file is empty."
 msgstr "Το αρχείο του σχεδίου είναι κενό."
@@ -38562,6 +38600,10 @@ msgstr "Αυτή η συνομιλία δεν έχει ακόμη μηνύματ
 #: src/components/clio/agent-composition-view.tsx
 msgid "This conversation has no resolved agent"
 msgstr "Αυτή η συνομιλία δεν έχει επιλυμένο πράκτορα"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "This conversation has no working plan yet."
+msgstr "Αυτή η συνομιλία δεν έχει ακόμη σχέδιο εργασίας."
 
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "This conversation isn't available"
@@ -42448,6 +42490,15 @@ msgstr "Εργάζεται τώρα"
 #: src/components/clio/file-viewer-take.tsx
 msgid "Working on it"
 msgstr "Σε εξέλιξη"
+
+#: src/components/clio/workbench-open-request.ts
+#: src/components/clio/workbench-tab-storage.ts
+msgid "Working plan"
+msgstr "Σχέδιο εργασίας"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Working plan actions"
+msgstr "Ενέργειες σχεδίου εργασίας"
 
 #: src/components/clio/document-workspace.tsx
 msgid "Working-copy conflict resolved against the confirmed artifact head."

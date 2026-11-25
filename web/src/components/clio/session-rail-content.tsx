@@ -26,6 +26,7 @@ import { useSessionWork } from './use-session-work';
 import { browserPageLabel, useBrowserPages } from './use-browser-pages';
 import { SessionWorkSummary } from './session-work';
 import { SessionPlanBody } from './session-plan-section';
+import { openPlanTab } from '@/lib/plan-tab';
 import { planStatusLabel } from '@/lib/plan-status';
 import { TodoList, TodoStatusIcon } from './todo-list';
 import type { ReactNode } from 'react';
@@ -162,7 +163,13 @@ export function SessionRailContent({
     inventory.push({
       id: 'plan',
       summary: planStatusLabel(work.data.plan.status),
-      content: <SessionPlanBody plan={work.data.plan} onOpen={evidence.onOpenFile} preview={false} />,
+      content: (
+        <SessionPlanBody
+          plan={work.data.plan}
+          onOpen={() => openPlanTab(evidence.sessionId!)}
+          preview={false}
+        />
+      ),
     });
   if (todos.length)
     inventory.push({

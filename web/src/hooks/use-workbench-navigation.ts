@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { connectionScope } from '@/lib/connection-scope';
 import { KNOWLEDGE_OPEN_EVENT, type KnowledgeOpenRequest } from '@/lib/knowledge-navigation';
 import { OPEN_VARIANT_TRY_EVENT, type OpenVariantTryDetail } from '@/lib/variant-try-tabs';
+import { OPEN_PLAN_TAB_EVENT, type OpenPlanTabDetail } from '@/lib/plan-tab';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
 import { OPEN_MCP_APP_TAB_EVENT } from '@/components/clio/mcp-app-live-set';
@@ -174,6 +175,15 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     };
     window.addEventListener(OPEN_VARIANT_TRY_EVENT, show);
     return () => window.removeEventListener(OPEN_VARIANT_TRY_EVENT, show);
+  }, [revealWorkbench]);
+
+  useEffect(() => {
+    const show = (event: Event) => {
+      const { sessionId } = (event as CustomEvent<OpenPlanTabDetail>).detail;
+      revealWorkbench({ kind: 'plan', sessionId });
+    };
+    window.addEventListener(OPEN_PLAN_TAB_EVENT, show);
+    return () => window.removeEventListener(OPEN_PLAN_TAB_EVENT, show);
   }, [revealWorkbench]);
 
   const repositoryForFiles = useRepository();

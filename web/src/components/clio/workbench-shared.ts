@@ -100,6 +100,8 @@ type WorkbenchTabKind =
       sessionId: string;
       workspaceId: string;
     }
+  /** The conversation's working plan, read only (the agent's own, or one from plan mode). */
+  | { id: `plan:${string}`; kind: 'plan'; label: string; sessionId: string; workspaceId: string }
   | {
       id: string;
       kind: 'terminal';

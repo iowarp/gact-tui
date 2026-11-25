@@ -36,6 +36,7 @@ import { todoCurrentSummary } from './todo-list-summary';
 import { SessionAccess } from './session-access';
 import { StateView } from './primitives/state-view';
 import { SessionPlanBody } from './session-plan-section';
+import { openPlanTab } from '@/lib/plan-tab';
 import { planStatusLabel } from '@/lib/plan-status';
 import { plural, t, ph } from '@lingui/core/macro';
 import { formatDateTime } from '@/lib/locale-format';
@@ -362,28 +363,15 @@ function PreviousScheduleRow({ schedule }: { schedule: WorkScheduleHistory }) {
  * are Activity rows; only kinds with records show, and one empty state
  * stands for a session that has none.
  */
-export function SessionWorkView({
-  sessionId,
-  onOpenFile,
-}: {
-  sessionId: string;
-  /** Open a file (the plan) in a workbench tab. */
-  onOpenFile?: (path: string) => void;
-}) {
+export function SessionWorkView({ sessionId }: { sessionId: string }) {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <SessionWorkInventory sessionId={sessionId} onOpenFile={onOpenFile} />
+      <SessionWorkInventory sessionId={sessionId} />
     </div>
   );
 }
 
-function SessionWorkInventory({
-  sessionId,
-  onOpenFile,
-}: {
-  sessionId: string;
-  onOpenFile?: (path: string) => void;
-}) {
+function SessionWorkInventory({ sessionId }: { sessionId: string }) {
   const [cursor, setCursor] = useState(0);
   const query = useSessionWork(sessionId, cursor);
   const repository = useRepository();
@@ -454,7 +442,7 @@ function SessionWorkInventory({
       <SessionAccess sessionId={sessionId} />
       {data.plan ? (
         <WorkSection title={t`Plan`} summary={planStatusLabel(data.plan.status)}>
-          <SessionPlanBody plan={data.plan} onOpen={onOpenFile} />
+          <SessionPlanBody plan={data.plan} onOpen={() => openPlanTab(sessionId)} />
         </WorkSection>
       ) : null}
       {empty ? (
