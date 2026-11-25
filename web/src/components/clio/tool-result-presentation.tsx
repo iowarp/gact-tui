@@ -49,6 +49,30 @@ import { ReportTabs } from './report-tabs';
 import { childReports } from '@/lib/child-reports';
 import { t } from '@lingui/core/macro';
 
+/** The agent's fixed English block labels, said in the reader's language. */
+function blockLabel(label: string): string {
+  return label === 'Request failed' ? t`Request failed` : label;
+}
+
+// "Operation op_… on ares is cancelled. declined: the person declined: Approve …?"
+const DECLINED = /\bdeclined: the (?:person|user) declined(?::\s*([\s\S]+))?$/u;
+
+/**
+ * A call the person declined is their decision, not a failure: it reads as what they
+ * declined, without the error panel the agent's "Request failed" would draw.
+ */
+function declinedBlock(block: ToolPresentationBlock): ToolPresentationBlock | undefined {
+  if (block.severity !== 'error' || !block.text) return undefined;
+  const match = DECLINED.exec(block.text.trim());
+  if (!match) return undefined;
+  const { severity: _severity, ...rest } = block;
+  return {
+    ...rest,
+    label: t`You declined`,
+    text: match[1]?.trim() || block.text,
+  };
+}
+
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation(props: {
   tool: ToolInvocation;
@@ -104,6 +128,8 @@ function ToolResultBody({
         !['text', 'markdown'].includes(block.type) || block.text?.trim() || block.content_ref,
     )
     .map((block) => {
+      const declined = declinedBlock(block);
+      if (declined) return declined;
       if (resourceDocument && block.type === 'text')
         return { ...block, type: 'code' as const, language: languageForPath(subjectPath) };
       return block.type === 'code' && !block.language && subjectPath
@@ -404,13 +430,17 @@ function ToolResultBody({
                   className="px-2 text-xs font-medium text-muted-foreground"
                   data-slot="tool-result-label"
                 >
-                  {block.label}
+                  {blockLabel(block.label)}
                 </p>
               ) : null}
               <BoundedResult
                 lines={budget}
                 title={
-                  collectedChildOutput ? t`Collected child output` : (block.label ?? undefined)
+                  collectedChildOutput
+                    ? t`Collected child output`
+                    : block.label
+                      ? blockLabel(block.label)
+                      : undefined
                 }
               >
                 <BlockBody block={block} text={block.text ?? ''} />
@@ -442,7 +472,7 @@ function ToolResultBody({
                 {block.severity === 'error' ? (
                   <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
                 ) : null}
-                {block.label}
+                {blockLabel(block.label)}
               </p>
             ) : null}
             {block.content_ref && !running ? (

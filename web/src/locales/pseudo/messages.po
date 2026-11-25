@@ -13373,6 +13373,10 @@ msgstr ""
 msgid "Delete conversation?"
 msgstr ""
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Delete files"
+msgstr ""
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Delete memory?"
 msgstr ""
@@ -14188,6 +14192,10 @@ msgstr ""
 #: src/components/clio/connected-source-detail.tsx
 #: src/components/clio/image-resource-view.tsx
 msgid "Download file"
+msgstr ""
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Download files"
 msgstr ""
 
 #: src/components/clio/connected-source-detail.tsx
@@ -18802,6 +18810,10 @@ msgstr ""
 msgid "Install completed. View logs for the server output."
 msgstr ""
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Install packages"
+msgstr ""
+
 #: src/components/clio/service-management-model.ts
 msgid "Install prepares the pinned environment. Start loads the model. Removal retains models and evidence."
 msgstr ""
@@ -20055,8 +20067,16 @@ msgctxt "verb: tool action"
 msgid "List"
 msgstr ""
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "List files"
+msgstr ""
+
 #: src/components/clio/context-composition-model.ts
 msgid "List heading and closing line"
+msgstr ""
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "List packages"
 msgstr ""
 
 #: src/components/clio/tool-operation-contract.ts
@@ -24861,6 +24881,7 @@ msgid "now"
 msgstr ""
 
 #: src/components/clio/activity-timeline-list.tsx
+#: src/components/clio/relative-time.tsx
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/workbench-activity-model.ts
 #: src/components/reui/time-picker.tsx
@@ -28448,6 +28469,10 @@ msgstr ""
 msgid "read files"
 msgstr ""
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Read files"
+msgstr ""
+
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "Read from its code."
 msgstr ""
@@ -29720,6 +29745,10 @@ msgstr ""
 msgid "Remove message"
 msgstr ""
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Remove packages"
+msgstr ""
+
 #: src/components/clio/workspace-resource-remove.tsx
 msgid "Remove resource"
 msgstr ""
@@ -30182,6 +30211,10 @@ msgstr ""
 
 #: src/components/clio/permission-request-text.ts
 msgid "Request expired"
+msgstr ""
+
+#: src/components/clio/tool-result-presentation.tsx
+msgid "Request failed"
 msgstr ""
 
 #: src/components/clio/mcp-connection-dialog.tsx
@@ -35015,6 +35048,14 @@ msgstr ""
 
 #: src/components/clio/infrastructure-topology.tsx
 msgid "SSH: {words}"
+msgstr ""
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Stage files"
+msgstr ""
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Stage packages"
 msgstr ""
 
 #: src/components/clio/comments/comment-thread-list.tsx
@@ -41294,6 +41335,7 @@ msgid "Upload failed"
 msgstr ""
 
 #: src/components/ai-elements/prompt-input.tsx
+#: src/components/clio/permission-operation-labels.ts
 msgid "Upload files"
 msgstr ""
 
@@ -43161,6 +43203,10 @@ msgstr ""
 msgid "Write file"
 msgstr ""
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Write files"
+msgstr ""
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "Write what should change in {label} first"
 msgstr ""
@@ -43340,6 +43386,7 @@ msgid "You chose to continue"
 msgstr ""
 
 #: src/components/clio/agent-answer-activity.tsx
+#: src/components/clio/tool-result-presentation.tsx
 msgid "You declined"
 msgstr ""
 

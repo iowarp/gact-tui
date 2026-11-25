@@ -13382,6 +13382,10 @@ msgstr "Διαγραφή {title};"
 msgid "Delete conversation?"
 msgstr "Διαγραφή συνομιλίας;"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Delete files"
+msgstr "Διαγραφή αρχείων"
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Delete memory?"
 msgstr "Διαγραφή μνήμης;"
@@ -14198,6 +14202,10 @@ msgstr "Η λήψη απέτυχε, {amount}"
 #: src/components/clio/image-resource-view.tsx
 msgid "Download file"
 msgstr "Λήψη αρχείου"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Download files"
+msgstr "Λήψη αρχείων"
 
 #: src/components/clio/connected-source-detail.tsx
 msgid "Download folder"
@@ -18820,6 +18828,10 @@ msgstr "Εγκαταστήστε μια υπηρεσία ή συνδέστε μ�
 msgid "Install completed. View logs for the server output."
 msgstr "Η εγκατάσταση ολοκληρώθηκε. Δείτε τα αρχεία καταγραφής για την έξοδο του διακομιστή."
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Install packages"
+msgstr "Εγκατάσταση πακέτων"
+
 #: src/components/clio/service-management-model.ts
 msgid "Install prepares the pinned environment. Start loads the model. Removal retains models and evidence."
 msgstr "Η εγκατάσταση προετοιμάζει το καρφιτσωμένο περιβάλλον. Η εκκίνηση φορτώνει το μοντέλο. Η αφαίρεση διατηρεί τα μοντέλα και τα τεκμήρια."
@@ -20073,9 +20085,17 @@ msgctxt "verb: tool action"
 msgid "List"
 msgstr "Λίστα"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "List files"
+msgstr "Λίστα αρχείων"
+
 #: src/components/clio/context-composition-model.ts
 msgid "List heading and closing line"
 msgstr "Επικεφαλίδα και τελευταία γραμμή της λίστας"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "List packages"
+msgstr "Λίστα πακέτων"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "List schedules"
@@ -24879,6 +24899,7 @@ msgid "now"
 msgstr "τώρα"
 
 #: src/components/clio/activity-timeline-list.tsx
+#: src/components/clio/relative-time.tsx
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/workbench-activity-model.ts
 #: src/components/reui/time-picker.tsx
@@ -28466,6 +28487,10 @@ msgstr "Ανάγνωση αρχείου"
 msgid "read files"
 msgstr "διάβασε αρχεία"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Read files"
+msgstr "Ανάγνωση αρχείων"
+
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "Read from its code."
 msgstr "Διαβάστηκε από τον κώδικά του."
@@ -29738,6 +29763,10 @@ msgstr "Αφαίρεση μεταγενέστερων μηνυμάτων"
 msgid "Remove message"
 msgstr "Αφαίρεση μηνύματος"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Remove packages"
+msgstr "Αφαίρεση πακέτων"
+
 #: src/components/clio/workspace-resource-remove.tsx
 msgid "Remove resource"
 msgstr "Αφαίρεση πόρου"
@@ -30201,6 +30230,10 @@ msgstr "Αίτημα αλλαγών"
 #: src/components/clio/permission-request-text.ts
 msgid "Request expired"
 msgstr "Το αίτημα έληξε"
+
+#: src/components/clio/tool-result-presentation.tsx
+msgid "Request failed"
+msgstr "Το αίτημα απέτυχε"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Request headers"
@@ -35034,6 +35067,14 @@ msgstr "Το SSH ξεκινά από τον συνδεδεμένο {agent}. Πρ
 #: src/components/clio/infrastructure-topology.tsx
 msgid "SSH: {words}"
 msgstr "SSH: {words}"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Stage files"
+msgstr "Προετοιμασία αρχείων"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Stage packages"
+msgstr "Προετοιμασία πακέτων"
 
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/model-inventory-row.tsx
@@ -41313,6 +41354,7 @@ msgid "Upload failed"
 msgstr "Η μεταφόρτωση απέτυχε"
 
 #: src/components/ai-elements/prompt-input.tsx
+#: src/components/clio/permission-operation-labels.ts
 msgid "Upload files"
 msgstr "Μεταφόρτωση αρχείων"
 
@@ -43180,6 +43222,10 @@ msgstr "Εργαλεία εγγραφής και διαγραφής"
 msgid "Write file"
 msgstr "Εγγραφή αρχείου"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Write files"
+msgstr "Εγγραφή αρχείων"
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "Write what should change in {label} first"
 msgstr "Γράψτε πρώτα τι πρέπει να αλλάξει στο {label}"
@@ -43359,6 +43405,7 @@ msgid "You chose to continue"
 msgstr "Επιλέξατε να συνεχίσετε"
 
 #: src/components/clio/agent-answer-activity.tsx
+#: src/components/clio/tool-result-presentation.tsx
 msgid "You declined"
 msgstr "Απορρίψατε"
 

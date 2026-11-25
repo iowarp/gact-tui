@@ -13382,6 +13382,10 @@ msgstr "{title}を削除しますか？"
 msgid "Delete conversation?"
 msgstr "会話を削除しますか？"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Delete files"
+msgstr "ファイルを削除"
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Delete memory?"
 msgstr "メモリーを削除しますか？"
@@ -14197,6 +14201,10 @@ msgstr "ダウンロードに失敗しました、{amount}"
 #: src/components/clio/connected-source-detail.tsx
 #: src/components/clio/image-resource-view.tsx
 msgid "Download file"
+msgstr "ファイルをダウンロード"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Download files"
 msgstr "ファイルをダウンロード"
 
 #: src/components/clio/connected-source-detail.tsx
@@ -18820,6 +18828,10 @@ msgstr "サービスをインストールするか、既に実行しているサ
 msgid "Install completed. View logs for the server output."
 msgstr "インストールが完了しました。サーバーの出力はログで確認できます。"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Install packages"
+msgstr "パッケージをインストール"
+
 #: src/components/clio/service-management-model.ts
 msgid "Install prepares the pinned environment. Start loads the model. Removal retains models and evidence."
 msgstr "インストールでは固定された環境を準備します。開始でモデルを読み込みます。削除してもモデルとエビデンスは保持されます。"
@@ -20073,9 +20085,17 @@ msgctxt "verb: tool action"
 msgid "List"
 msgstr "一覧表示"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "List files"
+msgstr "ファイルを一覧表示"
+
 #: src/components/clio/context-composition-model.ts
 msgid "List heading and closing line"
 msgstr "リストの見出しと末尾の行"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "List packages"
+msgstr "パッケージを一覧表示"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "List schedules"
@@ -24879,6 +24899,7 @@ msgid "now"
 msgstr "今"
 
 #: src/components/clio/activity-timeline-list.tsx
+#: src/components/clio/relative-time.tsx
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/workbench-activity-model.ts
 #: src/components/reui/time-picker.tsx
@@ -28466,6 +28487,10 @@ msgstr "ファイルを読み取る"
 msgid "read files"
 msgstr "ファイルを読み取りました"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Read files"
+msgstr "ファイルを読み取る"
+
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "Read from its code."
 msgstr "コードから読み取りました。"
@@ -29738,6 +29763,10 @@ msgstr "以降のメッセージを削除"
 msgid "Remove message"
 msgstr "メッセージを削除"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Remove packages"
+msgstr "パッケージを削除"
+
 #: src/components/clio/workspace-resource-remove.tsx
 msgid "Remove resource"
 msgstr "リソースを削除"
@@ -30201,6 +30230,10 @@ msgstr "変更をリクエスト"
 #: src/components/clio/permission-request-text.ts
 msgid "Request expired"
 msgstr "リクエストの有効期限が切れました"
+
+#: src/components/clio/tool-result-presentation.tsx
+msgid "Request failed"
+msgstr "リクエストに失敗しました"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Request headers"
@@ -35034,6 +35067,14 @@ msgstr "SSHは接続中の{agent}から開始します。APIをホストして�
 #: src/components/clio/infrastructure-topology.tsx
 msgid "SSH: {words}"
 msgstr "SSH: {words}"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Stage files"
+msgstr "ファイルをステージ"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Stage packages"
+msgstr "パッケージをステージ"
 
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/model-inventory-row.tsx
@@ -41313,6 +41354,7 @@ msgid "Upload failed"
 msgstr "アップロードに失敗しました"
 
 #: src/components/ai-elements/prompt-input.tsx
+#: src/components/clio/permission-operation-labels.ts
 msgid "Upload files"
 msgstr "ファイルをアップロード"
 
@@ -43180,6 +43222,10 @@ msgstr "書き込み・削除ツール"
 msgid "Write file"
 msgstr "ファイルを書き込む"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Write files"
+msgstr "ファイルを書き込む"
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "Write what should change in {label} first"
 msgstr "まず{label}で変更すべき点を入力してください"
@@ -43359,6 +43405,7 @@ msgid "You chose to continue"
 msgstr "続行を選択しました"
 
 #: src/components/clio/agent-answer-activity.tsx
+#: src/components/clio/tool-result-presentation.tsx
 msgid "You declined"
 msgstr "辞退しました"
 

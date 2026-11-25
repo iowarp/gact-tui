@@ -13382,6 +13382,10 @@ msgstr "¿Eliminar {title}?"
 msgid "Delete conversation?"
 msgstr "¿Eliminar la conversación?"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Delete files"
+msgstr "Eliminar archivos"
+
 #: src/components/clio/memory-document-dialog.tsx
 msgid "Delete memory?"
 msgstr "¿Eliminar la memoria?"
@@ -14198,6 +14202,10 @@ msgstr "La descarga falló, {amount}"
 #: src/components/clio/image-resource-view.tsx
 msgid "Download file"
 msgstr "Descargar archivo"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Download files"
+msgstr "Descargar archivos"
 
 #: src/components/clio/connected-source-detail.tsx
 msgid "Download folder"
@@ -18820,6 +18828,10 @@ msgstr "Instala un servicio o conecta uno que ya ejecutes."
 msgid "Install completed. View logs for the server output."
 msgstr "Instalación completada. Consulta los registros para ver la salida del servidor."
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Install packages"
+msgstr "Instalar paquetes"
+
 #: src/components/clio/service-management-model.ts
 msgid "Install prepares the pinned environment. Start loads the model. Removal retains models and evidence."
 msgstr "Instalar prepara el entorno fijado. Iniciar carga el modelo. Al quitarlo se conservan los modelos y las evidencias."
@@ -20073,9 +20085,17 @@ msgctxt "verb: tool action"
 msgid "List"
 msgstr "Listar"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "List files"
+msgstr "Listar archivos"
+
 #: src/components/clio/context-composition-model.ts
 msgid "List heading and closing line"
 msgstr "Encabezado y línea final de la lista"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "List packages"
+msgstr "Listar paquetes"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "List schedules"
@@ -24879,6 +24899,7 @@ msgid "now"
 msgstr "ahora"
 
 #: src/components/clio/activity-timeline-list.tsx
+#: src/components/clio/relative-time.tsx
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/workbench-activity-model.ts
 #: src/components/reui/time-picker.tsx
@@ -28466,6 +28487,10 @@ msgstr "Leer archivo"
 msgid "read files"
 msgstr "leyó archivos"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Read files"
+msgstr "Leer archivos"
+
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "Read from its code."
 msgstr "Leído a partir de su código."
@@ -29738,6 +29763,10 @@ msgstr "Eliminar mensajes posteriores"
 msgid "Remove message"
 msgstr "Quitar mensaje"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Remove packages"
+msgstr "Quitar paquetes"
+
 #: src/components/clio/workspace-resource-remove.tsx
 msgid "Remove resource"
 msgstr "Quitar recurso"
@@ -30201,6 +30230,10 @@ msgstr "Solicitar cambios"
 #: src/components/clio/permission-request-text.ts
 msgid "Request expired"
 msgstr "Solicitud caducada"
+
+#: src/components/clio/tool-result-presentation.tsx
+msgid "Request failed"
+msgstr "La solicitud falló"
 
 #: src/components/clio/mcp-connection-dialog.tsx
 msgid "Request headers"
@@ -35034,6 +35067,14 @@ msgstr "SSH empieza en el {agent} conectado. Añade saltos para llegar al equipo
 #: src/components/clio/infrastructure-topology.tsx
 msgid "SSH: {words}"
 msgstr "SSH: {words}"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Stage files"
+msgstr "Preparar archivos"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Stage packages"
+msgstr "Preparar paquetes"
 
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/model-inventory-row.tsx
@@ -41313,6 +41354,7 @@ msgid "Upload failed"
 msgstr "La subida falló"
 
 #: src/components/ai-elements/prompt-input.tsx
+#: src/components/clio/permission-operation-labels.ts
 msgid "Upload files"
 msgstr "Subir archivos"
 
@@ -43180,6 +43222,10 @@ msgstr "Herramientas de escritura y eliminación"
 msgid "Write file"
 msgstr "Escribir archivo"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Write files"
+msgstr "Escribir archivos"
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "Write what should change in {label} first"
 msgstr "Primero escribe qué debería cambiar en {label}"
@@ -43359,6 +43405,7 @@ msgid "You chose to continue"
 msgstr "Elegiste continuar"
 
 #: src/components/clio/agent-answer-activity.tsx
+#: src/components/clio/tool-result-presentation.tsx
 msgid "You declined"
 msgstr "Rechazaste"
 

@@ -66,7 +66,8 @@ const VERB_SEGMENT = /^(?:read|write|list|get|set|run|call|manage|ops?)$/u;
 
 /**
  * An operation an MCP tool takes as an argument, in words: relay_files with op=upload is
- * "Upload files". The words are the tool's own ids, as a tool name is.
+ * "Upload files". Common file and package operations are translated; any other is said in
+ * the tool's own ids, as a tool name is.
  */
 function operationFromArguments(
   toolName: string,
@@ -84,8 +85,48 @@ function operationFromArguments(
   const rest = segments.length > 1 ? segments.slice(1) : segments;
   while (rest.length > 1 && VERB_SEGMENT.test(rest[rest.length - 1]!.toLowerCase())) rest.pop();
   const object = rest.join(' ');
+  const known = knownOperationPhrase(verb.toLowerCase(), object.toLowerCase());
+  if (known) return known;
   const phrase = object && object.toLowerCase() !== verb.toLowerCase() ? `${verb} ${object}` : verb;
   return phrase.charAt(0).toLocaleUpperCase() + phrase.slice(1);
+}
+
+/** Common operations on files and packages, said whole in the reader's language. */
+function knownOperationPhrase(verb: string, object: string): string | undefined {
+  if (object === 'files' || object === 'file') {
+    switch (verb) {
+      case 'upload':
+        return t`Upload files`;
+      case 'download':
+        return t`Download files`;
+      case 'list':
+        return t`List files`;
+      case 'read':
+        return t`Read files`;
+      case 'write':
+        return t`Write files`;
+      case 'delete':
+      case 'remove':
+        return t`Delete files`;
+      case 'stage':
+        return t`Stage files`;
+    }
+  }
+  if (object === 'packages' || object === 'package') {
+    switch (verb) {
+      case 'stage':
+        return t`Stage packages`;
+      case 'remove':
+      case 'delete':
+        return t`Remove packages`;
+      case 'install':
+        return t`Install packages`;
+      case 'list':
+      case 'read':
+        return t`List packages`;
+    }
+  }
+  return undefined;
 }
 
 // "destructive tool call: fs_write_file", "shell command call: shell_bash", "external MCP tool call: …".
