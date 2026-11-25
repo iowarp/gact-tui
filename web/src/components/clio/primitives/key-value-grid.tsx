@@ -34,8 +34,9 @@ export interface KeyValueItem {
  *
  * `facts` is the ask card's form: a label column at least 110px wide that grows
  * to its longest label (so no locale cuts one), 24px rows and
- * left-aligned values. In a narrow container the labels give way to their icons,
- * and a row may swap in its `narrow` value or drop out.
+ * left-aligned values. In a narrow container the labels give way to their icons
+ * when every row has one (otherwise the labels stay, at their own width), and a
+ * row may swap in its `narrow` value or drop out.
  *
  * `card` is the hover card's form (conversation-states `.hcd`): 25px rows inset
  * 8px, a 13px muted icon, the label in the text tone and the value right in the
@@ -61,6 +62,8 @@ export const KeyValueGrid = memo(function KeyValueGrid({
 }) {
   const hasAction = actionColumn || items.some((item) => item.action);
   const facts = variant === 'facts';
+  // Labels give way to icons only when every row has one to give way to.
+  const iconsWhenNarrow = facts && items.every((item) => item.icon);
   const card = variant === 'card';
   if (variant === 'rows') {
     return (
@@ -119,8 +122,12 @@ export const KeyValueGrid = memo(function KeyValueGrid({
             : 'grid items-center gap-x-3 gap-y-1 text-meta',
         facts
           ? hasAction
-            ? 'grid-cols-[minmax(110px,max-content)_minmax(0,1fr)_auto] @max-[420px]:grid-cols-[16px_minmax(0,1fr)_auto]'
-            : 'grid-cols-[minmax(110px,max-content)_minmax(0,1fr)] @max-[420px]:grid-cols-[16px_minmax(0,1fr)]'
+            ? iconsWhenNarrow
+              ? 'grid-cols-[minmax(110px,max-content)_minmax(0,1fr)_auto] @max-[420px]:grid-cols-[16px_minmax(0,1fr)_auto]'
+              : 'grid-cols-[minmax(110px,max-content)_minmax(0,1fr)_auto] @max-[420px]:grid-cols-[max-content_minmax(0,1fr)_auto]'
+            : iconsWhenNarrow
+              ? 'grid-cols-[minmax(110px,max-content)_minmax(0,1fr)] @max-[420px]:grid-cols-[16px_minmax(0,1fr)]'
+              : 'grid-cols-[minmax(110px,max-content)_minmax(0,1fr)] @max-[420px]:grid-cols-[max-content_minmax(0,1fr)]'
           : hasAction
             ? 'grid-cols-[minmax(0,auto)_minmax(0,1fr)_auto]'
             : 'grid-cols-[minmax(0,auto)_minmax(0,1fr)]',
@@ -158,13 +165,14 @@ export const KeyValueGrid = memo(function KeyValueGrid({
                     card
                       ? 'grid size-[13px] shrink-0 place-items-center text-muted-foreground [&_[data-provider-logo]]:size-[13px] [&_[data-provider-logo]>span]:size-[13px] [&_svg]:size-[13px]'
                       : "grid size-3.5 shrink-0 place-items-center [&_svg:not([class*='size-'])]:size-3.5",
-                    facts && 'hidden @max-[420px]:grid',
+                    iconsWhenNarrow && 'hidden @max-[420px]:grid',
+                    facts && !iconsWhenNarrow && 'hidden',
                   )}
                 >
                   {item.icon}
                 </span>
               ) : null}
-              <span className={cn('truncate', facts && item.icon && '@max-[420px]:sr-only')}>
+              <span className={cn('truncate', iconsWhenNarrow && '@max-[420px]:sr-only')}>
                 {item.label}
               </span>
             </dt>

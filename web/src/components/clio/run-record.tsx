@@ -148,7 +148,7 @@ function record(value: unknown): Record<string, unknown> | undefined {
 }
 
 /** What one recorded output chunk says, as log entries. */
-function chunkEntries(chunk: ObservedTaskChunk, key: string): LogEntry[] {
+function chunkEntries(chunk: ObservedTaskChunk, key: string, prose: boolean): LogEntry[] {
   if (chunk.error) {
     return [
       {
@@ -182,9 +182,9 @@ function chunkEntries(chunk: ObservedTaskChunk, key: string): LogEntry[] {
       });
   }
   // An agent's reply is prose; what a command printed stays a terminal block.
-  if (typeof value.text === 'string' && value.text.trim())
+  if (prose && typeof value.text === 'string' && value.text.trim())
     entries.push({ key: `${key}:message`, kind: 'message', text: value.text.trim() });
-  const text = [value.stdout, value.output, value.stderr].find(
+  const text = [prose ? undefined : value.text, value.stdout, value.output, value.stderr].find(
     (part): part is string => typeof part === 'string' && Boolean(part.trim()),
   );
   if (text) entries.push({ key: `${key}:text`, kind: 'output', text });
@@ -196,7 +196,7 @@ function chunkEntries(chunk: ObservedTaskChunk, key: string): LogEntry[] {
  * The log oldest first. Pages and chunks arrive newest first; a chunk too long
  * for one page is split by offset, so each chunk's parts are joined in order.
  */
-function logEntries(pages: readonly TaskObservation[]): LogEntry[] {
+function logEntries(pages: readonly TaskObservation[], prose: boolean): LogEntry[] {
   const chunks = new Map<string, ObservedTaskChunk[]>();
   for (const page of pages) {
     for (const chunk of page.tasks[0]?.output ?? []) {
@@ -213,7 +213,7 @@ function logEntries(pages: readonly TaskObservation[]): LogEntry[] {
       parts.length > 1 && parts.every((part) => typeof part.output === 'string')
         ? { ...parts[0]!, output: parts.map((part) => part.output as string).join('') }
         : parts[0]!;
-    entries.push(...chunkEntries(joined, id));
+    entries.push(...chunkEntries(joined, id, prose));
   }
   // Consecutive output joins into one terminal block, as a shell prints it.
   const merged: LogEntry[] = [];
@@ -256,7 +256,8 @@ function RunLog({ row, live }: { row: RunRow; live: boolean }) {
     refetchInterval: live ? RUN_POLL_MS : false,
     retry: false,
   });
-  const entries = useMemo(() => logEntries(log.data?.pages ?? []), [log.data]);
+  const prose = row.taskKind === 'Subagent' || row.taskKind === 'Session';
+  const entries = useMemo(() => logEntries(log.data?.pages ?? [], prose), [log.data, prose]);
   const denied = observationError(log.data?.pages[0]);
   const progress =
     typeof row.progress?.message === 'string' ? row.progress.message.trim() : undefined;
