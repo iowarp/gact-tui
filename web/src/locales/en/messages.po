@@ -7809,6 +7809,10 @@ msgstr "Before you change it"
 msgid "Before, version {artifact_version}"
 msgstr "Before, version {artifact_version}"
 
+#: src/lib/plan-status.ts
+msgid "Being worked on"
+msgstr "Being worked on"
+
 #: src/components/clio/settings-notifications.tsx
 msgid "Bell only"
 msgstr "Bell only"
@@ -8405,7 +8409,6 @@ msgstr "Can't start"
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/service-management-confirm-dialog.tsx
 #: src/components/clio/session-history-confirm-dialog.tsx
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-model-server-row.tsx
 #: src/components/clio/share-session-dialog.tsx
@@ -10293,6 +10296,7 @@ msgstr "Command file"
 msgid "Command output"
 msgstr "Command output"
 
+#: src/components/clio/interaction-frame-header.tsx
 #: src/components/clio/permission-operation-details.tsx
 msgid "Command to run"
 msgstr "Command to run"
@@ -11762,6 +11766,7 @@ msgid "Copied the note path."
 msgstr "Copied the note path."
 
 #: src/components/clio/file-viewer-take-hooks.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "Copied the path."
 msgstr "Copied the path."
 
@@ -11951,6 +11956,7 @@ msgstr "Copy parent assignment"
 #: src/components/clio/file-viewer-take-hooks.tsx
 #: src/components/clio/skill-tool-result.tsx
 #: src/components/clio/tool-compact-row.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 #: src/components/clio/workbench-tab-row.tsx
 msgid "Copy path"
 msgstr "Copy path"
@@ -12201,6 +12207,10 @@ msgstr "Could not copy the draft"
 #: src/components/clio/text-file-copy-action.tsx
 msgid "Could not copy the file text."
 msgstr "Could not copy the file text."
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Could not copy the path."
+msgstr "Could not copy the path."
 
 #: src/components/clio/agent-library-row.tsx
 #: src/lib/extension-library-entries.ts
@@ -13927,6 +13937,11 @@ msgstr "done"
 msgid "Done"
 msgstr "Done"
 
+#: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
+msgid "Done"
+msgstr "Done"
+
 #: src/components/clio/run-tab.tsx
 msgid "done in {time}"
 msgstr "done in {time}"
@@ -14381,6 +14396,11 @@ msgstr "Drop them anywhere in this window, or choose files from your device."
 msgid "Drop tokens less likely than this fraction of the most likely one."
 msgstr "Drop tokens less likely than this fraction of the most likely one."
 
+#: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
+msgid "Dropped"
+msgstr "Dropped"
+
 #: src/components/clio/settings-access-rule-row.tsx
 msgid "Duplicate rule"
 msgstr "Duplicate rule"
@@ -14535,10 +14555,6 @@ msgstr "Edit locations"
 #: src/components/clio/settings-connection-runtime.ts
 msgid "Edit modes"
 msgstr "Edit modes"
-
-#: src/components/clio/session-plan-section.tsx
-msgid "Edit plan"
-msgstr "Edit plan"
 
 #: src/components/clio/composer-queue-row.tsx
 msgid "Edit queued message"
@@ -18101,6 +18117,11 @@ msgstr "In place. {agent} works on your original folder, and its changes affect 
 msgid "In progress"
 msgstr "In progress"
 
+#: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
+msgid "In progress"
+msgstr "In progress"
+
 #: src/components/clio/operation-progress.tsx
 msgid "In progress, amount unknown"
 msgstr "In progress, amount unknown"
@@ -20626,6 +20647,10 @@ msgstr "Loading the linked view…"
 msgid "Loading the page"
 msgstr "Loading the page"
 
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Loading the plan"
+msgstr "Loading the plan"
+
 #: src/components/clio/script-run-body.tsx
 msgid "Loading the rest…"
 msgstr "Loading the rest…"
@@ -21951,6 +21976,7 @@ msgstr "More about {type}"
 #: src/components/clio/async-task-list.tsx
 #: src/components/clio/file-viewer-take.tsx
 #: src/components/clio/mcp-app-frame-menu.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "More actions"
 msgstr "More actions"
 
@@ -21972,6 +21998,10 @@ msgstr "More actions for {name}"
 #: src/components/clio/plugin-explorer.tsx
 msgid "More actions for {title}"
 msgstr "More actions for {title}"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "More actions for the working plan"
+msgstr "More actions for the working plan"
 
 #: src/routes/runs-page.tsx
 msgid "More available; search covers loaded runs."
@@ -24951,6 +24981,11 @@ msgctxt "keyboard hint verb"
 msgid "Open"
 msgstr "Open"
 
+#: src/components/clio/session-plan-section.tsx
+msgctxt "plan step state"
+msgid "Open"
+msgstr "Open"
+
 #: src/components/clio/workbench-list-column.tsx
 msgctxt "state"
 msgid "Open"
@@ -25466,6 +25501,10 @@ msgstr "Open the original workspace to sign in."
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Open the output in a browser tab"
 msgstr "Open the output in a browser tab"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Open the plan file"
+msgstr "Open the plan file"
 
 #: src/lib/onboarding/tour-script.ts
 msgid "Open the plot."
@@ -26568,7 +26607,6 @@ msgstr "plan"
 #: src/components/clio/pending-interactions.tsx
 #: src/components/clio/plan-exit-interaction.tsx
 #: src/components/clio/session-behavior-options.ts
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/session-work.tsx
 #: src/components/clio/workbench-activity-model.ts
@@ -26624,6 +26662,10 @@ msgstr "Plan review expired"
 #: src/components/clio/injection-presentation.ts
 msgid "Plan sent back"
 msgstr "Plan sent back"
+
+#: src/components/clio/session-plan-section.tsx
+msgid "Plan steps"
+msgstr "Plan steps"
 
 #: src/components/clio/plan-decision-controls.tsx
 msgid "Plan still writing…"
@@ -28169,6 +28211,10 @@ msgstr "Read only, attached to agent"
 #: src/components/clio/context-sources.tsx
 msgid "Read only, in last request"
 msgstr "Read only, in last request"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Read or cite the Markdown the agent keeps."
+msgstr "Read or cite the Markdown the agent keeps."
 
 #: src/components/clio/tool-invocation.tsx
 msgid "Read resource"
@@ -31403,10 +31449,6 @@ msgstr "Save model reasoning"
 msgid "Save name"
 msgstr "Save name"
 
-#: src/components/clio/session-plan-section.tsx
-msgid "Save plan"
-msgstr "Save plan"
-
 #: src/components/clio/globus-receiving-storage.tsx
 msgid "Save receiving storage"
 msgstr "Save receiving storage"
@@ -31631,10 +31673,6 @@ msgstr "Saved. {agent} uses this list from its next turn."
 msgid "Saved. Restart the connected {agent} to apply this choice."
 msgstr "Saved. Restart the connected {agent} to apply this choice."
 
-#: src/components/clio/session-plan-section.tsx
-msgid "Saved. The agent receives your edit at its next step."
-msgstr "Saved. The agent receives your edit at its next step."
-
 #: src/components/clio/connector-need-rows.tsx
 msgid "Saved. Type a new one to replace it"
 msgstr "Saved. Type a new one to replace it"
@@ -31687,7 +31725,6 @@ msgstr "Saving your key…"
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/search-source-key-dialog.tsx
 #: src/components/clio/search-text-setting.tsx
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/settings-models.tsx
 #: src/components/clio/settings-prompt-editor.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -32721,6 +32758,7 @@ msgstr "Sending action"
 msgid "Sending message"
 msgstr "Sending message"
 
+#: src/components/clio/ask-binary.tsx
 #: src/components/clio/child-conversation-followup.tsx
 #: src/components/clio/comments/comment-session.tsx
 #: src/components/clio/composer-toolbar-status.tsx
@@ -33299,6 +33337,10 @@ msgstr "Setup: {setupName}"
 #: src/widget-gallery.tsx
 msgid "Several plants"
 msgstr "Several plants"
+
+#: src/components/clio/interaction-frame-header.tsx
+msgid "sha256 {digest}"
+msgstr "sha256 {digest}"
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/settings-prompts.tsx
@@ -36370,6 +36412,10 @@ msgstr "The agent’s call waits for this, then continues."
 msgid "The agent’s full address, including http or https."
 msgstr "The agent’s full address, including http or https."
 
+#: src/lib/plan-status.ts
+msgid "The agent's own working plan for this conversation. It didn't come from a planning session, and nobody has approved it."
+msgstr "The agent's own working plan for this conversation. It didn't come from a planning session, and nobody has approved it."
+
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "The agent’s turn failed"
 msgstr "The agent’s turn failed"
@@ -37202,13 +37248,21 @@ msgstr "The pick closed. {unused}"
 msgid "The pick was cancelled. {unused}"
 msgstr "The pick was cancelled. {unused}"
 
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "The plan could not be loaded."
+msgstr "The plan could not be loaded."
+
+#: src/components/clio/session-plan-section.tsx
+msgid "The plan file is empty."
+msgstr "The plan file is empty."
+
 #: src/components/clio/plan-exit-interaction.tsx
 msgid "The plan is empty."
 msgstr "The plan is empty."
 
-#: src/components/clio/session-plan-section.tsx
-msgid "The plan was not saved: {message}"
-msgstr "The plan was not saved: {message}"
+#: src/lib/plan-status.ts
+msgid "The plan the agent kept for this conversation."
+msgstr "The plan the agent kept for this conversation."
 
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "The plugin {target} was not added"
@@ -38558,6 +38612,10 @@ msgstr "This conversation has no messages yet, so nothing is cached and the chan
 #: src/components/clio/agent-composition-view.tsx
 msgid "This conversation has no resolved agent"
 msgstr "This conversation has no resolved agent"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "This conversation has no working plan yet."
+msgstr "This conversation has no working plan yet."
 
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "This conversation isn't available"
@@ -42446,6 +42504,15 @@ msgstr "Working now"
 msgid "Working on it"
 msgstr "Working on it"
 
+#: src/components/clio/workbench-open-request.ts
+#: src/components/clio/workbench-tab-storage.ts
+msgid "Working plan"
+msgstr "Working plan"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Working plan actions"
+msgstr "Working plan actions"
+
 #: src/components/clio/document-workspace.tsx
 msgid "Working-copy conflict resolved against the confirmed artifact head."
 msgstr "Working-copy conflict resolved against the confirmed artifact head."
@@ -42716,6 +42783,14 @@ msgstr "Written by {owner}"
 #: src/components/clio/session-evidence-projection.ts
 msgid "Written by agent"
 msgstr "Written by agent"
+
+#: src/lib/plan-status.ts
+msgid "Written in plan mode and approved by you."
+msgstr "Written in plan mode and approved by you."
+
+#: src/lib/plan-status.ts
+msgid "Written in plan mode. It waits for your approval."
+msgstr "Written in plan mode. It waits for your approval."
 
 #: src/components/clio/science-log-sources.tsx
 msgid "Wrote"

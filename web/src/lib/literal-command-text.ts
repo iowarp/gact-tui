@@ -122,3 +122,34 @@ export function literalCommandText(markdown: string): string {
   }
   return output.join('\n');
 }
+
+export interface TrailingCommand {
+  /** The question's text before the command. */
+  prose: string;
+  command: string;
+  /** The digest the server named for it ("Command (sha256 bd9a?):"). */
+  digest?: string;
+}
+
+const COMMAND_LEAD = /\s*Command \(sha256 ([0-9a-f]{8,64})\):\s*$/iu;
+
+/**
+ * A command the question ends with, apart from its prose: the card shows it as the
+ * command block the person approves (relay's "Command (sha256 ?):" tail), not as text
+ * inside the question's capped, scrolling block.
+ */
+export function trailingCommand(text: string): TrailingCommand | undefined {
+  const fencedText = literalCommandText(text).split('\n');
+  // The last line closes a fence literalCommandText opened for a command.
+  const close = fencedText[fencedText.length - 1];
+  if (!close || !/^`{3,}$/u.test(close)) return undefined;
+  const open = fencedText.lastIndexOf(close, fencedText.length - 2);
+  if (open < 0) return undefined;
+  const command = fencedText.slice(open + 1, -1).join('\n');
+  // A fence the producer wrote itself is Markdown, not a pasted command.
+  if (!command.trim() || !text.trimEnd().endsWith(command.trimEnd())) return undefined;
+  let prose = text.slice(0, text.trimEnd().length - command.trimEnd().length).trimEnd();
+  const lead = prose.match(COMMAND_LEAD);
+  if (lead) prose = prose.slice(0, lead.index).trimEnd();
+  return { prose, command, digest: lead?.[1] };
+}

@@ -29,9 +29,10 @@ adapters translate GACT state into their public props and events.
 | Uploading | Composer remains stable and reports byte progress                | Files can be removed before acceptance                     | No indefinite spatial animation; progress is determinate when total bytes are known        |
 
 The docked composer targets 720–896 px: the editor on top, then one toolbar row that never wraps
-(attach, reference, confirmation policy, reasoning and mode icons on the left, the mode named in its
-tooltip and accented when it is not Execute; model text and a 28 px Send/Queue/Stop on the right;
-container queries shrink the model first). Queued rows
+(session semantics on the left: attach, reference, then the confirmation policy and mode icons, the
+mode named in its tooltip and accented when it is not Execute; model semantics on the right: the
+model as text and its reasoning bars, then a 28 px Send/Queue/Stop; container queries shrink the
+model first). Queued rows
 are one line above it, with the drag handle on the left and send-now/edit/delete actions on the
 right. Attachment tiles use a compact preview with name, media type, size,
 progress, and removal.

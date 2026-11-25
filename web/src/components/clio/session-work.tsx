@@ -36,6 +36,7 @@ import { todoCurrentSummary } from './todo-list-summary';
 import { SessionAccess } from './session-access';
 import { StateView } from './primitives/state-view';
 import { SessionPlanBody } from './session-plan-section';
+import { openPlanTab } from '@/lib/plan-tab';
 import { planStatusLabel } from '@/lib/plan-status';
 import { plural, t, ph } from '@lingui/core/macro';
 import { formatDateTime } from '@/lib/locale-format';
@@ -441,7 +442,7 @@ function SessionWorkInventory({ sessionId }: { sessionId: string }) {
       <SessionAccess sessionId={sessionId} />
       {data.plan ? (
         <WorkSection title={t`Plan`} summary={planStatusLabel(data.plan.status)}>
-          <SessionPlanBody plan={data.plan} sessionId={sessionId} />
+          <SessionPlanBody plan={data.plan} onOpen={() => openPlanTab(sessionId)} />
         </WorkSection>
       ) : null}
       {empty ? (

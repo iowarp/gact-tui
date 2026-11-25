@@ -5,6 +5,8 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { EditIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { jobFromInteraction } from '@/lib/job-snapshot';
+import { trailingCommand } from '@/lib/literal-command-text';
+import { AskCode } from './ask-code';
 import { AskCard, AskDetails, AskFooter, AskHint, AskSection, type AskCardProps } from './ask-card';
 import { pendingInteractionDomId } from './interaction-control';
 import { JobCard } from './job-card';
@@ -62,6 +64,8 @@ export function QuestionCard({
 }: QuestionCardProps) {
   const { title, body } = splitQuestion(heading ?? questionPrompt(interaction), interaction.title);
   const job = jobFromInteraction(interaction.payload);
+  const tail = !job && body ? trailingCommand(body) : undefined;
+  const prompt = tail ? tail.prose : body;
   const promptRef = useRef<HTMLDivElement>(null);
   useScrollClipped(promptRef);
   return (
@@ -93,7 +97,7 @@ export function QuestionCard({
             job={job}
           />
         </AskSection>
-      ) : body ? (
+      ) : prompt ? (
         <AskSection
           className={cn(
             // The question is what the person answers: it reads whole up to its own cap (about
@@ -108,8 +112,16 @@ export function QuestionCard({
           data-slot="question-prompt"
           ref={promptRef}
         >
-          <QuestionMarkdown>{body}</QuestionMarkdown>
+          <QuestionMarkdown>{prompt}</QuestionMarkdown>
         </AskSection>
+      ) : null}
+      {tail ? (
+        <AskCode
+          code={tail.command}
+          label={t`Command to run`}
+          meta={tail.digest ? t`sha256 ${ph({ digest: tail.digest })}` : undefined}
+          wrapToggle
+        />
       ) : null}
       {interaction.routing_state === 'agent_elicitation_fallback_to_human' ? (
         <AskSection className="mt-1 text-meta text-muted-foreground">

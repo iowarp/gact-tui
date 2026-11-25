@@ -28,7 +28,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { openExternalUrl } from '@/tauri/external-url';
 import { serverOwnerName } from '@/lib/a2ui/server-surface';
 import { cn } from '@/lib/utils';
+import { binaryPair, type BinaryOption, type BinaryPair } from '@/lib/binary-answers';
 import { AskBody, AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
+import { BinaryAsk } from './ask-binary';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
 import { useQuestionDraftValue } from './question-answer-context';
 import { ph, plural, t } from '@lingui/core/macro';
@@ -53,12 +55,12 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     initialValues(interaction),
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  // `true` for Send; the chosen answer's key while one of the answer buttons sends.
-  const [sending, setSending] = useState<boolean | string>(false);
+  const [sending, setSending] = useState(false);
   const serverErrors = fieldErrorsFromMessage(props.responseError?.message, fields);
   const errors = { ...serverErrors, ...fieldErrors };
   const loneBoolean = loneBooleanField(fields);
   const answerChoice = loneBoolean ? undefined : answerChoiceField(fields);
+  const answerPair = answerChoice ? fieldPair(answerChoice) : undefined;
   // After a failed Send the first field to fix takes focus and comes into view, even when the
   // capped card or a narrow window holds it out of sight.
   const fieldsRef = useRef<HTMLDivElement>(null);
@@ -83,15 +85,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     setFieldErrors(validation);
     if (Object.keys(validation).length > 0) return;
     const submissionValues = normalizedSubmissionValues(fields, current);
-    setSending(
-      loneBoolean && override
-        ? override[loneBoolean.name] === true
-          ? 'yes'
-          : 'no'
-        : answerChoice && override
-          ? String(override[answerChoice.name])
-          : true,
-    );
+    setSending(true);
     try {
       await props.onResponse(interaction, {
         action: 'answer',
@@ -113,9 +107,8 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   if (loneBoolean) {
     // A yes/no approval is answered only by choosing Yes or No. Nothing is
     // preselected, so no stray Send can submit a default for the person.
-    const busy = props.disabled || sending !== false;
     return (
-      <QuestionFrame {...props}>
+      <QuestionFrame {...props} escapeAnswers>
         <AskError error={props.responseError} />
         {loneBoolean.description ? (
           <AskBody>
@@ -129,24 +122,12 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             {errors[loneBoolean.name]}
           </AskSection>
         ) : null}
-        <AskOptions aria-label={loneBoolean.title || t`Answer`}>
-          {/* 1 and 2 pick Yes and No; Enter picks neither. */}
-          <AskButton
-            disabled={busy}
-            number={1}
-            onClick={() => void submit({ [loneBoolean.name]: true })}
-            primary
-          >
-            {sending === 'yes' ? t`Sending…` : t`Yes`}
-          </AskButton>
-          <AskButton
-            disabled={busy}
-            number={2}
-            onClick={() => void submit({ [loneBoolean.name]: false })}
-          >
-            {sending === 'no' ? t`Sending…` : t`No`}
-          </AskButton>
-        </AskOptions>
+        <BinaryAsk
+          accept={{ label: t`Yes`, onChoose: () => submit({ [loneBoolean.name]: true }) }}
+          decline={{ label: t`No`, onChoose: () => submit({ [loneBoolean.name]: false }) }}
+          disabled={props.disabled}
+          label={loneBoolean.title || t`Answer`}
+        />
       </QuestionFrame>
     );
   }
@@ -155,7 +136,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   if (choice) {
     // One choice of a few options is answered by pressing its button. As with yes/no, Enter
     // picks none of them, so no keypress can give a consent the person did not choose.
-    const busy = props.disabled || sending !== false;
+    const busy = props.disabled || sending;
     const answer = async (value: string) => {
       setSending(true);
       try {
@@ -170,8 +151,9 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
         setSending(false);
       }
     };
+    const pair = fieldPair(choice);
     return (
-      <QuestionFrame {...props}>
+      <QuestionFrame {...props} escapeAnswers={Boolean(pair)}>
         <AskError error={props.responseError} />
         {choice.description ? (
           <AskBody>
@@ -185,19 +167,31 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             {errors[choice.name]}
           </AskSection>
         ) : null}
-        <AskOptions aria-label={choice.title || t`Answer`}>
-          {(choice.enum as string[]).map((value, index) => (
-            <AskButton
-              disabled={busy}
-              key={value}
-              number={index + 1}
-              onClick={() => void answer(value)}
-              primary={index === 0}
-            >
-              {choice.enum_names?.[index] || value}
-            </AskButton>
-          ))}
-        </AskOptions>
+        {pair ? (
+          <BinaryAsk
+            accept={{ label: pair.accept.label, onChoose: () => answer(String(pair.accept.value)) }}
+            decline={{
+              label: pair.decline.label,
+              onChoose: () => answer(String(pair.decline.value)),
+            }}
+            disabled={props.disabled}
+            label={choice.title || t`Answer`}
+          />
+        ) : (
+          <AskOptions aria-label={choice.title || t`Answer`}>
+            {(choice.enum as string[]).map((value, index) => (
+              <AskButton
+                disabled={busy}
+                key={value}
+                number={index + 1}
+                onClick={() => void answer(value)}
+                primary={index === 0}
+              >
+                {choice.enum_names?.[index] || value}
+              </AskButton>
+            ))}
+          </AskOptions>
+        )}
       </QuestionFrame>
     );
   }
@@ -206,7 +200,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     <SchemaField
       compact={compact}
       prefix={interaction.id}
-      disabled={props.disabled || sending !== false}
+      disabled={props.disabled || sending}
       error={errors[field.name]}
       field={field}
       key={field.name}
@@ -226,10 +220,9 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   if (answerChoice) {
     // The form's one required choice answers it on the card's buttons, which stay in view
     // under a capped card; the other fields (already filled) sit above them, compact.
-    const busy = props.disabled || sending !== false;
     const options = answerChoice.enum ?? [];
     return (
-      <QuestionFrame {...props}>
+      <QuestionFrame {...props} escapeAnswers={Boolean(answerPair)}>
         <AskError error={props.responseError} />
         <AskBody>
           <AskSection className="pb-0.5">
@@ -245,21 +238,34 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             {errors[answerChoice.name]}
           </AskSection>
         ) : null}
-        <AskOptions aria-label={answerChoice.title || t`Answer`}>
-          {options.map((option, index) => (
-            <AskButton
-              disabled={busy}
-              key={String(option)}
-              number={index + 1}
-              onClick={() => void submit({ [answerChoice.name]: option })}
-              primary={index === 0}
-            >
-              {sending === String(option)
-                ? t`Sending…`
-                : (answerChoice.enum_names?.[index] ?? String(option))}
-            </AskButton>
-          ))}
-        </AskOptions>
+        {answerPair ? (
+          <BinaryAsk
+            accept={{
+              label: answerPair.accept.label,
+              onChoose: () => submit({ [answerChoice.name]: answerPair.accept.value }),
+            }}
+            decline={{
+              label: answerPair.decline.label,
+              onChoose: () => submit({ [answerChoice.name]: answerPair.decline.value }),
+            }}
+            disabled={props.disabled}
+            label={answerChoice.title || t`Answer`}
+          />
+        ) : (
+          <AskOptions aria-label={answerChoice.title || t`Answer`}>
+            {options.map((option, index) => (
+              <AskButton
+                disabled={props.disabled || sending}
+                key={String(option)}
+                number={index + 1}
+                onClick={() => void submit({ [answerChoice.name]: option })}
+                primary={index === 0}
+              >
+                {answerChoice.enum_names?.[index] ?? String(option)}
+              </AskButton>
+            ))}
+          </AskOptions>
+        )}
       </QuestionFrame>
     );
   }
@@ -276,11 +282,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
         </AskSection>
       </AskBody>
       <AskOptions aria-label={t`Answer`}>
-        <AskButton
-          disabled={props.disabled || sending !== false}
-          onClick={() => void submit()}
-          primary
-        >
+        <AskButton disabled={props.disabled || sending} onClick={() => void submit()} primary>
           {sending ? t`Sending…` : t`Send response`}
         </AskButton>
       </AskOptions>
@@ -323,6 +325,16 @@ function urlOriginTrust(payload: PendingInteraction['payload']): string | undefi
  * pressing an option sends it. Live 2026-11-19, "Allow searches through the literature
  * sources?" was a radio list, a "Choice" heading and a separate Send response.
  */
+function fieldPair(field: PendingInteractionField): BinaryPair<BinaryOption<unknown>> | undefined {
+  const values = field.enum ?? [];
+  return binaryPair(
+    values.map((value, index) => ({
+      value,
+      label: field.enum_names?.[index] || String(value),
+    })),
+  );
+}
+
 function choiceButtonsField(
   fields: readonly PendingInteractionField[],
 ): PendingInteractionField | undefined {
@@ -420,36 +432,30 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
         </AskSection>
       ) : null}
       <AskError error={props.responseError} />
-      <AskOptions aria-label={t`Link`}>
-        <AskButton
-          disabled={props.disabled || sending || !url}
-          // i18n-ignore: key name
-          hint="Enter"
-          number={1}
-          onClick={() => void accept()}
-          primary
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
-            {t`Open link`}
-          </span>
-        </AskButton>
-        <AskButton
-          disabled={props.disabled || sending}
-          // i18n-ignore: key name
-          hint="Escape"
-          onClick={() =>
-            void props
-              .onResponse(interaction, {
-                action: 'answer',
-                metadata: { elicitation_action: 'decline' },
-              })
-              .catch(() => undefined)
-          }
-        >
-          {t`Decline`}
-        </AskButton>
-      </AskOptions>
+      <BinaryAsk
+        accept={{
+          disabled: !url,
+          label: (
+            <span className="inline-flex items-center gap-1.5">
+              <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
+              {t`Open link`}
+            </span>
+          ),
+          name: t`Open link`,
+          onChoose: accept,
+        }}
+        decline={{
+          label: t`Decline`,
+          onChoose: () =>
+            props.onResponse(interaction, {
+              action: 'answer',
+              metadata: { elicitation_action: 'decline' },
+            }),
+        }}
+        disabled={props.disabled || sending}
+        enterAccepts
+        label={t`Link`}
+      />
     </QuestionFrame>
   );
 }

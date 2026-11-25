@@ -1,4 +1,5 @@
 import type { PendingInteraction, Session, Workspace } from '@clio/core/v3';
+import { BinaryAsk } from './ask-binary';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BellIcon,
@@ -17,7 +18,6 @@ import {
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
 import { useAttentionResponse } from '@/hooks/use-attention-response';
 import { useRepository } from '@/hooks/use-repository';
@@ -570,28 +570,14 @@ export function ClioAttentionCenter({
                           />
                         </Link>
                         {row.permission ? (
-                          <div
-                            aria-label={t`Decide: ${ph({ request: attentionSentence(row.kind.verb, session.title) })}`}
-                            className="mt-1 flex items-center gap-1.5 pl-[22px] text-label"
-                            role="group"
+                          <BinaryAsk
+                            accept={{ label: t`Allow`, onChoose: () => decide('allow') }}
+                            className="mt-1 pl-[22px]"
+                            decline={{ label: t`Deny`, onChoose: () => decide('deny') }}
+                            disabled={deciding}
+                            label={t`Decide: ${ph({ request: attentionSentence(row.kind.verb, session.title) })}`}
+                            variant="row"
                           >
-                            <Button
-                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-semibold"
-                              disabled={deciding}
-                              onClick={() => decide('allow')}
-                              size="xs"
-                            >
-                              {t`Allow`}
-                            </Button>
-                            <Button
-                              className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-normal"
-                              disabled={deciding}
-                              onClick={() => decide('deny')}
-                              size="xs"
-                              variant="secondary"
-                            >
-                              {t`Deny`}
-                            </Button>
                             <Link
                               aria-hidden="true"
                               className="ml-auto leading-6 font-semibold text-accent-foreground hover:underline"
@@ -602,7 +588,7 @@ export function ClioAttentionCenter({
                             >
                               {row.kind.action}
                             </Link>
-                          </div>
+                          </BinaryAsk>
                         ) : null}
                       </>
                     )}
@@ -712,35 +698,26 @@ export function ClioAttentionCenter({
                         }
                         variant="notice"
                       />
-                      <div
-                        aria-label={t`Desktop alerts`}
-                        className="mt-1 flex items-center gap-1.5 pl-[22px] text-label"
-                        role="group"
-                      >
-                        <Button
-                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-semibold"
-                          onClick={() =>
-                            void answerNotificationAsk(true).then((answer) => {
+                      <BinaryAsk
+                        accept={{
+                          label: t`Allow`,
+                          onChoose: () =>
+                            answerNotificationAsk(true).then((answer) => {
                               if (answer === 'denied') {
                                 toast(t`Notifications are off`, {
                                   description: t`Turn them on in Settings › Notifications at any time.`,
                                 });
                               }
-                            })
-                          }
-                          size="xs"
-                        >
-                          {t`Allow`}
-                        </Button>
-                        <Button
-                          className="h-6 min-w-[58px] rounded-[6px] px-3 text-label font-normal"
-                          onClick={() => void answerNotificationAsk(false)}
-                          size="xs"
-                          variant="secondary"
-                        >
-                          {t`Not now`}
-                        </Button>
-                      </div>
+                            }),
+                        }}
+                        className="mt-1 pl-[22px]"
+                        decline={{
+                          label: t`Not now`,
+                          onChoose: () => answerNotificationAsk(false),
+                        }}
+                        label={t`Desktop alerts`}
+                        variant="row"
+                      />
                     </>
                   )}
                 </NoticeFrame>

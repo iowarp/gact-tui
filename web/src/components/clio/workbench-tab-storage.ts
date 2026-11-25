@@ -14,6 +14,7 @@ const FIXED_TAB_LABELS: Partial<Record<WorkbenchTab['kind'], string>> = {
   artifacts: t`Artifacts`,
   resources: t`Resources`,
   'science-log': t`Science log`,
+  plan: t`Working plan`,
 };
 
 export const WORKBENCH_LIST_TITLES: Record<WorkbenchListView, string> = {
