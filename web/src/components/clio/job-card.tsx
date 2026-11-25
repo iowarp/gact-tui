@@ -1,5 +1,5 @@
-import { t, ph } from '@lingui/core/macro';
-import { MonitorIcon, PackageIcon } from 'lucide-react';
+import { t, ph, plural } from '@lingui/core/macro';
+import { MonitorIcon, PackageIcon, ServerIcon } from 'lucide-react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { Fragment, type ReactNode } from 'react';
 import { formatDuration } from '@/lib/format';
@@ -63,6 +63,8 @@ function jobStatusLabel(job: JobSnapshot): string {
           return t`Cancelled`;
         case 'timed_out':
           return t`Ran out of time`;
+        case PAST_LIMIT:
+          return t`Time limit passed`;
         default:
           return t`Ended`;
       }
@@ -284,6 +286,46 @@ function ComponentBlock({
   );
 }
 
+/**
+ * A job with one component and nothing flowing in or out: there is no graph to
+ * draw, so it reads as one line, its name, how many nodes and its state.
+ */
+function SingleComponent({ component }: { component: JobComponent }) {
+  const nodes = component.nodes ?? null;
+  const state = componentStateLabel(component);
+  const tone = componentTone(component.state);
+  const shape = componentShape(component);
+  const Icon = shape === 'service' ? MonitorIcon : shape === 'install' ? PackageIcon : ServerIcon;
+  const hosts = component.hosts?.length ? component.hosts.join(', ') : undefined;
+  const name = componentName(component);
+  return (
+    <div
+      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border border-border px-3 py-2"
+      data-component-id={component.id}
+      data-component-state={component.state ?? undefined}
+      data-slot="job-pipeline"
+      data-single=""
+      title={hosts}
+    >
+      <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 truncate font-medium text-foreground">
+        {nodes != null
+          ? plural(nodes, {
+              one: `${ph({ name })} (# node)`,
+              other: `${ph({ name })} (# nodes)`,
+            })
+          : name}
+      </span>
+      {state ? (
+        <span className={cn('inline-flex items-center gap-1 text-meta', TONE_TEXT[tone])}>
+          <span aria-hidden="true" className={cn('size-1.5 rounded-full', TONE_DOT[tone])} />
+          {state}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 /** JARVIS's host slice (`start:end`, end exclusive) as the nodes it names, counted from 1. */
 function hostSlice(slice: string): string {
   const range = /^(\d+):(\d+)$/.exec(slice.trim());
@@ -381,6 +423,41 @@ function wallTime(milliseconds: number): string {
   return rest ? t`${ph({ hours })} h ${ph({ rest })} min` : t`${ph({ hours })} h`;
 }
 
+/**
+ * Slack past a job's limit before the card stops calling it running: the
+ * scheduler ends it at the limit, and the site's update can take a minute or
+ * two to arrive.
+ */
+const LIMIT_GRACE_MS = 2 * 60_000;
+/** The outcome a card draws when the limit passed and no end was reported. */
+const PAST_LIMIT = 'past_limit';
+
+/** When a running job is past its limit for sure, or null without a start and a limit. */
+function limitEndsAt(job: JobSnapshot): number | null {
+  if (job.time_limit_s == null || !job.started_at) return null;
+  const started = Date.parse(job.started_at);
+  return Number.isNaN(started) ? null : started + job.time_limit_s * 1000 + LIMIT_GRACE_MS;
+}
+
+/**
+ * A job the scheduler must have ended, since its limit passed, whose end has
+ * not arrived: drawn ended at its limit, with no outcome claimed and no node
+ * still running.
+ */
+function pastLimit(job: JobSnapshot, endsAt: number): JobSnapshot {
+  return {
+    ...job,
+    phase: 'ended',
+    outcome: PAST_LIMIT,
+    ended_at: new Date(endsAt - LIMIT_GRACE_MS).toISOString(),
+    components: job.components.map((component) =>
+      component.state === 'done' || component.state === 'failed' || component.state === 'cancelled'
+        ? component
+        : { ...component, state: null, nodes_running: 0, nodes_allocated: 0 },
+    ),
+  };
+}
+
 function timeFact(job: JobSnapshot, now: number): string | null {
   const limit = job.time_limit_s != null ? wallTime(job.time_limit_s * 1000) : null;
   // Relay stamps started_at when the operation starts; the job's clock runs only once it runs.
@@ -463,9 +540,11 @@ export interface JobCardProps {
  * the batch script one disclosure away. The same card is the planned job in an
  * ask, the running job in a transcript and a row in a job list.
  */
-export function JobCard({ job, fallback, className, onOpen }: JobCardProps) {
-  const live = job.phase === 'running' || job.phase === 'ending';
-  const now = useNow(live && Boolean(job.started_at));
+export function JobCard({ job: reported, fallback, className, onOpen }: JobCardProps) {
+  const live = reported.phase === 'running' || reported.phase === 'ending';
+  const limitEnd = live ? limitEndsAt(reported) : null;
+  const now = useNow(live && Boolean(reported.started_at));
+  const job = limitEnd !== null && now >= limitEnd ? pastLimit(reported, limitEnd) : reported;
   const tone = jobTone(job);
   const time = timeFact(job, now);
   const site = job.site?.label || job.site?.id;
@@ -496,25 +575,29 @@ export function JobCard({ job, fallback, className, onOpen }: JobCardProps) {
           {jobStatusLabel(job)}
         </span>
       </div>
-      <div
-        className="flex min-w-0 flex-wrap items-start justify-center gap-3 rounded-lg border border-dashed border-foreground/35 px-3 py-3 @max-[420px]/job:flex-col @max-[420px]/job:items-center"
-        data-slot="job-pipeline"
-      >
-        {job.components.length ? (
-          orderedComponents(job).map(({ component, coupling }) => (
-            <Fragment key={component.id}>
-              {coupling !== undefined ? <CouplingArrow coupling={coupling} /> : null}
-              <ComponentBlock
-                component={component}
-                phase={job.phase}
-                placed={job.components.length > 1}
-              />
-            </Fragment>
-          ))
-        ) : (
-          <span className="text-muted-foreground">{t`No components described`}</span>
-        )}
-      </div>
+      {job.components.length === 1 && !job.couplings.length && job.components[0] ? (
+        <SingleComponent component={job.components[0]} />
+      ) : (
+        <div
+          className="flex min-w-0 flex-wrap items-start justify-center gap-3 rounded-lg border border-dashed border-foreground/35 px-3 py-3 @max-[420px]/job:flex-col @max-[420px]/job:items-center"
+          data-slot="job-pipeline"
+        >
+          {job.components.length ? (
+            orderedComponents(job).map(({ component, coupling }) => (
+              <Fragment key={component.id}>
+                {coupling !== undefined ? <CouplingArrow coupling={coupling} /> : null}
+                <ComponentBlock
+                  component={component}
+                  phase={job.phase}
+                  placed={job.components.length > 1}
+                />
+              </Fragment>
+            ))
+          ) : (
+            <span className="text-muted-foreground">{t`No components described`}</span>
+          )}
+        </div>
+      )}
       {site || job.job_id != null || onOpen ? (
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-meta">
           {site ? <Fact label={t`Site`} value={site} /> : null}

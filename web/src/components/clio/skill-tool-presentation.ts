@@ -7,6 +7,25 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
+/** A skill read is named by its skill id ("use-relay"); its description is supporting text. */
+function namedBySkill(tool: ToolInvocation, skillId: string): ToolInvocation {
+  const presentation = tool.presentation!;
+  if (!skillId) return tool;
+  return {
+    ...tool,
+    presentation: {
+      ...presentation,
+      blocks: presentation.blocks
+        .filter((block) => block.id !== 'skill-identity')
+        .map((block) =>
+          block.id === presentation.subject && presentation.subject === 'skill-purpose'
+            ? { ...block, label: skillId, text: skillId }
+            : block,
+        ),
+    },
+  };
+}
+
 /** Clarify older recorded skill reads without looking up or rereading today's skill. */
 export function withSkillPresentation(tool: ToolInvocation): ToolInvocation {
   const presentation = tool.presentation;
@@ -14,10 +33,15 @@ export function withSkillPresentation(tool: ToolInvocation): ToolInvocation {
     tool.name !== 'load_skill' ||
     tool.state === 'failed' ||
     tool.state === 'cancelled' ||
-    !presentation?.subject ||
-    ['skill-purpose', 'skill-reference'].includes(presentation.subject)
+    !presentation?.subject
   )
     return tool;
+  if (['skill-purpose', 'skill-reference'].includes(presentation.subject)) {
+    const args = record(tool.input);
+    const given = record(args?.kwargs) ?? args;
+    const identity = presentation.blocks.find((block) => block.id === 'skill-identity')?.text;
+    return namedBySkill(tool, String(given?.skill_id ?? identity ?? '').trim());
+  }
   const outer = record(tool.input);
   const input = record(outer?.kwargs) ?? outer;
   const output = record(tool.output);
@@ -60,7 +84,7 @@ export function withSkillPresentation(tool: ToolInvocation): ToolInvocation {
     .split('\n')
     .find((line) => /^#\s+(?!Skill:)/u.test(line))
     ?.replace(/^#\s+/u, '');
-  const title = String(result?.skill_title || result?.skill_description || heading || skillId);
+  const title = skillId || String(result?.skill_title || heading || '');
   const subject: ToolPresentationBlock = {
     id: files.length ? 'skill-reference' : 'skill-purpose',
     type: 'text',
@@ -103,7 +127,6 @@ export function withSkillPresentation(tool: ToolInvocation): ToolInvocation {
               },
             ]
           : []),
-        { id: 'skill-identity', type: 'text', label: t`Skill`, text: skillId },
         ...(typeof directory === 'string' && directory
           ? [
               {

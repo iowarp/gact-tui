@@ -2,6 +2,7 @@
 import type { RunState, Session, TaskSnapshot, TranscriptSnapshot, Workspace } from '@clio/core/v3';
 import { operationalRunStateSchema } from '@clio/core/v3';
 import { flowToolDescriptor } from '@/components/clio/flow-tool-presentation';
+import { TOOL_OPERATIONS } from '@/components/clio/tool-operation-contract';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { truncate } from '@/lib/format';
 import { RUN_REASON_TRUNCATE_CHARS } from '@/lib/runtime-limits';
@@ -115,7 +116,7 @@ export function buildRows(
       cancelRequested: Boolean(run.cancellation_requested_at),
       cancellable: run.supported_actions.includes('cancel'),
       taskId: run.handle,
-      label: run.label || t`Unnamed task`,
+      label: runName(run),
       state: taskState(run),
       reportedStatus: run.raw_status || run.status,
       statusReason: conciseReason(statusDetail),
@@ -133,6 +134,20 @@ export function buildRows(
       task: run,
     };
   });
+}
+
+const SHELLS = new Set(['bash', 'sh', 'zsh', 'powershell', 'pwsh', 'cmd', 'shell']);
+
+/**
+ * A run's name as the person reads it: a shell or built-in tool reported by its
+ * id ("bash", "write_file") takes its operation's name; anything else keeps
+ * the label its producer gave it.
+ */
+function runName(run: TaskSnapshot): string {
+  const label = run.label.trim();
+  if (!label) return t`Unnamed task`;
+  if (SHELLS.has(label.toLowerCase())) return t`Run command`;
+  return TOOL_OPERATIONS[label]?.action ?? TOOL_OPERATIONS[`fs_${label}`]?.action ?? label;
 }
 
 function taskState(task: TaskSnapshot): RunState {

@@ -1,6 +1,6 @@
 import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
-import { binaryPair } from '@/lib/binary-answers';
+import { answerWord, binaryPair } from '@/lib/binary-answers';
 import { AskButton, AskError, AskOptions, AskSubject } from './ask-card';
 import { BinaryAsk } from './ask-binary';
 import { respondFromControl } from './interaction-control';
@@ -82,13 +82,13 @@ export function QuestionResponse(props: {
       ) : pair ? (
         <BinaryAsk
           accept={{
-            label: pair.accept.label,
+            label: answerWord(pair.accept.label),
             onChoose: () =>
               onResponse(interaction, { action: 'answer', selected_options: [pair.accept.value] }),
             title: pair.accept.description,
           }}
           decline={{
-            label: pair.decline.label,
+            label: answerWord(pair.decline.label),
             onChoose: () =>
               onResponse(interaction, { action: 'answer', selected_options: [pair.decline.value] }),
             title: pair.decline.description,

@@ -5,6 +5,8 @@ import { ph, select, t as tx } from '@lingui/core/macro';
 export interface OperationContext {
   subagents?: Record<string, SubagentRun>;
   resources?: Record<string, { name?: string; filename?: string }>;
+  /** The call that started a background task, named as its row reads ("relay_run: lammps"). */
+  taskName?: (handle: string) => string | undefined;
 }
 export interface OperationTask {
   key: string;
@@ -34,6 +36,11 @@ export function operationStrings(value: unknown): string[] {
       : [];
 }
 
+/** Words a producer uses for any task; they name nothing on their own. */
+const GENERIC_SUBJECT = /^(CLIO|Subagent|Session|Tasks?)$/iu;
+const specificName = (value?: string) =>
+  value && !GENERIC_SUBJECT.test(value) ? value : undefined;
+
 /** Resolve only exact recorded task/session identities, never answer prose. */
 export function operationSubject(
   handle: string,
@@ -46,8 +53,12 @@ export function operationSubject(
     Object.values(context.subagents ?? {}).find(
       (row) => row.id === handle || row.child_session_id === handle,
     );
-  const specific = label && !/^(CLIO|Subagent|Session|Tasks)$/iu.test(label) ? label : undefined;
-  const named = specific || child?.title || declared?.label || declared?.text || label;
+  const named =
+    specificName(label) ||
+    child?.title ||
+    specificName(declared?.label) ||
+    context.taskName?.(handle) ||
+    (declared?.text !== handle ? specificName(declared?.text) : undefined);
   return {
     id: `operation-${handle}`,
     type: child?.child_session_id || declared?.uri ? 'link' : 'text',

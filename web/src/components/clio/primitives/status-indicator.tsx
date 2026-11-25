@@ -1,5 +1,5 @@
 import { memo, useState, type ReactElement, type ReactNode } from 'react';
-import { CheckIcon, CircleAlertIcon, OctagonIcon, TriangleAlertIcon } from 'lucide-react';
+import { CheckIcon, CircleAlertIcon, CircleStopIcon, TriangleAlertIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './icon-button';
 import { RingSpinner } from './ring-spinner';
@@ -63,7 +63,8 @@ const GLYPH: Partial<Record<StatusTone, ReactNode>> = {
   success: <CheckIcon className="size-3.5 text-primary" />,
   error: <CircleAlertIcon className="size-3.5 text-destructive" />,
   warning: <TriangleAlertIcon className="size-3.5 text-warning" />,
-  stopped: <OctagonIcon className="size-3.5 text-muted-foreground" />,
+  // A ring around a square, the stop control's own sign; a bare octagon reads as a hollow ring at 14px.
+  stopped: <CircleStopIcon className="size-3.5 text-muted-foreground" />,
 };
 
 /**
@@ -74,7 +75,12 @@ const GLYPH: Partial<Record<StatusTone, ReactNode>> = {
 function ColumnMark({ hoverName, children }: { hoverName?: string; children: ReactElement }) {
   const [armed, setArmed] = useState(false);
   if (!hoverName) return children;
-  if (!armed) return <span className="contents" onPointerEnter={() => setArmed(true)}>{children}</span>;
+  if (!armed)
+    return (
+      <span className="contents" onPointerEnter={() => setArmed(true)}>
+        {children}
+      </span>
+    );
   return (
     <span className="contents">
       <NamedTooltip label={hoverName} side="top">

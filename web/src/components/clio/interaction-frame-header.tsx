@@ -4,7 +4,8 @@ import { useRef, type ReactNode } from 'react';
 import { vocab } from '@/lib/brand-vocabulary';
 import { EditIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
-import { jobFromInteraction } from '@/lib/job-snapshot';
+import { jobFromInteraction, jobHasShape } from '@/lib/job-snapshot';
+import { serverOwnerName } from '@/lib/a2ui/server-surface';
 import { trailingCommand } from '@/lib/literal-command-text';
 import { AskCode } from './ask-code';
 import { AskCard, AskDetails, AskFooter, AskHint, AskSection, type AskCardProps } from './ask-card';
@@ -62,8 +63,29 @@ export function QuestionCard({
   children,
   ...props
 }: QuestionCardProps) {
-  const { title, body } = splitQuestion(heading ?? questionPrompt(interaction), interaction.title);
-  const job = jobFromInteraction(interaction.payload);
+  const { title: rawTitle, body } = splitQuestion(
+    heading ?? questionPrompt(interaction),
+    interaction.title,
+  );
+  // Who asks is said once, by its attribution: "Relay: Where should…" reads "Where should…".
+  const owner = interaction.payload?.server
+    ? serverOwnerName({
+        plugin: interaction.payload.plugin ?? '',
+        plugin_title: interaction.payload.plugin_title,
+        server: interaction.payload.server,
+      })
+    : '';
+  const ownerPrefix = owner ? `${owner.toLowerCase()}:` : '';
+  const title =
+    ownerPrefix &&
+    rawTitle.toLowerCase().startsWith(ownerPrefix) &&
+    rawTitle.slice(ownerPrefix.length).trim()
+      ? rawTitle.slice(ownerPrefix.length).trim()
+      : rawTitle;
+  const recorded = jobFromInteraction(interaction.payload);
+  // A job that is only its site and one planned step tells the person nothing; the question does.
+  const job = recorded && jobHasShape(recorded) ? recorded : null;
+  const site = !job ? recorded?.site?.label || recorded?.site?.id : undefined;
   const tail = !job && body ? trailingCommand(body) : undefined;
   const prompt = tail ? tail.prose : body;
   const promptRef = useRef<HTMLDivElement>(null);
@@ -113,6 +135,11 @@ export function QuestionCard({
           ref={promptRef}
         >
           <QuestionMarkdown>{prompt}</QuestionMarkdown>
+        </AskSection>
+      ) : null}
+      {site ? (
+        <AskSection className="mt-1 text-meta text-muted-foreground" data-slot="question-site">
+          {t`Site: ${ph({ site })}`}
         </AskSection>
       ) : null}
       {tail ? (
