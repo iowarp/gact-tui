@@ -2273,18 +2273,27 @@ msgstr "{host}, Models"
 msgid "{host}, Services"
 msgstr "{host}, Services"
 
-#: src/components/clio/job-card.tsx
+#. A duration in whole hours
+#: src/lib/format.ts
 msgid "{hours} h"
 msgstr "{hours} h"
 
-#: src/components/clio/job-card.tsx
-msgid "{hours} h {rest} min"
-msgstr "{hours} h {rest} min"
+#. A duration in hours and minutes
+#: src/lib/format.ts
+msgid "{hours} h {minutes} min"
+msgstr "{hours} h {minutes} min"
 
+#. Hours in a narrow column, like "10h"
 #: src/components/clio/provider-panel-footer.tsx
 #: src/components/clio/run-presentation.ts
+#: src/lib/format.ts
 msgid "{hours}h"
 msgstr "{hours}h"
+
+#. Hours and minutes in a narrow column; keep it as short as "1h 4m"
+#: src/lib/format.ts
+msgid "{hours}h {minutes}m"
+msgstr "{hours}h {minutes}m"
 
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/agent-plugin-tree.tsx
@@ -2769,22 +2778,49 @@ msgstr "{method}: not offered"
 msgid "{method}: unavailable here"
 msgstr "{method}: unavailable here"
 
+#. A duration in milliseconds
+#: src/lib/format.ts
+msgid "{milliseconds} ms"
+msgstr "{milliseconds} ms"
+
+#. Milliseconds in a narrow column, like "40ms"
+#: src/lib/format.ts
+msgid "{milliseconds}ms"
+msgstr "{milliseconds}ms"
+
 #: src/components/clio/transcript-reasoning-passage.tsx
 msgid "{minutes, plural, one {Thought for # minute} other {Thought for # minutes}}"
 msgstr "{minutes, plural, one {Thought for # minute} other {Thought for # minutes}}"
+
+#. A duration in minutes
+#: src/lib/format.ts
+msgid "{minutes} min"
+msgstr "{minutes} min"
 
 #: src/components/clio/a2ui-steps.tsx
 msgid "{minutes} min {remainder} sec timer"
 msgstr "{minutes} min {remainder} sec timer"
 
+#. A duration in minutes and seconds
+#: src/lib/format.ts
+msgid "{minutes} min {seconds} s"
+msgstr "{minutes} min {seconds} s"
+
 #: src/components/clio/a2ui-steps.tsx
 msgid "{minutes} min timer"
 msgstr "{minutes} min timer"
 
+#. Minutes in a narrow column, like "23m"
 #: src/components/clio/provider-panel-footer.tsx
 #: src/components/clio/run-presentation.ts
+#: src/lib/format.ts
 msgid "{minutes}m"
 msgstr "{minutes}m"
+
+#. Minutes and seconds in a narrow column; keep it as short as "12m 4s"
+#: src/lib/format.ts
+msgid "{minutes}m {seconds}s"
+msgstr "{minutes}m {seconds}s"
 
 #: src/offline-review.tsx
 msgid "{mode}, {messageCount}, {toolCount}, {skillCount}"
@@ -3595,9 +3631,19 @@ msgstr "{scriptLines, plural, one {Python, # line} other {Python, # lines}}"
 msgid "{seconds, plural, one {Thought for # second} other {Thought for # seconds}}"
 msgstr "{seconds, plural, one {Thought for # second} other {Thought for # seconds}}"
 
+#. A duration in seconds
+#: src/lib/format.ts
+msgid "{seconds} s"
+msgstr "{seconds} s"
+
 #: src/components/clio/a2ui-steps.tsx
 msgid "{seconds} sec timer"
 msgstr "{seconds} sec timer"
+
+#. Seconds in a narrow column, like "41s"
+#: src/lib/format.ts
+msgid "{seconds}s"
+msgstr "{seconds}s"
 
 #: src/components/clio/composed-prompt-view.tsx
 msgid "{section} section"
@@ -38540,13 +38586,13 @@ msgstr "The view loaded but has drawn nothing."
 msgid "The view loaded but has drawn nothing. It may need more room: reload it, or open it in a wider panel."
 msgstr "The view loaded but has drawn nothing. It may need more room: reload it, or open it in a wider panel."
 
-#: src/components/clio/mcp-app-frame-menu.tsx
-msgid "The view's service stopped. What it shows no longer changes."
-msgstr "The view's service stopped. What it shows no longer changes."
-
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The view reported a {key} that a shared selection cannot hold."
 msgstr "The view reported a {key} that a shared selection cannot hold."
+
+#: src/components/clio/mcp-app-frame-menu.tsx
+msgid "The view's service stopped. What it shows no longer changes."
+msgstr "The view's service stopped. What it shows no longer changes."
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP {name} array has invalid numbers."

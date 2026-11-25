@@ -12,7 +12,7 @@ import type {
 import { openHumanQuestions } from '@/lib/inline-question';
 import { vocab } from '@/lib/brand-vocabulary';
 import { artifactDisplayName } from '@/lib/dashboard-presentation';
-import { formatCompactBytes } from '@/lib/format';
+import { formatCompactBytes, formatDuration } from '@/lib/format';
 import type { EvidenceSource } from './observability-evidence-sources';
 import { permissionTitle } from './permission-operation-labels';
 import { isSettledTaskActivity, taskActivity } from './task-activity';
@@ -241,12 +241,7 @@ function percent(done: unknown, total: unknown): string | undefined {
 
 /** A duration that fits the trailing column: 40ms, 2.4s, 3m, 2h. */
 export function compactDuration(milliseconds: number): string {
-  const elapsed = Math.max(0, milliseconds);
-  if (elapsed < 1000) return `${Math.round(elapsed)}ms`;
-  if (elapsed < 10_000) return `${(elapsed / 1000).toFixed(1).replace(/\.0$/u, '')}s`;
-  if (elapsed < 60_000) return `${Math.round(elapsed / 1000)}s`;
-  if (elapsed < 3_600_000) return `${Math.round(elapsed / 60_000)}m`;
-  return `${Math.round(elapsed / 3_600_000)}h`;
+  return formatDuration(milliseconds, 'trailing');
 }
 
 /** A trailing value must fit its column; longer words stay in the hover name. */

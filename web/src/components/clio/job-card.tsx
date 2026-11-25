@@ -415,13 +415,8 @@ function SiteDefault() {
 
 /** A wall time as the scheduler states it: whole hours and minutes, seconds only when short. */
 function wallTime(milliseconds: number): string {
-  // Clocks on the site and here differ a little; never show a start ahead of now.
-  if (milliseconds < 1000) return '0 s';
-  const minutes = Math.round(milliseconds / 60_000);
-  if (minutes < 60) return formatDuration(Math.floor(milliseconds / 1000) * 1000);
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest ? t`${ph({ hours })} h ${ph({ rest })} min` : t`${ph({ hours })} h`;
+  // Clocks on the site and here differ a little; `wall` never shows a start ahead of now.
+  return formatDuration(milliseconds, 'wall');
 }
 
 /**

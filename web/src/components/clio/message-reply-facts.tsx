@@ -11,6 +11,7 @@ import type { ReactElement } from 'react';
 import { brand } from '@brand';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { AdjustIcon } from '@/lib/icon-vocabulary';
+import { formatDuration } from '@/lib/format';
 import { formatNumber } from '@/lib/locale-format';
 import { providerDisplayName, providerLogoId } from '@/lib/provider-presentation';
 import type { KeyValueItem } from './primitives/key-value-grid';
@@ -62,10 +63,7 @@ export function replyDuration(message: Message): string | undefined {
   const seconds = Math.round(elapsed / 1000);
   // Some producers stamp the message when it completes; a zero span is no measurement.
   if (seconds === 0) return undefined;
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return seconds % 60 ? `${minutes}m ${seconds % 60}s` : `${minutes}m`;
-  return minutes % 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes / 60}h`;
+  return formatDuration(seconds * 1000, 'short');
 }
 
 function messageBehavior(message: Message): Partial<MessageBehavior> {

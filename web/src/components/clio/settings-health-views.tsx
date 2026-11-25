@@ -7,6 +7,7 @@ import { StatusIndicator, type StatusTone } from './primitives/status-indicator'
 import { SettingsGroupLabel, SettingsRow } from './settings-row';
 import { humanizeToolName } from './tool-presentation';
 import { plural, t, ph } from '@lingui/core/macro';
+import { formatDuration } from '@/lib/format';
 import { formatDateTime, formatNumber } from '@/lib/locale-format';
 
 function metricTitle(name: string) {
@@ -23,19 +24,11 @@ function number(value: number) {
 }
 
 function duration(seconds: number) {
-  if (seconds < 60) return `${seconds}s`;
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
+  return formatDuration(Math.floor(seconds) * 1000, 'short');
 }
 
 function metricDuration(milliseconds: number) {
-  const seconds = Math.max(0, milliseconds / 1000);
-  if (seconds < 10) return `${seconds.toFixed(1)}s`;
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.round(seconds % 60);
-  return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+  return formatDuration(milliseconds, 'elapsed');
 }
 
 function metricContext(name: string) {

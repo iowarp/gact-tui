@@ -52,6 +52,28 @@ describe('formatDuration', () => {
     expect(formatDuration(150_000)).toBe('2 min 30 s');
     expect(formatDuration(120_000)).toBe('2 min');
     expect(formatDuration(119_999)).toBe('2 min');
+    expect(formatDuration(3_900_000)).toBe('1 h 5 min');
+    expect(formatDuration(7_200_000)).toBe('2 h');
+  });
+
+  it('states a wall time in whole seconds, never milliseconds', () => {
+    expect(formatDuration(400, 'wall')).toBe('0 s');
+    expect(formatDuration(9_900, 'wall')).toBe('9 s');
+    expect(formatDuration(1_800_000, 'wall')).toBe('30 min');
+    expect(formatDuration(7_200_000, 'wall')).toBe('2 h');
+  });
+
+  it('writes narrow units without a column limit in the short style', () => {
+    expect(formatDuration(41_000, 'short')).toBe('41s');
+    expect(formatDuration(725_000, 'short')).toBe('12m 5s');
+    expect(formatDuration(3_840_000, 'short')).toBe('1h 4m');
+  });
+
+  it('keeps one rounded unit in the trailing style', () => {
+    expect(formatDuration(40, 'trailing')).toBe('40ms');
+    expect(formatDuration(2_400, 'trailing')).toBe('2.4s');
+    expect(formatDuration(42_000, 'trailing')).toBe('42s');
+    expect(formatDuration(9 * 60_000, 'trailing')).toBe('9m');
   });
 
   it('fits the transcript elapsed column: tenths under ten seconds, then whole units', () => {
@@ -73,6 +95,7 @@ describe('formatDuration', () => {
     expect(formatDuration(120, 'compact')).toBe('1s');
     expect(formatDuration(9_400, 'compact')).toBe('9s');
     expect(formatDuration(150_000, 'compact')).toBe('3m');
+    expect(formatDuration(7_200_000, 'compact')).toBe('2h');
   });
 
   it('treats a negative elapsed time as zero rather than printing a negative', () => {

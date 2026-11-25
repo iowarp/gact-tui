@@ -238,6 +238,6 @@ describe('deploy progress', () => {
     expect(oneLineReason('Installing\n\nerror: disk full\n')).toBe('error: disk full');
     expect(oneLineReason('')).toBe('The deployment failed.');
     expect(formatElapsed(9_400)).toBe('9s');
-    expect(formatElapsed(65_000)).toBe('1m 05s');
+    expect(formatElapsed(65_000)).toBe('1m 5s');
   });
 });

@@ -1,4 +1,5 @@
 import { vocab } from '@/lib/brand-vocabulary';
+import { formatDuration } from '@/lib/format';
 import type { SshStepEvent } from '@/tauri/ssh-infrastructure-transport';
 import type { RecoveryProgress } from '@/tauri/ssh-recovery-progress';
 import { t, ph } from '@lingui/core/macro';
@@ -264,9 +265,7 @@ export function oneLineReason(message: string): string {
   return lines[lines.length - 1] ?? t`The deployment failed.`;
 }
 
-/** Elapsed time as `12s` or `1m 05s`. */
+/** Elapsed time in whole seconds, as `12s` or `1m 5s`. */
 export function formatElapsed(milliseconds: number): string {
-  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, '0')}s`;
+  return formatDuration(Math.floor(Math.max(0, milliseconds) / 1000) * 1000, 'short');
 }

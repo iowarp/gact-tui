@@ -20,6 +20,7 @@ import {
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatDuration } from '@/lib/format';
 import { ActivityRow } from './activity-row';
 import { StatusIndicator } from './primitives/status-indicator';
 import { ClioStatus, type ClioStatusValue } from './status';
@@ -507,7 +508,7 @@ function answerTaskTiming(createdAt: string | undefined, updatedAt: string | und
   if (!createdAt || !updatedAt) return '';
   const elapsed = new Date(updatedAt).getTime() - new Date(createdAt).getTime();
   if (!Number.isFinite(elapsed) || elapsed < 0) return '';
-  return elapsed < 1_000 ? `${elapsed} ms` : `${(elapsed / 1_000).toFixed(1)} s`;
+  return formatDuration(elapsed, 'tenths');
 }
 
 function fallbackDescription(detail: string | undefined): string {

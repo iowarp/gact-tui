@@ -3,6 +3,7 @@ import { memo, useEffect, useState } from 'react';
 import { BrainIcon, ServerIcon } from 'lucide-react';
 import { useNow } from '@/hooks/use-now';
 import { currentTurnAssistantMessages } from '@/lib/current-turn-messages';
+import { formatDuration } from '@/lib/format';
 import type { TurnPreparationProps } from './turn-preparation';
 import { ActivityRow } from './activity-row';
 import { infrastructurePreparationLabel } from './infrastructure-preparation-label';
@@ -119,5 +120,5 @@ const ResponseWait = memo(function ResponseWait() {
 function ResponseWaitElapsed({ started }: { started: number }) {
   const now = useNow(true);
   // Revealed only after a full second, so a clock reading from just before reveal still says 1s.
-  return `${Math.max(1, Math.floor((now - started) / 1000))}s`;
+  return formatDuration(Math.max(1, Math.floor((now - started) / 1000)) * 1000, 'short');
 }

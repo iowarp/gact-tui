@@ -35,7 +35,9 @@ const RUNNING: readonly RunRow['state'][] = [
 function elapsed(from: string | undefined, to: number): string | undefined {
   const at = from ? Date.parse(from) : Number.NaN;
   if (Number.isNaN(at) || to < at) return undefined;
-  return formatDuration(to - at, 'elapsed').replace(/ \d+s$/u, '');
+  const span = to - at;
+  // Past a minute the tab names whole minutes only: "running 4m", "1h 4m".
+  return formatDuration(span < 60_000 ? span : Math.floor(span / 60_000) * 60_000, 'elapsed');
 }
 
 /**
