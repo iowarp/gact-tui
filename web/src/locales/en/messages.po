@@ -33944,6 +33944,7 @@ msgstr "Show keys on screen"
 #: src/components/clio/ndp-dataset-row.tsx
 #: src/components/clio/open-question-list.tsx
 #: src/components/clio/plan-exit-interaction.tsx
+#: src/components/clio/question-prompt.tsx
 #: src/components/clio/tool-operation-value.tsx
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Show less"
@@ -33964,6 +33965,7 @@ msgstr "Show locations list"
 #: src/components/clio/bounded-result.tsx
 #: src/components/clio/ndp-dataset-row.tsx
 #: src/components/clio/ndp-endpoint-browser.tsx
+#: src/components/clio/question-prompt.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/tool-operation-value.tsx
 #: src/components/clio/tool-result-primitives.tsx
