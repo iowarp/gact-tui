@@ -2386,6 +2386,7 @@ msgstr "{km} km, {level}: {value}"
 msgid "{label} — refreshing"
 msgstr "{label} — ανανέωση"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-tools-options.ts
 msgid "{label} (default; choose a value to override it)"
 msgstr "{label} (προεπιλογή· επιλέξτε μια τιμή για να την παρακάμψετε)"
@@ -12994,6 +12995,7 @@ msgstr "Τομή κατά μήκος του {axis}"
 msgid "Cut short"
 msgstr "Περικόπηκε"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-tools-picker.tsx
 msgid "D marks a default value. Choose a value to override it."
 msgstr "Το D δηλώνει μια προεπιλεγμένη τιμή. Επιλέξτε μια τιμή για να την παρακάμψετε."
@@ -38541,13 +38543,13 @@ msgstr "Η προβολή φορτώθηκε αλλά δεν σχεδίασε τ
 msgid "The view loaded but has drawn nothing. It may need more room: reload it, or open it in a wider panel."
 msgstr "Η προβολή φορτώθηκε αλλά δεν σχεδίασε τίποτα. Ίσως χρειάζεται περισσότερο χώρο: φορτώστε την ξανά ή ανοίξτε την σε πλατύτερο πλαίσιο."
 
-#: src/components/clio/mcp-app-frame-menu.tsx
-msgid "The view's service stopped. What it shows no longer changes."
-msgstr "Η υπηρεσία της προβολής σταμάτησε. Ό,τι δείχνει δεν αλλάζει πια."
-
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The view reported a {key} that a shared selection cannot hold."
 msgstr "Η προβολή ανέφερε τιμή ({key}) που δεν χωρά σε κοινή επιλογή."
+
+#: src/components/clio/mcp-app-frame-menu.tsx
+msgid "The view's service stopped. What it shows no longer changes."
+msgstr "Η υπηρεσία της προβολής σταμάτησε. Ό,τι δείχνει δεν αλλάζει πια."
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP {name} array has invalid numbers."

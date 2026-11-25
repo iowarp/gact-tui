@@ -2386,6 +2386,7 @@ msgstr "{km} km, {level}: {value}"
 msgid "{label} — refreshing"
 msgstr "{label} — actualizando"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-tools-options.ts
 msgid "{label} (default; choose a value to override it)"
 msgstr "{label} (predeterminado; elige un valor para sustituirlo)"
@@ -12994,6 +12995,7 @@ msgstr "Cortar a lo largo de {axis}"
 msgid "Cut short"
 msgstr "Recortado"
 
+#: src/components/clio/a2ui-choice-table.tsx
 #: src/components/clio/settings-tools-picker.tsx
 msgid "D marks a default value. Choose a value to override it."
 msgstr "D marca un valor predeterminado. Elige un valor para sustituirlo."
@@ -38541,13 +38543,13 @@ msgstr "La vista se cargó pero no ha dibujado nada."
 msgid "The view loaded but has drawn nothing. It may need more room: reload it, or open it in a wider panel."
 msgstr "La vista se cargó pero no ha dibujado nada. Puede que necesite más espacio: vuelve a cargarla o ábrela en un panel más ancho."
 
-#: src/components/clio/mcp-app-frame-menu.tsx
-msgid "The view's service stopped. What it shows no longer changes."
-msgstr "El servicio de la vista se detuvo. Lo que muestra ya no cambia."
-
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The view reported a {key} that a shared selection cannot hold."
 msgstr "La vista indicó un valor de {key} que una selección compartida no puede contener."
+
+#: src/components/clio/mcp-app-frame-menu.tsx
+msgid "The view's service stopped. What it shows no longer changes."
+msgstr "El servicio de la vista se detuvo. Lo que muestra ya no cambia."
 
 #: src/components/clio/mesh-viewport-formats.ts
 msgid "The VTP {name} array has invalid numbers."
