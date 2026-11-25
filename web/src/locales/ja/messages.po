@@ -10140,6 +10140,7 @@ msgid "Close working copy"
 msgstr "作業コピーを閉じる"
 
 #: src/components/clio/app-shell.tsx
+#: src/components/clio/workbench.tsx
 msgid "Close workspace canvas"
 msgstr "ワークスペースキャンバスを閉じる"
 
