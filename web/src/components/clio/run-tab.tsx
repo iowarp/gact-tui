@@ -135,13 +135,20 @@ export function RunSummary({
     (question) => question.status === 'pending',
   );
   const progress = taskProgressLabel(shownProgress, row.taskKind, row.statusDetail);
-  // A lost or failed run's last message is its reported issue, kept once under Details.
-  const reported =
+  // A lost or failed run's last message is its reported issue, kept once under Details and
+  // as written; only a live run's status line is tidied.
+  const raw =
     typeof row.progress?.message === 'string' &&
     row.progress.message.trim() &&
     row.progress.message.trim() !== row.statusDetail?.trim()
-      ? readableProgress(row.progress.message)
+      ? row.progress.message.trim()
       : undefined;
+  const live = row.state === 'running' || row.state === 'waiting_user' || row.state === 'queued';
+  const reported: ReturnType<typeof readableProgress> | undefined = raw
+    ? live
+      ? readableProgress(raw)
+      : { text: raw }
+    : undefined;
   const message = reported?.text;
   const reason =
     row.statusReason && row.state !== 'task_state_uncertain' ? row.statusReason : undefined;

@@ -1,6 +1,6 @@
 import type { PendingInteraction, PendingInteractionField } from '@clio/core/v3';
 
-/** Relay's typed choices per ask: `_meta["io.iowarp.clio-relay/choice"][askId]`. */
+/** Relay's typed choices per ask and field: `_meta["io.iowarp.clio-relay/choice"][askId][field]`. */
 export const CHOICE_META_KEY = 'io.iowarp.clio-relay/choice';
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -36,32 +36,58 @@ function metaBlocks(payload: unknown): Record<string, unknown>[] {
     .filter((block): block is Record<string, unknown> => Boolean(block));
 }
 
+/** The ids this ask may be filed under in relay's choice map: its request or elicitation id. */
+function askIds(payload: unknown): Set<string> {
+  const root = record(payload);
+  const elicitation = record(record(root?.metadata)?.elicitation);
+  return new Set(
+    [root?.request_id, root?.elicitation_id, elicitation?.request_id, elicitation?.elicitation_id]
+      .map(text)
+      .filter((id): id is string => Boolean(id)),
+  );
+}
+
+/**
+ * A choice entry, under `[askId][field]` (one ask may hold two choices) or, from older
+ * relays, `[askId]` directly.
+ */
+function entriesOf(ask: Record<string, unknown>): Record<string, unknown>[] {
+  if (Array.isArray(ask.options)) return [ask];
+  return Object.values(ask)
+    .map(record)
+    .filter((entry): entry is Record<string, unknown> => Array.isArray(entry?.options));
+}
+
 function choiceFromMeta(payload: unknown, name: string): DeclaredChoice | undefined {
+  const ids = askIds(payload);
   for (const meta of metaBlocks(payload)) {
     const asks = record(meta[CHOICE_META_KEY]);
     if (!asks) continue;
-    for (const ask of Object.values(asks).map(record)) {
-      if (!ask || ask.field !== name || !Array.isArray(ask.options)) continue;
-      const options = ask.options
+    // A task's merged map holds every open ask: prefer this one's own entry.
+    const own = Object.entries(asks).filter(([id]) => ids.has(id));
+    for (const [, value] of own.length ? own : Object.entries(asks)) {
+      const ask = record(value);
+      const entry = ask ? entriesOf(ask).find((item) => item.field === name) : undefined;
+      if (!entry || !Array.isArray(entry.options)) continue;
+      const options = entry.options
         .map(record)
         .filter((option): option is Record<string, unknown> =>
           Boolean(option && 'value' in option),
         );
       const flagged = options.find((option) => option.recommended === true)?.value;
       return {
-        title: text(ask.title),
+        title: text(entry.title),
         options: options.map((option) => ({
           value: option.value,
           label: text(option.label),
           description: text(option.description),
         })),
-        recommended: ask.recommended ?? flagged ?? undefined,
+        recommended: entry.recommended ?? flagged ?? undefined,
       };
     }
   }
   return undefined;
 }
-
 /** A JSON-Schema `oneOf` of titled constants, if the raw property reached the payload. */
 function choiceFromSchema(payload: unknown, name: string): DeclaredChoice | undefined {
   const root = record(payload);
@@ -114,10 +140,13 @@ export function withDeclaredChoices(
         return option.label ?? (original >= 0 ? field.enum_names?.[original] : undefined) ?? '';
       }),
       enum_descriptions: known.map((option) => option.description ?? ''),
+      // Marked only: a default would preselect it and close the choice as answered.
+      // Relay sends its recommendation as the schema default too; that default is dropped.
+      recommended: field.recommended ?? declared.recommended,
       default:
-        field.default !== undefined && field.default !== null
-          ? field.default
-          : declared.recommended,
+        declared.recommended !== undefined && Object.is(field.default, declared.recommended)
+          ? undefined
+          : field.default,
     };
   });
 }

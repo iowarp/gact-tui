@@ -21,6 +21,7 @@ const pendingInteractionFieldSchema = z
       .array(z.string())
       .nullish()
       .transform((value) => value ?? undefined),
+    recommended: z.unknown().optional(),
     multi: z.boolean().optional(),
     item_type: forwardCompatibleEnum(['string', 'number', 'integer', 'boolean']).optional(),
     min_items: z

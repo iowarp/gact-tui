@@ -27,6 +27,7 @@ export function QuestionChoiceRows({
   disabled,
   label,
   onChoose,
+  noEnter,
 }: {
   choices: readonly QuestionChoice[];
   mode: QuestionChoiceMode;
@@ -35,9 +36,11 @@ export function QuestionChoiceRows({
   /** The question, naming the group. */
   label: string;
   onChoose: (value: string) => void;
+  /** ↵ picks none: a consent is given only by pressing or numbering its option. */
+  noEnter?: boolean;
 }) {
   const recommended = choices.findIndex((choice) => choice.recommended);
-  const enterPicks = recommended >= 0 ? recommended : 0;
+  const enterPicks = noEnter ? -1 : recommended >= 0 ? recommended : 0;
   return (
     <AskRows aria-label={plainQuestionText(label)} role={mode === 'pick' ? 'radiogroup' : 'group'}>
       {choices.map((choice, index) => {

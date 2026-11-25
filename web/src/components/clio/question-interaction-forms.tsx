@@ -182,6 +182,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             disabled={busy}
             label={fieldTitle(choice)}
             mode="answer"
+            noEnter
             onChoose={(index) => void answer(choice.enum?.[Number(index)])}
           />
         )}
@@ -258,6 +259,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             disabled={props.disabled || sending}
             label={fieldTitle(answerChoice)}
             mode="answer"
+            noEnter
             onChoose={(index) => void submit({ [answerChoice.name]: options[Number(index)] })}
           />
         )}
@@ -321,6 +323,8 @@ function urlOriginTrust(payload: PendingInteraction['payload']): string | undefi
  * sources?" was a radio list, a "Choice" heading and a separate Send response.
  */
 function fieldPair(field: PendingInteractionField): BinaryPair<BinaryOption<unknown>> | undefined {
+  // Options that say what they mean (relay's spend approval) keep that line on the choice rows.
+  if (field.enum_descriptions?.some((line) => line?.trim())) return undefined;
   const values = field.enum ?? [];
   const pair = binaryPair(
     values.map((value, index) => ({
@@ -357,14 +361,15 @@ function optionLabel(field: PendingInteractionField, value: unknown, index: numb
   return typeof value === 'string' ? readableId(value) : String(value);
 }
 
-/** A field's options on the shared choice rows; the schema's default is the recommendation. */
+/** A field's options on the shared choice rows, the asker's recommendation (else the schema's default) marked. */
 function fieldChoices(field: PendingInteractionField): QuestionChoice[] {
-  const hasDefault = field.default !== undefined && field.default !== null;
+  const pick = field.recommended ?? field.default;
+  const hasDefault = pick !== undefined && pick !== null;
   return (field.enum ?? []).map((value, index) => ({
     value: String(index),
     label: optionLabel(field, value, index),
     description: field.enum_descriptions?.[index]?.trim() || undefined,
-    recommended: hasDefault && Object.is(field.default, value),
+    recommended: hasDefault && Object.is(pick, value),
   }));
 }
 
