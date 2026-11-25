@@ -1,4 +1,5 @@
 import type { A2UISurface, A2UISurfaceOwner, PluginPage } from '@clio/core/v3';
+import { requestLocale } from '@/lib/transport/request-locale';
 
 /**
  * The last view a plugin page showed, kept per service so the next open (a
@@ -30,7 +31,8 @@ function storage(): Storage | undefined {
 }
 
 function pageKey(scope: string, pageId: string): string {
-  return `${PREFIX}\u0000${scope}\u0000${pageId}`;
+  // The server renders the page in the interface language: a view kept in another one is not shown.
+  return `${PREFIX}\u0000${scope}\u0000${requestLocale()}\u0000${pageId}`;
 }
 
 export function readStoredPluginPage(scope: string, pageId: string): StoredPluginPage | undefined {
@@ -80,7 +82,7 @@ export function storePluginPage(
 
 /** The left bar's plugin pages as last read, so a page route resolves before the list answers. */
 export function readStoredPluginPages(scope: string): PluginPage[] | undefined {
-  const raw = storage()?.getItem(`${PAGES_PREFIX}\u0000${scope}`);
+  const raw = storage()?.getItem(`${PAGES_PREFIX}\u0000${scope}\u0000${requestLocale()}`);
   if (!raw) return undefined;
   try {
     const value = JSON.parse(raw) as unknown;
@@ -92,7 +94,10 @@ export function readStoredPluginPages(scope: string): PluginPage[] | undefined {
 
 export function storePluginPages(scope: string, pages: readonly PluginPage[]): void {
   try {
-    storage()?.setItem(`${PAGES_PREFIX}\u0000${scope}`, JSON.stringify(pages));
+    storage()?.setItem(
+      `${PAGES_PREFIX}\u0000${scope}\u0000${requestLocale()}`,
+      JSON.stringify(pages),
+    );
   } catch {
     // The list is read live next time.
   }
