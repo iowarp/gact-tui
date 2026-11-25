@@ -527,6 +527,6 @@ function LocalPdfPreview({ file }: { file: UploadableFilePart }) {
   }, [file.url, file.file]);
 
   return (
-    <ClioPdfPreview bytes={bytes} error={error} fit="page" name={file.filename ?? 'Attachment'} />
+    <ClioPdfPreview bytes={bytes} error={error} fit="page" name={file.filename ?? t`Attachment`} />
   );
 }

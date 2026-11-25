@@ -425,6 +425,11 @@ msgstr "{0, plural, one {# μοντέλο} other {# μοντέλα}}"
 msgid "{0, plural, one {# more note} other {# more notes}}"
 msgstr "{0, plural, one {# ακόμη σημείωση} other {# ακόμη σημειώσεις}}"
 
+#. placeholder {0}: unstaged.length
+#: src/components/clio/structured-result-reading.ts
+msgid "{0, plural, one {# more package can be staged: {list}} other {# more packages can be staged: {list}}}"
+msgstr "{0, plural, one {# ακόμη πακέτο μπορεί να προετοιμαστεί: {list}} other {# ακόμη πακέτα μπορούν να προετοιμαστούν: {list}}}"
+
 #. placeholder {0}: hidden.length
 #: src/components/clio/workbench-tab-row.tsx
 msgid "{0, plural, one {# more tab} other {# more tabs}}"
@@ -1704,6 +1709,10 @@ msgstr "{count, plural, one {# παλαιότερη συνομιλία κατα�
 msgid "{count, plural, one {# organization} other {# organizations}}"
 msgstr "{count, plural, one {# οργανισμός} other {# οργανισμοί}}"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "{count, plural, one {# package is staged: {list}} other {# packages are staged: {list}}}"
+msgstr "{count, plural, one {# πακέτο είναι προετοιμασμένο: {list}} other {# πακέτα είναι προετοιμασμένα: {list}}}"
+
 #: src/lib/scientific-document.ts
 msgid "{count, plural, one {# page} other {# pages}}"
 msgstr "{count, plural, one {# σελίδα} other {# σελίδες}}"
@@ -1869,6 +1878,7 @@ msgid "{count} in parallel"
 msgstr "{count} παράλληλα"
 
 #: src/components/clio/primitives/nav-tabs.tsx
+#: src/components/clio/structured-result-reading.ts
 msgid "{count} more"
 msgstr "{count} ακόμη"
 
@@ -2691,6 +2701,10 @@ msgstr "{lines, plural, one {# γραμμή} other {# γραμμές}}"
 #: src/components/clio/permission-response.tsx
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python, # γραμμή} other {Python, # γραμμές}}"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "{list} and {count} more"
+msgstr "{list} και {count} ακόμη"
 
 #. A short list, its last item
 #: src/lib/locale-format.ts
@@ -7415,6 +7429,7 @@ msgid "Attaching…"
 msgstr "Επισύναψη…"
 
 #: src/components/ai-elements/attachments.tsx
+#: src/components/clio/composer-attachments.tsx
 #: src/components/clio/question-answer-presentation.ts
 msgid "Attachment"
 msgstr "Συνημμένο"
@@ -10319,6 +10334,10 @@ msgstr "Σύμπτυξη {group}"
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "Σύμπτυξη {label}"
+
+#: src/components/clio/conversation-summarization.tsx
+msgid "Collapse {name}"
+msgstr "Σύμπτυξη: {name}"
 
 #: src/components/clio/ask-answered-row.tsx
 msgid "Collapse {verb}"
@@ -15260,6 +15279,10 @@ msgstr "κάθε {interval}"
 msgid "Every agent carries the core plugin. It cannot be removed."
 msgstr "Κάθε πράκτορας περιλαμβάνει το βασικό πρόσθετο. Δεν μπορεί να αφαιρεθεί."
 
+#: src/components/clio/structured-result-reading.ts
+msgid "Every available package is staged."
+msgstr "Όλα τα διαθέσιμα πακέτα είναι προετοιμασμένα."
+
 #: src/lib/onboarding/tour-script.ts
 msgid "Every command, file edit and search gets its own row."
 msgstr "Κάθε εντολή, επεξεργασία αρχείου και αναζήτηση έχει τη δική της γραμμή."
@@ -15528,6 +15551,10 @@ msgstr "Ανάπτυξη {group}"
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "Ανάπτυξη {label}"
+
+#: src/components/clio/conversation-summarization.tsx
+msgid "Expand {name}"
+msgstr "Ανάπτυξη: {name}"
 
 #: src/components/clio/ask-answered-row.tsx
 msgid "Expand {verb}"
@@ -17939,6 +17966,7 @@ msgstr "Τροχιές τυφώνων"
 msgid "Hypothesis"
 msgstr "Υπόθεση"
 
+#: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-group-row.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
@@ -17949,6 +17977,7 @@ msgstr "Ε/Ε"
 msgid "I/O for {group}"
 msgstr "Ε/Ε για {group}"
 
+#: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "I/O for {name}"
 msgstr "Ε/Ε για {name}"
@@ -22313,6 +22342,10 @@ msgstr "Περισσότερες ενέργειες υπηρεσίας"
 msgid "More types"
 msgstr "Περισσότεροι τύποι"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "More values are in Technical details."
+msgstr "Περισσότερες τιμές υπάρχουν στις Τεχνικές λεπτομέρειες."
+
 #: src/components/clio/managed-services.tsx
 msgid "More ways to add a service"
 msgstr "Περισσότεροι τρόποι προσθήκης υπηρεσίας"
@@ -22978,6 +23011,10 @@ msgstr "Επόμενη, προηγούμενη ομάδα"
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "Next, previous region"
 msgstr "Επόμενη, προηγούμενη περιοχή"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "no"
+msgstr "όχι"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
@@ -23723,6 +23760,10 @@ msgstr "Κανένα πακέτο δεν φέρνει υποπράκτορες."
 #: src/components/clio/agent-package-items.ts
 msgid "No package brings tools."
 msgstr "Κανένα πακέτο δεν φέρνει εργαλεία."
+
+#: src/components/clio/structured-result-reading.ts
+msgid "No packages are staged."
+msgstr "Κανένα πακέτο δεν είναι προετοιμασμένο."
 
 #: src/components/clio/settings-web-search.tsx
 msgid "No paper or dataset sources are available on this service."
@@ -28092,6 +28133,7 @@ msgstr "Ερώτημα στην υπηρεσία"
 msgid "question"
 msgstr "ερώτηση"
 
+#: src/components/clio/agent-answer-activity.tsx
 #: src/components/clio/agent-answer-domain.ts
 #: src/components/clio/pending-interactions.tsx
 #: src/components/clio/question-answer-reader.tsx
@@ -28937,6 +28979,10 @@ msgstr "Πρόσφατες απαντήσεις"
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Recent session excerpts"
 msgstr "Πρόσφατα αποσπάσματα συνεδρίας"
+
+#: src/components/clio/conversation-summarization.tsx
+msgid "Recent turns kept verbatim"
+msgstr "Πρόσφατοι γύροι που κρατήθηκαν αυτούσιοι"
 
 #: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/question-choice-card.tsx
@@ -29863,6 +29909,10 @@ msgstr "Αφαιρέθηκε (επιλέξτε για επαναπροσθήκη
 #: src/hooks/use-saved-mcp-services.ts
 msgid "Removed {name}"
 msgstr "Αφαιρέθηκε το {name}"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "Removed {packages}."
+msgstr "Αφαιρέθηκε: {packages}."
 
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "Removed by you"
@@ -35076,6 +35126,10 @@ msgstr "Προετοιμασία αρχείων"
 msgid "Stage packages"
 msgstr "Προετοιμασία πακέτων"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "Staged {package}."
+msgstr "Προετοιμάστηκε: {package}."
+
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/model-inventory-row.tsx
 msgid "Stale"
@@ -36112,6 +36166,7 @@ msgstr "Σύνοψη του παλαιότερου πλαισίου πριν γ�
 msgid "Summarizing earlier messages…"
 msgstr "Σύνοψη παλαιότερων μηνυμάτων…"
 
+#: src/components/clio/conversation-summarization.tsx
 #: src/components/clio/infrastructure-activity-row.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/widget-gallery-demos.ts
@@ -36305,6 +36360,7 @@ msgid "System note"
 msgstr "Σημείωση συστήματος"
 
 #: src/components/clio/context-composition-model.ts
+#: src/components/clio/conversation-summarization.tsx
 msgid "System prompt"
 msgstr "Προτροπή συστήματος"
 
@@ -36934,6 +36990,10 @@ msgstr "Το πρόγραμμα περιήγησης απέκλεισε αυτό
 #: src/components/clio/settings-schema-copy.ts
 msgid "The browser that shows the pages the agent opens. A separate browser keeps its own sign-ins; your running Chrome or Edge has yours."
 msgstr "Το πρόγραμμα περιήγησης που δείχνει τις σελίδες που ανοίγει ο πράκτορας. Ένα ξεχωριστό πρόγραμμα κρατά τις δικές του συνδέσεις· το ανοιχτό σας Chrome ή Edge έχει τις δικές σας."
+
+#: src/components/clio/structured-result-reading.ts
+msgid "The call returned no values to show. Technical details has the exact result."
+msgstr "Η κλήση δεν επέστρεψε τιμές για εμφάνιση. Οι Τεχνικές λεπτομέρειες έχουν το ακριβές αποτέλεσμα."
 
 #: src/components/clio/science-log-sources.tsx
 msgid "The call's record is not available: {message}"
@@ -38769,6 +38829,7 @@ msgid "Thinking..."
 msgstr "Σκέφτεται..."
 
 #: src/components/clio/transcript-reasoning-passage.tsx
+#: src/components/clio/turn-wait-feedback.tsx
 msgid "Thinking…"
 msgstr "Σκέφτεται…"
 
@@ -43291,6 +43352,10 @@ msgstr "x {xRange}, y {yRange}"
 #: src/components/reui/date-selector.tsx
 msgid "Year"
 msgstr "Έτος"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "yes"
+msgstr "ναι"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx

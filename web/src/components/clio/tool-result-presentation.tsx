@@ -47,6 +47,7 @@ import { useQuestionAnswer } from './question-answer-context';
 import { PresentationNavigation } from './presentation-navigation';
 import { ReportTabs } from './report-tabs';
 import { childReports } from '@/lib/child-reports';
+import { STRUCTURED_RESULT_BLOCK, structuredResultReading } from './structured-result-reading';
 import { t } from '@lingui/core/macro';
 
 /** The agent's fixed English block labels, said in the reader's language. */
@@ -123,19 +124,23 @@ function ToolResultBody({
         ? subject.label || subject.uri || ''
         : '';
   const blocks = getToolResultBlocks(tool, subjectId)
-    .filter(
-      (block) =>
-        !['text', 'markdown'].includes(block.type) || block.text?.trim() || block.content_ref,
-    )
     .map((block) => {
       const declined = declinedBlock(block);
       if (declined) return declined;
+      if (block.id === STRUCTURED_RESULT_BLOCK && block.type === 'markdown') {
+        const reading = structuredResultReading(tool, block);
+        return reading ? { ...block, text: reading } : block;
+      }
       if (resourceDocument && block.type === 'text')
         return { ...block, type: 'code' as const, language: languageForPath(subjectPath) };
       return block.type === 'code' && !block.language && subjectPath
         ? { ...block, language: languageForPath(subjectPath) }
         : block;
-    });
+    })
+    .filter(
+      (block) =>
+        !['text', 'markdown'].includes(block.type) || block.text?.trim() || block.content_ref,
+    );
   const summary = summaryInHeader ? '' : (getToolSummary(tool) ?? '');
   // The schema itself is useful to the agent, but it overwhelms the human
   // activity lane. The info button on the tool row retains the exact result.

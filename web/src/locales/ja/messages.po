@@ -425,6 +425,11 @@ msgstr "{0, plural, one {#個のモデル} other {#個のモデル}}"
 msgid "{0, plural, one {# more note} other {# more notes}}"
 msgstr "{0, plural, one {他#件のノート} other {他#件のノート}}"
 
+#. placeholder {0}: unstaged.length
+#: src/components/clio/structured-result-reading.ts
+msgid "{0, plural, one {# more package can be staged: {list}} other {# more packages can be staged: {list}}}"
+msgstr "{0, plural, other {さらに # 個のパッケージをステージできます: {list}}}"
+
 #. placeholder {0}: hidden.length
 #: src/components/clio/workbench-tab-row.tsx
 msgid "{0, plural, one {# more tab} other {# more tabs}}"
@@ -1704,6 +1709,10 @@ msgstr "{count, plural, one {#件の古い会話は、設定されていたモ�
 msgid "{count, plural, one {# organization} other {# organizations}}"
 msgstr "{count, plural, one {#件の組織} other {#件の組織}}"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "{count, plural, one {# package is staged: {list}} other {# packages are staged: {list}}}"
+msgstr "{count, plural, other {# 個のパッケージがステージ済みです: {list}}}"
+
 #: src/lib/scientific-document.ts
 msgid "{count, plural, one {# page} other {# pages}}"
 msgstr "{count, plural, one {#ページ} other {#ページ}}"
@@ -1869,6 +1878,7 @@ msgid "{count} in parallel"
 msgstr "{count}件を並列で"
 
 #: src/components/clio/primitives/nav-tabs.tsx
+#: src/components/clio/structured-result-reading.ts
 msgid "{count} more"
 msgstr "他{count}件"
 
@@ -2691,6 +2701,10 @@ msgstr "{lines, plural, one {#行} other {#行}}"
 #: src/components/clio/permission-response.tsx
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python、#行} other {Python、#行}}"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "{list} and {count} more"
+msgstr "{list} ほか {count} 件"
 
 #. A short list, its last item
 #: src/lib/locale-format.ts
@@ -7415,6 +7429,7 @@ msgid "Attaching…"
 msgstr "添付中…"
 
 #: src/components/ai-elements/attachments.tsx
+#: src/components/clio/composer-attachments.tsx
 #: src/components/clio/question-answer-presentation.ts
 msgid "Attachment"
 msgstr "添付ファイル"
@@ -10319,6 +10334,10 @@ msgstr "{group}を折りたたむ"
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "{label}を折りたたむ"
+
+#: src/components/clio/conversation-summarization.tsx
+msgid "Collapse {name}"
+msgstr "{name} を折りたたむ"
 
 #: src/components/clio/ask-answered-row.tsx
 msgid "Collapse {verb}"
@@ -15260,6 +15279,10 @@ msgstr "{interval}ごと"
 msgid "Every agent carries the core plugin. It cannot be removed."
 msgstr "すべてのエージェントにコアプラグインが含まれます。削除できません。"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "Every available package is staged."
+msgstr "利用可能なパッケージはすべてステージ済みです。"
+
 #: src/lib/onboarding/tour-script.ts
 msgid "Every command, file edit and search gets its own row."
 msgstr "コマンド、ファイル編集、検索はそれぞれ個別の行に表示されます。"
@@ -15528,6 +15551,10 @@ msgstr "{group}を展開"
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "{label}を展開"
+
+#: src/components/clio/conversation-summarization.tsx
+msgid "Expand {name}"
+msgstr "{name} を展開"
 
 #: src/components/clio/ask-answered-row.tsx
 msgid "Expand {verb}"
@@ -17939,6 +17966,7 @@ msgstr "ハリケーンの経路"
 msgid "Hypothesis"
 msgstr "仮説"
 
+#: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-group-row.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
@@ -17949,6 +17977,7 @@ msgstr "I/O"
 msgid "I/O for {group}"
 msgstr "{group}のI/O"
 
+#: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "I/O for {name}"
 msgstr "{name}のI/O"
@@ -22313,6 +22342,10 @@ msgstr "その他のサービス操作"
 msgid "More types"
 msgstr "その他の種類"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "More values are in Technical details."
+msgstr "その他の値は技術的な詳細にあります。"
+
 #: src/components/clio/managed-services.tsx
 msgid "More ways to add a service"
 msgstr "サービスを追加するその他の方法"
@@ -22978,6 +23011,10 @@ msgstr "次・前のグループ"
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "Next, previous region"
 msgstr "次・前の領域"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "no"
+msgstr "いいえ"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
@@ -23723,6 +23760,10 @@ msgstr "サブエージェントを提供するパッケージはありません
 #: src/components/clio/agent-package-items.ts
 msgid "No package brings tools."
 msgstr "ツールを提供するパッケージはありません。"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "No packages are staged."
+msgstr "ステージ済みのパッケージはありません。"
 
 #: src/components/clio/settings-web-search.tsx
 msgid "No paper or dataset sources are available on this service."
@@ -28092,6 +28133,7 @@ msgstr "サービスをクエリ"
 msgid "question"
 msgstr "質問"
 
+#: src/components/clio/agent-answer-activity.tsx
 #: src/components/clio/agent-answer-domain.ts
 #: src/components/clio/pending-interactions.tsx
 #: src/components/clio/question-answer-reader.tsx
@@ -28937,6 +28979,10 @@ msgstr "最近の返信"
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Recent session excerpts"
 msgstr "最近のセッションの抜粋"
+
+#: src/components/clio/conversation-summarization.tsx
+msgid "Recent turns kept verbatim"
+msgstr "そのまま保持した最近のターン"
 
 #: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/question-choice-card.tsx
@@ -29863,6 +29909,10 @@ msgstr "削除済み（選択すると再追加）"
 #: src/hooks/use-saved-mcp-services.ts
 msgid "Removed {name}"
 msgstr "{name}を削除しました"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "Removed {packages}."
+msgstr "{packages} を削除しました。"
 
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "Removed by you"
@@ -35076,6 +35126,10 @@ msgstr "ファイルをステージ"
 msgid "Stage packages"
 msgstr "パッケージをステージ"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "Staged {package}."
+msgstr "{package} をステージしました。"
+
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/model-inventory-row.tsx
 msgid "Stale"
@@ -36112,6 +36166,7 @@ msgstr "ウィンドウがいっぱいになる前に古いコンテキストを
 msgid "Summarizing earlier messages…"
 msgstr "以前のメッセージを要約中…"
 
+#: src/components/clio/conversation-summarization.tsx
 #: src/components/clio/infrastructure-activity-row.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/widget-gallery-demos.ts
@@ -36305,6 +36360,7 @@ msgid "System note"
 msgstr "システムメモ"
 
 #: src/components/clio/context-composition-model.ts
+#: src/components/clio/conversation-summarization.tsx
 msgid "System prompt"
 msgstr "システムプロンプト"
 
@@ -36934,6 +36990,10 @@ msgstr "ブラウザーがこのリンクをブロックしました。承諾さ
 #: src/components/clio/settings-schema-copy.ts
 msgid "The browser that shows the pages the agent opens. A separate browser keeps its own sign-ins; your running Chrome or Edge has yours."
 msgstr "エージェントが開くページを表示するブラウザーです。別のブラウザーは独自のサインイン情報を保持し、実行中のChromeまたはEdgeにはあなたのサインイン情報があります。"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "The call returned no values to show. Technical details has the exact result."
+msgstr "表示する値は返されませんでした。正確な結果は技術的な詳細にあります。"
 
 #: src/components/clio/science-log-sources.tsx
 msgid "The call's record is not available: {message}"
@@ -38769,6 +38829,7 @@ msgid "Thinking..."
 msgstr "思考中..."
 
 #: src/components/clio/transcript-reasoning-passage.tsx
+#: src/components/clio/turn-wait-feedback.tsx
 msgid "Thinking…"
 msgstr "思考中…"
 
@@ -43291,6 +43352,10 @@ msgstr "x {xRange}、y {yRange}"
 #: src/components/reui/date-selector.tsx
 msgid "Year"
 msgstr "年"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "yes"
+msgstr "はい"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx

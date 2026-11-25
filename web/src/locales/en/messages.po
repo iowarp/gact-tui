@@ -424,6 +424,11 @@ msgstr "{0, plural, one {# model} other {# models}}"
 msgid "{0, plural, one {# more note} other {# more notes}}"
 msgstr "{0, plural, one {# more note} other {# more notes}}"
 
+#. placeholder {0}: unstaged.length
+#: src/components/clio/structured-result-reading.ts
+msgid "{0, plural, one {# more package can be staged: {list}} other {# more packages can be staged: {list}}}"
+msgstr "{0, plural, one {# more package can be staged: {list}} other {# more packages can be staged: {list}}}"
+
 #. placeholder {0}: hidden.length
 #: src/components/clio/workbench-tab-row.tsx
 msgid "{0, plural, one {# more tab} other {# more tabs}}"
@@ -1703,6 +1708,10 @@ msgstr "{count, plural, one {# older conversation is counted under the model it 
 msgid "{count, plural, one {# organization} other {# organizations}}"
 msgstr "{count, plural, one {# organization} other {# organizations}}"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "{count, plural, one {# package is staged: {list}} other {# packages are staged: {list}}}"
+msgstr "{count, plural, one {# package is staged: {list}} other {# packages are staged: {list}}}"
+
 #: src/lib/scientific-document.ts
 msgid "{count, plural, one {# page} other {# pages}}"
 msgstr "{count, plural, one {# page} other {# pages}}"
@@ -1868,6 +1877,7 @@ msgid "{count} in parallel"
 msgstr "{count} in parallel"
 
 #: src/components/clio/primitives/nav-tabs.tsx
+#: src/components/clio/structured-result-reading.ts
 msgid "{count} more"
 msgstr "{count} more"
 
@@ -2690,6 +2700,10 @@ msgstr "{lines, plural, one {# line} other {# lines}}"
 #: src/components/clio/permission-response.tsx
 msgid "{lines, plural, one {Python, # line} other {Python, # lines}}"
 msgstr "{lines, plural, one {Python, # line} other {Python, # lines}}"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "{list} and {count} more"
+msgstr "{list} and {count} more"
 
 #. A short list, its last item
 #: src/lib/locale-format.ts
@@ -7414,6 +7428,7 @@ msgid "Attaching…"
 msgstr "Attaching…"
 
 #: src/components/ai-elements/attachments.tsx
+#: src/components/clio/composer-attachments.tsx
 #: src/components/clio/question-answer-presentation.ts
 msgid "Attachment"
 msgstr "Attachment"
@@ -10318,6 +10333,10 @@ msgstr "Collapse {group}"
 #: src/components/clio/session-rail.tsx
 msgid "Collapse {label}"
 msgstr "Collapse {label}"
+
+#: src/components/clio/conversation-summarization.tsx
+msgid "Collapse {name}"
+msgstr "Collapse {name}"
 
 #: src/components/clio/ask-answered-row.tsx
 msgid "Collapse {verb}"
@@ -15259,6 +15278,10 @@ msgstr "every {interval}"
 msgid "Every agent carries the core plugin. It cannot be removed."
 msgstr "Every agent carries the core plugin. It cannot be removed."
 
+#: src/components/clio/structured-result-reading.ts
+msgid "Every available package is staged."
+msgstr "Every available package is staged."
+
 #: src/lib/onboarding/tour-script.ts
 msgid "Every command, file edit and search gets its own row."
 msgstr "Every command, file edit and search gets its own row."
@@ -15527,6 +15550,10 @@ msgstr "Expand {group}"
 #: src/components/clio/session-rail.tsx
 msgid "Expand {label}"
 msgstr "Expand {label}"
+
+#: src/components/clio/conversation-summarization.tsx
+msgid "Expand {name}"
+msgstr "Expand {name}"
 
 #: src/components/clio/ask-answered-row.tsx
 msgid "Expand {verb}"
@@ -17938,6 +17965,7 @@ msgstr "Hurricane tracks"
 msgid "Hypothesis"
 msgstr "Hypothesis"
 
+#: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-group-row.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
@@ -17948,6 +17976,7 @@ msgstr "I/O"
 msgid "I/O for {group}"
 msgstr "I/O for {group}"
 
+#: src/components/clio/settings-tool-detail.tsx
 #: src/components/clio/settings-tools-tool-row.tsx
 msgid "I/O for {name}"
 msgstr "I/O for {name}"
@@ -22312,6 +22341,10 @@ msgstr "More service actions"
 msgid "More types"
 msgstr "More types"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "More values are in Technical details."
+msgstr "More values are in Technical details."
+
 #: src/components/clio/managed-services.tsx
 msgid "More ways to add a service"
 msgstr "More ways to add a service"
@@ -22977,6 +23010,10 @@ msgstr "Next, previous group"
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "Next, previous region"
 msgstr "Next, previous region"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "no"
+msgstr "no"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx
@@ -23722,6 +23759,10 @@ msgstr "No package brings subagents."
 #: src/components/clio/agent-package-items.ts
 msgid "No package brings tools."
 msgstr "No package brings tools."
+
+#: src/components/clio/structured-result-reading.ts
+msgid "No packages are staged."
+msgstr "No packages are staged."
 
 #: src/components/clio/settings-web-search.tsx
 msgid "No paper or dataset sources are available on this service."
@@ -28091,6 +28132,7 @@ msgstr "Query service"
 msgid "question"
 msgstr "question"
 
+#: src/components/clio/agent-answer-activity.tsx
 #: src/components/clio/agent-answer-domain.ts
 #: src/components/clio/pending-interactions.tsx
 #: src/components/clio/question-answer-reader.tsx
@@ -28936,6 +28978,10 @@ msgstr "Recent replies"
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Recent session excerpts"
 msgstr "Recent session excerpts"
+
+#: src/components/clio/conversation-summarization.tsx
+msgid "Recent turns kept verbatim"
+msgstr "Recent turns kept verbatim"
 
 #: src/components/clio/plan-decision-controls.tsx
 #: src/components/clio/question-choice-card.tsx
@@ -29862,6 +29908,10 @@ msgstr "Removed (select to add back)"
 #: src/hooks/use-saved-mcp-services.ts
 msgid "Removed {name}"
 msgstr "Removed {name}"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "Removed {packages}."
+msgstr "Removed {packages}."
 
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "Removed by you"
@@ -35075,6 +35125,10 @@ msgstr "Stage files"
 msgid "Stage packages"
 msgstr "Stage packages"
 
+#: src/components/clio/structured-result-reading.ts
+msgid "Staged {package}."
+msgstr "Staged {package}."
+
 #: src/components/clio/comments/comment-thread-list.tsx
 #: src/components/clio/model-inventory-row.tsx
 msgid "Stale"
@@ -36111,6 +36165,7 @@ msgstr "Summarize older context before the window fills."
 msgid "Summarizing earlier messages…"
 msgstr "Summarizing earlier messages…"
 
+#: src/components/clio/conversation-summarization.tsx
 #: src/components/clio/infrastructure-activity-row.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/widget-gallery-demos.ts
@@ -36304,6 +36359,7 @@ msgid "System note"
 msgstr "System note"
 
 #: src/components/clio/context-composition-model.ts
+#: src/components/clio/conversation-summarization.tsx
 msgid "System prompt"
 msgstr "System prompt"
 
@@ -36933,6 +36989,10 @@ msgstr "The browser blocked this link. It has not been accepted."
 #: src/components/clio/settings-schema-copy.ts
 msgid "The browser that shows the pages the agent opens. A separate browser keeps its own sign-ins; your running Chrome or Edge has yours."
 msgstr "The browser that shows the pages the agent opens. A separate browser keeps its own sign-ins; your running Chrome or Edge has yours."
+
+#: src/components/clio/structured-result-reading.ts
+msgid "The call returned no values to show. Technical details has the exact result."
+msgstr "The call returned no values to show. Technical details has the exact result."
 
 #: src/components/clio/science-log-sources.tsx
 msgid "The call's record is not available: {message}"
@@ -38768,6 +38828,7 @@ msgid "Thinking..."
 msgstr "Thinking..."
 
 #: src/components/clio/transcript-reasoning-passage.tsx
+#: src/components/clio/turn-wait-feedback.tsx
 msgid "Thinking…"
 msgstr "Thinking…"
 
@@ -43290,6 +43351,10 @@ msgstr "x {xRange}, y {yRange}"
 #: src/components/reui/date-selector.tsx
 msgid "Year"
 msgstr "Year"
+
+#: src/components/clio/structured-result-reading.ts
+msgid "yes"
+msgstr "yes"
 
 #: src/components/clio/infrastructure-foundation-row.tsx
 #: src/components/clio/plugin-change-dialog.tsx

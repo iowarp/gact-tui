@@ -150,7 +150,7 @@ export function ToolDetailBody({
           icon={PERMISSION_ICON[permission.value]}
           isDefault={permission.isDefault}
           label={permissionLabel}
-          name={`Permission for ${tool.name}`}
+          name={t`Permission for ${ph({ name: tool.name })}`}
           onChoose={(value: ToolPermission) =>
             editor.save({
               tools: [tool.name],
@@ -166,7 +166,7 @@ export function ToolDetailBody({
       <SettingsRow
         fullWidth
         note={callers.value ? CALLERS_TEXT[callers.value].detail : undefined}
-        title="I/O"
+        title={t`I/O`}
       >
         <ChoicePicker
           chosen={!callers.isDefault}
@@ -174,12 +174,12 @@ export function ToolDetailBody({
           icon={callers.value ? CALLERS_ICON[callers.value] : ArrowLeftRightIcon}
           isDefault={callers.isDefault && Boolean(callers.value)}
           label={callersLabel}
-          name={`I/O for ${tool.name}`}
+          name={t`I/O for ${ph({ name: tool.name })}`}
           onChoose={(value: ToolCallers) =>
             editor.save({ tools: [tool.name], callers: value === callersDefault ? null : value })
           }
           options={callersOptions(callersDefault)}
-          search={`I/O for ${tool.name}`}
+          search={t`I/O for ${ph({ name: tool.name })}`}
           selected={callers.value || undefined}
           title={
             callers.value
