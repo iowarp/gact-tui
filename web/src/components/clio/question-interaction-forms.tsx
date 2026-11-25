@@ -31,7 +31,11 @@ import { cn } from '@/lib/utils';
 import { answerWord, binaryPair, type BinaryOption, type BinaryPair } from '@/lib/binary-answers';
 import { AskBody, AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { BinaryAsk } from './ask-binary';
-import { declaredChoiceContext, withDeclaredChoices } from '@/lib/declared-choices';
+import {
+  declaredAskContext,
+  declaredChoiceContext,
+  withDeclaredChoices,
+} from '@/lib/declared-choices';
 import { QuestionChoiceRows, type QuestionChoice } from './question-choice-card';
 import { ChoiceEvidence, ChoiceNote } from './question-choice-context';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
@@ -64,6 +68,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   const loneBoolean = loneBooleanField(fields);
   const answerChoice = loneBoolean ? undefined : answerChoiceField(fields);
   const answerPair = answerChoice ? fieldPair(answerChoice) : undefined;
+  const askContext = declaredAskContext(interaction);
   // After a failed Send the first field to fix takes focus and comes into view, even when the
   // capped card or a narrow window holds it out of sight.
   const fieldsRef = useRef<HTMLDivElement>(null);
@@ -131,6 +136,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
           disabled={props.disabled}
           label={loneBoolean.title || t`Answer`}
         />
+        <ChoiceEvidence context={askContext} />
       </QuestionFrame>
     );
   }
@@ -295,6 +301,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
           {sending ? t`Sending…` : t`Send response`}
         </AskButton>
       </AskOptions>
+      <ChoiceEvidence context={askContext} />
     </QuestionFrame>
   );
 }
@@ -505,6 +512,7 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
         enterAccepts
         label={t`Link`}
       />
+      <ChoiceEvidence context={declaredAskContext(interaction)} />
     </QuestionFrame>
   );
 }
