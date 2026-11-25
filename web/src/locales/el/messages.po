@@ -2255,6 +2255,14 @@ msgstr "{host}, Μοντέλα"
 msgid "{host}, Services"
 msgstr "{host}, Υπηρεσίες"
 
+#: src/components/clio/job-card.tsx
+msgid "{hours} h"
+msgstr "{hours} ώρ."
+
+#: src/components/clio/job-card.tsx
+msgid "{hours} h {rest} min"
+msgstr "{hours} ώρ. {rest} λεπ."
+
 #: src/components/clio/provider-panel-footer.tsx
 #: src/components/clio/run-presentation.ts
 msgid "{hours}h"
@@ -3526,7 +3534,7 @@ msgstr "{running, plural, one {# σε εκτέλεση} other {# σε εκτέλ
 
 #: src/components/clio/job-card.tsx
 msgid "{running} of {nodes} running"
-msgstr "{running} ??? {nodes} ?? ????????"
+msgstr "{running} από {nodes} σε εκτέλεση"
 
 #: src/lib/variant-runs.ts
 msgid "{running} of {total} running"
@@ -17786,7 +17794,7 @@ msgstr "Αν απαιτείται"
 
 #: src/components/clio/job-card.tsx
 msgid "If this is wrong"
-msgstr "?? ???? ????? ?????"
+msgstr "Αν αυτό είναι λάθος"
 
 #: src/widget-gallery-demos.ts
 msgid "Illustrative load field"
@@ -19192,7 +19200,7 @@ msgstr "Η προβολή του δεν εμφανίστηκε. {reason}"
 
 #: src/components/clio/job-card.tsx
 msgid "JARVIS notes"
-msgstr "?????????? ??? JARVIS"
+msgstr "Σημειώσεις του JARVIS"
 
 #: src/components/clio/job-card.tsx
 msgid "Job"

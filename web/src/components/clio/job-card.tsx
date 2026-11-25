@@ -1,5 +1,6 @@
-import { t } from '@lingui/core/macro';
-import { InfoIcon, MonitorIcon, PackageIcon } from 'lucide-react';
+import { t, ph } from '@lingui/core/macro';
+import { MonitorIcon, PackageIcon } from 'lucide-react';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 import { Fragment, type ReactNode } from 'react';
 import { formatDuration } from '@/lib/format';
 import {
@@ -375,7 +376,8 @@ function wallTime(milliseconds: number): string {
   const minutes = Math.round(milliseconds / 60_000);
   if (minutes < 60) return formatDuration(Math.floor(milliseconds / 1000) * 1000);
   const hours = Math.floor(minutes / 60);
-  return minutes % 60 ? `${hours} h ${minutes % 60} min` : `${hours} h`;
+  const rest = minutes % 60;
+  return rest ? t`${ph({ hours })} h ${ph({ rest })} min` : t`${ph({ hours })} h`;
 }
 
 function timeFact(job: JobSnapshot, now: number): string | null {

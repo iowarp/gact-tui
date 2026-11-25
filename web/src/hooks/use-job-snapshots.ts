@@ -186,7 +186,9 @@ function useWatchedResources(refs: JobResourceRef[]): void {
   const held = useRef(new Map<string, JobResourceRef>());
   const wanted = refs.map(resourceKey).join('\u0001');
   const latest = useRef(refs);
-  latest.current = refs;
+  useEffect(() => {
+    latest.current = refs;
+  });
   useEffect(() => {
     const next = new Map(latest.current.map((ref) => [resourceKey(ref), ref]));
     const change = (ref: JobResourceRef, watching: boolean) =>

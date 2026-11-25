@@ -2255,6 +2255,14 @@ msgstr "{host}、モデル"
 msgid "{host}, Services"
 msgstr "{host}、サービス"
 
+#: src/components/clio/job-card.tsx
+msgid "{hours} h"
+msgstr "{hours} 時間"
+
+#: src/components/clio/job-card.tsx
+msgid "{hours} h {rest} min"
+msgstr "{hours} 時間 {rest} 分"
+
 #: src/components/clio/provider-panel-footer.tsx
 #: src/components/clio/run-presentation.ts
 msgid "{hours}h"
@@ -3526,7 +3534,7 @@ msgstr "{running, plural, one {#件実行中} other {#件実行中}}"
 
 #: src/components/clio/job-card.tsx
 msgid "{running} of {nodes} running"
-msgstr "{nodes} ?? {running} ?????"
+msgstr "{nodes} 台中 {running} 台が実行中"
 
 #: src/lib/variant-runs.ts
 msgid "{running} of {total} running"
@@ -17786,7 +17794,7 @@ msgstr "必要な場合"
 
 #: src/components/clio/job-card.tsx
 msgid "If this is wrong"
-msgstr "????????"
+msgstr "これが誤っている場合"
 
 #: src/widget-gallery-demos.ts
 msgid "Illustrative load field"
@@ -19192,7 +19200,7 @@ msgstr "ビューは表示されませんでした。{reason}"
 
 #: src/components/clio/job-card.tsx
 msgid "JARVIS notes"
-msgstr "JARVIS ???"
+msgstr "JARVIS のメモ"
 
 #: src/components/clio/job-card.tsx
 msgid "Job"
