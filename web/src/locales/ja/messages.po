@@ -7132,6 +7132,13 @@ msgstr "昇順"
 msgid "Ask"
 msgstr "質問"
 
+#: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/tool-operation-contract.ts
+#: src/components/clio/tool-presentation.ts
+msgctxt "verb: tool action"
+msgid "Ask"
+msgstr "質問"
+
 #: src/components/clio/command-menu.tsx
 msgid "Ask {agent}"
 msgstr "{agent}に質問"
@@ -7155,6 +7162,10 @@ msgstr "この箇所について追加で質問…"
 #: src/components/clio/more-details-panel.tsx
 msgid "Ask a follow-up question"
 msgstr "追加の質問をする"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Ask a question"
+msgstr "質問する"
 
 #: src/components/clio/child-conversation-followup.tsx
 msgid "Ask about a finding or give a follow-up…"
@@ -7199,12 +7210,6 @@ msgstr "もう一度表示するには、エージェントに再描画を依頼
 #: src/lib/shortcuts/catalog.ts
 msgid "Ask the search assistant, and back"
 msgstr "検索アシスタントに質問、戻る"
-
-#: src/components/clio/question-tool-presentation.ts
-#: src/components/clio/tool-operation-contract.ts
-#: src/components/clio/tool-presentation.ts
-msgid "Ask you"
-msgstr "あなたに質問"
 
 #: src/components/clio/memory-import-dialog.tsx
 msgid "Ask your other assistant this, then paste its answer below."
@@ -19498,6 +19503,10 @@ msgstr "{profile} を保持"
 #: src/components/clio/resource-dialogs.tsx
 msgid "Keep {workspace}"
 msgstr "{workspace}を残す"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Keep a result"
+msgstr "結果を保存"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Keep a separate transcript file alongside conversation storage. Existing files are retained."

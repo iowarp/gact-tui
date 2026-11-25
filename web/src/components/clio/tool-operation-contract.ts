@@ -59,7 +59,11 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   pause_agent: define(t({ message: 'Pause', context: 'verb: tool action' }), 'ack', 'handle'),
   resume_agent: define(t({ message: 'Resume', context: 'verb: tool action' }), 'ack', 'handle'),
   restart_agent: define(t({ message: 'Restart', context: 'verb: tool action' }), 'task', 'handle'),
-  ask_user: { ...define(t`Ask you`), presentedAction: true },
+  ask_user: {
+    ...define(t({ message: 'Ask', context: 'verb: tool action' })),
+    standalone: t`Ask a question`,
+    presentedAction: true,
+  },
   make_plugin: define(t`Create plugin`, 'value', 'name'),
   cron_create: {
     ...define(t({ message: 'Schedule', context: 'verb: tool action' })),
@@ -196,7 +200,10 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   look_at_view: { ...define(t`Look at view`, 'declared', 'view'), presentedAction: true },
   delete_a2ui_surface: define(t`Remove widget`, 'ack', 'surface_id'),
   publish_dashboard_report: define(t`Save dashboard`, 'declared', 'report_id'),
-  create_artifact: define(t({ message: 'Keep', context: 'verb: tool action' }), 'declared', 'name'),
+  create_artifact: {
+    ...define(t({ message: 'Keep', context: 'verb: tool action' }), 'declared', 'name'),
+    standalone: t`Keep a result`,
+  },
   raise_alert_card: { ...define(t`Notify parent about`, 'declared', 'title'), instruction: 'body' },
   list_models: define(t`Find models`, 'value'),
   refresh_provider_models: define(t`Refresh model catalogs`),

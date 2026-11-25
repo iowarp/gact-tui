@@ -192,7 +192,7 @@ function chunkEntries(chunk: ObservedTaskChunk, key: string, prose: boolean): Lo
       entries.push({
         key: `${key}:tools`,
         kind: 'line',
-        text: formatList(labels, { and: true }),
+        text: formatList(labels),
         icon: 'tool',
       });
   }
@@ -624,12 +624,8 @@ function RunDetails({ row, live }: { row: RunRow; live: boolean }) {
     ...(took ? [{ label: t`Took`, value: took }] : []),
     // A tool without a declared name stays under Technical details.
     ...(tool && tool !== row.task?.tool ? [{ label: t`Tool`, value: tool }] : []),
-    ...(allowed.length
-      ? [{ label: t`Allowed automatically`, value: formatList(allowed, { and: true }) }]
-      : []),
-    ...(blocked.length
-      ? [{ label: t`Blocked automatically`, value: formatList(blocked, { and: true }) }]
-      : []),
+    ...(allowed.length ? [{ label: t`Allowed automatically`, value: formatList(allowed) }] : []),
+    ...(blocked.length ? [{ label: t`Blocked automatically`, value: formatList(blocked) }] : []),
   ];
   const backend = row.task?.backend;
   const ids: KeyValueItem[] = [

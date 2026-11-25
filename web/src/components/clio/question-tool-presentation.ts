@@ -153,7 +153,7 @@ export function withQuestionPresentation(
       presentation: {
         ...tool.presentation,
         status: tool.presentation?.status ?? 'failed',
-        action: t`Ask you`,
+        action: t({ message: 'Ask', context: 'verb: tool action' }),
         subject: 'question-subject',
         summary: '',
         blocks: [{ id: 'question-subject', type: 'text', text: prompt }, ...kept],
@@ -231,7 +231,7 @@ export function withQuestionPresentation(
     ...tool,
     presentation: {
       ...tool.presentation,
-      action: answers.length ? t`Answered` : t`Ask you`,
+      action: answers.length ? t`Answered` : t({ message: 'Ask', context: 'verb: tool action' }),
       subject: answers.length ? 'question-answer' : undefined,
       summary: answers.length
         ? ''

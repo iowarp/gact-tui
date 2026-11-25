@@ -7132,6 +7132,13 @@ msgstr "Asc"
 msgid "Ask"
 msgstr "Preguntar"
 
+#: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/tool-operation-contract.ts
+#: src/components/clio/tool-presentation.ts
+msgctxt "verb: tool action"
+msgid "Ask"
+msgstr "Preguntar"
+
 #: src/components/clio/command-menu.tsx
 msgid "Ask {agent}"
 msgstr "Preguntar a {agent}"
@@ -7155,6 +7162,10 @@ msgstr "Haz una pregunta de seguimiento sobre este pasaje…"
 #: src/components/clio/more-details-panel.tsx
 msgid "Ask a follow-up question"
 msgstr "Hacer una pregunta de seguimiento"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Ask a question"
+msgstr "Hacer una pregunta"
 
 #: src/components/clio/child-conversation-followup.tsx
 msgid "Ask about a finding or give a follow-up…"
@@ -7199,12 +7210,6 @@ msgstr "Pide al agente que lo vuelva a dibujar para verlo de nuevo."
 #: src/lib/shortcuts/catalog.ts
 msgid "Ask the search assistant, and back"
 msgstr "Preguntar al asistente de búsqueda, y volver"
-
-#: src/components/clio/question-tool-presentation.ts
-#: src/components/clio/tool-operation-contract.ts
-#: src/components/clio/tool-presentation.ts
-msgid "Ask you"
-msgstr "Preguntarte"
 
 #: src/components/clio/memory-import-dialog.tsx
 msgid "Ask your other assistant this, then paste its answer below."
@@ -19498,6 +19503,10 @@ msgstr "Conservar {profile}"
 #: src/components/clio/resource-dialogs.tsx
 msgid "Keep {workspace}"
 msgstr "Conservar {workspace}"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Keep a result"
+msgstr "Guardar un resultado"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Keep a separate transcript file alongside conversation storage. Existing files are retained."
