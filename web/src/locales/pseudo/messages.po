@@ -7123,6 +7123,13 @@ msgstr ""
 msgid "Ask"
 msgstr ""
 
+#: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/tool-operation-contract.ts
+#: src/components/clio/tool-presentation.ts
+msgctxt "verb: tool action"
+msgid "Ask"
+msgstr ""
+
 #: src/components/clio/command-menu.tsx
 msgid "Ask {agent}"
 msgstr ""
@@ -7145,6 +7152,10 @@ msgstr ""
 
 #: src/components/clio/more-details-panel.tsx
 msgid "Ask a follow-up question"
+msgstr ""
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Ask a question"
 msgstr ""
 
 #: src/components/clio/child-conversation-followup.tsx
@@ -7189,12 +7200,6 @@ msgstr ""
 
 #: src/lib/shortcuts/catalog.ts
 msgid "Ask the search assistant, and back"
-msgstr ""
-
-#: src/components/clio/question-tool-presentation.ts
-#: src/components/clio/tool-operation-contract.ts
-#: src/components/clio/tool-presentation.ts
-msgid "Ask you"
 msgstr ""
 
 #: src/components/clio/memory-import-dialog.tsx
@@ -19491,6 +19496,10 @@ msgstr ""
 
 #: src/components/clio/resource-dialogs.tsx
 msgid "Keep {workspace}"
+msgstr ""
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Keep a result"
 msgstr ""
 
 #: src/components/clio/settings-schema-copy.ts

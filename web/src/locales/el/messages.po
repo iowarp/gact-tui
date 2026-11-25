@@ -7132,6 +7132,13 @@ msgstr "Αύξ."
 msgid "Ask"
 msgstr "Ερώτηση"
 
+#: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/tool-operation-contract.ts
+#: src/components/clio/tool-presentation.ts
+msgctxt "verb: tool action"
+msgid "Ask"
+msgstr "Ερώτηση"
+
 #: src/components/clio/command-menu.tsx
 msgid "Ask {agent}"
 msgstr "Ερώτηση στον {agent}"
@@ -7155,6 +7162,10 @@ msgstr "Κάντε μια συμπληρωματική ερώτηση για α�
 #: src/components/clio/more-details-panel.tsx
 msgid "Ask a follow-up question"
 msgstr "Συμπληρωματική ερώτηση"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Ask a question"
+msgstr "Ερώτηση προς εσάς"
 
 #: src/components/clio/child-conversation-followup.tsx
 msgid "Ask about a finding or give a follow-up…"
@@ -7199,12 +7210,6 @@ msgstr "Ζητήστε από τον πράκτορα να το σχεδιάσε
 #: src/lib/shortcuts/catalog.ts
 msgid "Ask the search assistant, and back"
 msgstr "Ερώτηση στον βοηθό αναζήτησης, και επιστροφή"
-
-#: src/components/clio/question-tool-presentation.ts
-#: src/components/clio/tool-operation-contract.ts
-#: src/components/clio/tool-presentation.ts
-msgid "Ask you"
-msgstr "Ερώτηση προς εσάς"
 
 #: src/components/clio/memory-import-dialog.tsx
 msgid "Ask your other assistant this, then paste its answer below."
@@ -19510,6 +19515,10 @@ msgstr "Διατήρηση {profile}"
 #: src/components/clio/resource-dialogs.tsx
 msgid "Keep {workspace}"
 msgstr "Διατήρηση {workspace}"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Keep a result"
+msgstr "Διατήρηση αποτελέσματος"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Keep a separate transcript file alongside conversation storage. Existing files are retained."
