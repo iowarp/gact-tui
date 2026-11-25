@@ -4,7 +4,8 @@
  * Adjacent stream chunks keep their own spacing. Parts split by an unshown part
  * (an empty thought, a transport note, a turn boundary) stay one sentence when
  * the first ends mid-sentence and the second continues it; otherwise they are
- * separate paragraphs. Code fences left open also continue rather than break.
+ * separate paragraphs. Code (an open fence, or a part that opens one) is never
+ * joined into a sentence.
  */
 export function textPartSeparator(previous: string, next: string, adjacent: boolean): string {
   if (adjacent || /\s$/u.test(previous) || /^\s/u.test(next)) return '';
