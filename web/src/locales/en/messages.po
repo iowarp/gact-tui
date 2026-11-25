@@ -40721,6 +40721,7 @@ msgid "Updates reset unsent input"
 msgstr "Updates reset unsent input"
 
 #: src/components/clio/clio-menu.tsx
+#: src/components/clio/plugin-page-view.tsx
 #: src/components/clio/settings-app-updates.tsx
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Updating"
