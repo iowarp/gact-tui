@@ -19,6 +19,7 @@ import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-butt
 import { MenuRow } from '@/components/clio/primitives/menu-row';
 import { SegmentedControl } from '@/components/clio/primitives/segmented-control';
 import { StateView } from '@/components/clio/primitives/state-view';
+import { TechnicalDetails } from '@/components/clio/technical-details';
 import { RunActions } from '@/components/clio/run-actions';
 import { RunListRow } from '@/components/clio/run-list-row';
 import { RunTab } from '@/components/clio/run-tab';
@@ -358,7 +359,9 @@ export function RunsExplorer({
   const retryLoading = () => {
     setStoppedWaiting(false);
     void refreshRuns();
-    void queryClient.invalidateQueries({ queryKey: queryKeys.key('workspaces', settings.endpoint) });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.key('workspaces', settings.endpoint),
+    });
     void queryClient.invalidateQueries({
       queryKey: queryKeys.key('session-directory', settings.endpoint),
     });
@@ -608,12 +611,29 @@ export function RunsExplorer({
       data-run-list=""
     >
       {error ? (
+        // The person reads why in words; the service's own message and address are technical detail.
         <StateView
           action={{ label: t`Retry`, onClick: () => void refreshRuns() }}
-          detail={error.message}
+          detail={
+            unreachable || isNetworkFailure(error)
+              ? t`Check that it's running, then retry. Runs appear once it answers.`
+              : t`The ${ph({ agent: vocab.agent })} answered with an error. Retry in a moment.`
+          }
           kind="error"
-          title={t`Run explorer unavailable`}
-        />
+          title={
+            unreachable || isNetworkFailure(error)
+              ? t`Can't reach the ${ph({ agent: vocab.agent })}`
+              : category === 'flows'
+                ? t`Flows couldn't be loaded`
+                : t`Runs couldn't be loaded`
+          }
+        >
+          <TechnicalDetails className="mt-1 text-meta" title={t`Technical details`}>
+            <p className="mt-1 font-mono text-label break-all text-muted-foreground">
+              {error.message}
+            </p>
+          </TechnicalDetails>
+        </StateView>
       ) : loading && stoppedWaiting ? (
         <StateView
           action={{ label: t`Retry`, onClick: retryLoading }}
@@ -793,4 +813,9 @@ export function RunsExplorer({
       </AlertDialog>
     </div>
   );
+}
+
+/** A request that never reached the service, as the transport reports it. */
+function isNetworkFailure(error: Error): boolean {
+  return (error as { code?: unknown }).code === 'network_unavailable';
 }

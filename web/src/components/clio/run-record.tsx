@@ -6,27 +6,20 @@ import type {
   ToolInvocation,
 } from '@clio/core/v3';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  CheckIcon,
-  CircleAlertIcon,
-  MessageCircleQuestionIcon,
-  TerminalIcon,
-  WrenchIcon,
-} from 'lucide-react';
+import { CheckIcon, CircleAlertIcon, MessageCircleQuestionIcon, TerminalIcon } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { ContentMarkdown } from '@/components/clio/content-markdown';
+import { AGENT_PROSE_CLASS } from '@/components/clio/agent-prose';
 import { answerText } from '@/components/clio/flow-run-edits';
+import { GroundedMessageResponse } from '@/components/clio/grounded-message-response';
 import { JobCard } from '@/components/clio/job-card';
 import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/key-value-grid';
 import { runConversationHref, runKindName } from '@/components/clio/run-presentation';
 import { TechnicalDetails } from '@/components/clio/technical-details';
+import { ClioToolInvocation } from '@/components/clio/tool-invocation';
 import { toolOperationLabel } from '@/components/clio/tool-presentation';
-import { toolOperation } from '@/components/clio/tool-operation';
-import type { OperationContext } from '@/components/clio/tool-operation-data';
-import { useLiveStore } from '@/store/live-store';
 import { useRunChildSession } from '@/hooks/use-flow-run';
 import { useRunQuestions } from '@/hooks/use-run-questions';
 import { useRepository } from '@/hooks/use-repository';
@@ -34,6 +27,8 @@ import { formatDuration } from '@/lib/format';
 import { jobFromTask } from '@/lib/job-snapshot';
 import { formatDateTime, formatList } from '@/lib/locale-format';
 import { queryKeys } from '@/lib/query-keys';
+import { TRANSCRIPT_PAGE_SIZE } from '@/lib/runtime-limits';
+import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { sourceLabels, type RunRow } from '@/routes/runs-rows';
 import { t } from '@lingui/core/macro';
@@ -125,23 +120,26 @@ function RecordLine({
   );
 }
 
-/** An agent's words as read Markdown, scrolled rather than cut when long. */
-function RecordMarkdown({ text }: { text: string }) {
+/**
+ * An agent's words as the transcript sets them. The record is the one scroller,
+ * so a long message grows the record rather than scrolling in a box of its own.
+ */
+function RecordMessage({ text }: { text: string }) {
   return (
     <div
-      className="clio-scrollbar max-h-72 min-w-0 overflow-auto text-ui leading-relaxed text-foreground/90 [overflow-wrap:anywhere] [&_ol]:my-1 [&_p]:my-1 [&_pre]:max-w-full [&_ul]:my-1"
+      className={cn('min-w-0 max-w-full wrap-break-word', AGENT_PROSE_CLASS)}
       data-slot="run-message"
     >
-      <ContentMarkdown mode="static">{text}</ContentMarkdown>
+      <GroundedMessageResponse mode="static">{text}</GroundedMessageResponse>
     </div>
   );
 }
 
-/** Output text as the spec's `.term` block. */
+/** Output text as the spec's `.term` block, wrapped in full inside the record's scroll. */
 function Terminal({ text }: { text: string }) {
   return (
     <pre
-      className="clio-scrollbar max-h-96 overflow-auto rounded-lg bg-muted/50 px-2.5 py-2 font-mono text-label leading-relaxed whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]"
+      className="rounded-lg bg-muted/50 px-2.5 py-2 font-mono text-label leading-relaxed whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]"
       data-slot="run-log-output"
     >
       {text}
@@ -152,7 +150,7 @@ function Terminal({ text }: { text: string }) {
 type LogEntry =
   | { key: string; kind: 'output'; text: string }
   | { key: string; kind: 'message'; text: string }
-  | { key: string; kind: 'line'; text: string; icon: 'tool' | 'step' }
+  | { key: string; kind: 'line'; text: string }
   | { key: string; kind: 'error'; text: string };
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -182,20 +180,10 @@ function chunkEntries(chunk: ObservedTaskChunk, key: string, prose: boolean): Lo
   if (!value) return [{ key, kind: 'output', text: JSON.stringify(output, null, 2) }];
   const entries: LogEntry[] = [];
   if (typeof value.summary === 'string' && value.summary.trim())
-    entries.push({ key: `${key}:summary`, kind: 'line', text: value.summary.trim(), icon: 'step' });
-  if (Array.isArray(value.tools) && value.tools.length) {
-    const names = value.tools
-      .map((tool) => (typeof tool === 'string' ? tool : (record(tool)?.name ?? record(tool)?.tool)))
-      .filter((name): name is string => typeof name === 'string' && Boolean(name));
-    const labels = [...new Set(names.map(toolOperationLabel))];
-    if (labels.length)
-      entries.push({
-        key: `${key}:tools`,
-        kind: 'line',
-        text: formatList(labels, { and: true }),
-        icon: 'tool',
-      });
-  }
+    entries.push({ key: `${key}:summary`, kind: 'line', text: value.summary.trim() });
+  // A turn's chunk names its tools without their arguments; a turn's calls are
+  // shown from its transcript instead, so a bare list of names is not repeated here.
+  const named = Array.isArray(value.tools) && value.tools.length > 0;
   // An agent's reply is prose; what a command printed stays a terminal block.
   if (prose && typeof value.text === 'string' && value.text.trim())
     entries.push({ key: `${key}:message`, kind: 'message', text: value.text.trim() });
@@ -203,7 +191,8 @@ function chunkEntries(chunk: ObservedTaskChunk, key: string, prose: boolean): Lo
     (part): part is string => typeof part === 'string' && Boolean(part.trim()),
   );
   if (text) entries.push({ key: `${key}:text`, kind: 'output', text });
-  if (!entries.length) entries.push({ key, kind: 'output', text: JSON.stringify(output, null, 2) });
+  if (!entries.length && !named)
+    entries.push({ key, kind: 'output', text: JSON.stringify(output, null, 2) });
   return entries;
 }
 
@@ -250,6 +239,98 @@ function observationError(page: TaskObservation | undefined): string | undefined
   return error === 'task_unavailable' ? t`This run's log is not available to you.` : String(error);
 }
 
+type RunTranscript = { messages: Message[]; tools: ReadonlyMap<string, ToolInvocation> };
+
+function shownMessage(message: Message, tools: ReadonlyMap<string, ToolInvocation>): boolean {
+  return message.blocks.some(
+    (block) =>
+      (block.type === 'text' && block.text.trim()) ||
+      (block.type === 'tool' && tools.has(block.tool_id)),
+  );
+}
+
+/**
+ * What one conversation turn did, read from its transcript: the agent's messages
+ * and calls after the user message that started it (the turn's call id), up to
+ * the next one. Undefined while unread, or when that message is not on the page.
+ */
+function useTurnTranscript(row: RunRow, live: boolean): RunTranscript | undefined {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const sessionId = row.ownerSessionId ?? row.targetSessionId ?? '';
+  const anchor = row.taskKind === 'Session' ? row.task?.invocation_id : undefined;
+  const transcript = useQuery({
+    queryKey: queryKeys.key('run-turn', settings.endpoint, sessionId),
+    enabled: Boolean(sessionId && anchor),
+    queryFn: ({ signal }) =>
+      repository.transcript(sessionId, signal, { limit: TRANSCRIPT_PAGE_SIZE }),
+    refetchInterval: live ? RUN_POLL_MS : false,
+    retry: false,
+  });
+  return useMemo(() => {
+    const page = transcript.data;
+    if (!page || !anchor) return undefined;
+    const start = page.messages.findIndex((message) => message.id === anchor);
+    if (start < 0) return undefined;
+    const after = page.messages.slice(start + 1);
+    const end = after.findIndex((message) => message.role === 'user');
+    const tools = new Map(page.tools.map((tool) => [tool.id, tool]));
+    return {
+      messages: (end < 0 ? after : after.slice(0, end)).filter((message) =>
+        shownMessage(message, tools),
+      ),
+      tools,
+    };
+  }, [transcript.data, anchor]);
+}
+
+function speaker(message: Message): string {
+  if (message.role === 'user') return t`Instructions`;
+  if (message.role === 'assistant') return t`Agent`;
+  return t`System`;
+}
+
+/**
+ * Messages as the transcript shows them: words as prose and each call as the
+ * transcript's own row (its icon, action and key arguments), in the order made.
+ */
+function RunMessages({
+  transcript,
+  sessionId,
+  speakers = false,
+}: {
+  transcript: RunTranscript;
+  sessionId: string;
+  /** A held conversation names who spoke; one turn is all the agent's. */
+  speakers?: boolean;
+}) {
+  return (
+    <ol className="grid min-w-0 gap-3" data-slot="run-messages">
+      {transcript.messages.map((message) => (
+        <li className="grid min-w-0 gap-1" key={message.id}>
+          {speakers ? (
+            <div className="flex min-w-0 items-baseline gap-2 text-menu">
+              <span className="font-medium text-foreground">{speaker(message)}</span>
+              <span className="text-caption text-muted-foreground tabular-nums">
+                {formatDateTime(message.created_at)}
+              </span>
+            </div>
+          ) : null}
+          {message.blocks.map((block) => {
+            if (block.type === 'text')
+              return block.text.trim() ? <RecordMessage key={block.id} text={block.text} /> : null;
+            if (block.type !== 'tool') return null;
+            const tool = transcript.tools.get(block.tool_id);
+            return tool ? (
+              <ClioToolInvocation compact key={block.id} sessionId={sessionId} tool={tool} />
+            ) : null;
+          })}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 /** Everything the run recorded, read newest first and shown oldest first; older pages on request. */
 function RunLog({ row, live }: { row: RunRow; live: boolean }) {
   const repository = useRepository();
@@ -273,6 +354,7 @@ function RunLog({ row, live }: { row: RunRow; live: boolean }) {
   });
   const prose = row.taskKind === 'Subagent' || row.taskKind === 'Session';
   const entries = useMemo(() => logEntries(log.data?.pages ?? [], prose), [log.data, prose]);
+  const turn = useTurnTranscript(row, live);
   const denied = observationError(log.data?.pages[0]);
   const progress =
     typeof row.progress?.message === 'string' ? row.progress.message.trim() : undefined;
@@ -292,7 +374,9 @@ function RunLog({ row, live }: { row: RunRow; live: boolean }) {
       }
       title={t`Log`}
     >
-      {log.isPending && sessionId ? (
+      {turn?.messages.length ? (
+        <RunMessages sessionId={sessionId} transcript={turn} />
+      ) : log.isPending && sessionId ? (
         <RecordLine icon={<TerminalIcon />} text={t`Reading the log`} tone="muted" />
       ) : log.isError ? (
         <RecordLine
@@ -308,7 +392,7 @@ function RunLog({ row, live }: { row: RunRow; live: boolean }) {
             entry.kind === 'output' ? (
               <Terminal key={entry.key} text={entry.text} />
             ) : entry.kind === 'message' ? (
-              <RecordMarkdown key={entry.key} text={entry.text} />
+              <RecordMessage key={entry.key} text={entry.text} />
             ) : entry.kind === 'error' ? (
               <RecordLine
                 icon={<CircleAlertIcon />}
@@ -317,11 +401,7 @@ function RunLog({ row, live }: { row: RunRow; live: boolean }) {
                 tone="error"
               />
             ) : (
-              <RecordLine
-                icon={entry.icon === 'tool' ? <WrenchIcon /> : <CheckIcon />}
-                key={entry.key}
-                text={entry.text}
-              />
+              <RecordLine icon={<CheckIcon />} key={entry.key} text={entry.text} />
             ),
           )}
         </div>
@@ -434,51 +514,6 @@ function RunQuestions({ row, live }: { row: RunRow; live: boolean }) {
   );
 }
 
-function messageText(message: Message): string {
-  return message.blocks
-    .flatMap((block) => (block.type === 'text' && 'text' in block ? [String(block.text)] : []))
-    .join('\n\n')
-    .trim();
-}
-
-/**
- * A call as the transcript's row names it (its operation and target), with a
- * task target named by its run rather than its id.
- */
-function toolLine(
-  tool: ToolInvocation,
-  context: OperationContext,
-  runNames: ReadonlyMap<string, string>,
-): string {
-  const operation = toolOperation(tool, context);
-  const targets = operation.subjects
-    .map((subject) => {
-      const handle = subject.id?.startsWith('operation-') ? subject.id.slice(10) : '';
-      return runNames.get(handle) || subject.label || subject.text || '';
-    })
-    .filter(Boolean);
-  return targets.length ? `${operation.action} ${formatList(targets)}` : operation.action;
-}
-
-function messageTools(
-  message: Message,
-  tools: ReadonlyMap<string, ToolInvocation>,
-  context: OperationContext,
-  runNames: ReadonlyMap<string, string>,
-): string[] {
-  return message.blocks.flatMap((block) => {
-    if (block.type !== 'tool' || !('tool_id' in block)) return [];
-    const tool = tools.get(String(block.tool_id));
-    return tool ? [toolLine(tool, context, runNames)] : [];
-  });
-}
-
-function speaker(message: Message): string {
-  if (message.role === 'user') return t`Instructions`;
-  if (message.role === 'assistant') return t`Agent`;
-  return t`System`;
-}
-
 /** The conversation a delegated run held: its newest messages, the full one a link away. */
 function RunConversation({ row, live }: { row: RunRow; live: boolean }) {
   const repository = useRepository();
@@ -492,36 +527,17 @@ function RunConversation({ row, live }: { row: RunRow; live: boolean }) {
     refetchInterval: live ? RUN_POLL_MS : false,
     retry: false,
   });
-  // The runs in the owner's tree, so a call that waits on one names it.
-  const ownerId = row.ownerSessionId ?? row.targetSessionId ?? '';
-  const treeTasks = useQuery({
-    queryKey: queryKeys.key('run-tree-tasks', settings.endpoint, ownerId),
-    enabled: Boolean(child && ownerId),
-    queryFn: ({ signal }) => repository.sessionTasks(ownerId, { limit: 100 }, signal),
-    refetchInterval: live ? RUN_POLL_MS : false,
-    retry: false,
-  });
-  const runNames = useMemo(
-    () =>
-      new Map(
-        (treeTasks.data?.tasks ?? [])
-          .filter((task) => task.label)
-          .map((task) => [task.handle, task.label!]),
-      ),
-    [treeTasks.data],
-  );
-  const subagents = useLiveStore((state) => state.entities.subagents);
-  const context = useMemo<OperationContext>(() => ({ subagents }), [subagents]);
+  const transcript = useMemo<RunTranscript | undefined>(() => {
+    const page = conversation.data;
+    if (!page) return undefined;
+    const tools = new Map(page.tools.map((tool) => [tool.id, tool]));
+    return { messages: page.messages.filter((message) => shownMessage(message, tools)), tools };
+  }, [conversation.data]);
   if (row.taskKind !== 'Subagent') return null;
   const href =
     child && row.workspaceId
       ? `/workspaces/${encodeURIComponent(row.workspaceId)}/sessions/${encodeURIComponent(child)}`
       : undefined;
-  const tools = new Map((conversation.data?.tools ?? []).map((tool) => [tool.id, tool]));
-  const used = (message: Message) => messageTools(message, tools, context, runNames);
-  const messages = (conversation.data?.messages ?? []).filter(
-    (message) => messageText(message) || used(message).length,
-  );
   return (
     <RunSection
       action={
@@ -553,42 +569,19 @@ function RunConversation({ row, live }: { row: RunRow; live: boolean }) {
           text={t`The conversation could not be read: ${conversation.error.message}`}
           tone="error"
         />
-      ) : messages.length ? (
-        <ol className="grid min-w-0 gap-3" data-slot="run-conversation">
+      ) : transcript?.messages.length ? (
+        <div className="grid min-w-0 gap-3" data-slot="run-conversation">
           {conversation.data?.next_cursor ? (
-            <li className="text-meta text-muted-foreground">{t`Earlier messages are in the conversation.`}</li>
+            <p className="text-meta text-muted-foreground">{t`Earlier messages are in the conversation.`}</p>
           ) : null}
-          {messages.map((message) => {
-            const text = messageText(message);
-            const calls = used(message);
-            return (
-              <li className="grid min-w-0 gap-1" key={message.id}>
-                <div className="flex min-w-0 items-baseline gap-2">
-                  <span className="font-medium text-foreground">{speaker(message)}</span>
-                  <span className="text-caption text-muted-foreground tabular-nums">
-                    {formatDateTime(message.created_at)}
-                  </span>
-                </div>
-                {text ? <RecordMarkdown text={text} /> : null}
-                {calls.map((name, index) => (
-                  <RecordLine
-                    icon={<WrenchIcon />}
-                    key={`${name}:${index}`}
-                    text={name}
-                    tone="muted"
-                  />
-                ))}
-              </li>
-            );
-          })}
-        </ol>
+          <RunMessages sessionId={child} speakers transcript={transcript} />
+        </div>
       ) : (
         <RecordLine icon={<TerminalIcon />} text={t`No messages yet`} tone="muted" />
       )}
     </RunSection>
   );
 }
-
 function when(iso: string | undefined): string | undefined {
   return iso && !Number.isNaN(Date.parse(iso)) ? formatDateTime(iso) : undefined;
 }
