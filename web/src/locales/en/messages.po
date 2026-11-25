@@ -136,6 +136,11 @@ msgstr "{0, plural, one {{agent} uses {names}, which is not ready yet. Get it re
 msgid "{0, plural, one {{count}/# step complete} other {{count}/# steps complete}}"
 msgstr "{0, plural, one {{count}/# step complete} other {{count}/# steps complete}}"
 
+#. placeholder {0}: progress.completed
+#: src/components/clio/task-progress-label.ts
+msgid "{0, plural, one {{doneText} iteration} other {{doneText} iterations}}"
+msgstr "{0, plural, one {{doneText} iteration} other {{doneText} iterations}}"
+
 #. placeholder {0}: chip.count
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "{0, plural, one {{label}: # model (replaces {replaced})} other {{label}: # models (replaces {replaced})}}"
@@ -4173,6 +4178,10 @@ msgstr "{total, plural, one {{doneText} / {totalText} entry indexed} other {{don
 #: src/components/clio/task-progress-label.ts
 msgid "{total, plural, one {{doneText} / {totalText} entry} other {{doneText} / {totalText} entries}}"
 msgstr "{total, plural, one {{doneText} / {totalText} entry} other {{doneText} / {totalText} entries}}"
+
+#: src/components/clio/task-progress-label.ts
+msgid "{total, plural, one {{doneText} / {totalText} iteration} other {{doneText} / {totalText} iterations}}"
+msgstr "{total, plural, one {{doneText} / {totalText} iteration} other {{doneText} / {totalText} iterations}}"
 
 #: src/routes/runs-page-copy.tsx
 msgid "{total, plural, one {{indexed} of # session indexed} other {{indexed} of # sessions indexed}}"
@@ -16296,6 +16305,7 @@ msgstr "flow"
 #: src/components/clio/flow-step-details.tsx
 #: src/components/clio/flow-tool-presentation.ts
 #: src/components/clio/flow-trust-details.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/work-kind-status.tsx
 #: src/lib/composer-reference-domain.ts
@@ -27830,6 +27840,7 @@ msgstr "question"
 #: src/components/clio/pending-interactions.tsx
 #: src/components/clio/question-answer-reader.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-model.ts
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/study-tree.tsx
@@ -31932,6 +31943,7 @@ msgid "score {score}"
 msgstr "score {score}"
 
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/stop-children-dialog.tsx
@@ -33076,6 +33088,7 @@ msgid "Servings"
 msgstr "Servings"
 
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/settings-access-rule-dialog.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -33436,6 +33449,10 @@ msgstr "Shared workspace files"
 #: src/components/clio/service-management-facts.tsx
 msgid "Shared, no key"
 msgstr "Shared, no key"
+
+#: src/components/clio/run-presentation.ts
+msgid "Shell"
+msgstr "Shell"
 
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Shell exited"
@@ -35654,6 +35671,7 @@ msgstr "subagent"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-relationships.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 msgid "Subagent"
 msgstr "Subagent"

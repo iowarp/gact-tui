@@ -11,7 +11,7 @@ import { useLiveStore } from '@/store/live-store';
 import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { NamedTooltip } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
-import { runStateLabel } from './run-presentation';
+import { runKindName, runStateLabel } from './run-presentation';
 import { RunStateWord, RunSummary } from './run-tab';
 import type { WorkbenchTab } from './workbench-shared';
 import { t } from '@lingui/core/macro';
@@ -74,7 +74,7 @@ export function WorkbenchRunTab({ tab }: { tab: Extract<WorkbenchTab, { kind: 'r
               <span className="shrink-0" data-frame-position="">
                 <RunStateWord row={row} stateLabel={stateLabel} />
               </span>
-              {row.taskKind ? <span>{row.taskKind}</span> : null}
+              {row.taskKind ? <span>{runKindName(row.taskKind)}</span> : null}
             </>
           ) : undefined
         }

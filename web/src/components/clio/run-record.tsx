@@ -17,10 +17,11 @@ import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { ContentMarkdown } from '@/components/clio/content-markdown';
 import { answerText } from '@/components/clio/flow-run-edits';
 import { JobCard } from '@/components/clio/job-card';
 import { KeyValueGrid, type KeyValueItem } from '@/components/clio/primitives/key-value-grid';
-import { runConversationHref } from '@/components/clio/run-presentation';
+import { runConversationHref, runKindName } from '@/components/clio/run-presentation';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 import { callerName } from '@/components/clio/tool-presentation';
 import { useRunChildSession } from '@/hooks/use-flow-run';
@@ -110,6 +111,18 @@ function RecordLine({
   );
 }
 
+/** An agent's words as read Markdown, scrolled rather than cut when long. */
+function RecordMarkdown({ text }: { text: string }) {
+  return (
+    <div
+      className="clio-scrollbar max-h-72 min-w-0 overflow-auto text-ui leading-relaxed text-foreground/90 [overflow-wrap:anywhere] [&_ol]:my-1 [&_p]:my-1 [&_pre]:max-w-full [&_ul]:my-1"
+      data-slot="run-message"
+    >
+      <ContentMarkdown mode="static">{text}</ContentMarkdown>
+    </div>
+  );
+}
+
 /** Output text as the spec's `.term` block. */
 function Terminal({ text }: { text: string }) {
   return (
@@ -124,6 +137,7 @@ function Terminal({ text }: { text: string }) {
 
 type LogEntry =
   | { key: string; kind: 'output'; text: string }
+  | { key: string; kind: 'message'; text: string }
   | { key: string; kind: 'line'; text: string; icon: 'tool' | 'step' }
   | { key: string; kind: 'error'; text: string };
 
@@ -167,7 +181,10 @@ function chunkEntries(chunk: ObservedTaskChunk, key: string): LogEntry[] {
         icon: 'tool',
       });
   }
-  const text = [value.text, value.stdout, value.output, value.stderr].find(
+  // An agent's reply is prose; what a command printed stays a terminal block.
+  if (typeof value.text === 'string' && value.text.trim())
+    entries.push({ key: `${key}:message`, kind: 'message', text: value.text.trim() });
+  const text = [value.stdout, value.output, value.stderr].find(
     (part): part is string => typeof part === 'string' && Boolean(part.trim()),
   );
   if (text) entries.push({ key: `${key}:text`, kind: 'output', text });
@@ -274,6 +291,8 @@ function RunLog({ row, live }: { row: RunRow; live: boolean }) {
           {entries.map((entry) =>
             entry.kind === 'output' ? (
               <Terminal key={entry.key} text={entry.text} />
+            ) : entry.kind === 'message' ? (
+              <RecordMarkdown key={entry.key} text={entry.text} />
             ) : entry.kind === 'error' ? (
               <RecordLine
                 icon={<CircleAlertIcon />}
@@ -470,11 +489,7 @@ function RunConversation({ row, live }: { row: RunRow; live: boolean }) {
                     {formatDateTime(message.created_at)}
                   </span>
                 </div>
-                {text ? (
-                  <p className="line-clamp-6 min-w-0 whitespace-pre-wrap text-foreground/90 [overflow-wrap:anywhere]">
-                    {text}
-                  </p>
-                ) : null}
+                {text ? <RecordMarkdown text={text} /> : null}
                 {used.map((name, index) => (
                   <RecordLine
                     icon={<WrenchIcon />}
@@ -507,7 +522,7 @@ function RunDetails({ row }: { row: RunRow }) {
       ? formatDuration(ended - started)
       : undefined;
   const facts: KeyValueItem[] = [
-    { label: t`Kind`, value: row.taskKind ?? sourceLabels[row.source] },
+    { label: t`Kind`, value: row.taskKind ? runKindName(row.taskKind) : sourceLabels[row.source] },
     {
       label: row.source === 'flow' ? t`Placement` : t`Ran on`,
       value: (row.source === 'flow' ? row.placement : row.host) || t`This computer`,

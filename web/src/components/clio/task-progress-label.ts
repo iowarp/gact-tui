@@ -36,6 +36,20 @@ export function taskProgressLabel(
     }
     if (progress.unit === 'entries')
       return entriesLabel(progress.completed, total, kind === 'Indexing');
+    // An agent's turn loop counts iterations; other units read as the service reports them.
+    if (progress.unit === 'iterations') {
+      const doneText = String(progress.completed);
+      if (total === undefined)
+        return plural(progress.completed, {
+          one: `${doneText} iteration`,
+          other: `${doneText} iterations`,
+        });
+      const totalText = String(total);
+      return plural(total, {
+        one: `${doneText} / ${totalText} iteration`,
+        other: `${doneText} / ${totalText} iterations`,
+      });
+    }
     const unit =
       typeof progress.unit === 'string' && progress.unit
         ? progress.completed === 1 && total === undefined

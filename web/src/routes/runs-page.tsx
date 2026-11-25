@@ -136,7 +136,11 @@ export function RunsPage() {
   const [requestedCancellation, setRequestedCancellation] = useState<Set<string>>(new Set());
   const [flowScanLimit, setFlowScanLimit] = useState(FLOW_SCAN_BATCH);
   const [search, setSearch] = useState('');
-  const [stateFilter, setStateFilter] = useState('active');
+  const [searchParams, setSearchParams] = useSearchParams();
+  // A link to one run must load it whatever its state, so it opens on all states.
+  const [stateFilter, setStateFilter] = useState(() =>
+    searchParams.has('run') ? 'all' : 'active',
+  );
   const [sourceFilter, setSourceFilter] = useState('all');
   const [confirmedAction, setConfirmedAction] = useState<ConfirmedRunAction>();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -153,7 +157,6 @@ export function RunsPage() {
   );
   useShortcut('list-search', () => setSearchOpen(true), { region: searchRegion });
   const [revealCount, setRevealCount] = useState(0);
-  const [searchParams, setSearchParams] = useSearchParams();
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
