@@ -133,6 +133,14 @@ export function ToolCompactRow({
     </>
   ) : operation.qualifier ? (
     operation.qualifier
+  ) : onOpenFlow ? (
+    <Button
+      variant="link"
+      className="h-auto p-0 text-menu font-medium text-accent-foreground underline decoration-primary/45 underline-offset-[3px]"
+      onClick={onOpenFlow}
+    >
+      {t`Open run`}
+    </Button>
   ) : undefined;
   // One assignment reads as the spec's delegate row: Delegate, the agent as a link, the task.
   const delegate =

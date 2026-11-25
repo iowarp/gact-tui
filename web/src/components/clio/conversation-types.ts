@@ -112,6 +112,8 @@ export interface ClioConversationProps {
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   /** Open the flow run recorded under a task handle (a workflow, a council, ...). */
   onOpenFlow?: (handle: string, label?: string) => void;
+  /** Open a run's record (log, questions, job) by its task handle, in `sessionId` when given. */
+  onOpenRun?: (handle: string, label?: string, sessionId?: string) => void;
   pendingMessageIds?: ReadonlySet<string>;
   cancellablePendingMessageIds?: ReadonlySet<string>;
   cancellingPendingMessageId?: string;

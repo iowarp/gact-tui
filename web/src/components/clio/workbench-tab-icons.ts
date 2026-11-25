@@ -41,6 +41,7 @@ export const workbenchTabIcons = {
   subagent: BotIcon,
   flow: WorkflowIcon,
   plan: ListTodoIcon,
+  run: ActivityIcon,
   terminal: TerminalSquareIcon,
   browser: GlobeIcon,
   list: ListIcon,

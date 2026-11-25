@@ -59,7 +59,7 @@ export function PluginPageRoute() {
     >
       {page ? (
         <PluginPageView key={page.id} page={page} />
-      ) : pages.isPending ? (
+      ) : pages.isPending || pages.isPlaceholderData ? (
         <StateView kind="loading" size="viewer" title={t`Opening the page`} />
       ) : (
         <StateView

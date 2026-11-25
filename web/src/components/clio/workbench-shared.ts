@@ -102,6 +102,15 @@ type WorkbenchTabKind =
     }
   /** The conversation's plan document and its todos, read only, as separate sections. */
   | { id: `plan:${string}`; kind: 'plan'; label: string; sessionId: string; workspaceId: string }
+  /** One run (a task the conversation started) with its log, questions and job. */
+  | {
+      id: string;
+      kind: 'run';
+      label: string;
+      handle: string;
+      sessionId: string;
+      workspaceId: string;
+    }
   | {
       id: string;
       kind: 'terminal';

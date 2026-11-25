@@ -9,6 +9,8 @@ import {
   type PluginTabOpened,
 } from '@clio/core/v3';
 import { create } from 'zustand';
+import { readRetryDelayMs, serviceStillStarting } from '@/lib/connection-attempt';
+import { STARTING_READ_RETRIES } from '@/lib/runtime-limits';
 
 /**
  * A plugin tab's surfaces (HS3). They are not in the transcript: they live here
@@ -34,6 +36,8 @@ export interface PluginTabState {
   owner?: A2UISurfaceOwner;
   /** A plugin page's host-owned context session: its events, catalogs and questions. */
   contextSessionId?: string;
+  /** The surfaces are the page's last stored view, shown while the live read runs. */
+  stored?: boolean;
 }
 
 interface PluginTabRepository {
@@ -106,6 +110,28 @@ export function usePluginTabState(sessionId: string, tabId: string): PluginTabSt
 }
 
 /**
+ * A service that is still starting (just restarted, health answers before its task
+ * runtime) is waited out with the connect backoff, so an open made at once still lands.
+ */
+async function openWhileStarting<T>(open: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  for (let failures = 0; ; failures += 1) {
+    try {
+      return await open();
+    } catch (error) {
+      if (
+        signal.aborted ||
+        failures >= STARTING_READ_RETRIES ||
+        !(error instanceof Error) ||
+        !serviceStillStarting(error)
+      )
+        throw error;
+      await new Promise((resolve) => setTimeout(resolve, readRetryDelayMs(failures, error)));
+      if (signal.aborted) throw error;
+    }
+  }
+}
+
+/**
  * Reads the tab's resource; its surfaces replace everything the tab held.
  * `retry` is the person's Retry after a long wait: the next one asks later.
  */
@@ -136,6 +162,7 @@ export async function openPluginTab(
         revision: store.tabs[entry]?.revision ?? 0,
         owner: store.tabs[entry]?.owner,
         contextSessionId: store.tabs[entry]?.contextSessionId,
+        stored: store.tabs[entry]?.stored,
         status: 'loading',
         attempt,
         stale: false,
@@ -151,7 +178,10 @@ export async function openPluginTab(
   try {
     if (pending?.sent) await pending.sent;
     if (controller.signal.aborted || !opened.has(entry)) return;
-    const result = await repository.openPluginTab(sessionId, tabId, controller.signal);
+    const result = await openWhileStarting(
+      () => repository.openPluginTab(sessionId, tabId, controller.signal),
+      controller.signal,
+    );
     if (controller.signal.aborted || !opened.has(entry)) return;
     const owner: A2UISurfaceOwner = {
       kind: 'server',
@@ -365,6 +395,34 @@ function pageRoutes(repository: PluginPageRepository): PluginTabRepository {
 
 export function usePluginPageState(pageId: string): PluginTabState | undefined {
   return usePluginTabState(PLUGIN_PAGE_SCOPE, pageId);
+}
+
+/**
+ * Shows the page's last stored view until its open answers. Only a page with
+ * nothing on screen takes it: a live view is never replaced by an older one.
+ */
+export function seedPluginPage(
+  pageId: string,
+  seed: { surfaces: A2UISurface[]; owner?: A2UISurfaceOwner; contextSessionId?: string },
+): void {
+  const entry = key(PLUGIN_PAGE_SCOPE, pageId);
+  usePluginTabStore.setState((store) => {
+    if (store.tabs[entry] || seed.surfaces.length === 0) return store;
+    return {
+      tabs: {
+        ...store.tabs,
+        [entry]: {
+          status: 'loading',
+          surfaces: seed.surfaces.map((surface) => owned(surface, seed.owner)),
+          revision: 0,
+          stale: false,
+          owner: seed.owner,
+          contextSessionId: seed.contextSessionId,
+          stored: true,
+        },
+      },
+    };
+  });
 }
 
 /** Reads the page's resource in its context; the first open creates the context. */

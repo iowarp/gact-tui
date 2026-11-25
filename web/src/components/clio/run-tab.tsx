@@ -5,12 +5,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { FrameBar, FrameCrumbs, FrameTab } from '@/components/clio/primitives/frame-bar';
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
-import { KeyValueGrid } from '@/components/clio/primitives/key-value-grid';
 import { StateView } from '@/components/clio/primitives/state-view';
 import { RunSourceIcon, RunStatusMark } from '@/components/clio/run-list-row';
-import { runConversationHref, runLook } from '@/components/clio/run-presentation';
+import { runConversationHref, runKindName, runLook } from '@/components/clio/run-presentation';
 import { taskProgressLabel } from '@/components/clio/task-progress-label';
-import { TechnicalDetails } from '@/components/clio/technical-details';
+import { RunRecord, RunRetry } from '@/components/clio/run-record';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useNow } from '@/hooks/use-now';
 import { useCountedTaskProgress } from '@/hooks/use-count-up';
@@ -22,15 +21,6 @@ import { t, ph } from '@lingui/core/macro';
 const FlowRunView = lazy(() =>
   import('@/components/clio/flow-run-view').then((module) => ({ default: module.FlowRunView })),
 );
-
-function fullWhen(iso: string): string {
-  const at = Date.parse(iso);
-  if (Number.isNaN(at)) return t`Time unavailable`;
-  return new Intl.DateTimeFormat(formatLocale(), {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(at));
-}
 
 const RUNNING: readonly RunRow['state'][] = [
   'running',
@@ -51,7 +41,7 @@ function elapsed(from: string | undefined, to: number): string | undefined {
  * "queued on ares", a red "failed", "done in 6m". The row and the tab say the
  * same thing.
  */
-function RunStateWord({ row, stateLabel }: { row: RunRow; stateLabel: string }) {
+export function RunStateWord({ row, stateLabel }: { row: RunRow; stateLabel: string }) {
   const running = RUNNING.includes(row.state);
   const now = useNow(running);
   if (running) {
@@ -99,50 +89,12 @@ function RunLine({ row, text, meta }: { row: RunRow; text: string; meta?: string
   );
 }
 
-/** Where a run ran, its assignment and its backend ids: kept, behind Details. */
-function RunFacts({ row }: { row: RunRow }) {
-  return (
-    <TechnicalDetails className="text-meta" title={t`Details`}>
-      <div className="mt-1 grid gap-3">
-        {row.assignment ? (
-          <section className="grid gap-1">
-            <h3 className="text-caption font-semibold text-muted-foreground">{t`Assignment`}</h3>
-            <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{row.assignment}</p>
-          </section>
-        ) : null}
-        {row.statusDetail ? (
-          <p className="whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">
-            {t`Reported issue: ${ph({ issue: row.statusDetail })}`}
-          </p>
-        ) : null}
-        <KeyValueGrid
-          items={[
-            { label: t`Execution`, value: sourceLabels[row.source] },
-            {
-              label: row.source === 'flow' ? t`Placement` : t`Host`,
-              value: (row.source === 'flow' ? row.placement : row.host) || t`Host unavailable`,
-            },
-            { label: t`Workspace`, value: row.workspaceLabel },
-            { label: t`Updated`, value: fullWhen(row.updatedAt) },
-            { label: t`Backend status`, value: row.reportedStatus, mono: true },
-            ...(row.taskKind ? [{ label: t`Kind`, value: row.taskKind }] : []),
-            { label: t`Task`, value: row.taskId, mono: true },
-            ...(row.handleId !== row.taskId
-              ? [{ label: t`Handle`, value: row.handleId, mono: true }]
-              : []),
-          ]}
-        />
-      </div>
-    </TechnicalDetails>
-  );
-}
-
 /**
  * An execution's body in the spec's four states: its current step while it
  * runs, what it waits on (with Stop) while queued, one red line when it failed,
  * and the Result when done. A run waiting on you links to where you answer.
  */
-function RunSummary({
+export function RunSummary({
   row,
   stateLabel,
   stop,
@@ -181,7 +133,7 @@ function RunSummary({
           kind="marker"
           title={t`Not started yet`}
         />
-        <RunFacts row={row} />
+        <RunRecord row={row} />
       </div>
     );
   }
@@ -195,7 +147,7 @@ function RunSummary({
           <h3 className="mb-1.5 font-heading text-h3 font-semibold text-foreground">{t`Result`}</h3>
           <RunLine meta={progress} row={row} text={time ? t`Finished in ${time}.` : t`Finished.`} />
         </section>
-        <RunFacts row={row} />
+        <RunRecord row={row} />
       </div>
     );
   }
@@ -220,13 +172,14 @@ function RunSummary({
             {reason}
           </p>
         ) : null}
+        <RunRetry row={row} />
         {answerHref ? (
           <Button asChild className="mt-1 ml-6 justify-self-start" size="compact" variant="outline">
             <Link to={answerHref}>{row.state === 'waiting_user' ? t`Answer` : t`Review`}</Link>
           </Button>
         ) : null}
       </div>
-      <RunFacts row={row} />
+      <RunRecord row={row} />
     </div>
   );
 }
@@ -336,7 +289,7 @@ export function RunTab({
             <span className="shrink-0" data-frame-position="">
               <RunStateWord row={row} stateLabel={stateLabel} />
             </span>
-            <span>{row.taskKind ?? sourceLabels[row.source]}</span>
+            <span>{row.taskKind ? runKindName(row.taskKind) : sourceLabels[row.source]}</span>
           </>
         }
         where={

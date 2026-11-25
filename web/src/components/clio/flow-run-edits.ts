@@ -205,7 +205,7 @@ function askStep(invocation: string): string {
  * "nobody is watching" note to the agent, not an answer: only the options it
  * took (a tool's declared defaults) are kept.
  */
-function answerText(interaction: PendingInteraction): string {
+export function answerText(interaction: PendingInteraction): string {
   const payload = record(interaction.payload) ?? {};
   const options = Array.isArray(payload.options) ? payload.options.map(record) : [];
   const chosen = list(payload.selected_options).map((value) => {

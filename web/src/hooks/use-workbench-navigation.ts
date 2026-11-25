@@ -243,6 +243,11 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     (handle: string, label?: string) => revealWorkbench({ kind: 'flow', handle, label }),
     [revealWorkbench],
   );
+  const openRun = useCallback(
+    (handle: string, label?: string, sessionId?: string) =>
+      revealWorkbench({ kind: 'run', handle, label, sessionId }),
+    [revealWorkbench],
+  );
 
   const openParentSession = useCallback(
     (session: Session) => {
@@ -316,6 +321,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     openParentSession,
     openSubagent,
     openFlow,
+    openRun,
     openWorkspaceFile,
     openWorkspaceFolder,
     openWorkspaceResource,

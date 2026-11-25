@@ -1,8 +1,6 @@
 import type { AsyncProcess, SubagentRun } from '@clio/core/v3';
-import { ActivityIcon, ChevronRightIcon, CircleStopIcon } from 'lucide-react';
+import { CircleStopIcon } from 'lucide-react';
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { Link, useInRouterContext } from 'react-router-dom';
-import { RetryIcon } from '@/lib/icon-vocabulary';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,54 +18,50 @@ import { railRuns, type RailRun } from './rail-run-rows';
 import { mergeSessionSubagents } from '@/lib/session-agent-tasks';
 import { t, ph } from '@lingui/core/macro';
 
-/** The rail lists a conversation's latest runs; All runs holds the rest. */
+/** Running lists what is running now; every run, finished ones too, is in Runs in the left bar. */
 const RAIL_RUN_LIMIT = 8;
 
 export type RailRunsProps = Pick<
   SessionEvidenceActions,
-  'onOpenSubagent' | 'onOpenFlow' | 'onCancelTask' | 'onControlTask'
+  'onOpenSubagent' | 'onOpenFlow' | 'onOpenRun' | 'onCancelTask'
 > & {
   processes: readonly AsyncProcess[];
   subagents: readonly SubagentRun[];
 };
 
 /**
- * The conversation's runs in the Runs page row. Enter opens a run as a tab,
- * Delete stops it after asking and Shift+Enter retries a failed one.
+ * What this conversation is running, in the Runs page row. Enter opens the run's
+ * record as a tab (Shift opens a delegated run's conversation) and Delete stops it
+ * after asking. A failed run leaves Running; its record in Runs offers Retry.
  */
 export function RailRuns({
   processes,
   subagents,
   onOpenSubagent,
   onOpenFlow,
+  onOpenRun,
   onCancelTask,
-  onControlTask,
 }: RailRunsProps) {
-  const runs = railRuns(processes, subagents);
-  const shown = runs.slice(0, RAIL_RUN_LIMIT);
-  const routed = useInRouterContext();
+  const shown = railRuns(processes, subagents)
+    .filter((run) => run.active)
+    .slice(0, RAIL_RUN_LIMIT);
   const [stopping, setStopping] = useState<RailRun>();
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const submitting = useRef(new Set<string>());
   const [error, setError] = useState('');
 
-  const act = async (run: RailRun, action: 'cancel' | 'restart') => {
+  const stop = async (run: RailRun) => {
     const task = run.entry.process;
     if (!task || submitting.current.has(run.row.taskId)) return;
     submitting.current.add(run.row.taskId);
     setPending((previous) => new Set(previous).add(run.row.taskId));
     setError('');
     try {
-      if (action === 'cancel') await onCancelTask?.(task);
-      else await onControlTask?.(task, 'restart');
+      await onCancelTask?.(task);
     } catch (reason) {
       const label = run.row.label;
       const message = reason instanceof Error ? reason.message : String(reason);
-      setError(
-        action === 'cancel'
-          ? t`Could not stop ${label}: ${message}`
-          : t`Could not retry ${label}: ${message}`,
-      );
+      setError(t`Could not stop ${label}: ${message}`);
     } finally {
       submitting.current.delete(run.row.taskId);
       setPending((previous) => {
@@ -79,28 +73,32 @@ export function RailRuns({
   };
   const canStop = (run: RailRun) =>
     run.row.cancellable && !run.row.cancelRequested && Boolean(run.entry.process && onCancelTask);
-  const canRetry = (run: RailRun) => run.retryable && Boolean(run.entry.process && onControlTask);
   const open = (run: RailRun, target: 'canvas' | 'conversation' = 'canvas') => {
     const { process, subagent } = run.entry;
     if (run.row.flowHandle && onOpenFlow) return onOpenFlow(run.row.flowHandle, run.row.label);
     const conversation =
       subagent ?? (process ? mergeSessionSubagents([], [process])[0] : undefined);
-    if (conversation?.child_session_id) onOpenSubagent?.(conversation, target);
+    const opensConversation = target === 'conversation' || !process || !onOpenRun;
+    if (conversation?.child_session_id && opensConversation)
+      return onOpenSubagent?.(conversation, target);
+    if (process && onOpenRun)
+      onOpenRun(
+        run.entry.key,
+        run.row.label,
+        process.owner?.session_id ?? process.owner_session_id,
+      );
   };
   const keys = (run: RailRun) => (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'Delete' && canStop(run)) {
       event.preventDefault();
       setStopping(run);
-    } else if (event.key === 'Enter' && event.shiftKey && canRetry(run)) {
-      event.preventDefault();
-      void act(run, 'restart');
     }
   };
 
   return (
     <div
       className="@container/runs min-w-0"
-      aria-label={t`Runs in this conversation`}
+      aria-label={t`Running in this conversation`}
       data-run-list=""
     >
       {shown.map((run) => (
@@ -122,31 +120,13 @@ export function RailRuns({
                 disabled={pending.has(run.row.taskId)}
                 onClick={() => setStopping(run)}
               />
-            ) : canRetry(run) ? (
-              <IconButton
-                size="sm"
-                label={t`Retry ${ph({ label: run.row.label })}`}
-                icon={<RetryIcon aria-hidden="true" />}
-                disabled={pending.has(run.row.taskId)}
-                onClick={() => void act(run, 'restart')}
-              />
             ) : undefined
           }
         />
       ))}
-      {routed ? (
-        <Link
-          to="/runs"
-          data-rail-row=""
-          className="flex h-7 items-center gap-2 rounded-[5px] px-2 text-ui hover:bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        >
-          <ActivityIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-          <span className="flex-1">
-            {runs.length > shown.length ? t`All runs (${ph({ count: runs.length })})` : t`All runs`}
-          </span>
-          <ChevronRightIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-        </Link>
-      ) : null}
+      {shown.length ? null : (
+        <p className="flex h-7 items-center px-2 text-ui text-muted-foreground">{t`Nothing is running`}</p>
+      )}
       {error ? (
         <p role="alert" className="px-2 py-1 text-xs text-destructive">
           {error}
@@ -172,7 +152,7 @@ export function RailRuns({
             <AlertDialogCancel>{t`Keep running`}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (stopping) void act(stopping, 'cancel');
+                if (stopping) void stop(stopping);
               }}
             >
               {t`Stop run`}

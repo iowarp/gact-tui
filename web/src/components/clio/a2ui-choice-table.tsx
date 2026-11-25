@@ -216,6 +216,8 @@ interface Cells {
   inherited?: readonly string[];
   /** Columns some row inherits: there a value of the row's own shows in teal. */
   inheritable?: ReadonlySet<string>;
+  /** Columns whose D sits beside the glyph, with its room kept in every row. */
+  markRoom?: ReadonlySet<string>;
   /** Column id to the option values this row offers. */
   options?: Readonly<Record<string, readonly string[]>>;
   /** The thing the cells set, for their accessible names ("Delta"). */
@@ -234,6 +236,7 @@ function WideCells({
   values,
   inherited,
   inheritable,
+  markRoom,
   options,
   name,
   bulk,
@@ -260,6 +263,7 @@ function WideCells({
         isDefault={isDefault}
         key={column.id}
         label={label}
+        markBeside={markRoom?.has(column.id) ?? false}
         name={t`${ph({ column: column.title })}: ${ph({ name })}`}
         onChoose={(value) => onChoose(column.id, value)}
         options={pickerOptions(column, options?.[column.id])}
@@ -294,6 +298,7 @@ function FoldedValues({
         isDefault={isDefault}
         key={column.id}
         label={current?.label ?? t`Not set`}
+        markBeside
         title={`${column.title}: ${current?.label ?? t`Not set`}`}
       />
     );
@@ -379,6 +384,7 @@ function TableRow({
     values: row.values,
     inherited: row.inherited,
     inheritable,
+    markRoom: inheritable,
     options: row.options,
     name: row.title,
     onChoose,
@@ -454,6 +460,7 @@ function DefaultsRow({
   values,
   wide,
   template,
+  markRoom,
   onChoose,
 }: {
   title: string;
@@ -461,9 +468,11 @@ function DefaultsRow({
   values: Record<string, string>;
   wide: boolean;
   template: string;
+  /** The rows' D columns, so the defaults' labels line up with theirs. */
+  markRoom: ReadonlySet<string>;
   onChoose: (column: string, value: string) => void;
 }) {
-  const cells: Cells = { columns, values, name: title, bulk: true, onChoose };
+  const cells: Cells = { columns, values, name: title, bulk: true, markRoom, onChoose };
   const editable = columns.filter((column) => column.editable !== false && column.id in values);
   return (
     <div
@@ -671,6 +680,7 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
         {props.defaults ? (
           <DefaultsRow
             columns={columns}
+            markRoom={inheritable}
             onChoose={(columnId, value) => choose('', undefined, columnId, value)}
             template={template}
             title={props.defaults.title}

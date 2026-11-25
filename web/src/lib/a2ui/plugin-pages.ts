@@ -1,8 +1,11 @@
 import type { PluginPage } from '@clio/core/v3';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
+import { readRetryDelayMs, serviceStillStarting } from '@/lib/connection-attempt';
 import { connectionScope } from '@/lib/connection-scope';
+import { STARTING_READ_RETRIES } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { readStoredPluginPages, storePluginPages } from './plugin-page-snapshot';
 
 /** Where a plugin's primary page opens. */
 export function pluginPageRoute(page: Pick<PluginPage, 'plugin' | 'page'>): string {
@@ -31,10 +34,21 @@ function rememberContexts(pages: readonly PluginPage[]): readonly PluginPage[] {
 export function usePluginPagesQuery() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  return useQuery({
-    queryKey: ['plugin-pages', connectionScope(settings)],
-    queryFn: async ({ signal }) => rememberContexts(await repository.pluginPages(signal)),
-    retry: false,
+  const scope = connectionScope(settings);
+  return useQuery<readonly PluginPage[]>({
+    queryKey: ['plugin-pages', scope],
+    queryFn: async ({ signal }) => {
+      const pages = rememberContexts(await repository.pluginPages(signal));
+      storePluginPages(scope, pages);
+      return pages;
+    },
+    // The last list read, so the left bar and a page route resolve before the service answers.
+    placeholderData: () => {
+      const stored = readStoredPluginPages(scope);
+      return stored ? rememberContexts(stored) : undefined;
+    },
+    retry: (failures, error) => serviceStillStarting(error) && failures < STARTING_READ_RETRIES,
+    retryDelay: readRetryDelayMs,
     staleTime: 30_000,
   });
 }

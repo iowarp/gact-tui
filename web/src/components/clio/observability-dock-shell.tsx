@@ -109,6 +109,8 @@ export interface ClioObservabilityDockProps {
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   /** Open a flow run's view: a task that runs a flow opens its run, not a chat. */
   onOpenFlow?: (handle: string, title: string) => void;
+  /** Open any other run's record as a workbench tab. */
+  onOpenRun?: (handle: string, label?: string, sessionId?: string) => void;
   onOpenCanvas?: (view?: ObservabilityView) => void;
   requestedView?: { key: string; view: ObservabilityView };
   /** The views offered; the workbench lists recorded work in its Activity list instead. */
