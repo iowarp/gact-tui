@@ -35641,6 +35641,7 @@ msgstr "σταματημένο"
 #: src/components/clio/composer-run-announcer.tsx
 #: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/flow-run-presentation.ts
+#: src/components/clio/mcp-app-frame-menu.tsx
 #: src/components/clio/message-completion-footer.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
@@ -38538,6 +38539,10 @@ msgstr "Η προβολή φορτώθηκε αλλά δεν σχεδίασε τ
 #: src/components/clio/mcp-app-frame-menu.tsx
 msgid "The view loaded but has drawn nothing. It may need more room: reload it, or open it in a wider panel."
 msgstr "Η προβολή φορτώθηκε αλλά δεν σχεδίασε τίποτα. Ίσως χρειάζεται περισσότερο χώρο: φορτώστε την ξανά ή ανοίξτε την σε πλατύτερο πλαίσιο."
+
+#: src/components/clio/mcp-app-frame-menu.tsx
+msgid "The view's service stopped. What it shows no longer changes."
+msgstr "Η υπηρεσία της προβολής σταμάτησε. Ό,τι δείχνει δεν αλλάζει πια."
 
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The view reported a {key} that a shared selection cannot hold."

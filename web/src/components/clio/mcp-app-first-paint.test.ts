@@ -4,6 +4,7 @@ import {
   FIRST_PAINT_PROBES_MS,
   RESIZE_RECHECK_MS,
   paintVerdict,
+  reportedStopped,
   reportedUndrawn,
   watchFirstPaint,
   type PaintVerdict,
@@ -24,6 +25,30 @@ describe('reportedUndrawn', () => {
     expect(reportedUndrawn({ structuredContent: { scene: 's1', time: 3 } })).toBeNull();
     expect(reportedUndrawn({ structuredContent: { drawn: true } })).toBeNull();
     expect(reportedUndrawn({ content: [{ type: 'text', text: 'x' }] })).toBeNull();
+  });
+});
+
+describe('reportedStopped', () => {
+  it('reads a stopped service even when the last picture stays', () => {
+    expect(
+      reportedStopped({
+        content: [{ type: 'text', text: 'The view stopped.' }],
+        structuredContent: { drawn: true, stopped: 'ParaView stopped: the pvserver went.' },
+      }),
+    ).toBe('ParaView stopped: the pvserver went.');
+    expect(
+      reportedStopped({
+        content: [{ type: 'text', text: 'The view stopped.' }],
+        structuredContent: { stopped: true },
+      }),
+    ).toBe('The view stopped.');
+  });
+
+  it('claims nothing without a stopped report', () => {
+    expect(reportedStopped({ structuredContent: { drawn: true } })).toBeNull();
+    expect(reportedStopped({ structuredContent: { drawn: false, stopped: '' } })).toBeNull();
+    expect(reportedStopped({ structuredContent: { stopped: false } })).toBeNull();
+    expect(reportedStopped({})).toBeNull();
   });
 });
 

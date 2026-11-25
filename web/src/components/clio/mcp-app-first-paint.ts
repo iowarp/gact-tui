@@ -106,11 +106,35 @@ export async function pictureCoverage(image: string): Promise<number | undefined
  * report without `drawn: false` withdraws it. Null when the view claims nothing.
  */
 export function reportedUndrawn(context: Record<string, unknown>): string | null {
+  const structured = structuredOf(context);
+  if (structured?.drawn !== false) return null;
+  return contextText(context);
+}
+
+/**
+ * Whether the view says its service stopped or disconnected, from the same report: a
+ * `structuredContent.stopped` that is true or non-empty text. Such a view may still
+ * show its last picture (`drawn: true`), so the header must not read Ready over it.
+ * Returns the view's own words (its `stopped` text, else its text for the model, else
+ * ''), or null when it claims nothing; any later report without `stopped` withdraws it.
+ */
+export function reportedStopped(context: Record<string, unknown>): string | null {
+  const stopped = structuredOf(context)?.stopped;
+  if (typeof stopped === 'string' && stopped.trim()) return stopped.trim();
+  if (stopped === true) return contextText(context);
+  return null;
+}
+
+function structuredOf(context: Record<string, unknown>): Record<string, unknown> | null {
   const structured = context.structuredContent;
-  if (!structured || typeof structured !== 'object') return null;
-  if ((structured as Record<string, unknown>).drawn !== false) return null;
+  return structured && typeof structured === 'object'
+    ? (structured as Record<string, unknown>)
+    : null;
+}
+
+function contextText(context: Record<string, unknown>): string {
   const content = Array.isArray(context.content) ? context.content : [];
-  const text = content
+  return content
     .map((part) =>
       part && typeof part === 'object' && typeof (part as { text?: unknown }).text === 'string'
         ? (part as { text: string }).text
@@ -119,7 +143,6 @@ export function reportedUndrawn(context: Record<string, unknown>): string | null
     .filter(Boolean)
     .join(' ')
     .trim();
-  return text;
 }
 
 /**
