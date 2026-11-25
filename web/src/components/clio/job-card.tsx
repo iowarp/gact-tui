@@ -311,8 +311,8 @@ function SingleComponent({ component }: { component: JobComponent }) {
       <span className="min-w-0 truncate font-medium text-foreground">
         {nodes != null
           ? plural(nodes, {
-              one: `${ph({ name })} · # node`,
-              other: `${ph({ name })} · # nodes`,
+              one: `${ph({ name })} (# node)`,
+              other: `${ph({ name })} (# nodes)`,
             })
           : name}
       </span>

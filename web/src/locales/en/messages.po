@@ -3195,8 +3195,8 @@ msgid "{names}. Values are hidden."
 msgstr "{names}. Values are hidden."
 
 #: src/components/clio/job-card.tsx
-msgid "{nodes, plural, one {{name} · # node} other {{name} · # nodes}}"
-msgstr "{nodes, plural, one {{name} · # node} other {{name} · # nodes}}"
+msgid "{nodes, plural, one {{name} (# node)} other {{name} (# nodes)}}"
+msgstr "{nodes, plural, one {{name} (# node)} other {{name} (# nodes)}}"
 
 #: src/components/clio/document-workspace.tsx
 msgid "{opened} Opened a desktop copy; edits are local to this copy."
