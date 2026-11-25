@@ -87,7 +87,7 @@ function subjectFromInput(
 ): ToolPresentationBlock[] {
   if (
     declared &&
-    !['Tasks', 'Subagent', 'Session'].includes(declared.label ?? '') &&
+    !['Task', 'Tasks', 'Subagent', 'Session'].includes(declared.label ?? '') &&
     declared.id !== 'wait-targets'
   )
     return [declared];

@@ -23,6 +23,7 @@ import { PresentationNavigation } from './presentation-navigation';
 import { PresentationLink } from './presentation-link';
 import { agentMessageName } from './agent-message-presentation';
 import { useLiveStore } from '@/store/live-store';
+import { formatList } from '@/lib/locale-format';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 import { t, ph } from '@lingui/core/macro';
 
@@ -128,7 +129,13 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
           (tool) => tool.execution_task?.handle === notice.handle,
         )
       : undefined;
+  // An open app's context names its server as the argument: "View context  paraview".
+  const views =
+    block.source === 'mcp_app_context'
+      ? [...block.text.matchAll(/The person has the (.+?) view open \(opened by (.+?)\)/gu)]
+      : [];
   const label =
+    (views.length ? t`View context` : undefined) ??
     (notice && startedBy
       ? taskNoticeLabel(notice.kind, notice.status, callerName(startedBy))
       : undefined) ??
@@ -170,6 +177,17 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
             <span className="block truncate" title={label}>
               {label}
             </span>
+          }
+          argument={views.length ? formatList(views.map((view) => view[1]!)) : undefined}
+          argumentTitle={
+            views.length
+              ? formatList(
+                  views.map(
+                    (view) =>
+                      t`${ph({ server: view[1]! })} view, opened by ${ph({ tool: view[2]! })}`,
+                  ),
+                )
+              : undefined
           }
           actions={<CopyAction value={presentation?.text ?? block.text} label={t`Copy ${label}`} />}
           elapsed={null}

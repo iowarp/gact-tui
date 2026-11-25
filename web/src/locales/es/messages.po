@@ -3675,6 +3675,10 @@ msgstr "Servidor {server}, de {plugin}"
 msgid "{server} server, from {title}"
 msgstr "Servidor {server}, de {title}"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "{server} view, opened by {tool}"
+msgstr "Vista de {server}, abierta por {tool}"
+
 #: src/components/clio/service-installation-method.tsx
 msgid "{service} {method} variant"
 msgstr "Variante {method} de {service}"
@@ -41885,6 +41889,10 @@ msgstr "Ver comando, entrada, resultado y tiempos"
 #: src/components/clio/connector-offer-response.tsx
 msgid "View connector"
 msgstr "Ver conector"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "View context"
+msgstr "Contexto de la vista"
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "View ended"

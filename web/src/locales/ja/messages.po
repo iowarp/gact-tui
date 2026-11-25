@@ -3675,6 +3675,10 @@ msgstr "{plugin}の{server}サーバー"
 msgid "{server} server, from {title}"
 msgstr "{title}の{server}サーバー"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "{server} view, opened by {tool}"
+msgstr "{server} のビュー（{tool} が開いた）"
+
 #: src/components/clio/service-installation-method.tsx
 msgid "{service} {method} variant"
 msgstr "{service}の{method}バリアント"
@@ -41885,6 +41889,10 @@ msgstr "コマンド、入力、結果、所要時間を表示"
 #: src/components/clio/connector-offer-response.tsx
 msgid "View connector"
 msgstr "コネクタを表示"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "View context"
+msgstr "ビューのコンテキスト"
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "View ended"

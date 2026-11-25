@@ -3675,6 +3675,10 @@ msgstr "Διακομιστής {server}, από το {plugin}"
 msgid "{server} server, from {title}"
 msgstr "Διακομιστής {server}, από το {title}"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "{server} view, opened by {tool}"
+msgstr "Προβολή {server}, άνοιξε από {tool}"
+
 #: src/components/clio/service-installation-method.tsx
 msgid "{service} {method} variant"
 msgstr "Παραλλαγή {method} του {service}"
@@ -41885,6 +41889,10 @@ msgstr "Προβολή εντολής, εισόδου, αποτελέσματο�
 #: src/components/clio/connector-offer-response.tsx
 msgid "View connector"
 msgstr "Προβολή συνδέσμου"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "View context"
+msgstr "Πλαίσιο προβολής"
 
 #: src/components/clio/mcp-app-surface.tsx
 msgid "View ended"

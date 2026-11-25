@@ -23,6 +23,7 @@ import { TranscriptDiffBody, TranscriptTerminalBody } from './transcript-tool-bo
 import { ToolDetailsContent } from './tool-details-content';
 import { PresentationLink } from './presentation-link';
 import {
+  callerName,
   getToolActionLabel,
   getToolSubject,
   getToolStatus,
@@ -196,7 +197,15 @@ export function ClioToolInvocation({
     ),
   );
   const subject = getToolSubject(presentedTool);
-  const operation = toolOperation(presentedTool, { subagents: navigation?.subagents });
+  const operation = toolOperation(presentedTool, {
+    subagents: navigation?.subagents,
+    taskName: (handle) => {
+      const startedBy = Object.values(navigation?.tools ?? {}).find(
+        (call) => call.id !== tool.id && call.execution_task?.handle === handle,
+      );
+      return startedBy ? callerName(startedBy) : undefined;
+    },
+  });
   if (flow?.handle) {
     operation.expandable =
       flowResult ||

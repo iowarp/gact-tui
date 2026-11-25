@@ -3667,6 +3667,10 @@ msgstr ""
 msgid "{server} server, from {title}"
 msgstr ""
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "{server} view, opened by {tool}"
+msgstr ""
+
 #: src/components/clio/service-installation-method.tsx
 msgid "{service} {method} variant"
 msgstr ""
@@ -41865,6 +41869,10 @@ msgstr ""
 
 #: src/components/clio/connector-offer-response.tsx
 msgid "View connector"
+msgstr ""
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "View context"
 msgstr ""
 
 #: src/components/clio/mcp-app-surface.tsx
