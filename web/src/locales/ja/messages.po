@@ -12936,6 +12936,10 @@ msgstr "現在のリビジョン{revision}"
 msgid "Current session access"
 msgstr "現在のセッションアクセス"
 
+#: src/components/clio/job-card.tsx
+msgid "Current step"
+msgstr "現在のステップ"
+
 #: src/components/clio/todo-list.tsx
 msgid "Current todos"
 msgstr "現在のToDo"
@@ -23164,10 +23168,6 @@ msgstr "完了した作業はありません。"
 #: src/components/clio/tool-presentation.ts
 msgid "No completion was recorded. Inspect the captured output before running this action again."
 msgstr "完了が記録されていません。このアクションを再実行する前に、キャプチャされた出力を確認してください。"
-
-#: src/components/clio/job-card.tsx
-msgid "No components described"
-msgstr "コンポーネントの記述がありません"
 
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "No computer matches"

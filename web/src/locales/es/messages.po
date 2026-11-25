@@ -12936,6 +12936,10 @@ msgstr "Revisión actual {revision}"
 msgid "Current session access"
 msgstr "Acceso actual de la sesión"
 
+#: src/components/clio/job-card.tsx
+msgid "Current step"
+msgstr "Paso actual"
+
 #: src/components/clio/todo-list.tsx
 msgid "Current todos"
 msgstr "Pendientes actuales"
@@ -23164,10 +23168,6 @@ msgstr "No hay trabajo completado."
 #: src/components/clio/tool-presentation.ts
 msgid "No completion was recorded. Inspect the captured output before running this action again."
 msgstr "No se registró ninguna finalización. Inspecciona la salida capturada antes de volver a ejecutar esta acción."
-
-#: src/components/clio/job-card.tsx
-msgid "No components described"
-msgstr "No se describen componentes"
 
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "No computer matches"

@@ -110,6 +110,8 @@ export const jobSnapshotSchema = z.object({
   advisories: advisoriesSchema,
   /** The resource holding this job's newest card, announced updated on each change. */
   resource: optionalText,
+  /** The job's current step in words, from its open task's status. */
+  step: optionalText,
 });
 
 export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
@@ -192,13 +194,35 @@ export function jobsFromToolOutput(output: unknown): JobSnapshot[] {
   return jobs;
 }
 
-/** The job a task's live snapshot carries in its metadata or progress. */
-export function jobFromTask(task: { metadata?: unknown; progress?: unknown }): JobSnapshot | null {
-  return (
+/**
+ * The step a task's status names, in words: relay says "relay operation is
+ * running: <latest step>", so the bare state goes and the step stays. Nothing
+ * when the status names only the state.
+ */
+export function jobStepText(message: unknown): string | null {
+  const text = typeof message === 'string' ? message.trim() : '';
+  if (!text) return null;
+  const bare = /^relay operation is [a-z_]+(?::\s*([\s\S]*))?$/i.exec(text);
+  const step = (bare ? (bare[1] ?? '') : text).trim();
+  return step ? step.charAt(0).toUpperCase() + step.slice(1) : null;
+}
+
+/**
+ * The job a task's live snapshot carries in its metadata or progress. While the
+ * task is open, its status message is the job's current step.
+ */
+export function jobFromTask(task: {
+  metadata?: unknown;
+  progress?: unknown;
+  terminal_at?: string | null;
+}): JobSnapshot | null {
+  const job =
     jobFromMeta(task.metadata) ??
     jobFromMeta(record(task.metadata)?._meta) ??
-    jobFromMeta(task.progress)
-  );
+    jobFromMeta(task.progress);
+  if (!job || job.step || task.terminal_at || job.phase === 'ended') return job;
+  const step = jobStepText(record(task.progress)?.message);
+  return step ? { ...job, step } : job;
 }
 
 /** One snapshot per operation, the highest revision winning, in first-seen order. */

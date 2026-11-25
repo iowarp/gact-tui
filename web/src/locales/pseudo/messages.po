@@ -12927,6 +12927,10 @@ msgstr ""
 msgid "Current session access"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "Current step"
+msgstr ""
+
 #: src/components/clio/todo-list.tsx
 msgid "Current todos"
 msgstr ""
@@ -23145,10 +23149,6 @@ msgstr ""
 
 #: src/components/clio/tool-presentation.ts
 msgid "No completion was recorded. Inspect the captured output before running this action again."
-msgstr ""
-
-#: src/components/clio/job-card.tsx
-msgid "No components described"
 msgstr ""
 
 #: src/components/clio/managed-service-host-selector.tsx

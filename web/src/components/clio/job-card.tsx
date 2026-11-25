@@ -450,6 +450,7 @@ function pastLimit(job: JobSnapshot, endsAt: number): JobSnapshot {
     phase: 'ended',
     outcome: PAST_LIMIT,
     ended_at: new Date(endsAt - LIMIT_GRACE_MS).toISOString(),
+    step: null,
     components: job.components.map((component) =>
       component.state === 'done' || component.state === 'failed' || component.state === 'cancelled'
         ? component
@@ -577,27 +578,28 @@ export function JobCard({ job: reported, fallback, className, onOpen }: JobCardP
       </div>
       {job.components.length === 1 && !job.couplings.length && job.components[0] ? (
         <SingleComponent component={job.components[0]} />
-      ) : (
+      ) : job.components.length ? (
         <div
           className="flex min-w-0 flex-wrap items-start justify-center gap-3 rounded-lg border border-dashed border-foreground/35 px-3 py-3 @max-[420px]/job:flex-col @max-[420px]/job:items-center"
           data-slot="job-pipeline"
         >
-          {job.components.length ? (
-            orderedComponents(job).map(({ component, coupling }) => (
-              <Fragment key={component.id}>
-                {coupling !== undefined ? <CouplingArrow coupling={coupling} /> : null}
-                <ComponentBlock
-                  component={component}
-                  phase={job.phase}
-                  placed={job.components.length > 1}
-                />
-              </Fragment>
-            ))
-          ) : (
-            <span className="text-muted-foreground">{t`No components described`}</span>
-          )}
+          {orderedComponents(job).map(({ component, coupling }) => (
+            <Fragment key={component.id}>
+              {coupling !== undefined ? <CouplingArrow coupling={coupling} /> : null}
+              <ComponentBlock
+                component={component}
+                phase={job.phase}
+                placed={job.components.length > 1}
+              />
+            </Fragment>
+          ))}
         </div>
-      )}
+      ) : job.step ? (
+        <p className="min-w-0 wrap-anywhere text-foreground" data-slot="job-step">
+          <span className="mr-1.5 text-meta text-muted-foreground">{t`Current step`}</span>
+          {job.step}
+        </p>
+      ) : null}
       {site || job.job_id != null || onOpen ? (
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-meta">
           {site ? <Fact label={t`Site`} value={site} /> : null}

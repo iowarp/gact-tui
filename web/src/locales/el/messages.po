@@ -12936,6 +12936,10 @@ msgstr "Τρέχουσα αναθεώρηση {revision}"
 msgid "Current session access"
 msgstr "Τρέχουσα πρόσβαση συνεδρίας"
 
+#: src/components/clio/job-card.tsx
+msgid "Current step"
+msgstr "Τρέχον βήμα"
+
 #: src/components/clio/todo-list.tsx
 msgid "Current todos"
 msgstr "Τρέχουσες εκκρεμότητες"
@@ -23164,10 +23168,6 @@ msgstr "Δεν υπάρχει ολοκληρωμένη εργασία."
 #: src/components/clio/tool-presentation.ts
 msgid "No completion was recorded. Inspect the captured output before running this action again."
 msgstr "Δεν καταγράφηκε ολοκλήρωση. Εξετάστε την έξοδο που καταγράφηκε πριν εκτελέσετε ξανά αυτήν την ενέργεια."
-
-#: src/components/clio/job-card.tsx
-msgid "No components described"
-msgstr "Δεν περιγράφονται στοιχεία"
 
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "No computer matches"
