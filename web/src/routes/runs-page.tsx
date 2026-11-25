@@ -105,7 +105,20 @@ export function RunsPage() {
     });
   }, [linkedSession, navigate, ownerSession?.id, run, scope, target]);
   if (fallback.isError)
-    return <StateView detail={fallback.error.message} kind="error" title={t`Runs could not open`} />;
+    return (
+      <StateView
+        action={{
+          label: t`Retry`,
+          onClick: () => {
+            if (run) void owner.refetch();
+            void fallback.refetch();
+          },
+        }}
+        detail={fallback.error.message}
+        kind="error"
+        title={t`Runs could not open`}
+      />
+    );
   if (fallback.isSuccess && fallback.data === null)
     return (
       <StateView kind="empty" title={t`Runs open beside a conversation. Add a workspace first.`} />

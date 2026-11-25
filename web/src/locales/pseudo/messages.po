@@ -30775,6 +30775,7 @@ msgstr ""
 #: src/components/reui/cascader/cascader-i18n.tsx
 #: src/routes/connection-page.tsx
 #: src/routes/infrastructure-page.tsx
+#: src/routes/runs-page.tsx
 msgid "Retry"
 msgstr ""
 
