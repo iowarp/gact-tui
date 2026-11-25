@@ -45,3 +45,12 @@ export function useComposerAnswer(interaction: PendingInteraction) {
     stop: () => state?.stopAnswer(),
   };
 }
+
+/** A prompt that opens by repeating its title says the question twice; read it once. */
+export function withoutRepeatedTitle(prompt: string, title: string): string {
+  const head = title.trim();
+  const text = prompt.trim();
+  if (!head || !text.toLowerCase().startsWith(head.toLowerCase())) return text;
+  const rest = text.slice(head.length).trim();
+  return rest || text;
+}
