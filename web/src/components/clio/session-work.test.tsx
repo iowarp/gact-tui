@@ -135,7 +135,7 @@ it('shows authoritative work and exposes a compact canvas entry without toggling
   expect(await screen.findByText('Earlier checklist task')).toBeVisible();
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   const entry = screen.getByRole('button', { name: 'Open session Work' });
-  expect(entry).toHaveTextContent('1/2 current');
+  expect(entry).toHaveTextContent('1 of 2 done');
   expect(entry).toHaveAttribute('type', 'button');
   await userEvent.setup().click(entry);
   expect(open).toHaveBeenCalledOnce();
@@ -151,7 +151,7 @@ it('omits a todos-only summary when the adjacent inventory owns the count', asyn
 it('keeps active work visible without repeating the adjacent todo count', async () => {
   mount(<SessionWorkSummary sessionId="s" onOpen={vi.fn()} includeTodos={false} />);
   expect(await screen.findByText('Goal active: Verify readable output')).toBeVisible();
-  expect(screen.queryByText('1/2 current')).not.toBeInTheDocument();
+  expect(screen.queryByText('1 of 2 done')).not.toBeInTheDocument();
 });
 
 it('distinguishes goal and todo semantics and sizes the footer control consistently', async () => {
@@ -161,7 +161,7 @@ it('distinguishes goal and todo semantics and sizes the footer control consisten
   expect(entry).toHaveClass('h-7');
   expect(entry.querySelector('svg')).toHaveClass('size-3.5');
   expect(entry).toHaveTextContent('Goal active: Verify readable output');
-  expect(entry).toHaveTextContent('Todos: 1/2 current');
+  expect(entry).toHaveTextContent('Todos: 1 of 2 done');
 });
 
 it('does not call a completed goal active in the footer', async () => {
@@ -178,7 +178,7 @@ it('lists only the kinds of work that have records, under plain headings', async
 
   expect(await screen.findByText('Verify readable output')).toBeVisible();
   const todos = screen.getByRole('region', { name: 'Todos' });
-  expect(within(todos).getByRole('heading', { name: /Todos/ })).toHaveTextContent('1/2 current');
+  expect(within(todos).getByRole('heading', { name: /Todos/ })).toHaveTextContent('1 of 2 done');
   expect(within(todos).getByText('Inspect evidence')).toBeVisible();
   expect(
     within(screen.getByRole('region', { name: 'Goals' })).getByText('Verify readable output'),

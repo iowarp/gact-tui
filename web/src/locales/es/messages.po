@@ -1968,6 +1968,7 @@ msgstr "{done} de {total}"
 msgid "{done} of {total} ({percent}%)"
 msgstr "{done} de {total} ({percent} %)"
 
+#: src/components/clio/todo-list-summary.ts
 #: src/components/clio/workbench-activity-model.ts
 msgid "{done} of {total} done"
 msgstr "{done} de {total} hechas"

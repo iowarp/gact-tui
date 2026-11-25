@@ -28,7 +28,7 @@ afterEach(cleanup);
 it('focuses current work, preserves explicit completed expansion on remount, and updates counts', async () => {
   const user = userEvent.setup();
   const first = render(<List />);
-  expect(screen.getByText('2/3 current')).toBeVisible();
+  expect(screen.getByText('1 of 3 done')).toBeVisible();
   expect(
     within(screen.getByRole('list', { name: 'Current todos' })).getAllByRole('listitem'),
   ).toHaveLength(2);
@@ -40,7 +40,7 @@ it('focuses current work, preserves explicit completed expansion on remount, and
   expect(screen.getByText('Earlier work')).toBeVisible();
   await user.click(screen.getByRole('button', { name: 'Hide completed 1' }));
   second.rerender(<List items={todos.map((todo) => ({ ...todo, status: 'completed' }))} />);
-  expect(screen.getByText('0/3 current')).toBeVisible();
+  expect(screen.getByText('3 of 3 done')).toBeVisible();
   expect(screen.queryByText('No current todos.')).not.toBeInTheDocument();
   expect(screen.queryByText('Investigate')).not.toBeInTheDocument();
 });
