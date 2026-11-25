@@ -39880,11 +39880,6 @@ msgstr "ツールのページ"
 msgid "Tools that leave"
 msgstr "削除されるツール"
 
-#. placeholder {0}: formatList(labels, { and: true })
-#: src/components/clio/run-record.tsx
-msgid "Tools used: {0}"
-msgstr "使用したツール: {0}"
-
 #: src/components/clio/settings-tools-tabs.tsx
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
 msgstr "ツール：各プラグインツールを実行するか、事前に確認するか、ブロックするか、またエージェントが直接呼び出すか、スクリプトから呼び出すか、その両方かを設定します。MCPサーバーはエージェントにツール、データ、再利用可能なプロンプトを提供します。リモートツールはURLで接続するMCPサーバーから提供され、そのマシン上で実行されます。"

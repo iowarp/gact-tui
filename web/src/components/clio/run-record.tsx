@@ -181,7 +181,7 @@ function chunkEntries(chunk: ObservedTaskChunk, key: string, prose: boolean): Lo
       entries.push({
         key: `${key}:tools`,
         kind: 'line',
-        text: t`Tools used: ${formatList(labels, { and: true })}`,
+        text: formatList(labels, { and: true }),
         icon: 'tool',
       });
   }
@@ -342,9 +342,12 @@ function questionState(question: PendingInteraction): string {
   }
 }
 
-/** A permission the approval mode or an access rule settled without asking anyone. */
-const AUTOMATIC_DECISION =
-  /^(?:destructive tool|external MCP tool) (['"])(.+?)\1 (allowed|blocked|covered) by /iu;
+/**
+ * A permission the approval mode, a hook or an access rule settled without
+ * asking anyone ("shell command 'shell_bash' allowed by approval posture=…").
+ * A click on a plugin page is the person's own decision and stays a question.
+ */
+const AUTOMATIC_DECISION = /^[\w -]+? (['"])(.+?)\1 (allowed|blocked|covered) by (?!a click)/iu;
 
 function automaticDecision(
   question: PendingInteraction,

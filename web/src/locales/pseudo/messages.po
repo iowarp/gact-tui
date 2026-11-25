@@ -39861,11 +39861,6 @@ msgstr ""
 msgid "Tools that leave"
 msgstr ""
 
-#. placeholder {0}: formatList(labels, { and: true })
-#: src/components/clio/run-record.tsx
-msgid "Tools used: {0}"
-msgstr ""
-
 #: src/components/clio/settings-tools-tabs.tsx
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
 msgstr ""

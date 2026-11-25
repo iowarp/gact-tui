@@ -39880,11 +39880,6 @@ msgstr "Páginas de Herramientas"
 msgid "Tools that leave"
 msgstr "Herramientas que se van"
 
-#. placeholder {0}: formatList(labels, { and: true })
-#: src/components/clio/run-record.tsx
-msgid "Tools used: {0}"
-msgstr "Herramientas usadas: {0}"
-
 #: src/components/clio/settings-tools-tabs.tsx
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
 msgstr "Herramientas: si cada herramienta de complemento se ejecuta, pregunta antes o se bloquea, y si el agente la llama directamente, desde un script o de ambas formas. Los servidores MCP proporcionan a los agentes herramientas, datos e instrucciones reutilizables. Las herramientas remotas provienen de servidores MCP a los que se accede por URL y se ejecutan en esa máquina."

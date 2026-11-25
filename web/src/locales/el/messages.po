@@ -39880,11 +39880,6 @@ msgstr "Σελίδες Εργαλείων"
 msgid "Tools that leave"
 msgstr "Εργαλεία που φεύγουν"
 
-#. placeholder {0}: formatList(labels, { and: true })
-#: src/components/clio/run-record.tsx
-msgid "Tools used: {0}"
-msgstr "Εργαλεία που χρησιμοποιήθηκαν: {0}"
-
 #: src/components/clio/settings-tools-tabs.tsx
 msgid "Tools: whether each plugin tool runs, asks first, or is blocked, and whether the agent calls it directly, from a script, or both. MCP servers give agents tools, data, and reusable prompts. Remote tools come from MCP servers reached by URL and run on that machine."
 msgstr "Εργαλεία: αν κάθε εργαλείο πρόσθετου εκτελείται, ζητά πρώτα επιβεβαίωση ή αποκλείεται, και αν ο πράκτορας το καλεί απευθείας, από σενάριο ή και με τους δύο τρόπους. Οι διακομιστές MCP δίνουν στους πράκτορες εργαλεία, δεδομένα και επαναχρησιμοποιήσιμες προτροπές. Τα απομακρυσμένα εργαλεία προέρχονται από διακομιστές MCP στους οποίους η πρόσβαση γίνεται μέσω URL και εκτελούνται σε εκείνο το μηχάνημα."
