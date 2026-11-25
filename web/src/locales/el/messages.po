@@ -3969,6 +3969,26 @@ msgstr "{target}, επισημασμένο"
 msgid "{target}, marked, {share}"
 msgstr "{target}, επισημασμένο, {share}"
 
+#: src/components/clio/injection-presentation.ts
+msgid "{task} cancelled"
+msgstr "{task} ακυρώθηκε"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} failed"
+msgstr "{task} απέτυχε"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} finished"
+msgstr "{task} ολοκληρώθηκε"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} needs your input"
+msgstr "{task} χρειάζεται την απάντησή σας"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} running"
+msgstr "{task} σε εξέλιξη"
+
 #: src/routes/runs-page-copy.tsx
 msgid "{task}. The owner will settle cancellation after required cleanup."
 msgstr "{task}. Ο κάτοχος θα ολοκληρώσει την ακύρωση μετά την απαιτούμενη εκκαθάριση."
@@ -10343,6 +10363,7 @@ msgstr "Συνδυάστε εγκατεστημένες δυνατότητες �
 
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
@@ -11353,6 +11374,10 @@ msgstr "Δεν ήταν δυνατή η σύμπτυξη του πλαισίου
 #: src/components/clio/observability-dock.tsx
 msgid "Context frames unavailable"
 msgstr "Τα καρέ πλαισίου δεν είναι διαθέσιμα"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Context from a tool's view"
+msgstr "Πλαίσιο από την προβολή ενός εργαλείου"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
@@ -13219,6 +13244,10 @@ msgstr "ανατέθηκε"
 #: src/components/clio/study-tree.tsx
 msgid "Delegated"
 msgstr "Ανατέθηκε"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Delegated agent"
+msgstr "Εκχωρημένος πράκτορας"
 
 #: src/components/clio/tool-operation-result.tsx
 msgid "Delegated assignments"
@@ -32057,6 +32086,7 @@ msgstr "Εύρος: <0/>"
 msgid "score {score}"
 msgstr "βαθμολογία {score}"
 
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
@@ -39863,6 +39893,10 @@ msgstr "Δεν ήταν δυνατή η φόρτωση των ρυθμίσεων
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
 msgstr "Προέλευση εργαλείου"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Tool task"
+msgstr "Εργασία εργαλείου"
 
 #: src/lib/composer-reference-domain.ts
 msgid "tools"

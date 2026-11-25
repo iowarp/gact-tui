@@ -3969,6 +3969,26 @@ msgstr "{target}、マーク済み"
 msgid "{target}, marked, {share}"
 msgstr "{target}、マーク済み、{share}"
 
+#: src/components/clio/injection-presentation.ts
+msgid "{task} cancelled"
+msgstr "{task}をキャンセルしました"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} failed"
+msgstr "{task}が失敗しました"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} finished"
+msgstr "{task}が完了しました"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} needs your input"
+msgstr "{task}に入力が必要です"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} running"
+msgstr "{task}を実行中"
+
 #: src/routes/runs-page-copy.tsx
 msgid "{task}. The owner will settle cancellation after required cleanup."
 msgstr "{task}。必要なクリーンアップの後、所有者がキャンセルを確定します。"
@@ -10343,6 +10363,7 @@ msgstr "インストール済みの機能と保存済みの接続を組み合わ
 
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
@@ -11353,6 +11374,10 @@ msgstr "コンテキストを圧縮できませんでした"
 #: src/components/clio/observability-dock.tsx
 msgid "Context frames unavailable"
 msgstr "コンテキストフレームを利用できません"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Context from a tool's view"
+msgstr "ツールのビューからのコンテキスト"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
@@ -13219,6 +13244,10 @@ msgstr "委任済み"
 #: src/components/clio/study-tree.tsx
 msgid "Delegated"
 msgstr "委任済み"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Delegated agent"
+msgstr "委任されたエージェント"
 
 #: src/components/clio/tool-operation-result.tsx
 msgid "Delegated assignments"
@@ -32057,6 +32086,7 @@ msgstr "スコープ：<0/>"
 msgid "score {score}"
 msgstr "スコア{score}"
 
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
@@ -39863,6 +39893,10 @@ msgstr "ツール設定を読み込めませんでした。"
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
 msgstr "ツールのソース"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Tool task"
+msgstr "ツールタスク"
 
 #: src/lib/composer-reference-domain.ts
 msgid "tools"

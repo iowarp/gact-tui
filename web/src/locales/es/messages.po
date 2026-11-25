@@ -3969,6 +3969,26 @@ msgstr "{target}, marcado"
 msgid "{target}, marked, {share}"
 msgstr "{target}, marcado, {share}"
 
+#: src/components/clio/injection-presentation.ts
+msgid "{task} cancelled"
+msgstr "{task} se canceló"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} failed"
+msgstr "{task} falló"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} finished"
+msgstr "{task} terminó"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} needs your input"
+msgstr "{task} necesita tu respuesta"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} running"
+msgstr "{task} en curso"
+
 #: src/routes/runs-page-copy.tsx
 msgid "{task}. The owner will settle cancellation after required cleanup."
 msgstr "{task}. El propietario completará la cancelación tras la limpieza necesaria."
@@ -10343,6 +10363,7 @@ msgstr "Combina capacidades instaladas y conexiones guardadas. Las credenciales 
 
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
@@ -11353,6 +11374,10 @@ msgstr "No se pudo compactar el contexto"
 #: src/components/clio/observability-dock.tsx
 msgid "Context frames unavailable"
 msgstr "Marcos de contexto no disponibles"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Context from a tool's view"
+msgstr "Contexto de la vista de una herramienta"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
@@ -13219,6 +13244,10 @@ msgstr "delegado"
 #: src/components/clio/study-tree.tsx
 msgid "Delegated"
 msgstr "Delegado"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Delegated agent"
+msgstr "Agente delegado"
 
 #: src/components/clio/tool-operation-result.tsx
 msgid "Delegated assignments"
@@ -32057,6 +32086,7 @@ msgstr "Ámbito: <0/>"
 msgid "score {score}"
 msgstr "puntuación {score}"
 
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
@@ -39863,6 +39893,10 @@ msgstr "No se pudieron cargar los ajustes de herramientas."
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
 msgstr "Origen de la herramienta"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Tool task"
+msgstr "Tarea de herramienta"
 
 #: src/lib/composer-reference-domain.ts
 msgid "tools"

@@ -3968,6 +3968,26 @@ msgstr "{target}, marked"
 msgid "{target}, marked, {share}"
 msgstr "{target}, marked, {share}"
 
+#: src/components/clio/injection-presentation.ts
+msgid "{task} cancelled"
+msgstr "{task} cancelled"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} failed"
+msgstr "{task} failed"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} finished"
+msgstr "{task} finished"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} needs your input"
+msgstr "{task} needs your input"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} running"
+msgstr "{task} running"
+
 #: src/routes/runs-page-copy.tsx
 msgid "{task}. The owner will settle cancellation after required cleanup."
 msgstr "{task}. The owner will settle cancellation after required cleanup."
@@ -10342,6 +10362,7 @@ msgstr "Combine installed capabilities and saved connections. Credentials stay w
 
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
@@ -11352,6 +11373,10 @@ msgstr "Context could not be compacted"
 #: src/components/clio/observability-dock.tsx
 msgid "Context frames unavailable"
 msgstr "Context frames unavailable"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Context from a tool's view"
+msgstr "Context from a tool's view"
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
@@ -13218,6 +13243,10 @@ msgstr "delegated"
 #: src/components/clio/study-tree.tsx
 msgid "Delegated"
 msgstr "Delegated"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Delegated agent"
+msgstr "Delegated agent"
 
 #: src/components/clio/tool-operation-result.tsx
 msgid "Delegated assignments"
@@ -32056,6 +32085,7 @@ msgstr "Scope: <0/>"
 msgid "score {score}"
 msgstr "score {score}"
 
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
@@ -39862,6 +39892,10 @@ msgstr "Tool settings couldn’t be loaded."
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
 msgstr "Tool source"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Tool task"
+msgstr "Tool task"
 
 #: src/lib/composer-reference-domain.ts
 msgid "tools"

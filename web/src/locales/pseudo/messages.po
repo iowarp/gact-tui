@@ -3961,6 +3961,26 @@ msgstr ""
 msgid "{target}, marked, {share}"
 msgstr ""
 
+#: src/components/clio/injection-presentation.ts
+msgid "{task} cancelled"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} failed"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} finished"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} needs your input"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} running"
+msgstr ""
+
 #: src/routes/runs-page-copy.tsx
 msgid "{task}. The owner will settle cancellation after required cleanup."
 msgstr ""
@@ -10334,6 +10354,7 @@ msgstr ""
 
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
@@ -11343,6 +11364,10 @@ msgstr ""
 
 #: src/components/clio/observability-dock.tsx
 msgid "Context frames unavailable"
+msgstr ""
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Context from a tool's view"
 msgstr ""
 
 #: src/components/clio/settings-schema-copy.ts
@@ -13209,6 +13234,10 @@ msgstr ""
 
 #: src/components/clio/study-tree.tsx
 msgid "Delegated"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "Delegated agent"
 msgstr ""
 
 #: src/components/clio/tool-operation-result.tsx
@@ -32039,6 +32068,7 @@ msgstr ""
 msgid "score {score}"
 msgstr ""
 
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
@@ -39843,6 +39873,10 @@ msgstr ""
 
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
+msgstr ""
+
+#: src/components/clio/injection-presentation.ts
+msgid "Tool task"
 msgstr ""
 
 #: src/lib/composer-reference-domain.ts

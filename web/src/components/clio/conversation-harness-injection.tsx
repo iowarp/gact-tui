@@ -6,7 +6,12 @@ import { ActivityBody, ActivityDisclosure, ActivityInfoButton, ActivityRow } fro
 import { CopyAction } from './tool-compact-row';
 import { humanizeProtocolValue } from './presentation-labels';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
-import { injectionPresentation, summonServerLabel } from './injection-presentation';
+import {
+  injectionPresentation,
+  summonServerLabel,
+  taskNoticeLabel,
+} from './injection-presentation';
+import { callerName } from './tool-presentation';
 import { BoundedResult } from './bounded-result';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { ToolTerminalResult } from './tool-terminal-result';
@@ -62,6 +67,7 @@ const INJECTION_LABELS: Record<string, string> = {
   hook_defer: t`You chose to continue`,
   answer_hook: t`Hook answer`,
   mcp_elicitation: t`Question from a tool server`,
+  mcp_app_context: t`Context from a tool's view`,
   replan: t`Replanning suggestion`,
   memory: t`Memory`,
   task_results: t`Results from background tasks`,
@@ -114,7 +120,18 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
     navigation?.subagents,
     sessionTitle,
   );
+  // A result notice is named by the call that started its task: "relay_run: lammps finished".
+  const notice = presentation?.task;
+  const startedBy =
+    notice && navigation?.tools
+      ? Object.values(navigation.tools).find(
+          (tool) => tool.execution_task?.handle === notice.handle,
+        )
+      : undefined;
   const label =
+    (notice && startedBy
+      ? taskNoticeLabel(notice.kind, notice.status, callerName(startedBy))
+      : undefined) ??
     summonServerLabel(block) ??
     (presentation?.senderSessionId
       ? sender

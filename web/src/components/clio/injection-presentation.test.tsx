@@ -69,7 +69,7 @@ it('unwraps canonical shell output once, preserving real newlines and errors', (
       },
     }),
   );
-  expect(value?.label).toBe('Shell completed');
+  expect(value?.label).toBe('Command finished');
   expect(value?.terminal?.command).toBe('cat report.py');
   expect(value?.terminal?.text).toBe(
     'import json\nprint("result")\n\n\nStandard error:\nA recorded warning\n',
@@ -87,7 +87,7 @@ it('uses the recorded logical failure even when native transport completed', () 
       'failed',
     ),
   );
-  expect(value?.label).toBe('Shell failed');
+  expect(value?.label).toBe('Command failed');
   expect(value?.terminal?.exit_code).toBe(1);
 });
 
@@ -113,7 +113,12 @@ it('reads a text-only MCP result without requiring structured content', () => {
         result: { content: [{ type: 'text', text: '**Report ready.**' }] },
       }),
     ),
-  ).toEqual({ label: 'MCP completed', text: '**Report ready.**', format: 'markdown' });
+  ).toEqual({
+    label: 'Tool task finished',
+    task: { kind: 'MCP', handle: 'task_example', status: 'completed' },
+    text: '**Report ready.**',
+    format: 'markdown',
+  });
 });
 
 it('formats structured MCP output without duplicating its text encoding', () => {
@@ -166,13 +171,13 @@ it('shows the result readably and keeps the exact envelope behind a separate con
     <HarnessInjection block={{ id: 'result', type: 'injection', source: 'task_result', text }} />,
   );
   expect(screen.queryByText(/import json/u)).toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Injection Shell completed' }));
+  await user.click(screen.getByRole('button', { name: 'Injection Command finished' }));
   expect(screen.getByLabelText('Command output').textContent).toContain(
     'import json\nprint("result")',
   );
   expect(container.textContent).not.toContain('result_type');
   expect(container.querySelectorAll('[data-slot="run-command"]')).toHaveLength(1);
-  await user.click(screen.getByRole('button', { name: 'Technical details for Shell completed' }));
+  await user.click(screen.getByRole('button', { name: 'Technical details for Command finished' }));
   expect(screen.getByRole('dialog').querySelector('pre')?.textContent).toBe(text);
 });
 
