@@ -1,6 +1,8 @@
 import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
+import { binaryPair } from '@/lib/binary-answers';
 import { AskButton, AskError, AskOptions, AskSubject } from './ask-card';
+import { BinaryAsk } from './ask-binary';
 import { respondFromControl } from './interaction-control';
 import { useComposerAnswer } from './question-card-model';
 import { useQuestionDraftValue } from './question-answer-context';
@@ -64,16 +66,36 @@ export function QuestionResponse(props: {
   const respond = (response: PendingInteractionResponse) =>
     respondFromControl(onResponse(interaction, response));
   const label = interaction.prompt ?? interaction.title;
+  // Two choices where one is the way out (Yes/No, Approve/Decline) are the buttons themselves.
+  const pair = canAnswer && !multi ? binaryPair(choices) : undefined;
   return (
     <QuestionResponseFrame
       {...props}
       allowsComposer={canAnswer && allowsWriting}
       composerOnly={choices.length === 0}
+      escapeAnswers={Boolean(pair)}
     >
       <QuestionSurface interaction={interaction} />
       <AskError error={responseError} />
       {!canAnswer ? (
         <AskSubject>{t`Input controls are not available yet.`}</AskSubject>
+      ) : pair ? (
+        <BinaryAsk
+          accept={{
+            label: pair.accept.label,
+            onChoose: () =>
+              onResponse(interaction, { action: 'answer', selected_options: [pair.accept.value] }),
+            title: pair.accept.description,
+          }}
+          decline={{
+            label: pair.decline.label,
+            onChoose: () =>
+              onResponse(interaction, { action: 'answer', selected_options: [pair.decline.value] }),
+            title: pair.decline.description,
+          }}
+          disabled={disabled}
+          label={label ?? t`Answer`}
+        />
       ) : choices.length ? (
         <QuestionChoiceRows
           choices={choices}
