@@ -6,7 +6,12 @@ import { ActivityBody, ActivityDisclosure, ActivityInfoButton, ActivityRow } fro
 import { CopyAction } from './tool-compact-row';
 import { humanizeProtocolValue } from './presentation-labels';
 import { useTranscriptDisclosure } from './transcript-disclosure-context';
-import { injectionPresentation, summonServerLabel } from './injection-presentation';
+import {
+  injectionPresentation,
+  summonServerLabel,
+  taskNoticeLabel,
+} from './injection-presentation';
+import { callerName } from './tool-presentation';
 import { BoundedResult } from './bounded-result';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { ToolTerminalResult } from './tool-terminal-result';
@@ -18,6 +23,7 @@ import { PresentationNavigation } from './presentation-navigation';
 import { PresentationLink } from './presentation-link';
 import { agentMessageName } from './agent-message-presentation';
 import { useLiveStore } from '@/store/live-store';
+import { formatList } from '@/lib/locale-format';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 import { t, ph } from '@lingui/core/macro';
 
@@ -52,7 +58,7 @@ const INJECTION_LABELS: Record<string, string> = {
   plan_stale: t`Plan not updated lately`,
   plan_person_edit: t`Plan edited by you`,
   explore_nudge: t`Explore suggestion`,
-  session_facts: t`Session facts`,
+  session_facts: t`Facts about this conversation`,
   child_report: t`Report instructions`,
   compaction_failed: t`Compaction failed`,
   compaction_skipped: t`Compaction skipped`,
@@ -62,6 +68,7 @@ const INJECTION_LABELS: Record<string, string> = {
   hook_defer: t`You chose to continue`,
   answer_hook: t`Hook answer`,
   mcp_elicitation: t`Question from a tool server`,
+  mcp_app_context: t`Context from a tool's view`,
   replan: t`Replanning suggestion`,
   memory: t`Memory`,
   task_results: t`Results from background tasks`,
@@ -114,7 +121,24 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
     navigation?.subagents,
     sessionTitle,
   );
+  // A result notice is named by the call that started its task: "relay_run: lammps finished".
+  const notice = presentation?.task;
+  const startedBy =
+    notice && navigation?.tools
+      ? Object.values(navigation.tools).find(
+          (tool) => tool.execution_task?.handle === notice.handle,
+        )
+      : undefined;
+  // An open app's context names its server as the argument: "View context  paraview".
+  const views =
+    block.source === 'mcp_app_context'
+      ? [...block.text.matchAll(/The person has the (.+?) view open \(opened by (.+?)\)/gu)]
+      : [];
   const label =
+    (views.length ? t`View context` : undefined) ??
+    (notice && startedBy
+      ? taskNoticeLabel(notice.kind, notice.status, callerName(startedBy))
+      : undefined) ??
     summonServerLabel(block) ??
     (presentation?.senderSessionId
       ? sender
@@ -153,6 +177,17 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
             <span className="block truncate" title={label}>
               {label}
             </span>
+          }
+          argument={views.length ? formatList(views.map((view) => view[1]!)) : undefined}
+          argumentTitle={
+            views.length
+              ? formatList(
+                  views.map(
+                    (view) =>
+                      t`${ph({ server: view[1]! })} view, opened by ${ph({ tool: view[2]! })}`,
+                  ),
+                )
+              : undefined
           }
           actions={<CopyAction value={presentation?.text ?? block.text} label={t`Copy ${label}`} />}
           elapsed={null}

@@ -28,6 +28,7 @@ import { toolOperation } from '@/components/clio/tool-operation';
 import type { OperationContext } from '@/components/clio/tool-operation-data';
 import { useLiveStore } from '@/store/live-store';
 import { useRunChildSession } from '@/hooks/use-flow-run';
+import { useRunQuestions } from '@/hooks/use-run-questions';
 import { useRepository } from '@/hooks/use-repository';
 import { formatDuration } from '@/lib/format';
 import { jobFromTask } from '@/lib/job-snapshot';
@@ -366,29 +367,8 @@ function automaticDecision(
  * approval mode settled on its own: those were never put to anyone.
  */
 function useRunInteractions(row: RunRow, live: boolean) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const sessionId = row.ownerSessionId ?? row.targetSessionId ?? '';
-  const delegated = row.taskKind === 'Subagent';
-  const { child } = useRunChildSession(row.handleId, delegated, live);
-  const questions = useQuery({
-    queryKey: queryKeys.key('flow-questions', settings.endpoint, sessionId),
-    enabled: Boolean(sessionId),
-    queryFn: ({ signal }) => repository.flowQuestions(sessionId, signal),
-    refetchInterval: live ? RUN_POLL_MS : false,
-    retry: false,
-  });
+  const mine = useRunQuestions(row, live);
   return useMemo(() => {
-    const invocation = row.task?.invocation_id;
-    const mine = (questions.data ?? [])
-      .filter(
-        (question) =>
-          question.task_id === row.handleId ||
-          (invocation && question.source.invocation_id === invocation) ||
-          (child &&
-            (question.owner_session_id === child || question.attended_session_id === child)),
-      )
-      .sort((a, b) => a.created_at.localeCompare(b.created_at));
     const allowed = new Set<string>();
     const blocked = new Set<string>();
     const asked: PendingInteraction[] = [];
@@ -398,7 +378,7 @@ function useRunInteractions(row: RunRow, live: boolean) {
       else (decision.allowed ? allowed : blocked).add(toolOperationLabel(decision.tool));
     }
     return { asked, allowed: [...allowed], blocked: [...blocked] };
-  }, [child, questions.data, row.handleId, row.task?.invocation_id]);
+  }, [mine]);
 }
 
 /** The questions this run asked and how each was answered, oldest first. */
@@ -425,7 +405,7 @@ function RunQuestions({ row, live }: { row: RunRow; live: boolean }) {
                     ? t`Asked ${formatDateTime(question.created_at)}`
                     : t`No answer recorded`}
               </p>
-              {question.status === 'pending' && answerHref ? (
+              {question.status === 'pending' && answerHref && row.state !== 'waiting_user' ? (
                 <Button
                   asChild
                   className="mt-1 ml-6 justify-self-start"

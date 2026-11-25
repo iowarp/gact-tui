@@ -91,6 +91,16 @@ remain quiet; interruptions use an amber stop mark with the cause on hover.
 Ordinary acknowledgements have no disclosure. Exact arguments and raw results
 remain in the separate Technical details viewer.
 
+A row is the tool's name and its key arguments, never its description. A tool
+without a declaration or presenter action (an MCP tool such as relay's) reads by
+its own name with up to three `key=value` arguments: `relay_describe  site=ares`.
+CLIO's own `_clio…` arguments never show. An MCP title or description that reads
+as a sentence stays supporting text in the expansion. `search_tools` reads as
+`Load tools  relay_describe, relay_packages_read +5` and expands to each loaded
+name with its one-line purpose; the query, server instructions and signatures
+stay in Technical details. `load_skill` reads as `Load skill  <skill id>`. The
+name is never quieter than the arguments beside it.
+
 `tool-operation-contract.ts` declares the semantic inputs of canonical operations
 once. `toolOperation` composes those declarations with recorded blocks and exact
 task identities. Shared assignment, returned-result, search and literal-data

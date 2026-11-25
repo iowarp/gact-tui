@@ -242,6 +242,8 @@ export const ListRow = memo(
             data-slot="list-row-title"
             className={cn(
               'min-w-0 truncate text-foreground',
+              // The name is the row's lead: never quieter than the argument beside it.
+              variant === 'activity' && 'font-medium',
               titleHolds ? 'max-w-[50%] shrink-0' : 'shrink',
               titleCollapses && '@max-[280px]/activity:sr-only',
             )}
@@ -251,7 +253,7 @@ export const ListRow = memo(
           {/* At least as wide as its outcome: an argument or recap (no intrinsic width)
               gives up its room first. Then a holding name keeps its width; any other
               name gives way, so the outcome stays whole. */}
-          <span className="flex min-w-min flex-1 items-center gap-2 overflow-hidden">
+          <span className="mr-1 flex min-w-min flex-1 items-center gap-2 overflow-hidden">
             {description}
           </span>
           {columns}

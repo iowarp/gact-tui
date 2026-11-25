@@ -156,6 +156,23 @@ export function jobFromInteraction(payload: unknown): JobSnapshot | null {
   return null;
 }
 
+/**
+ * Whether a job says more than its site and one step: an allocation, a script, advisories,
+ * a multi-part pipeline or a multi-node step. A bare planned "Software install" tile does not.
+ */
+export function jobHasShape(job: JobSnapshot): boolean {
+  return Boolean(
+    job.job_id != null ||
+      job.partition ||
+      job.account ||
+      job.time_limit_s != null ||
+      job.script?.text ||
+      job.advisories.length ||
+      job.components.length > 1 ||
+      job.components.some((component) => (component.nodes ?? 0) > 1),
+  );
+}
+
 /** Jobs a tool result carries: `structuredContent.job` or `structuredContent.jobs[]`. */
 export function jobsFromToolOutput(output: unknown): JobSnapshot[] {
   const root = record(output);

@@ -24,6 +24,7 @@ import { StatusIndicator, type StatusTone } from './primitives/status-indicator'
 import { ph, t } from '@lingui/core/macro';
 
 const ARGUMENT_CLASS = 'font-mono text-label text-muted-foreground no-underline hover:underline';
+const PROSE_SUBJECT = /^operation-(?:instruction|description|task|prompt|goal|question)$/u;
 const AGENT_LINK_CLASS =
   'max-w-[16rem] truncate text-menu font-medium text-accent-foreground underline decoration-accent-foreground/40 underline-offset-2';
 
@@ -109,13 +110,12 @@ export function ToolCompactRow({
     <>
       {operation.subjects.map((subject, index) => (
         <Fragment key={`${subject.id}-${index}`}>
-          {index
-            ? listSeparator({ last: index === operation.subjects.length - 1 })
-            : null}
+          {index ? listSeparator({ last: index === operation.subjects.length - 1 }) : null}
           {onOpenFlow && index === 0 ? (
             <Button
               variant="link"
-              className="h-auto p-0 text-menu font-medium text-accent-foreground underline decoration-primary/45 underline-offset-[3px]"
+              // A block of its own, so a long target ends in … instead of being cut mid-glyph.
+              className="inline-block h-auto min-w-0 max-w-full truncate p-0 align-bottom text-menu font-medium text-accent-foreground underline decoration-primary/45 underline-offset-[3px]"
               onClick={onOpenFlow}
             >
               {subject.label || subject.text}
@@ -124,6 +124,9 @@ export function ToolCompactRow({
             <PresentationLink block={subject} compact className={ARGUMENT_CLASS} />
           ) : subject.id === 'operation-command' ? (
             (subject.text || subject.label || '').split('\n', 1)[0]
+          ) : PROSE_SUBJECT.test(subject.id) ? (
+            // A sentence (a script's description, an instruction) reads in the text face.
+            <span className="font-sans">{subject.label || subject.text}</span>
           ) : (
             subject.label || subject.text
           )}

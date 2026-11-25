@@ -676,6 +676,11 @@ msgstr "{0, plural, one {# εργαλείο διαθέσιμο. Συνθέστε
 msgid "{0, plural, one {# tool available} other {# tools available}}"
 msgstr "{0, plural, one {# εργαλείο διαθέσιμο} other {# εργαλεία διαθέσιμα}}"
 
+#. placeholder {0}: loaded.length
+#: src/components/clio/tool-search-presentation.ts
+msgid "{0, plural, one {# tool loaded} other {# tools loaded}}"
+msgstr "{0, plural, one {Φορτώθηκε # εργαλείο} other {Φορτώθηκαν # εργαλεία}}"
+
 #. placeholder {0}: section.count
 #. placeholder {0}: server.tools
 #. placeholder {0}: server.tools_count
@@ -1766,6 +1771,10 @@ msgstr "{count, plural, one {# υποπράκτορας} other {# υποπράκ
 #: src/components/clio/flow-run-presentation.ts
 msgid "{count, plural, one {# task} other {# tasks}}"
 msgstr "{count, plural, one {# εργασία} other {# εργασίες}}"
+
+#: src/components/clio/todo-tool-presentation.ts
+msgid "{count, plural, one {# todo changed} other {# todos changed}}"
+msgstr "{count, plural, one {# εκκρεμότητα άλλαξε} other {# εκκρεμότητες άλλαξαν}}"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-mcp-services.tsx
@@ -3675,6 +3684,10 @@ msgstr "Διακομιστής {server}, από το {plugin}"
 msgid "{server} server, from {title}"
 msgstr "Διακομιστής {server}, από το {title}"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "{server} view, opened by {tool}"
+msgstr "Προβολή {server}, άνοιξε από {tool}"
+
 #: src/components/clio/service-installation-method.tsx
 msgid "{service} {method} variant"
 msgstr "Παραλλαγή {method} του {service}"
@@ -3969,6 +3982,26 @@ msgstr "{target}, επισημασμένο"
 msgid "{target}, marked, {share}"
 msgstr "{target}, επισημασμένο, {share}"
 
+#: src/components/clio/injection-presentation.ts
+msgid "{task} cancelled"
+msgstr "{task} ακυρώθηκε"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} failed"
+msgstr "{task} απέτυχε"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} finished"
+msgstr "{task} ολοκληρώθηκε"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} needs your input"
+msgstr "{task} χρειάζεται την απάντησή σας"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} running"
+msgstr "{task} σε εξέλιξη"
+
 #: src/routes/runs-page-copy.tsx
 msgid "{task}. The owner will settle cancellation after required cleanup."
 msgstr "{task}. Ο κάτοχος θα ολοκληρώσει την ακύρωση μετά την απαιτούμενη εκκαθάριση."
@@ -4180,6 +4213,10 @@ msgstr "{tools, plural, one {κάλεσε # εργαλείο} other {κάλεσ�
 #: src/lib/plugin-presentation.ts
 msgid "{total, plural, one {{active} of # member in this conversation} other {{active} of # members in this conversation}}"
 msgstr "{total, plural, one {{active} από # μέλος σε αυτήν τη συνομιλία} other {{active} από # μέλη σε αυτήν τη συνομιλία}}"
+
+#: src/components/clio/run-tab.tsx
+msgid "{total, plural, one {{done} of # step} other {{done} of # steps}}"
+msgstr "{total, plural, one {{done} από # βήμα} other {{done} από # βήματα}}"
 
 #: src/components/clio/task-progress-label.ts
 msgid "{total, plural, one {{doneText} / {totalText} entry indexed} other {{doneText} / {totalText} entries indexed}}"
@@ -5085,6 +5122,11 @@ msgid "Absolute path"
 msgstr "Απόλυτη διαδρομή"
 
 #: src/components/clio/memory-inbox.tsx
+msgid "Accept"
+msgstr "Αποδοχή"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Accept"
 msgstr "Αποδοχή"
 
@@ -6240,6 +6282,11 @@ msgstr "Όλα τα εργαλεία εγγραφής και διαγραφής"
 msgid "Allow"
 msgstr "Να επιτρέπεται"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Allow"
+msgstr "Να επιτραπεί"
+
 #. placeholder {0}: folderName(root)
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "Allow {0}"
@@ -6917,6 +6964,11 @@ msgstr "έγκριση"
 
 #: src/widget-gallery-demos.ts
 #: src/widget-gallery-scenarios.ts
+msgid "Approve"
+msgstr "Έγκριση"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Approve"
 msgstr "Έγκριση"
 
@@ -8465,6 +8517,11 @@ msgstr "Δεν είναι δυνατή η εκκίνηση"
 #: src/components/reui/date-selector.tsx
 #: src/providers/connection-provider.tsx
 #: src/routes/connection-page.tsx
+msgid "Cancel"
+msgstr "Ακύρωση"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Cancel"
 msgstr "Ακύρωση"
 
@@ -10332,6 +10389,7 @@ msgstr "Συνδυάστε εγκατεστημένες δυνατότητες �
 
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
@@ -11343,6 +11401,10 @@ msgstr "Δεν ήταν δυνατή η σύμπτυξη του πλαισίου
 msgid "Context frames unavailable"
 msgstr "Τα καρέ πλαισίου δεν είναι διαθέσιμα"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Context from a tool's view"
+msgstr "Πλαίσιο από την προβολή ενός εργαλείου"
+
 #: src/components/clio/settings-schema-copy.ts
 msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
 msgstr "Πληρότητα πλαισίου στην οποία το {agent} ετοιμάζει περίληψη. Οι προτιμήσεις της συνεδρίας έχουν προτεραιότητα."
@@ -11420,6 +11482,11 @@ msgstr "Παράθυρο πλαισίου"
 #: src/components/clio/managed-service-target.tsx
 #: src/components/clio/service-management-confirm-dialog.tsx
 #: src/components/clio/settings-source-connect.tsx
+msgid "Continue"
+msgstr "Συνέχεια"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Continue"
 msgstr "Συνέχεια"
 
@@ -13073,6 +13140,11 @@ msgstr "Δηλώθηκε ως δομημένη τιμή."
 msgid "Decline"
 msgstr "Άρνηση"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Decline"
+msgstr "Άρνηση"
+
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Declined by you"
 msgstr "Απορρίφθηκε από εσάς"
@@ -13198,6 +13270,10 @@ msgstr "ανατέθηκε"
 #: src/components/clio/study-tree.tsx
 msgid "Delegated"
 msgstr "Ανατέθηκε"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Delegated agent"
+msgstr "Εκχωρημένος πράκτορας"
 
 #: src/components/clio/tool-operation-result.tsx
 msgid "Delegated assignments"
@@ -13381,6 +13457,11 @@ msgstr "Απορρίφθηκε αίτημα δικαιωμάτων"
 
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/permission-response.tsx
+msgid "Deny"
+msgstr "Απόρριψη"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Deny"
 msgstr "Απόρριψη"
 
@@ -14009,6 +14090,7 @@ msgstr "Αρχεία και φάκελοι με τελεία"
 #: src/components/clio/file-viewer-take.tsx
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/resource-states.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/settings-app-updates.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
@@ -15620,6 +15702,10 @@ msgstr "Το γεγονός ξεχάστηκε"
 msgid "Facts"
 msgstr "Γεγονότα"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Facts about this conversation"
+msgstr "Στοιχεία αυτής της συζήτησης"
+
 #: src/components/clio/settings-memory.tsx
 msgid "Facts about you that every workspace can use. This switch applies to {workspaceName}."
 msgstr "Γεγονότα για εσάς που μπορεί να χρησιμοποιήσει κάθε χώρος εργασίας. Αυτός ο διακόπτης ισχύει για {workspaceName}."
@@ -16119,6 +16205,10 @@ msgstr "Εύρεση και διατήρηση χρήσιμων μηνυμάτω
 #: src/components/clio/source-provider-info.tsx
 msgid "Find datasets in National Data Platform catalogs, then download a copy or link selected resources. NDP originals cannot be changed through this connection. Sign in for protected data."
 msgstr "Βρείτε σύνολα δεδομένων στους καταλόγους της National Data Platform και, στη συνέχεια, κάντε λήψη ενός αντιγράφου ή συνδέστε επιλεγμένους πόρους. Τα πρωτότυπα του NDP δεν μπορούν να αλλάξουν μέσω αυτής της σύνδεσης. Συνδεθείτε για προστατευμένα δεδομένα."
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Find files"
+msgstr "Εύρεση αρχείων"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "Find models"
@@ -18298,6 +18388,7 @@ msgstr "Ανεξάρτητη συνομιλία με κοινόχρηστα αρ
 msgid "Index more sessions"
 msgstr "Ευρετηρίαση περισσότερων συνεδριών"
 
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Indexing"
@@ -20073,6 +20164,14 @@ msgstr "Φόρτωση του υπολοίπου"
 #: src/components/clio/mcp-app-frame-menu.tsx
 msgid "Load the view again. What it shows is kept by its service."
 msgstr "Φορτώστε ξανά την προβολή. Όσα δείχνει τα διατηρεί η υπηρεσία της."
+
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tool"
+msgstr "Φόρτωση εργαλείου"
+
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tools"
+msgstr "Φόρτωση εργαλείων"
 
 #: src/components/clio/memory-document-dialog.tsx
 msgid "loaded {count}×"
@@ -22818,6 +22917,11 @@ msgstr "Επόμενη, προηγούμενη περιοχή"
 msgid "No"
 msgstr "Όχι"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "No"
+msgstr "Όχι"
+
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "No {facet} in the listed models"
 msgstr "Δεν υπάρχει {facet} στα μοντέλα της λίστας"
@@ -23887,6 +23991,10 @@ msgstr "χωρίς κατάσταση εργασίας"
 msgid "No terminal here"
 msgstr "Δεν υπάρχει τερματικό εδώ"
 
+#: src/components/clio/todo-tool-presentation.ts
+msgid "No todos in this list"
+msgstr "Δεν υπάρχουν εκκρεμότητες σε αυτή τη λίστα"
+
 #: src/components/clio/catalog-toolset.tsx
 msgid "No tools from this source."
 msgstr "Δεν υπάρχουν εργαλεία από αυτή την πηγή."
@@ -24196,6 +24304,7 @@ msgid "not executed, context cleared"
 msgstr "δεν εκτελέστηκε, το πλαίσιο εκκαθαρίστηκε"
 
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/tool-search-presentation.ts
 msgid "Not found"
 msgstr "Δεν βρέθηκε"
 
@@ -28751,6 +28860,7 @@ msgid "Recent session excerpts"
 msgstr "Πρόσφατα αποσπάσματα συνεδρίας"
 
 #: src/components/clio/plan-decision-controls.tsx
+#: src/components/clio/question-choice-card.tsx
 msgid "Recommended"
 msgstr "Προτείνεται"
 
@@ -29158,6 +29268,11 @@ msgid "Reinstall runtime"
 msgstr "Επανεγκατάσταση περιβάλλοντος εκτέλεσης"
 
 #: src/components/clio/memory-inbox.tsx
+msgid "Reject"
+msgstr "Απόρριψη"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Reject"
 msgstr "Απόρριψη"
 
@@ -31096,6 +31211,7 @@ msgstr "Κατηγορίες εκτελέσεων"
 
 #: src/components/clio/permission-operation-labels.ts
 #: src/components/clio/tool-operation-contract.ts
+#: src/routes/runs-rows.ts
 msgid "Run command"
 msgstr "Εκτέλεση εντολής"
 
@@ -32033,6 +32149,7 @@ msgstr "Εύρος: <0/>"
 msgid "score {score}"
 msgstr "βαθμολογία {score}"
 
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
@@ -33235,10 +33352,6 @@ msgstr "Προεπιλογές συνεδρίας"
 msgid "Session defaults could not be loaded."
 msgstr "Δεν ήταν δυνατή η φόρτωση των προεπιλογών συνεδρίας."
 
-#: src/components/clio/conversation-harness-injection.tsx
-msgid "Session facts"
-msgstr "Στοιχεία συνεδρίας"
-
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Session ID"
 msgstr "Αναγνωριστικό συνεδρίας"
@@ -34355,6 +34468,10 @@ msgstr "Παρέχεται από την εγκατάσταση"
 msgid "Site: {host}"
 msgstr "Ιστότοπος: {host}"
 
+#: src/components/clio/interaction-frame-header.tsx
+msgid "Site: {site}"
+msgstr "Τοποθεσία: {site}"
+
 #: src/widget-gallery.tsx
 msgid "Sites"
 msgstr "Τοποθεσίες"
@@ -34372,7 +34489,6 @@ msgstr "Μη διαθέσιμο μέγεθος"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
-#: src/components/clio/skill-tool-presentation.ts
 #: src/components/clio/subagent-card.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Skill"
@@ -34436,6 +34552,11 @@ msgstr "Δεξιότητες και πρόσθετα"
 #: src/components/clio/private-local-details.tsx
 msgid "Skills and plugins"
 msgstr "Δεξιότητες και πρόσθετα"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Skip"
+msgstr "Παράλειψη"
 
 #: src/components/clio/onboarding/tour-overlay.tsx
 msgid "Skip tour"
@@ -39703,6 +39824,7 @@ msgstr "Διάρκεια"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-tools-header.tsx
@@ -39851,6 +39973,10 @@ msgstr "Δεν ήταν δυνατή η φόρτωση των ρυθμίσεων
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
 msgstr "Προέλευση εργαλείου"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Tool task"
+msgstr "Εργασία εργαλείου"
 
 #: src/lib/composer-reference-domain.ts
 msgid "tools"
@@ -41835,6 +41961,10 @@ msgstr "Προβολή εντολής, εισόδου, αποτελέσματο�
 msgid "View connector"
 msgstr "Προβολή συνδέσμου"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "View context"
+msgstr "Πλαίσιο προβολής"
+
 #: src/components/clio/mcp-app-surface.tsx
 msgid "View ended"
 msgstr "Η προβολή τερματίστηκε"
@@ -42123,6 +42253,7 @@ msgstr "Αναμονή για τη σύνδεσή σας…"
 #: src/components/clio/composer-run-announcer.tsx
 #: src/components/clio/flow-run-edit-list.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/work-kind-status.tsx
 msgid "Waiting for your answer"
@@ -43041,6 +43172,11 @@ msgstr "Έτος"
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
+msgid "Yes"
+msgstr "Ναι"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Yes"
 msgstr "Ναι"
 

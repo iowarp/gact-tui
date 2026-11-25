@@ -676,6 +676,11 @@ msgstr "{0, plural, one {#個のツールが利用可能です。エージェン
 msgid "{0, plural, one {# tool available} other {# tools available}}"
 msgstr "{0, plural, one {#個のツールが利用可能} other {#個のツールが利用可能}}"
 
+#. placeholder {0}: loaded.length
+#: src/components/clio/tool-search-presentation.ts
+msgid "{0, plural, one {# tool loaded} other {# tools loaded}}"
+msgstr "{0, plural, other {# 個のツールを読み込みました}}"
+
 #. placeholder {0}: section.count
 #. placeholder {0}: server.tools
 #. placeholder {0}: server.tools_count
@@ -1766,6 +1771,10 @@ msgstr "{count, plural, one {#個のサブエージェント} other {#個のサ�
 #: src/components/clio/flow-run-presentation.ts
 msgid "{count, plural, one {# task} other {# tasks}}"
 msgstr "{count, plural, one {#件のタスク} other {#件のタスク}}"
+
+#: src/components/clio/todo-tool-presentation.ts
+msgid "{count, plural, one {# todo changed} other {# todos changed}}"
+msgstr "{count, plural, other {ToDo # 件を変更}}"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-mcp-services.tsx
@@ -3675,6 +3684,10 @@ msgstr "{plugin}の{server}サーバー"
 msgid "{server} server, from {title}"
 msgstr "{title}の{server}サーバー"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "{server} view, opened by {tool}"
+msgstr "{server} のビュー（{tool} が開いた）"
+
 #: src/components/clio/service-installation-method.tsx
 msgid "{service} {method} variant"
 msgstr "{service}の{method}バリアント"
@@ -3969,6 +3982,26 @@ msgstr "{target}、マーク済み"
 msgid "{target}, marked, {share}"
 msgstr "{target}、マーク済み、{share}"
 
+#: src/components/clio/injection-presentation.ts
+msgid "{task} cancelled"
+msgstr "{task}をキャンセルしました"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} failed"
+msgstr "{task}が失敗しました"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} finished"
+msgstr "{task}が完了しました"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} needs your input"
+msgstr "{task}に入力が必要です"
+
+#: src/components/clio/injection-presentation.ts
+msgid "{task} running"
+msgstr "{task}を実行中"
+
 #: src/routes/runs-page-copy.tsx
 msgid "{task}. The owner will settle cancellation after required cleanup."
 msgstr "{task}。必要なクリーンアップの後、所有者がキャンセルを確定します。"
@@ -4180,6 +4213,10 @@ msgstr "{tools, plural, one {#個のツールを呼び出し} other {#個のツ�
 #: src/lib/plugin-presentation.ts
 msgid "{total, plural, one {{active} of # member in this conversation} other {{active} of # members in this conversation}}"
 msgstr "{total, plural, one {この会話のメンバー#件中{active}件} other {この会話のメンバー#件中{active}件}}"
+
+#: src/components/clio/run-tab.tsx
+msgid "{total, plural, one {{done} of # step} other {{done} of # steps}}"
+msgstr "{total, plural, other {# ステップ中 {done}}}"
 
 #: src/components/clio/task-progress-label.ts
 msgid "{total, plural, one {{doneText} / {totalText} entry indexed} other {{doneText} / {totalText} entries indexed}}"
@@ -5085,6 +5122,11 @@ msgid "Absolute path"
 msgstr "絶対パス"
 
 #: src/components/clio/memory-inbox.tsx
+msgid "Accept"
+msgstr "承認"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Accept"
 msgstr "承認"
 
@@ -6240,6 +6282,11 @@ msgstr "すべての書き込み・削除ツール"
 msgid "Allow"
 msgstr "許可"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Allow"
+msgstr "許可"
+
 #. placeholder {0}: folderName(root)
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "Allow {0}"
@@ -6917,6 +6964,11 @@ msgstr "承認待ち"
 
 #: src/widget-gallery-demos.ts
 #: src/widget-gallery-scenarios.ts
+msgid "Approve"
+msgstr "承認"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Approve"
 msgstr "承認"
 
@@ -8465,6 +8517,11 @@ msgstr "起動できません"
 #: src/components/reui/date-selector.tsx
 #: src/providers/connection-provider.tsx
 #: src/routes/connection-page.tsx
+msgid "Cancel"
+msgstr "キャンセル"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Cancel"
 msgstr "キャンセル"
 
@@ -10332,6 +10389,7 @@ msgstr "インストール済みの機能と保存済みの接続を組み合わ
 
 #: src/components/ai-elements/terminal.tsx
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/mcp-connection-dialog.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/tool-terminal-result.tsx
@@ -11343,6 +11401,10 @@ msgstr "コンテキストを圧縮できませんでした"
 msgid "Context frames unavailable"
 msgstr "コンテキストフレームを利用できません"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Context from a tool's view"
+msgstr "ツールのビューからのコンテキスト"
+
 #: src/components/clio/settings-schema-copy.ts
 msgid "Context fullness at which {agent} prepares a summary. Session preferences take precedence."
 msgstr "{agent}が要約を準備するコンテキストの使用率です。セッションの設定が優先されます。"
@@ -11420,6 +11482,11 @@ msgstr "コンテキストウィンドウ"
 #: src/components/clio/managed-service-target.tsx
 #: src/components/clio/service-management-confirm-dialog.tsx
 #: src/components/clio/settings-source-connect.tsx
+msgid "Continue"
+msgstr "続行"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Continue"
 msgstr "続行"
 
@@ -13073,6 +13140,11 @@ msgstr "構造化された値として宣言されています。"
 msgid "Decline"
 msgstr "辞退"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Decline"
+msgstr "辞退"
+
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Declined by you"
 msgstr "あなたが辞退"
@@ -13198,6 +13270,10 @@ msgstr "委任済み"
 #: src/components/clio/study-tree.tsx
 msgid "Delegated"
 msgstr "委任済み"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Delegated agent"
+msgstr "委任されたエージェント"
 
 #: src/components/clio/tool-operation-result.tsx
 msgid "Delegated assignments"
@@ -13381,6 +13457,11 @@ msgstr "権限リクエストを拒否しました"
 
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/permission-response.tsx
+msgid "Deny"
+msgstr "拒否"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Deny"
 msgstr "拒否"
 
@@ -14009,6 +14090,7 @@ msgstr "ドットファイルとフォルダー"
 #: src/components/clio/file-viewer-take.tsx
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/resource-states.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/settings-app-updates.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
@@ -15620,6 +15702,10 @@ msgstr "事実を忘れました"
 msgid "Facts"
 msgstr "事実"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "Facts about this conversation"
+msgstr "この会話についての事実"
+
 #: src/components/clio/settings-memory.tsx
 msgid "Facts about you that every workspace can use. This switch applies to {workspaceName}."
 msgstr "すべてのワークスペースで使用できる、あなたに関する事実。このスイッチは{workspaceName}に適用されます。"
@@ -16119,6 +16205,10 @@ msgstr "役立つメッセージを見つけて残す"
 #: src/components/clio/source-provider-info.tsx
 msgid "Find datasets in National Data Platform catalogs, then download a copy or link selected resources. NDP originals cannot be changed through this connection. Sign in for protected data."
 msgstr "National Data Platformのカタログでデータセットを探し、コピーをダウンロードするか、選択したリソースをリンクします。この接続ではNDPの元データは変更できません。保護されたデータにはサインインしてください。"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Find files"
+msgstr "ファイルを検索"
 
 #: src/components/clio/tool-operation-contract.ts
 msgid "Find models"
@@ -18298,6 +18388,7 @@ msgstr "ファイルを共有する独立した会話"
 msgid "Index more sessions"
 msgstr "さらにセッションをインデックス"
 
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Indexing"
@@ -20073,6 +20164,14 @@ msgstr "残りを読み込む"
 #: src/components/clio/mcp-app-frame-menu.tsx
 msgid "Load the view again. What it shows is kept by its service."
 msgstr "ビューを再読み込みします。表示内容はサービス側に保持されます。"
+
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tool"
+msgstr "ツールを読み込む"
+
+#: src/components/clio/tool-search-presentation.ts
+msgid "Load tools"
+msgstr "ツールを読み込む"
 
 #: src/components/clio/memory-document-dialog.tsx
 msgid "loaded {count}×"
@@ -22818,6 +22917,11 @@ msgstr "次・前の領域"
 msgid "No"
 msgstr "いいえ"
 
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "No"
+msgstr "いいえ"
+
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "No {facet} in the listed models"
 msgstr "一覧のモデルに{facet}はありません"
@@ -23887,6 +23991,10 @@ msgstr "タスク状態なし"
 msgid "No terminal here"
 msgstr "ここにはターミナルがありません"
 
+#: src/components/clio/todo-tool-presentation.ts
+msgid "No todos in this list"
+msgstr "このリストに ToDo はありません"
+
 #: src/components/clio/catalog-toolset.tsx
 msgid "No tools from this source."
 msgstr "このソースのツールはありません。"
@@ -24196,6 +24304,7 @@ msgid "not executed, context cleared"
 msgstr "未実行、コンテキストをクリア済み"
 
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/tool-search-presentation.ts
 msgid "Not found"
 msgstr "見つかりません"
 
@@ -28751,6 +28860,7 @@ msgid "Recent session excerpts"
 msgstr "最近のセッションの抜粋"
 
 #: src/components/clio/plan-decision-controls.tsx
+#: src/components/clio/question-choice-card.tsx
 msgid "Recommended"
 msgstr "推奨"
 
@@ -29158,6 +29268,11 @@ msgid "Reinstall runtime"
 msgstr "ランタイムを再インストール"
 
 #: src/components/clio/memory-inbox.tsx
+msgid "Reject"
+msgstr "却下"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Reject"
 msgstr "却下"
 
@@ -31096,6 +31211,7 @@ msgstr "実行のカテゴリ"
 
 #: src/components/clio/permission-operation-labels.ts
 #: src/components/clio/tool-operation-contract.ts
+#: src/routes/runs-rows.ts
 msgid "Run command"
 msgstr "コマンドを実行"
 
@@ -32033,6 +32149,7 @@ msgstr "スコープ：<0/>"
 msgid "score {score}"
 msgstr "スコア{score}"
 
+#: src/components/clio/injection-presentation.ts
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
@@ -33235,10 +33352,6 @@ msgstr "セッションの既定値"
 msgid "Session defaults could not be loaded."
 msgstr "セッションの既定値を読み込めませんでした。"
 
-#: src/components/clio/conversation-harness-injection.tsx
-msgid "Session facts"
-msgstr "セッションの情報"
-
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Session ID"
 msgstr "セッションID"
@@ -34355,6 +34468,10 @@ msgstr "サイト提供"
 msgid "Site: {host}"
 msgstr "サイト: {host}"
 
+#: src/components/clio/interaction-frame-header.tsx
+msgid "Site: {site}"
+msgstr "サイト: {site}"
+
 #: src/widget-gallery.tsx
 msgid "Sites"
 msgstr "地点"
@@ -34372,7 +34489,6 @@ msgstr "サイズ不明"
 
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-prompts.tsx
-#: src/components/clio/skill-tool-presentation.ts
 #: src/components/clio/subagent-card.tsx
 #: src/lib/extension-library-entries.ts
 msgid "Skill"
@@ -34436,6 +34552,11 @@ msgstr "スキルとプラグイン"
 #: src/components/clio/private-local-details.tsx
 msgid "Skills and plugins"
 msgstr "スキルとプラグイン"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
+msgid "Skip"
+msgstr "スキップ"
 
 #: src/components/clio/onboarding/tour-overlay.tsx
 msgid "Skip tour"
@@ -39703,6 +39824,7 @@ msgstr "所要時間"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-tools-header.tsx
@@ -39851,6 +39973,10 @@ msgstr "ツール設定を読み込めませんでした。"
 #: src/components/clio/infrastructure-tools.tsx
 msgid "Tool source"
 msgstr "ツールのソース"
+
+#: src/components/clio/injection-presentation.ts
+msgid "Tool task"
+msgstr "ツールタスク"
 
 #: src/lib/composer-reference-domain.ts
 msgid "tools"
@@ -41835,6 +41961,10 @@ msgstr "コマンド、入力、結果、所要時間を表示"
 msgid "View connector"
 msgstr "コネクタを表示"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "View context"
+msgstr "ビューのコンテキスト"
+
 #: src/components/clio/mcp-app-surface.tsx
 msgid "View ended"
 msgstr "ビューが終了しました"
@@ -42123,6 +42253,7 @@ msgstr "ログインを待っています…"
 #: src/components/clio/composer-run-announcer.tsx
 #: src/components/clio/flow-run-edit-list.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/work-kind-status.tsx
 msgid "Waiting for your answer"
@@ -43041,6 +43172,11 @@ msgstr "年"
 #: src/components/clio/question-tool-presentation.ts
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
+msgid "Yes"
+msgstr "はい"
+
+#: src/lib/binary-answers.ts
+msgctxt "answer to an ask"
 msgid "Yes"
 msgstr "はい"
 

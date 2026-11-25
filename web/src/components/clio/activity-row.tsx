@@ -248,7 +248,8 @@ export const ActivityRow = memo(
                   // A leading recap keeps its natural width (up to most of the row).
                   className={cn(
                     'min-w-0 truncate text-label text-muted-foreground @max-[480px]/activity:hidden',
-                    recapLeads ? 'max-w-[75%] shrink-0' : 'w-0 max-w-fit grow',
+                    // A trailing recap keeps a few readable letters and its …, never a sliver of a glyph.
+                    recapLeads ? 'max-w-[75%] shrink-0' : 'w-0 min-w-[min(8ch,30%)] max-w-fit grow',
                   )}
                 >
                   {recap}

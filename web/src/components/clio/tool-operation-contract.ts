@@ -81,6 +81,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
     'path',
   ),
   fs_search_text: search(t({ message: 'Search', context: 'verb: tool action' }), 'path'),
+  fs_glob: { ...search(t`Find files`, 'path'), query: 'pattern' },
   fs_read_file: define(t`Read file`, 'declared', 'path'),
   fs_write_file: { ...define(t`Write file`, 'declared', 'path'), instruction: 'content' },
   fs_edit_file: define(t`Edit file`, 'declared', 'path'),
@@ -206,7 +207,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   },
   plan_exit: define(t`Review plan`),
   write_todos: define(t`Update todos`),
-  load_skill: { ...define(t`Load skill`), presentedAction: true },
+  load_skill: { ...define(t`Load skill`, 'declared', 'skill_id'), presentedAction: true },
   web_search: search(t`Search web`),
   web_fetch: define(
     t({ message: 'Read', context: 'verb: tool action' }),
