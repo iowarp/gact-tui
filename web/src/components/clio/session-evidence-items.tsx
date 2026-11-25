@@ -48,6 +48,7 @@ export type SessionEvidenceSummaryProps = Pick<
   | 'onOpenResource'
   | 'onOpenSubagent'
   | 'onOpenFlow'
+  | 'onOpenRun'
   | 'onOpenWork'
   | 'onOpenActivity'
   | 'onCancelTask'
@@ -169,6 +170,7 @@ export function sessionEvidenceItems({
                 subagents={subagents}
                 onOpenSubagent={actions.onOpenSubagent}
                 onOpenFlow={actions.onOpenFlow}
+                onOpenRun={actions.onOpenRun}
                 onCancelTask={actions.onCancelTask}
                 onControlTask={actions.onControlTask}
                 pagination={actions.workPages}

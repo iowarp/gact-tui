@@ -12,6 +12,7 @@ import {
   type JobSnapshot,
   type JobStatusTone,
 } from '@/lib/job-snapshot';
+import { Button } from '@/components/ui/button';
 import { useNow } from '@/hooks/use-now';
 import { cn } from '@/lib/utils';
 import { TechnicalDetails } from './technical-details';
@@ -450,6 +451,8 @@ export interface JobCardProps {
   /** What "Show details" opens when the snapshot has no script (the ask's own text). */
   fallback?: ReactNode;
   className?: string;
+  /** Open the run this job belongs to: its record, with the log and what it asked. */
+  onOpen?: () => void;
 }
 
 /**
@@ -458,7 +461,7 @@ export interface JobCardProps {
  * the batch script one disclosure away. The same card is the planned job in an
  * ask, the running job in a transcript and a row in a job list.
  */
-export function JobCard({ job, fallback, className }: JobCardProps) {
+export function JobCard({ job, fallback, className, onOpen }: JobCardProps) {
   const live = job.phase === 'running' || job.phase === 'ending';
   const now = useNow(live && Boolean(job.started_at));
   const tone = jobTone(job);
@@ -510,8 +513,8 @@ export function JobCard({ job, fallback, className }: JobCardProps) {
           <span className="text-muted-foreground">{t`No components described`}</span>
         )}
       </div>
-      {site || job.job_id != null ? (
-        <div className="flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-meta">
+      {site || job.job_id != null || onOpen ? (
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-meta">
           {site ? <Fact label={t`Site`} value={site} /> : null}
           {job.job_id != null ? <Fact label={t`Job`} value={String(job.job_id)} /> : null}
           {job.phase === 'queued' && job.queue?.reason ? (
@@ -519,6 +522,16 @@ export function JobCard({ job, fallback, className }: JobCardProps) {
           ) : null}
           {job.phase === 'queued' && job.queue?.starts_in_s != null ? (
             <Fact label={t`Starts in`} value={wallTime(job.queue.starts_in_s * 1000)} />
+          ) : null}
+          {onOpen ? (
+            <Button
+              className="ml-auto h-auto p-0 text-meta font-medium text-accent-foreground underline decoration-primary/45 underline-offset-[3px]"
+              data-slot="job-open-run"
+              onClick={onOpen}
+              variant="link"
+            >
+              {t`Open run`}
+            </Button>
           ) : null}
         </div>
       ) : null}

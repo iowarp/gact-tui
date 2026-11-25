@@ -87,6 +87,7 @@ export function WorkspaceWorkbench({
       onCancelTask,
       onControlTask,
       onOpenFlow: navigation.openFlow,
+      onOpenRun: navigation.openRun,
     }),
     [
       sessionId,
@@ -104,6 +105,7 @@ export function WorkspaceWorkbench({
       onCancelTask,
       onControlTask,
       navigation.openFlow,
+      navigation.openRun,
     ],
   );
   // The Artifacts list keeps every retained version and review file; previews stay in lineage.

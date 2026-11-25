@@ -301,7 +301,7 @@ export function ConversationTurn({
               sessionId={messageSessionId!}
             />
           ) : section.kind === 'jobs' ? (
-            <JobCards jobs={section.jobs} key={`jobs:${section.id}`} />
+            <JobCards jobs={section.jobs} key={`jobs:${section.id}`} toolId={section.id} />
           ) : section.kind === 'app' ? (
             <McpAppActivity
               key={section.entry.id}
