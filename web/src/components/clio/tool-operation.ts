@@ -4,6 +4,7 @@ import { formatDuration } from '@/lib/format';
 import { getToolActionLabel } from './tool-presentation';
 import { TOOL_OPERATIONS, type OperationDefinition } from './tool-operation-contract';
 import {
+  isGenericSubject,
   operationAnswer,
   operationInput,
   operationOutput,
@@ -85,11 +86,7 @@ function subjectFromInput(
   context: OperationContext,
   declared?: ToolPresentationBlock,
 ): ToolPresentationBlock[] {
-  if (
-    declared &&
-    !['Task', 'Tasks', 'Subagent', 'Session'].includes(declared.label ?? '') &&
-    declared.id !== 'wait-targets'
-  )
+  if (declared && !isGenericSubject(declared.label) && declared.id !== 'wait-targets')
     return [declared];
   for (const key of definition.subjects ?? []) {
     const values = operationStrings(input[key]);
@@ -245,13 +242,18 @@ function argumentText(value: unknown): string | undefined {
   return undefined;
 }
 
+/** How long or whether to wait on the call: it steers the call, not what it acts on. */
+const CALL_CONTROL_ARGUMENT =
+  /^(?:wait|wait_s|wait_seconds|wait_ms|timeout|timeout_s|timeout_seconds|timeout_ms|poll|poll_s|poll_interval|poll_interval_s|block|blocking)$/iu;
+
 /**
  * An undeclared (MCP or plugin) call's target: its key arguments as `key=value`, up to
- * three, in the order given. CLIO's own bookkeeping arguments (`_clio…`) are never shown.
+ * three, in the order given. CLIO's own bookkeeping arguments (`_clio…`) and how long to
+ * wait on the call (`wait_s`, `timeout`) are never shown in the row.
  */
 export function argumentSubjects(input: Record<string, unknown>): ToolPresentationBlock[] {
   return Object.entries(input)
-    .filter(([key]) => !key.startsWith('_'))
+    .filter(([key]) => !key.startsWith('_') && !CALL_CONTROL_ARGUMENT.test(key))
     .flatMap(([key, value]) => {
       const shown = argumentText(value);
       return shown

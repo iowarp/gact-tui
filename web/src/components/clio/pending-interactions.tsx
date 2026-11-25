@@ -332,8 +332,10 @@ export function ClioPendingInteractions({
     <section
       ref={dockRef}
       aria-label={t`Agent needs your attention`}
-      // A separate card docked 8px above the composer, at the composer's width. Above the
-      // composer it keeps its height and a queue beside it shrinks instead (see dockRoom).
+      // A separate card docked 8px above the composer. It keeps the message column's width
+      // (95% of the column, as the cards in the transcript above it), so its right edge
+      // lines up with theirs (#66). Above the composer it keeps its height and a queue
+      // beside it shrinks instead (see dockRoom).
       className="relative z-10 mx-auto mb-2 flex min-h-0 w-full max-w-4xl shrink flex-col [[data-slot=clio-composer-stack]>&]:shrink-0"
       data-slot="pending-interactions"
       role="region"
@@ -343,7 +345,7 @@ export function ClioPendingInteractions({
       </p>
       <ScrollArea
         className={cn(
-          'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
+          'min-h-0 w-full max-w-[95%] shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
           // A card stops at 45% of the conversation's height (see --ask-card-max), but one whose
           // kept parts need more grows to the ceiling: 75% of the conversation, within the dock's
           // room. The stack holds a card up to that ceiling. A visual answer gets more.

@@ -110,7 +110,13 @@ export function ToolCompactRow({
     <>
       {operation.subjects.map((subject, index) => (
         <Fragment key={`${subject.id}-${index}`}>
-          {index ? listSeparator({ last: index === operation.subjects.length - 1 }) : null}
+          {/* key=value arguments are a list of settings, not a clause: commas, never "and". */}
+          {index
+            ? listSeparator({
+                last:
+                  index === operation.subjects.length - 1 && !subject.id.startsWith('argument-'),
+              })
+            : null}
           {onOpenFlow && index === 0 ? (
             <Button
               variant="link"

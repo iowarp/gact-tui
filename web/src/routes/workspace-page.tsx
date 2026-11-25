@@ -59,7 +59,7 @@ import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-acti
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
 import { responseReadFailure } from '@/components/clio/response-read-failure';
-import { buildSessionAttentionMap } from '@/lib/session-attention';
+import { buildSessionAttentionMap, sessionAttentionFor } from '@/lib/session-attention';
 import { DEFAULT_WORKSPACE_ID, workspaceName } from '@/lib/workspace-labels';
 import { newConversationRoute } from '@/lib/workspace-route-memory';
 import { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
@@ -120,6 +120,10 @@ export function WorkspacePage() {
   const sessionAttentions = useMemo(
     () => buildSessionAttentionMap(navigationSessions, attentionInteractions),
     [attentionInteractions, navigationSessions],
+  );
+  const activeAttention = useMemo(
+    () => sessionAttentionFor(sessionAttentions, navigationSessions, sessionId) ?? null,
+    [navigationSessions, sessionAttentions, sessionId],
   );
   const interactionOwnerLabels = useMemo(
     () =>
@@ -433,6 +437,7 @@ export function WorkspacePage() {
             toolbarActions={
               <WorkspaceObservabilityDock
                 key={`${sessionKey}:dock`}
+                attention={activeAttention}
                 data={data}
                 navigation={workbench}
                 sessionId={sessionId}

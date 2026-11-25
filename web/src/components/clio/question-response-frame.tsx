@@ -6,7 +6,7 @@ import { CloseIcon } from '@/lib/icon-vocabulary';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { respondFromControl } from './interaction-control';
 import { QuestionCard, QuestionFooter, type QuestionCardProps } from './interaction-frame-header';
-import { canDismissQuestion } from './question-card-model';
+import { canDismissQuestion, declinesElicitation } from './question-card-model';
 import { PendingA2UIResponse } from './pending-a2ui-response';
 import { IconButton } from './primitives/icon-button';
 import { ResponseViewportContext } from './response-viewport-context';
@@ -90,6 +90,16 @@ export function QuestionResponseFrame({
   const dismiss = canDismissQuestion(interaction)
     ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
     : undefined;
+  const decline =
+    !dismiss && declinesElicitation(interaction)
+      ? () =>
+          respondFromControl(
+            onResponse(interaction, {
+              action: 'answer',
+              metadata: { elicitation_action: 'decline' },
+            }),
+          )
+      : undefined;
   return (
     <QuestionCard
       {...card}
@@ -125,6 +135,7 @@ export function QuestionResponseFrame({
         disabled={disabled}
         interaction={interaction}
         onDismiss={escapeAnswers ? undefined : dismiss}
+        onDecline={escapeAnswers ? undefined : decline}
       >
         {hints}
       </QuestionFooter>

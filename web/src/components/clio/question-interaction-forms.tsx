@@ -31,8 +31,13 @@ import { cn } from '@/lib/utils';
 import { answerWord, binaryPair, type BinaryOption, type BinaryPair } from '@/lib/binary-answers';
 import { AskBody, AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { BinaryAsk } from './ask-binary';
-import { withDeclaredChoices } from '@/lib/declared-choices';
+import {
+  declaredAskContext,
+  declaredChoiceContext,
+  withDeclaredChoices,
+} from '@/lib/declared-choices';
 import { QuestionChoiceRows, type QuestionChoice } from './question-choice-card';
+import { ChoiceEvidence, ChoiceNote } from './question-choice-context';
 import { QuestionResponseFrame as QuestionFrame } from './question-response-frame';
 import { useQuestionDraftValue } from './question-answer-context';
 import { ph, plural, t } from '@lingui/core/macro';
@@ -63,6 +68,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   const loneBoolean = loneBooleanField(fields);
   const answerChoice = loneBoolean ? undefined : answerChoiceField(fields);
   const answerPair = answerChoice ? fieldPair(answerChoice) : undefined;
+  const askContext = declaredAskContext(interaction);
   // After a failed Send the first field to fix takes focus and comes into view, even when the
   // capped card or a narrow window holds it out of sight.
   const fieldsRef = useRef<HTMLDivElement>(null);
@@ -130,6 +136,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
           disabled={props.disabled}
           label={loneBoolean.title || t`Answer`}
         />
+        <ChoiceEvidence context={askContext} />
       </QuestionFrame>
     );
   }
@@ -154,14 +161,16 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
       }
     };
     const pair = fieldPair(choice);
+    const choiceContext = declaredChoiceContext(interaction, choice.name);
+    // Relay's note is also the field's description: it is said once, beside the answers.
+    const choiceDescription =
+      choice.description?.trim() === choiceContext.note ? undefined : choice.description;
     return (
       <QuestionFrame {...props} escapeAnswers={Boolean(pair)}>
         <AskError error={props.responseError} />
-        {choice.description ? (
+        {choiceDescription ? (
           <AskBody>
-            <AskSection className="text-meta text-muted-foreground">
-              {choice.description}
-            </AskSection>
+            <AskSection className="text-meta text-muted-foreground">{choiceDescription}</AskSection>
           </AskBody>
         ) : null}
         {errors[choice.name] ? (
@@ -169,6 +178,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             {errors[choice.name]}
           </AskSection>
         ) : null}
+        <ChoiceNote context={choiceContext} />
         {pair ? (
           <BinaryAsk
             accept={{ label: pair.accept.label, onChoose: () => answer(pair.accept.value) }}
@@ -186,6 +196,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             onChoose={(index) => void answer(choice.enum?.[Number(index)])}
           />
         )}
+        <ChoiceEvidence context={choiceContext} />
       </QuestionFrame>
     );
   }
@@ -216,14 +227,19 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     // under a capped card; the other fields (already filled) sit above them, compact.
     const options = answerChoice.enum ?? [];
     const others = fields.filter((field) => field.name !== answerChoice.name);
+    const answerContext = declaredChoiceContext(interaction, answerChoice.name);
+    const answerDescription =
+      answerChoice.description?.trim() === answerContext.note
+        ? undefined
+        : answerChoice.description;
     return (
       <QuestionFrame {...props} escapeAnswers={Boolean(answerPair)}>
         <AskError error={props.responseError} />
-        {answerChoice.description || others.length ? (
+        {answerDescription || others.length ? (
           <AskBody>
-            {answerChoice.description ? (
+            {answerDescription ? (
               <AskSection className="text-meta text-muted-foreground">
-                {answerChoice.description}
+                {answerDescription}
               </AskSection>
             ) : null}
             {others.length ? (
@@ -240,6 +256,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             {errors[answerChoice.name]}
           </AskSection>
         ) : null}
+        <ChoiceNote context={answerContext} />
         {answerPair ? (
           <BinaryAsk
             accept={{
@@ -263,6 +280,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             onChoose={(index) => void submit({ [answerChoice.name]: options[Number(index)] })}
           />
         )}
+        <ChoiceEvidence context={answerContext} />
       </QuestionFrame>
     );
   }
@@ -283,6 +301,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
           {sending ? t`Sending…` : t`Send response`}
         </AskButton>
       </AskOptions>
+      <ChoiceEvidence context={askContext} />
     </QuestionFrame>
   );
 }
@@ -373,13 +392,16 @@ function fieldChoices(field: PendingInteractionField): QuestionChoice[] {
   }));
 }
 
-/** A form that is one single choice answers on its options: pressing one sends it. */
+/**
+ * A form that is one single choice answers on its options: pressing one sends it. One
+ * option is still a choice (W17's "gcc@11.4.0"): its button answers, and Decline remains.
+ */
 function choiceField(
   fields: readonly PendingInteractionField[],
 ): PendingInteractionField | undefined {
   const [field] = fields;
   if (fields.length !== 1 || !field || field.multi) return undefined;
-  return (field.enum?.length ?? 0) >= 2 ? field : undefined;
+  return (field.enum?.length ?? 0) >= 1 ? field : undefined;
 }
 
 /** Explicit URL consent; nothing is opened or fetched during render. */
@@ -490,6 +512,7 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
         enterAccepts
         label={t`Link`}
       />
+      <ChoiceEvidence context={declaredAskContext(interaction)} />
     </QuestionFrame>
   );
 }
@@ -676,7 +699,13 @@ function answerChoiceField(
   fields: readonly PendingInteractionField[],
 ): PendingInteractionField | undefined {
   if (fields.length < 2) return undefined;
-  const choices = fields.filter((field) => !field.multi && (field.enum?.length ?? 0) >= 2);
+  // A one-option enum with a value already set is a fixed setting, not a question.
+  const choices = fields.filter(
+    (field) =>
+      !field.multi &&
+      ((field.enum?.length ?? 0) >= 2 ||
+        (field.enum?.length === 1 && (field.default === undefined || field.default === null))),
+  );
   const open = choices.filter((field) => field.default === undefined || field.default === null);
   const choice = choices.length === 1 ? choices[0] : open.length === 1 ? open[0] : undefined;
   if (!choice) return undefined;

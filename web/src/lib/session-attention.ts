@@ -164,6 +164,18 @@ function interactionIdsForKind(
   return attention.unknownIds;
 }
 
+/**
+ * What waits on the person in one conversation's family: the very entry the bell counts
+ * for it, so the conversation's own waiting count can never disagree with the bell.
+ */
+export function sessionAttentionFor(
+  attentions: Readonly<Record<string, SessionAttention>>,
+  sessions: readonly Session[],
+  sessionId: string,
+): SessionAttention | undefined {
+  return attentions[rootSessionId(sessionId, new Map(sessions.map((s) => [s.id, s])))];
+}
+
 function rootSessionId(sessionId: string, sessionsById: ReadonlyMap<string, Session>): string {
   let currentId = sessionId;
   const visited = new Set<string>();

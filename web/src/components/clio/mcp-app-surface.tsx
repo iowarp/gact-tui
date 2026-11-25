@@ -55,7 +55,12 @@ import {
 } from './comments/mcp-app-comments';
 import { ClioStatus } from './status';
 import { McpAppBlankNotice, McpAppFrameMenu, McpAppPaintStatus } from './mcp-app-frame-menu';
-import { reportedUndrawn, watchFirstPaint, type PaintVerdict } from './mcp-app-first-paint';
+import {
+  reportedStopped,
+  reportedUndrawn,
+  watchFirstPaint,
+  type PaintVerdict,
+} from './mcp-app-first-paint';
 import { t } from '@lingui/core/macro';
 import { formatClockTime } from '@/lib/locale-format';
 
@@ -173,6 +178,8 @@ const McpAppSurfaceInstance = forwardRef<
   const [paint, setPaint] = useState<PaintVerdict>('pending');
   // What the view itself last said it shows nothing for (FP-D9): its own word outranks a look.
   const [undrawn, setUndrawn] = useState<string | null>(null);
+  // What the view last said about its service stopping, even over a kept last picture.
+  const [stopped, setStopped] = useState<string | null>(null);
   const [requestedHeight, setRequestedHeight] = useState(props.height ?? 420);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
   const channel = useRef<ViewChannel>(newChannel());
@@ -377,6 +384,7 @@ const McpAppSurfaceInstance = forwardRef<
         initialized = true;
         setReady(true);
         setUndrawn(null);
+        setStopped(null);
         post({
           jsonrpc: '2.0',
           method: 'ui/notifications/tool-input',
@@ -424,6 +432,7 @@ const McpAppSurfaceInstance = forwardRef<
         onModelContext: (context) => {
           contextRef.current = context;
           setUndrawn(reportedUndrawn(context));
+          setStopped(reportedStopped(context));
           // A view that reports a new state may have drawn since it read blank (FP-D9).
           firstPaint?.recheck();
           latest.current.onModelContext?.(context);
@@ -511,7 +520,7 @@ const McpAppSurfaceInstance = forwardRef<
         ) : descriptor?.service_refusal ? (
           <ClioStatus label={t`Service unavailable`} value="unavailable" />
         ) : (
-          <McpAppPaintStatus paint={paint} ready={ready} undrawn={undrawn} />
+          <McpAppPaintStatus paint={paint} ready={ready} stopped={stopped} undrawn={undrawn} />
         )}
         {comments ? (
           <McpAppCommentsIcon disabledReason={ready ? undefined : t`The view is still loading.`} />
@@ -544,7 +553,7 @@ const McpAppSurfaceInstance = forwardRef<
               </p>
             ) : null}
             {/* A view that says it shows nothing explains why in its own page. */}
-            {ready && paint === 'blank' && undrawn === null ? (
+            {ready && paint === 'blank' && undrawn === null && stopped === null ? (
               <McpAppBlankNotice onReload={props.onReload} />
             ) : null}
             <iframe

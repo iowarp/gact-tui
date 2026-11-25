@@ -13161,6 +13161,7 @@ msgid "Declared as a structured value."
 msgstr ""
 
 #: src/components/clio/connector-setup-response.tsx
+#: src/components/clio/interaction-frame-header.tsx
 #: src/components/clio/question-interaction-forms.tsx
 msgid "Decline"
 msgstr ""
@@ -15314,6 +15315,7 @@ msgid "Every weekday"
 msgstr ""
 
 #: src/components/clio/memory-inbox.tsx
+#: src/components/clio/question-choice-context.tsx
 #: src/components/clio/science-log-model.ts
 #: src/components/clio/workspace-resource-view.tsx
 msgid "Evidence"
@@ -33939,6 +33941,7 @@ msgstr ""
 #: src/components/clio/ndp-dataset-row.tsx
 #: src/components/clio/open-question-list.tsx
 #: src/components/clio/plan-exit-interaction.tsx
+#: src/components/clio/question-prompt.tsx
 #: src/components/clio/tool-operation-value.tsx
 #: src/components/clio/tool-result-primitives.tsx
 msgid "Show less"
@@ -33959,6 +33962,7 @@ msgstr ""
 #: src/components/clio/bounded-result.tsx
 #: src/components/clio/ndp-dataset-row.tsx
 #: src/components/clio/ndp-endpoint-browser.tsx
+#: src/components/clio/question-prompt.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 #: src/components/clio/tool-operation-value.tsx
 #: src/components/clio/tool-result-primitives.tsx
@@ -35619,6 +35623,7 @@ msgstr ""
 #: src/components/clio/composer-run-announcer.tsx
 #: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/flow-run-presentation.ts
+#: src/components/clio/mcp-app-frame-menu.tsx
 #: src/components/clio/message-completion-footer.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
@@ -38517,6 +38522,10 @@ msgstr ""
 msgid "The view loaded but has drawn nothing. It may need more room: reload it, or open it in a wider panel."
 msgstr ""
 
+#: src/components/clio/mcp-app-frame-menu.tsx
+msgid "The view's service stopped. What it shows no longer changes."
+msgstr ""
+
 #: src/components/clio/a2ui-mcp-app.tsx
 msgid "The view reported a {key} that a shared selection cannot hold."
 msgstr ""
@@ -39309,6 +39318,10 @@ msgstr ""
 
 #: src/components/clio/conversation-message-row.tsx
 msgid "This reply was interrupted"
+msgstr ""
+
+#: src/components/clio/question-card-model.ts
+msgid "This response could not be read."
 msgstr ""
 
 #: src/components/clio/pending-a2ui-response.tsx

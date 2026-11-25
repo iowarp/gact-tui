@@ -1,20 +1,25 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { BoxesIcon, ClipboardPenLineIcon, MessageCircleQuestionIcon } from 'lucide-react';
-import { useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { vocab } from '@/lib/brand-vocabulary';
 import { EditIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
 import { jobFromInteraction, jobHasShape } from '@/lib/job-snapshot';
-import { serverOwnerName } from '@/lib/a2ui/server-surface';
 import { trailingCommand } from '@/lib/literal-command-text';
 import { AskCode } from './ask-code';
 import { AskCard, AskDetails, AskFooter, AskHint, AskSection, type AskCardProps } from './ask-card';
 import { pendingInteractionDomId } from './interaction-control';
 import { JobCard } from './job-card';
 import { OwnerAttribution } from './pending-interaction-notices';
-import { plainQuestionText, questionPrompt, useComposerAnswer } from './question-card-model';
+import {
+  plainQuestionText,
+  questionPrompt,
+  useComposerAnswer,
+  withoutOwnerPrefix,
+  withoutRepeatedTitle,
+} from './question-card-model';
 import { QuestionMarkdown } from './question-markdown';
-import { useScrollClipped } from './use-scroll-clipped';
+import { QuestionPromptText } from './question-prompt';
 import { t, ph } from '@lingui/core/macro';
 
 const TITLE_LIMIT = 120;
@@ -44,11 +49,11 @@ export interface QuestionCardProps extends Omit<AskCardProps, 'kind' | 'icon' | 
   interaction: PendingInteraction;
   ownerLabel?: string;
   showOwner?: boolean;
-  /** Show a long question in full instead of in a short scrolling block. */
+  /** Show a long question in full instead of its first lines and Show more. */
   showFullPrompt?: boolean;
   /** The question asked, when it is not the interaction's own prompt (a bundle page). */
   heading?: string;
-  /** Extra classes for a long question's scrolling block. */
+  /** Extra classes for a long question's block. */
   promptClassName?: string;
 }
 
@@ -68,28 +73,13 @@ export function QuestionCard({
     interaction.title,
   );
   // Who asks is said once, by its attribution: "Relay: Where should…" reads "Where should…".
-  const owner = interaction.payload?.server
-    ? serverOwnerName({
-        plugin: interaction.payload.plugin ?? '',
-        plugin_title: interaction.payload.plugin_title,
-        server: interaction.payload.server,
-      })
-    : '';
-  const ownerPrefix = owner ? `${owner.toLowerCase()}:` : '';
-  const title =
-    ownerPrefix &&
-    rawTitle.toLowerCase().startsWith(ownerPrefix) &&
-    rawTitle.slice(ownerPrefix.length).trim()
-      ? rawTitle.slice(ownerPrefix.length).trim()
-      : rawTitle;
+  const title = withoutOwnerPrefix(rawTitle, interaction);
   const recorded = jobFromInteraction(interaction.payload);
   // A job that is only its site and one planned step tells the person nothing; the question does.
   const job = recorded && jobHasShape(recorded) ? recorded : null;
   const site = !job ? recorded?.site?.label || recorded?.site?.id : undefined;
   const tail = !job && body ? trailingCommand(body) : undefined;
-  const prompt = tail ? tail.prose : body;
-  const promptRef = useRef<HTMLDivElement>(null);
-  useScrollClipped(promptRef);
+  const prompt = withoutRepeatedTitle((tail ? tail.prose : body) ?? '', title);
   return (
     <AskCard
       data-interaction-kind={interaction.kind}
@@ -121,20 +111,16 @@ export function QuestionCard({
         </AskSection>
       ) : prompt ? (
         <AskSection
-          className={cn(
-            // The question is what the person answers: it reads whole up to its own cap (about
-            // eight lines), and only a longer one scrolls in its block. Under the card's cap the
-            // options give up height instead; past that the card scrolls under its header.
-            'mt-1 text-foreground/85 [&_.text-sm]:text-menu',
-            showFullPrompt
-              ? 'shrink-0'
-              : 'clio-scrollbar max-h-40 shrink-0 overflow-y-auto pr-1 data-clipped:[mask-image:linear-gradient(#000_calc(100%-24px),transparent)]',
-            promptClassName,
-          )}
+          // The question and every answer stay in view: a long explanation shows its first
+          // lines and opens the rest in place. It never scrolls inside the card.
+          className={cn('mt-1 shrink-0 text-foreground/85 [&_.text-sm]:text-menu', promptClassName)}
           data-slot="question-prompt"
-          ref={promptRef}
         >
-          <QuestionMarkdown>{prompt}</QuestionMarkdown>
+          {showFullPrompt ? (
+            <QuestionMarkdown>{prompt}</QuestionMarkdown>
+          ) : (
+            <QuestionPromptText>{prompt}</QuestionPromptText>
+          )}
         </AskSection>
       ) : null}
       {site ? (
@@ -166,13 +152,14 @@ export function QuestionCard({
   );
 }
 
-/** The quiet hints under a question: answer in the composer, and Esc to dismiss. */
+/** The quiet hints under a question: answer in the composer, and Esc to dismiss or decline. */
 export function QuestionFooter({
   interaction,
   allowsComposer,
   composerOnly,
   disabled,
   onDismiss,
+  onDecline,
   children,
 }: {
   interaction: PendingInteraction;
@@ -182,11 +169,13 @@ export function QuestionFooter({
   composerOnly?: boolean;
   disabled?: boolean;
   onDismiss?: () => void;
+  /** Says no to an MCP form ask without answering it. */
+  onDecline?: () => void;
   children?: ReactNode;
 }) {
   const composer = useComposerAnswer(interaction);
   const showComposer = allowsComposer && composer.available;
-  if (!showComposer && !onDismiss && !children) return null;
+  if (!showComposer && !onDismiss && !onDecline && !children) return null;
   return (
     <AskFooter>
       {children}
@@ -213,6 +202,10 @@ export function QuestionFooter({
           onClick={onDismiss}
         >
           {t`Dismiss`}
+        </AskHint>
+      ) : onDecline ? (
+        <AskHint askKey="Escape" disabled={disabled} onClick={onDecline}>
+          {t`Decline`}
         </AskHint>
       ) : null}
     </AskFooter>

@@ -36,8 +36,11 @@ export function operationStrings(value: unknown): string[] {
       : [];
 }
 
-/** Words a producer uses for any task; they name nothing on their own. */
-const GENERIC_SUBJECT = /^(CLIO|Subagent|Session|Tasks?)$/iu;
+/** Words a producer uses for any task; they name nothing on their own ("Check run"). */
+const GENERIC_SUBJECT = /^(CLIO|Subagent|Session|Tasks?|Runs?|Jobs?|Flows?)$/iu;
+/** Whether a producer's subject is only a word for any task, not its name. */
+export const isGenericSubject = (value?: string): boolean =>
+  Boolean(value && GENERIC_SUBJECT.test(value.trim()));
 const specificName = (value?: string) =>
   value && !GENERIC_SUBJECT.test(value) ? value : undefined;
 

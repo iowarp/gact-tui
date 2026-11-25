@@ -2,6 +2,11 @@ import type { PendingInteraction, PendingInteractionField } from '@clio/core/v3'
 
 /** Relay's typed choices per ask and field: `_meta["io.iowarp.clio-relay/choice"][askId][field]`. */
 export const CHOICE_META_KEY = 'io.iowarp.clio-relay/choice';
+/**
+ * What an ask rests on, per ask: `_meta["io.iowarp.clio-relay/ask"][askId]` = `{detail, evidence}`.
+ * CLIO declares it reads this, so relay's message is the question sentence alone.
+ */
+export const ASK_META_KEY = 'io.iowarp.clio-relay/ask';
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -13,7 +18,14 @@ function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
-interface DeclaredChoice {
+/** What a choice's producer says around its answers: what they cover, and why one is advised. */
+export interface DeclaredChoiceContext {
+  note?: string;
+  detail?: string;
+  evidence: string[];
+}
+
+interface DeclaredChoice extends DeclaredChoiceContext {
   title?: string;
   options: { value: unknown; label?: string; description?: string }[];
   recommended?: unknown;
@@ -36,15 +48,45 @@ function metaBlocks(payload: unknown): Record<string, unknown>[] {
     .filter((block): block is Record<string, unknown> => Boolean(block));
 }
 
-/** The ids this ask may be filed under in relay's choice map: its request or elicitation id. */
+/**
+ * The ids this ask may be filed under in relay's maps: its request or elicitation id, or
+ * the task input key (a task's input requests are keyed by relay's ask id).
+ */
 function askIds(payload: unknown): Set<string> {
   const root = record(payload);
   const elicitation = record(record(root?.metadata)?.elicitation);
   return new Set(
-    [root?.request_id, root?.elicitation_id, elicitation?.request_id, elicitation?.elicitation_id]
+    [
+      root?.request_id,
+      root?.elicitation_id,
+      root?.input_key,
+      elicitation?.request_id,
+      elicitation?.elicitation_id,
+      elicitation?.input_key,
+    ]
       .map(text)
       .filter((id): id is string => Boolean(id)),
   );
+}
+
+/** Relay's detail and evidence for this ask: its own entry, or the map's only one. */
+function askFromMeta(payload: unknown): Omit<DeclaredChoiceContext, 'note'> | undefined {
+  const ids = askIds(payload);
+  for (const meta of metaBlocks(payload)) {
+    const asks = record(meta[ASK_META_KEY]);
+    if (!asks) continue;
+    const entries = Object.entries(asks);
+    const own =
+      entries.find(([id]) => ids.has(id)) ?? (entries.length === 1 ? entries[0] : undefined);
+    const entry = record(own?.[1]);
+    if (!entry) continue;
+    const evidence = Array.isArray(entry.evidence)
+      ? entry.evidence.map(text).filter((line): line is string => Boolean(line))
+      : [];
+    const detail = text(entry.detail);
+    if (detail || evidence.length) return { detail, evidence };
+  }
+  return undefined;
 }
 
 /**
@@ -83,6 +125,11 @@ function choiceFromMeta(payload: unknown, name: string): DeclaredChoice | undefi
           description: text(option.description),
         })),
         recommended: entry.recommended ?? flagged ?? undefined,
+        note: text(entry.note),
+        detail: text(entry.detail),
+        evidence: Array.isArray(entry.evidence)
+          ? entry.evidence.map(text).filter((line): line is string => Boolean(line))
+          : [],
       };
     }
   }
@@ -106,8 +153,32 @@ function choiceFromSchema(payload: unknown, name: string): DeclaredChoice | unde
       description: text(option.description),
     }));
   return options.length
-    ? { title: text(property.title), options, recommended: property.default }
+    ? { title: text(property.title), options, recommended: property.default, evidence: [] }
     : undefined;
+}
+
+/** A relay choice's note, detail and evidence for one field; empty when it sent none. */
+export function declaredChoiceContext(
+  interaction: Pick<PendingInteraction, 'payload'>,
+  name: string,
+): DeclaredChoiceContext {
+  const declared = choiceFromMeta(interaction.payload, name);
+  // Relay's per-ask facts stand in when the choice itself says nothing more.
+  const ask =
+    declared?.detail || declared?.evidence.length ? undefined : askFromMeta(interaction.payload);
+  return {
+    note: declared?.note,
+    detail: declared?.detail ?? ask?.detail,
+    evidence: declared?.evidence.length ? declared.evidence : (ask?.evidence ?? []),
+  };
+}
+
+/** What an ask that is not a choice rests on (a sign-in, a form); empty when relay sent none. */
+export function declaredAskContext(
+  interaction: Pick<PendingInteraction, 'payload'>,
+): DeclaredChoiceContext {
+  const ask = askFromMeta(interaction.payload);
+  return { detail: ask?.detail, evidence: ask?.evidence ?? [] };
 }
 
 /**
@@ -129,7 +200,9 @@ export function withDeclaredChoices(
           field.enum!.some((value) => Object.is(value, option.value)),
         )
       : declared.options;
-    if (known.length < 2) return field;
+    // A declared list that names fewer of the field's options than it offers is not this
+    // field's list; a lone option (one compiler that works) is still the whole choice.
+    if (!known.length || known.length < Math.min(2, field.enum?.length || 0)) return field;
     return {
       ...field,
       title:

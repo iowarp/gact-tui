@@ -1,9 +1,13 @@
 import type { PendingInteraction } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
+import { serverOwnerName } from '@/lib/a2ui/server-surface';
 import { isVariantPickInteraction } from '@/lib/variant-runs';
 import { useQuestionAnswer } from './question-answer-context';
 
 /** The words of the question: its prompt, or its title when it has none. */
 export function questionPrompt(interaction: PendingInteraction): string {
+  // The core's degraded row carries an English title; the reader's language says it here.
+  if (interaction.kind === 'unknown') return t`This response could not be read.`;
   return interaction.source.tool_name === 'plan_exit'
     ? interaction.title
     : (interaction.prompt ?? interaction.title);
@@ -21,6 +25,18 @@ export function plainQuestionText(text: string): string {
 /** Task cancellation belongs to Work's identifying confirmation, not dismissal. */
 export function canDismissQuestion(interaction: PendingInteraction): boolean {
   return !interaction.payload?.task_handle && (interaction.actions ?? []).includes('cancel');
+}
+
+/**
+ * An MCP form ask can be declined, which tells its server "no" without an answer. A task's
+ * input request cannot be dismissed, so this is its one way out short of answering.
+ */
+export function declinesElicitation(interaction: PendingInteraction): boolean {
+  return (
+    interaction.source.protocol === 'mcp' &&
+    interaction.payload?.mode === 'form' &&
+    (interaction.actions ?? []).includes('answer')
+  );
 }
 
 /** Whether the main composer can carry this question's own answer. */
@@ -44,4 +60,43 @@ export function useComposerAnswer(interaction: PendingInteraction) {
     start: () => state?.startAnswer(interaction.id),
     stop: () => state?.stopAnswer(),
   };
+}
+
+/** A prompt that opens by repeating its title says the question twice; read it once. */
+export function withoutRepeatedTitle(prompt: string, title: string): string {
+  const head = title.trim();
+  const text = prompt.trim();
+  if (!head || !text.toLowerCase().startsWith(head.toLowerCase())) return text;
+  const rest = text.slice(head.length).trim();
+  return rest || text;
+}
+
+/**
+ * The question without its asker's name in front ("Relay: Where should…" reads "Where
+ * should…"). The backend titles a plugin's ask with the plugin's name; the card says who
+ * asks once, in its attribution and navigation, so the header is only the question.
+ */
+export function withoutOwnerPrefix(title: string, interaction: PendingInteraction): string {
+  const payload = interaction.payload;
+  const owners = [
+    payload?.plugin_title,
+    payload?.plugin || payload?.server
+      ? serverOwnerName({
+          plugin: payload?.plugin ?? '',
+          plugin_title: payload?.plugin_title,
+          server: payload?.server ?? '',
+        })
+      : undefined,
+    payload?.plugin,
+    payload?.server,
+  ]
+    .map((name) => name?.trim().toLowerCase())
+    .filter((name): name is string => Boolean(name));
+  const lower = title.toLowerCase();
+  for (const owner of owners) {
+    if (!lower.startsWith(`${owner}:`)) continue;
+    const rest = title.slice(owner.length + 1).trim();
+    if (rest) return rest;
+  }
+  return title;
 }

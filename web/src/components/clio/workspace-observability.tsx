@@ -4,6 +4,7 @@ import type { ComponentProps, RefObject } from 'react';
 import type { useObservabilityNavigation } from '@/hooks/use-observability-navigation';
 import type { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import type { useWorkspaceData } from '@/hooks/use-workspace-data';
+import type { SessionAttention } from '@/lib/session-attention';
 import {
   WorkspaceLiveObservabilityDock,
   WorkspaceLiveObservabilityView,
@@ -96,6 +97,7 @@ function sharedProps(
 /** The session's observability summary in the shell toolbar. */
 export function WorkspaceObservabilityDock({
   data,
+  attention,
   navigation,
   sessionId,
   workspaceId,
@@ -105,6 +107,8 @@ export function WorkspaceObservabilityDock({
   onOpenWork,
 }: {
   data: ObservabilityData;
+  /** What waits on the person in this conversation, as the bell counts it (null: nothing). */
+  attention?: SessionAttention | null;
   navigation: ObservabilityNavigation;
   sessionId: string;
   workspaceId: string;
@@ -117,6 +121,7 @@ export function WorkspaceObservabilityDock({
   return (
     <WorkspaceLiveObservabilityDock
       {...sharedProps(data, navigation, sessionId)}
+      attention={attention}
       toolbar
       surfaceRef={surfaceRef}
       workspaceId={workspaceId}

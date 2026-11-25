@@ -97,8 +97,8 @@ function controlNotice(text: string): {
   note?: string;
   assignment?: string;
 } {
-  // The recorded notice leads with its "[CLIO; control; …]" envelope line(s).
-  let body = text.replace(/^(?:\[clio:[^\]\n]*\]\s*|\[CLIO;[^\]]*\]\s*)+/iu, '').trim();
+  // The recorded notice leads with its control envelope line(s); the match ignores case.
+  let body = text.replace(/^(?:\[clio:[^\]\n]*\]\s*|\[clio;[^\]]*\]\s*)+/iu, '').trim();
   let assignment: string | undefined;
   try {
     const parsed: unknown = body.startsWith('{') ? JSON.parse(body) : undefined;
