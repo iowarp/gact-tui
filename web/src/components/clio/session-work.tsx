@@ -362,15 +362,28 @@ function PreviousScheduleRow({ schedule }: { schedule: WorkScheduleHistory }) {
  * are Activity rows; only kinds with records show, and one empty state
  * stands for a session that has none.
  */
-export function SessionWorkView({ sessionId }: { sessionId: string }) {
+export function SessionWorkView({
+  sessionId,
+  onOpenFile,
+}: {
+  sessionId: string;
+  /** Open a file (the plan) in a workbench tab. */
+  onOpenFile?: (path: string) => void;
+}) {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <SessionWorkInventory sessionId={sessionId} />
+      <SessionWorkInventory sessionId={sessionId} onOpenFile={onOpenFile} />
     </div>
   );
 }
 
-function SessionWorkInventory({ sessionId }: { sessionId: string }) {
+function SessionWorkInventory({
+  sessionId,
+  onOpenFile,
+}: {
+  sessionId: string;
+  onOpenFile?: (path: string) => void;
+}) {
   const [cursor, setCursor] = useState(0);
   const query = useSessionWork(sessionId, cursor);
   const repository = useRepository();
@@ -441,7 +454,7 @@ function SessionWorkInventory({ sessionId }: { sessionId: string }) {
       <SessionAccess sessionId={sessionId} />
       {data.plan ? (
         <WorkSection title={t`Plan`} summary={planStatusLabel(data.plan.status)}>
-          <SessionPlanBody plan={data.plan} sessionId={sessionId} />
+          <SessionPlanBody plan={data.plan} onOpen={onOpenFile} />
         </WorkSection>
       ) : null}
       {empty ? (

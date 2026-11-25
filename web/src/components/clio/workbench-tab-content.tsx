@@ -144,7 +144,23 @@ export function WorkbenchTabContent({
 }: WorkbenchTabContentProps): ReactNode {
   switch (tab.kind) {
     case 'work':
-      return sessionId ? <SessionWorkView key={sessionId} sessionId={sessionId} /> : sessionView;
+      return sessionId ? (
+        <SessionWorkView
+          key={sessionId}
+          sessionId={sessionId}
+          onOpenFile={(path) =>
+            onOpenTab({
+              id: `workspace-file:${workspaceId}:${path}`,
+              kind: 'workspace-file',
+              label: fileName(path),
+              path,
+              workspaceId,
+            })
+          }
+        />
+      ) : (
+        sessionView
+      );
     case 'knowledge':
       return (
         <Suspense fallback={<CanvasLoading label={t`Loading knowledge`} />}>

@@ -162,7 +162,7 @@ export function SessionRailContent({
     inventory.push({
       id: 'plan',
       summary: planStatusLabel(work.data.plan.status),
-      content: <SessionPlanBody plan={work.data.plan} sessionId={evidence.sessionId} />,
+      content: <SessionPlanBody plan={work.data.plan} onOpen={evidence.onOpenFile} preview={false} />,
     });
   if (todos.length)
     inventory.push({
