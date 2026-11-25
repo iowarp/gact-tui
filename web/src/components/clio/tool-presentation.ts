@@ -75,7 +75,9 @@ export function readsAsDescription(text: string): boolean {
 /** Keep protocol identifiers in details and use the same operation label everywhere. */
 export function getToolActionLabel(tool: ToolInvocation): string {
   if (tool.name === 'ask_user')
-    return tool.presentation?.action === 'Answered' ? t`Answered` : t`Ask you`;
+    return tool.presentation?.action === 'Answered'
+      ? t`Answered`
+      : t({ message: 'Ask', context: 'verb: tool action' });
   if (TASK_OPERATIONS[tool.name]) return TASK_OPERATIONS[tool.name]!;
   const offer = tool.name === 'offer_plugin' ? tool.presentation?.action : undefined;
   if (offer && OFFER_ACTIONS[offer]) return OFFER_ACTIONS[offer]!;

@@ -39,7 +39,7 @@ it('shows the actual bundle instead of a generic inspection and protocol state',
   const user = userEvent.setup();
   render(<ClioToolInvocation compact tool={question} />);
   expect(screen.getByText('2 questions')).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Show result for Ask you' }));
+  await user.click(screen.getByRole('button', { name: 'Show result for Ask' }));
   expect(screen.getByText('What should govern the workshop?')).toBeVisible();
   expect(screen.getByText('Answer requested at this step')).toBeVisible();
   expect(screen.getByText('What times and breaks must we preserve?')).toBeVisible();
@@ -48,7 +48,7 @@ it('shows the actual bundle instead of a generic inspection and protocol state',
   expect(screen.queryByText('input_required')).toBeNull();
   expect(screen.queryByText('Tasks')).toBeNull();
   expect(screen.queryByText('Inspect')).toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Technical details for Ask you' }));
+  await user.click(screen.getByRole('button', { name: 'Technical details for Ask' }));
   expect(screen.getByRole('dialog').textContent).toContain('input_required');
 });
 
@@ -90,14 +90,12 @@ it('keeps failed calls and their diagnostics rather than claiming a question was
   // reports an answer state.
   expect(presented.state).toBe('failed');
   expect(presented.error).toBe('Invalid duplicate question id');
-  expect(presented.presentation).toMatchObject({ status: 'failed', action: 'Ask you' });
+  expect(presented.presentation).toMatchObject({ status: 'failed', action: 'Ask' });
   expect(presented.presentation?.blocks.map((block) => block.text)).toEqual([
     'What times and breaks must we preserve?',
     'Invalid duplicate question id',
   ]);
-  expect(presented.presentation?.blocks.some((block) => block.id === 'question-state')).toBe(
-    false,
-  );
+  expect(presented.presentation?.blocks.some((block) => block.id === 'question-state')).toBe(false);
 });
 
 it('keeps ordinary task inspection untouched and presents a single confirmation separately', () => {
