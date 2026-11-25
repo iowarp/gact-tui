@@ -32,7 +32,7 @@ import { useSessionWork } from './use-session-work';
 import { useSessionSchedules } from './session-inventory-queries';
 import { WorkRecordControls } from './work-record-controls';
 import { TodoList, TodoStatusIcon } from './todo-list';
-import { todoCurrentSummary } from './todo-list-summary';
+import { todoProgressSummary } from './todo-list-summary';
 import { SessionAccess } from './session-access';
 import { StateView } from './primitives/state-view';
 import { SessionPlanBody } from './session-plan-section';
@@ -128,8 +128,8 @@ export function SessionWorkSummary({
       {includeTodos && data.todos.length ? (
         <span className={cn('shrink-0 text-muted-foreground', compact && 'hidden sm:inline')}>
           {current || scheduledCount
-            ? t`Todos: ${ph({ summary: todoCurrentSummary(data.todos, (todo) => todo.status) })}`
-            : todoCurrentSummary(data.todos, (todo) => todo.status)}
+            ? t`Todos: ${ph({ summary: todoProgressSummary(data.todos, (todo) => todo.status) })}`
+            : todoProgressSummary(data.todos, (todo) => todo.status)}
         </span>
       ) : null}
     </Button>
@@ -459,7 +459,7 @@ function SessionWorkInventory({ sessionId }: { sessionId: string }) {
           title={t`Todos`}
           summary={
             data.todos.length
-              ? todoCurrentSummary(data.todos, (todo) => todo.status)
+              ? todoProgressSummary(data.todos, (todo) => todo.status)
               : t`None current`
           }
         >

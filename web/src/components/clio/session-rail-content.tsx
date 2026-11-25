@@ -29,6 +29,7 @@ import { SessionPlanBody } from './session-plan-section';
 import { openPlanTab } from '@/lib/plan-tab';
 import { planStatusLabel } from '@/lib/plan-status';
 import { TodoList, TodoStatusIcon } from './todo-list';
+import { todoProgressSummary } from './todo-list-summary';
 import type { ReactNode } from 'react';
 import { t } from '@lingui/core/macro';
 
@@ -175,7 +176,7 @@ export function SessionRailContent({
     inventory.push({
       id: 'todos',
       count: todos.length,
-      summary: `${todos.filter((todo) => todo.status === 'completed').length} of ${todos.length}`,
+      summary: todoProgressSummary(todos, (todo) => todo.status),
       content: (
         <TodoList
           items={todos}

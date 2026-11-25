@@ -6,8 +6,9 @@ import {
   WorkflowIcon,
   WrenchIcon,
 } from 'lucide-react';
-import { memo, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { memo, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { useCountedTaskProgress } from '@/hooks/use-count-up';
+import { useNow } from '@/hooks/use-now';
 import { cn } from '@/lib/utils';
 import { formatDuration } from '@/lib/format';
 import { CloseIcon, HelpIcon } from '@/lib/icon-vocabulary';
@@ -120,8 +121,41 @@ function countedProgress(progress: RunRow['progress']): string | undefined {
   const completed = progress?.completed;
   const total = progress?.total;
   return typeof completed === 'number' && typeof total === 'number' && total > 0
-    ? `${completed} of ${total}`
+    ? t`${ph({ completed })} of ${ph({ total })}`
     : undefined;
+}
+
+const LIVE_STATES: ReadonlySet<RunRow['state']> = new Set([
+  'running',
+  'queued',
+  'recovering',
+  'stopping',
+  'cancellation_requested',
+  'pause_requested',
+  'waiting_user',
+  'waiting_permission',
+]);
+
+/**
+ * Counted progress that never steps back within one run: a producer that
+ * re-reports an earlier step between phases keeps the furthest step shown.
+ */
+function useForwardProgress(
+  progress: RunRow['progress'],
+  taskId: string,
+): RunRow['progress'] {
+  const [furthest, setFurthest] = useState<{ taskId: string; total: unknown; completed: number }>();
+  const completed = progress?.completed;
+  if (typeof completed !== 'number') return progress;
+  if (!furthest || furthest.taskId !== taskId || furthest.total !== progress?.total) {
+    setFurthest({ taskId, total: progress?.total, completed });
+    return progress;
+  }
+  if (completed > furthest.completed) {
+    setFurthest({ ...furthest, completed });
+    return progress;
+  }
+  return completed === furthest.completed ? progress : { ...progress, completed: furthest.completed };
 }
 
 /** Whole percent done, for the inline bar; undefined without counted progress. */
@@ -190,14 +224,20 @@ export const RunListRow = memo(function RunListRow({
   const word = runCancelPending(row, cancelRequested)
     ? runLook({ state: 'stopping' }).word
     : look.word;
-  const shownProgress = useCountedTaskProgress(row.progress, row.taskId);
+  const forward = useForwardProgress(row.progress, row.taskId);
+  const shownProgress = useCountedTaskProgress(forward, row.taskId);
   const progress = taskProgressLabel(shownProgress, row.taskKind, row.statusDetail);
-  const counted = look.tone === 'running' ? countedProgress(row.progress) : undefined;
-  const percent = look.tone === 'running' ? progressPercent(row.progress) : undefined;
+  const counted = look.tone === 'running' ? countedProgress(forward) : undefined;
+  const percent = look.tone === 'running' ? progressPercent(forward) : undefined;
   const elapsed =
     row.elapsedMs !== undefined && Number.isFinite(row.elapsedMs) && row.elapsedMs >= 0
       ? row.elapsedMs
       : undefined;
+  // A live run shows how long it has been going, as its record's state line does.
+  const startedAt = row.createdAt ? Date.parse(row.createdAt) : Number.NaN;
+  const live = LIVE_STATES.has(row.state) && !Number.isNaN(startedAt);
+  const now = useNow(live);
+  const runningFor = live ? Math.max(0, now - startedAt) : undefined;
   const reason =
     row.statusReason && row.state !== 'task_state_uncertain' ? row.statusReason : undefined;
   // A run that still reports progress updates every few seconds: its age, not its last tick.
@@ -303,7 +343,17 @@ export const RunListRow = memo(function RunListRow({
               {row.workspaceLabelFields.name}
             </span>
           ) : null}
-          {rail && !row.updatedAt ? (
+          {runningFor !== undefined ? (
+            <span
+              className={cn(
+                'w-[30px] shrink-0 text-right text-caption text-muted-foreground tabular-nums',
+                !rail && NARROW_TIME_UNDER_ACTIONS,
+              )}
+              title={t`Running for ${ph({ duration: formatDuration(runningFor) })}`}
+            >
+              {formatDuration(runningFor, 'compact')}
+            </span>
+          ) : rail && !row.updatedAt ? (
             elapsed === undefined ? null : (
               <span
                 className="w-[30px] shrink-0 text-right text-caption text-muted-foreground tabular-nums"

@@ -1537,6 +1537,10 @@ msgstr "{command} on {computer}"
 msgid "{command} was not run"
 msgstr "{command} was not run"
 
+#: src/components/clio/run-list-row.tsx
+msgid "{completed} of {total}"
+msgstr "{completed} of {total}"
+
 #: src/components/clio/conversation-fork-checkpoint.tsx
 msgid "{copied} Files remain shared."
 msgstr "{copied} Files remain shared."
@@ -1972,6 +1976,7 @@ msgstr "{done} of {total}"
 msgid "{done} of {total} ({percent}%)"
 msgstr "{done} of {total} ({percent}%)"
 
+#: src/components/clio/todo-list-summary.ts
 #: src/components/clio/workbench-activity-model.ts
 msgid "{done} of {total} done"
 msgstr "{done} of {total} done"
@@ -3188,6 +3193,10 @@ msgstr "{names} enabled"
 #: src/components/clio/mcp-connection-details.tsx
 msgid "{names}. Values are hidden."
 msgstr "{names}. Values are hidden."
+
+#: src/components/clio/job-card.tsx
+msgid "{nodes, plural, one {{name} · # node} other {{name} · # nodes}}"
+msgstr "{nodes, plural, one {{name} · # node} other {{name} · # nodes}}"
 
 #: src/components/clio/document-workspace.tsx
 msgid "{opened} Opened a desktop copy; edits are local to this copy."
@@ -6362,6 +6371,10 @@ msgstr "Allowed {folder} for this workspace"
 msgid "Allowed actions"
 msgstr "Allowed actions"
 
+#: src/components/clio/run-record.tsx
+msgid "Allowed automatically"
+msgstr "Allowed automatically"
+
 #: src/components/clio/permission-request-text.ts
 msgid "Allowed by an access rule"
 msgstr "Allowed by an access rule"
@@ -7964,6 +7977,10 @@ msgstr "Block"
 msgid "Blocked"
 msgstr "Blocked"
 
+#: src/components/clio/run-record.tsx
+msgid "Blocked automatically"
+msgstr "Blocked automatically"
+
 #: src/components/clio/permission-request-text.ts
 msgid "Blocked by a hook"
 msgstr "Blocked by a hook"
@@ -8446,6 +8463,10 @@ msgstr "Can't reach {name}"
 #: src/components/clio/navigation-agent-menu.tsx
 msgid "Can't reach {name}, retrying"
 msgstr "Can't reach {name}, retrying"
+
+#: src/components/clio/runs-explorer.tsx
+msgid "Can't reach the {agent}, retrying"
+msgstr "Can't reach the {agent}, retrying"
 
 #: src/routes/connection-page.tsx
 msgid "Can't sign in to the running {agent}"
@@ -24337,6 +24358,10 @@ msgstr "Not loaded yet: the server will give it {tokens} tokens when it loads. T
 msgid "not made in {agent}"
 msgstr "not made in {agent}"
 
+#: src/components/clio/context-composition-model.ts
+msgid "Not measured yet"
+msgstr "Not measured yet"
+
 #: src/components/clio/deploy-progress-model.ts
 msgid "Not needed: connected directly"
 msgstr "Not needed: connected directly"
@@ -30799,6 +30824,10 @@ msgstr "Retry installation"
 msgid "Retry loading rating"
 msgstr "Retry loading rating"
 
+#: src/components/clio/runs-explorer.tsx
+msgid "Retry now"
+msgstr "Retry now"
+
 #: src/components/clio/document-workspace.tsx
 msgid "Retry preview"
 msgstr "Retry preview"
@@ -31282,6 +31311,10 @@ msgstr "running commands"
 msgid "Running flow {flow}"
 msgstr "Running flow {flow}"
 
+#: src/components/clio/run-list-row.tsx
+msgid "Running for {duration}"
+msgstr "Running for {duration}"
+
 #: src/components/clio/rail-runs.tsx
 msgid "Running in this conversation"
 msgstr "Running in this conversation"
@@ -31369,6 +31402,14 @@ msgstr "Runs a command inside the workspace’s permitted folders."
 msgid "Runs after a completed turn or idle delay, at the next background check."
 msgstr "Runs after a completed turn or idle delay, at the next background check."
 
+#: src/components/clio/runs-explorer.tsx
+msgid "Runs appear once it answers."
+msgstr "Runs appear once it answers."
+
+#: src/components/clio/runs-explorer.tsx
+msgid "Runs are taking longer than usual"
+msgstr "Runs are taking longer than usual"
+
 #: src/components/clio/extension-library-panes.tsx
 msgid "Runs as"
 msgstr "Runs as"
@@ -31376,10 +31417,6 @@ msgstr "Runs as"
 #: src/lib/plugin-review.ts
 msgid "Runs commands"
 msgstr "Runs commands"
-
-#: src/routes/runs-page.tsx
-msgid "Runs could not open"
-msgstr "Runs could not open"
 
 #: src/components/clio/service-installation-method.tsx
 msgid "Runs directly on this computer"
@@ -35521,6 +35558,10 @@ msgstr "Stop the work this conversation started?"
 msgid "Stop this run?"
 msgstr "Stop this run?"
 
+#: src/components/clio/runs-explorer.tsx
+msgid "Stop waiting"
+msgstr "Stop waiting"
+
 #: src/components/clio/ask-code.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Stop wrapping long lines"
@@ -35580,6 +35621,10 @@ msgstr "stopped or rejected"
 #: src/components/clio/plugin-open-waiting.tsx
 msgid "Stopped waiting for {label}"
 msgstr "Stopped waiting for {label}"
+
+#: src/components/clio/runs-explorer.tsx
+msgid "Stopped waiting for runs"
+msgstr "Stopped waiting for runs"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "Stopped with this conversation's Stop. A restart keeps the steps that finished."
@@ -36502,6 +36547,14 @@ msgstr "That tool call is not in the transcript."
 #: src/hooks/use-open-view-runtime.ts
 msgid "That view is not one of this conversation's study views."
 msgstr "That view is not one of this conversation's study views."
+
+#: src/components/clio/runs-explorer.tsx
+msgid "The {agent} can't be reached."
+msgstr "The {agent} can't be reached."
+
+#: src/components/clio/runs-explorer.tsx
+msgid "The {agent} hasn't answered yet."
+msgstr "The {agent} hasn't answered yet."
 
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "The {agent} service bundled with this app"
@@ -39594,6 +39647,10 @@ msgstr "Time"
 msgid "Time limit (seconds)"
 msgstr "Time limit (seconds)"
 
+#: src/components/clio/job-card.tsx
+msgid "Time limit passed"
+msgstr "Time limit passed"
+
 #: src/components/clio/session-work.tsx
 msgid "Time limit reached"
 msgstr "Time limit reached"
@@ -39850,6 +39907,7 @@ msgid "Tool gateway"
 msgstr "Tool gateway"
 
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/run-record.tsx
 msgid "Tool id"
 msgstr "Tool id"
 
@@ -41495,11 +41553,6 @@ msgstr "used"
 #: src/components/clio/settings-usage.tsx
 msgid "Used"
 msgstr "Used"
-
-#. placeholder {0}: formatList(names, { and: true })
-#: src/components/clio/run-record.tsx
-msgid "Used {0}"
-msgstr "Used {0}"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Used as"
