@@ -18,6 +18,6 @@ export function planOriginLabel(status: string): string {
   if (status === 'draft') return t`Written in plan mode. It waits for your approval.`;
   if (status === 'approved') return t`Written in plan mode and approved by you.`;
   if (status === 'active')
-    return t`The agent's own working plan for this conversation. It came from no planning session and nobody approved it.`;
+    return t`The agent's own working plan for this conversation. It didn't come from a planning session, and nobody has approved it.`;
   return t`The plan the agent kept for this conversation.`;
 }

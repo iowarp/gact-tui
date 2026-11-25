@@ -7801,6 +7801,10 @@ msgstr "Before you change it"
 msgid "Before, version {artifact_version}"
 msgstr "Before, version {artifact_version}"
 
+#: src/lib/plan-status.ts
+msgid "Being worked on"
+msgstr "Being worked on"
+
 #: src/components/clio/settings-notifications.tsx
 msgid "Bell only"
 msgstr "Bell only"
@@ -8397,7 +8401,6 @@ msgstr "Can't start"
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/service-management-confirm-dialog.tsx
 #: src/components/clio/session-history-confirm-dialog.tsx
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-model-server-row.tsx
 #: src/components/clio/share-session-dialog.tsx
@@ -10285,6 +10288,7 @@ msgstr "Command file"
 msgid "Command output"
 msgstr "Command output"
 
+#: src/components/clio/interaction-frame-header.tsx
 #: src/components/clio/permission-operation-details.tsx
 msgid "Command to run"
 msgstr "Command to run"
@@ -14527,10 +14531,6 @@ msgstr "Edit locations"
 #: src/components/clio/settings-connection-runtime.ts
 msgid "Edit modes"
 msgstr "Edit modes"
-
-#: src/components/clio/session-plan-section.tsx
-msgid "Edit plan"
-msgstr "Edit plan"
 
 #: src/components/clio/composer-queue-row.tsx
 msgid "Edit queued message"
@@ -26560,7 +26560,6 @@ msgstr "plan"
 #: src/components/clio/pending-interactions.tsx
 #: src/components/clio/plan-exit-interaction.tsx
 #: src/components/clio/session-behavior-options.ts
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/session-work.tsx
 #: src/components/clio/workbench-activity-model.ts
@@ -31395,10 +31394,6 @@ msgstr "Save model reasoning"
 msgid "Save name"
 msgstr "Save name"
 
-#: src/components/clio/session-plan-section.tsx
-msgid "Save plan"
-msgstr "Save plan"
-
 #: src/components/clio/globus-receiving-storage.tsx
 msgid "Save receiving storage"
 msgstr "Save receiving storage"
@@ -31623,10 +31618,6 @@ msgstr "Saved. {agent} uses this list from its next turn."
 msgid "Saved. Restart the connected {agent} to apply this choice."
 msgstr "Saved. Restart the connected {agent} to apply this choice."
 
-#: src/components/clio/session-plan-section.tsx
-msgid "Saved. The agent receives your edit at its next step."
-msgstr "Saved. The agent receives your edit at its next step."
-
 #: src/components/clio/connector-need-rows.tsx
 msgid "Saved. Type a new one to replace it"
 msgstr "Saved. Type a new one to replace it"
@@ -31679,7 +31670,6 @@ msgstr "Saving your key…"
 #: src/components/clio/save-user-agent-dialog.tsx
 #: src/components/clio/search-source-key-dialog.tsx
 #: src/components/clio/search-text-setting.tsx
-#: src/components/clio/session-plan-section.tsx
 #: src/components/clio/settings-models.tsx
 #: src/components/clio/settings-prompt-editor.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -32713,6 +32703,7 @@ msgstr "Sending action"
 msgid "Sending message"
 msgstr "Sending message"
 
+#: src/components/clio/ask-binary.tsx
 #: src/components/clio/child-conversation-followup.tsx
 #: src/components/clio/comments/comment-session.tsx
 #: src/components/clio/composer-toolbar-status.tsx
@@ -33291,6 +33282,10 @@ msgstr "Setup: {setupName}"
 #: src/widget-gallery.tsx
 msgid "Several plants"
 msgstr "Several plants"
+
+#: src/components/clio/interaction-frame-header.tsx
+msgid "sha256 {digest}"
+msgstr "sha256 {digest}"
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/settings-prompts.tsx
@@ -36362,6 +36357,10 @@ msgstr "The agent’s call waits for this, then continues."
 msgid "The agent’s full address, including http or https."
 msgstr "The agent’s full address, including http or https."
 
+#: src/lib/plan-status.ts
+msgid "The agent's own working plan for this conversation. It didn't come from a planning session, and nobody has approved it."
+msgstr "The agent's own working plan for this conversation. It didn't come from a planning session, and nobody has approved it."
+
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "The agent’s turn failed"
 msgstr "The agent’s turn failed"
@@ -37194,13 +37193,17 @@ msgstr "The pick closed. {unused}"
 msgid "The pick was cancelled. {unused}"
 msgstr "The pick was cancelled. {unused}"
 
+#: src/components/clio/session-plan-section.tsx
+msgid "The plan file is empty."
+msgstr "The plan file is empty."
+
 #: src/components/clio/plan-exit-interaction.tsx
 msgid "The plan is empty."
 msgstr "The plan is empty."
 
-#: src/components/clio/session-plan-section.tsx
-msgid "The plan was not saved: {message}"
-msgstr "The plan was not saved: {message}"
+#: src/lib/plan-status.ts
+msgid "The plan the agent kept for this conversation."
+msgstr "The plan the agent kept for this conversation."
 
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "The plugin {target} was not added"
@@ -42707,6 +42710,14 @@ msgstr "Written by {owner}"
 #: src/components/clio/session-evidence-projection.ts
 msgid "Written by agent"
 msgstr "Written by agent"
+
+#: src/lib/plan-status.ts
+msgid "Written in plan mode and approved by you."
+msgstr "Written in plan mode and approved by you."
+
+#: src/lib/plan-status.ts
+msgid "Written in plan mode. It waits for your approval."
+msgstr "Written in plan mode. It waits for your approval."
 
 #: src/components/clio/science-log-sources.tsx
 msgid "Wrote"
