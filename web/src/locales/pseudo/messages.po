@@ -4683,6 +4683,10 @@ msgstr ""
 msgid "A mixture of experts: {sizes} in all."
 msgstr ""
 
+#: src/components/clio/workspace-route-state.ts
+msgid "A new subagent"
+msgstr ""
+
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "A one-time run uses the time zone of this device."
 msgstr ""
@@ -4785,6 +4789,10 @@ msgstr ""
 
 #: src/components/clio/flow-run-edits.ts
 msgid "a step with that name already exists"
+msgstr ""
+
+#: src/components/clio/subagent-ask-signpost.tsx
+msgid "A subagent is waiting for you"
 msgstr ""
 
 #: src/components/clio/attention-center.tsx
@@ -19008,6 +19016,10 @@ msgstr ""
 msgid "It is a trusted address in your settings"
 msgstr ""
 
+#: src/components/clio/subagent-ask-signpost.tsx
+msgid "It is answered in that conversation."
+msgstr ""
+
 #: src/components/clio/question-interaction-forms.tsx
 msgid "It is on this computer, served by {name}"
 msgstr ""
@@ -25248,6 +25260,7 @@ msgstr ""
 #: src/components/clio/run-actions.tsx
 #: src/components/clio/run-record.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/subagent-ask-signpost.tsx
 #: src/components/clio/task-activity-row.tsx
 msgid "Open conversation"
 msgstr ""
@@ -33142,10 +33155,6 @@ msgstr ""
 msgid "Session {session_id}"
 msgstr ""
 
-#: src/components/clio/permission-response.tsx
-msgid "session {session}"
-msgstr ""
-
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Session actions for {title}"
 msgstr ""
@@ -33198,11 +33207,6 @@ msgstr ""
 
 #: src/components/clio/spotter-quarantine-card.tsx
 msgid "Session in quarantine"
-msgstr ""
-
-#: src/components/clio/pending-interaction-notices.tsx
-#: src/components/clio/permission-response.tsx
-msgid "Session not listed yet"
 msgstr ""
 
 #: src/components/clio/workspace-navigation-session-row.tsx
@@ -40706,6 +40710,7 @@ msgid "Untitled"
 msgstr ""
 
 #: src/components/clio/settings-report-problem.tsx
+#: src/components/clio/workspace-route-state.ts
 msgid "Untitled conversation"
 msgstr ""
 

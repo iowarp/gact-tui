@@ -27,6 +27,7 @@ import { embedsQuestionSurface } from '@/lib/a2ui/question-navigation';
 import { QuestionResponse } from './pending-interaction-question-response';
 import { PendingSurfaceNotices } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
+import { SubagentAskSignpost } from './subagent-ask-signpost';
 import { useScrollClipped } from './use-scroll-clipped';
 import { planArtifact } from './plan-artifact';
 import { plainQuestionText, questionPrompt } from './question-card-model';
@@ -113,6 +114,8 @@ export interface ClioPendingInteractionsProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   /** Puts the caret back in the composer once the last card a person was in is answered. */
   onFocusComposer?: () => void;
+  /** Opens the conversation that asks; a named subagent's ask is then signposted, not answered here. */
+  onOpenOwner?: (ownerSessionId: string) => void;
 }
 
 /** Renders pending interactions immediately above the composer. */
@@ -132,6 +135,7 @@ export function ClioPendingInteractions({
   artifacts = {},
   onOpenArtifact,
   onFocusComposer,
+  onOpenOwner,
 }: ClioPendingInteractionsProps) {
   const responseInFlight = useRef(new Set<string>());
   const [respondingIds, setRespondingIds] = useAttentionDraft<ReadonlySet<string>>(
@@ -389,11 +393,19 @@ export function ClioPendingInteractions({
                 data-attention-item={interaction.id}
               >
                 {(() => {
-                  // Undefined (never 'Specialist') means the workspace has not listed
-                  // this owner session yet, or listed it without a usable title — the
-                  // typed unavailable presentation says so instead of inventing a role.
                   const ownerLabel = ownerLabels[interaction.owner_session_id];
                   const showOwner = interaction.owner_session_id !== viewedSessionId;
+                  // A subagent's ask is answered in its own conversation; this one signposts it.
+                  // An owner not listed yet keeps the whole card, so nothing waits unanswerable.
+                  if (showOwner && ownerLabel && onOpenOwner) {
+                    return (
+                      <SubagentAskSignpost
+                        interaction={interaction}
+                        onOpen={onOpenOwner}
+                        ownerLabel={ownerLabel}
+                      />
+                    );
+                  }
                   // The card that is actually in flight is the only one that disables —
                   // a caller-supplied `disabled` is for a genuinely surface-wide reason,
                   // never a stand-in for "some other card's response is in flight."

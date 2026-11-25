@@ -447,7 +447,7 @@ describe('PlanExitResponse', { timeout: 30_000 }, () => {
       />,
     );
     expect(screen.getByRole('alert')).toHaveTextContent('Response unavailableSession closed');
-    expect(screen.getByText('Session not listed yet')).toBeVisible();
+    expect(screen.getByText('A new subagent')).toBeVisible();
     // The spec's plan header is the icon, Plan and the file; cancel is not a header ×.
     expect(interaction.actions).toContain('cancel');
     expect(screen.queryByRole('button', { name: 'Dismiss plan review' })).not.toBeInTheDocument();

@@ -10,6 +10,7 @@ import { pendingInteractionDomId } from './interaction-control';
 import type { ClioPendingInteractionsProps } from './pending-interactions';
 import { PermissionOperationDetails, PermissionPaths } from './permission-operation-details';
 import { permissionTitle } from './permission-operation-labels';
+import { unlistedOwnerName } from './workspace-route-state';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { t, ph, plural } from '@lingui/core/macro';
 import { formatList } from '@/lib/locale-format';
@@ -115,13 +116,13 @@ function askedBy(
       title: ownerLabel ?? t`Requested by session ${ph({ session: interaction.owner_session_id })}`,
       // Who asked moves into Technical details at a fifth of the window.
       narrow: false,
-      value: ownerLabel ? (
+      value: (
         <span className="inline-flex min-w-0 items-center gap-1.5">
           <BotIcon aria-hidden="true" className="size-3.5 shrink-0" />
-          <span className="min-w-0 truncate text-accent-foreground">{ownerLabel}</span>
+          <span className="min-w-0 truncate text-accent-foreground">
+            {ownerLabel ?? unlistedOwnerName()}
+          </span>
         </span>
-      ) : (
-        <span className="min-w-0 truncate text-muted-foreground">{t`Session not listed yet`}</span>
       ),
     },
   ];
@@ -226,7 +227,7 @@ export function PermissionResponse({
             wide: false as const,
             value: (
               <span className="min-w-0 truncate text-accent-foreground">
-                {ownerLabel ?? t`session ${ph({ session: interaction.owner_session_id })}`}
+                {ownerLabel ?? unlistedOwnerName()}
               </span>
             ),
           },

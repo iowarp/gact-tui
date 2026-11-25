@@ -13,6 +13,7 @@ import { AlertTriangleIcon, BotIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AskError } from './ask-card';
 import { STORE_REFUSED } from './composer-failure';
+import { unlistedOwnerName } from './workspace-route-state';
 import { t, ph } from '@lingui/core/macro';
 
 /**
@@ -58,8 +59,8 @@ export function PendingSurfaceNotices({
 
 /**
  * Attribution for an interaction whose owner differs from the viewed session:
- * one quiet line. A known owner gets its label; an owner this workspace has not
- * listed (or listed without a usable title) says so instead of inventing a role.
+ * one quiet line naming the conversation that asks. An owner not listed yet is
+ * a subagent this conversation just started, so it is named as one.
  */
 export function OwnerAttribution({
   interaction,
@@ -78,7 +79,7 @@ export function OwnerAttribution({
       title={ownerLabel ?? t`Requested by session ${ph({ session: interaction.owner_session_id })}`}
     >
       <BotIcon aria-hidden="true" className="size-3 shrink-0" />
-      <span className="truncate">{ownerLabel ?? t`Session not listed yet`}</span>
+      <span className="truncate">{ownerLabel ?? unlistedOwnerName()}</span>
     </span>
   );
 }

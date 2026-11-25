@@ -22,7 +22,6 @@ afterEach(() => {
   repository.a2uiCatalogs.mockClear();
 });
 
-
 describe('ClioPendingInteractions', () => {
   it('moves an agent fallback into human attention without exposing its code as prose', () => {
     renderPending([
@@ -210,7 +209,7 @@ describe('ClioPendingInteractions', () => {
     const onResponse = renderPending([interaction], { ownerLabels: {} });
 
     expect(screen.getByText('Run the child analysis command')).toBeVisible();
-    expect(screen.getByText('Session not listed yet')).toBeVisible();
+    expect(screen.getByText('A new subagent')).toBeVisible();
     expect(screen.queryByText('Specialist')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Allow once' }));
     expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'allow' });
@@ -246,7 +245,7 @@ describe('ClioPendingInteractions', () => {
     );
 
     expect(screen.queryByText('Investigation')).not.toBeInTheDocument();
-    expect(screen.queryByText('Session not listed yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('A new subagent')).not.toBeInTheDocument();
   });
 
   it('answers a single choice at once with its exact normalized response', async () => {
@@ -323,7 +322,7 @@ describe('ClioPendingInteractions', () => {
 
     // The typed unavailable status, not an invented role. The owning session id
     // rides along as the status detail so the reader can go find it.
-    expect(screen.getByText('Session not listed yet')).toBeVisible();
+    expect(screen.getByText('A new subagent')).toBeVisible();
     expect(screen.queryByText('Specialist')).not.toBeInTheDocument();
   });
 

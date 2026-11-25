@@ -4692,6 +4692,10 @@ msgstr "Mixture of Experts: トークンごとに{active}のパラメーター�
 msgid "A mixture of experts: {sizes} in all."
 msgstr "Mixture of Experts: 全体で{sizes}。"
 
+#: src/components/clio/workspace-route-state.ts
+msgid "A new subagent"
+msgstr "新しいサブエージェント"
+
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "A one-time run uses the time zone of this device."
 msgstr "1回限りの実行では、このデバイスのタイムゾーンが使用されます。"
@@ -4795,6 +4799,10 @@ msgstr "特化型モデル: 会話ではなく1つのタスクを実行します
 #: src/components/clio/flow-run-edits.ts
 msgid "a step with that name already exists"
 msgstr "その名前のステップはすでに存在します"
+
+#: src/components/clio/subagent-ask-signpost.tsx
+msgid "A subagent is waiting for you"
+msgstr "サブエージェントがあなたを待っています"
 
 #: src/components/clio/attention-center.tsx
 msgid "A system notice and sound when a conversation needs your answer or approval, or finishes while you are away."
@@ -19026,6 +19034,10 @@ msgstr "まだ確認されていません。"
 msgid "It is a trusted address in your settings"
 msgstr "設定で信頼済みのアドレスです"
 
+#: src/components/clio/subagent-ask-signpost.tsx
+msgid "It is answered in that conversation."
+msgstr "その会話で回答します。"
+
 #: src/components/clio/question-interaction-forms.tsx
 msgid "It is on this computer, served by {name}"
 msgstr "このコンピューター上にあり、{name} が提供しています"
@@ -25266,6 +25278,7 @@ msgstr "保存された完全な出力を開く"
 #: src/components/clio/run-actions.tsx
 #: src/components/clio/run-record.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/subagent-ask-signpost.tsx
 #: src/components/clio/task-activity-row.tsx
 msgid "Open conversation"
 msgstr "会話を開く"
@@ -33160,10 +33173,6 @@ msgstr "セッション"
 msgid "Session {session_id}"
 msgstr "セッション{session_id}"
 
-#: src/components/clio/permission-response.tsx
-msgid "session {session}"
-msgstr "セッション{session}"
-
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Session actions for {title}"
 msgstr "{title}のセッション操作"
@@ -33217,11 +33226,6 @@ msgstr "セッションをインポートしました"
 #: src/components/clio/spotter-quarantine-card.tsx
 msgid "Session in quarantine"
 msgstr "隔離中のセッション"
-
-#: src/components/clio/pending-interaction-notices.tsx
-#: src/components/clio/permission-response.tsx
-msgid "Session not listed yet"
-msgstr "セッションはまだ一覧にありません"
 
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Session pinned"
@@ -40725,6 +40729,7 @@ msgid "Untitled"
 msgstr "無題"
 
 #: src/components/clio/settings-report-problem.tsx
+#: src/components/clio/workspace-route-state.ts
 msgid "Untitled conversation"
 msgstr "無題の会話"
 

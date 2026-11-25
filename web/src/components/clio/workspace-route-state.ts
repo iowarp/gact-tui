@@ -9,18 +9,55 @@ import {
   type AsyncProcess,
   TransportError,
 } from '@clio/core/v3';
+import { t } from '@lingui/core/macro';
 
-/** Name only owners discovered through this session's hierarchy. */
+/**
+ * The asks a conversation shows: its own and its subagents' (their own conversations keep
+ * them; this one signposts them). A parent's or sibling's ask never shows in a subagent's
+ * conversation. An owner not listed yet stays with the family's root conversation, so a
+ * just-started subagent's ask is not lost before the list catches up.
+ */
+export function conversationInteractions<T extends { owner_session_id: string }>(
+  interactions: readonly T[],
+  input: {
+    sessionId: string;
+    /** The open session and its subagent/child closure. */
+    ownSessionIds: ReadonlySet<string>;
+    listedSessionIds: ReadonlySet<string>;
+    rootSessionId: string;
+  },
+): T[] {
+  return interactions.filter(
+    ({ owner_session_id: owner }) =>
+      owner === input.sessionId ||
+      input.ownSessionIds.has(owner) ||
+      (!input.listedSessionIds.has(owner) && input.sessionId === input.rootSessionId),
+  );
+}
+
+/** The name of an asking conversation the session list has not caught up with yet. */
+export function unlistedOwnerName(): string {
+  return t`A new subagent`;
+}
+
+/** Name the conversation that asks: its title, its subagent's title, or that it has none yet. */
 export function interactionOwnerLabels(
   interactions: readonly { owner_session_id: string }[],
-  discovered: ReadonlySet<string>,
   sessions: readonly { id: string; title?: string }[],
+  subagents: readonly { child_session_id?: string; title?: string }[] = [],
 ): Record<string, string> {
-  const owners = new Map(sessions.map((session) => [session.id, session.title]));
+  const owners = new Map<string, string | undefined>(
+    subagents.flatMap((run) =>
+      run.child_session_id ? [[run.child_session_id, run.title?.trim()] as const] : [],
+    ),
+  );
+  for (const session of sessions) {
+    owners.set(session.id, session.title?.trim() || owners.get(session.id));
+  }
   return Object.fromEntries(
     interactions.flatMap(({ owner_session_id: id }) => {
-      const title = discovered.has(id) ? owners.get(id) : undefined;
-      return title ? [[id, title]] : [];
+      if (!owners.has(id)) return [];
+      return [[id, owners.get(id) || t`Untitled conversation`]];
     }),
   );
 }

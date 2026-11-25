@@ -585,6 +585,18 @@ export function useWorkspaceData({
       ),
     [allSessions.data, entities.subagents, sessionId],
   );
+  // The family root's requests, narrowed to this conversation's own and its subagents'.
+  // Attention (other conversations' waits) and surface registration keep the family set.
+  const conversationInteractions = useMemo(
+    () =>
+      workspaceRouteState.conversationInteractions(interactions, {
+        sessionId,
+        ownSessionIds: interactionSessionIds,
+        listedSessionIds: new Set(hierarchySessions.map((item) => item.id)),
+        rootSessionId: attendedSessionId,
+      }),
+    [attendedSessionId, hierarchySessions, interactionSessionIds, interactions, sessionId],
+  );
   // Owns the A2UI catalog registry + client-metadata advertisement for every
   // session a mounted surface can reference: the open session itself, any
   // session whose pending interaction owns an A2UI surface (`a2uiOwnerIds`),
@@ -646,7 +658,7 @@ export function useWorkspaceData({
     executionProvenance,
     familyObservability: { sessions: hierarchySessions },
     interactionSessionIds,
-    interactions,
+    interactions: conversationInteractions,
     // Reads that actually failed to list responses. A failed background-root
     // request joins this warning because its attention lane is unknown. A
     // typed damaged-record notice stays with its own root: opening a clean

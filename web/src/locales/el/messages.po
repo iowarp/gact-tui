@@ -4692,6 +4692,10 @@ msgstr "Μείγμα ειδικών: {active} ενεργές παράμετρο�
 msgid "A mixture of experts: {sizes} in all."
 msgstr "Μείγμα ειδικών: {sizes} συνολικά."
 
+#: src/components/clio/workspace-route-state.ts
+msgid "A new subagent"
+msgstr "Νέος υποπράκτορας"
+
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "A one-time run uses the time zone of this device."
 msgstr "Μια εφάπαξ εκτέλεση χρησιμοποιεί τη ζώνη ώρας αυτής της συσκευής."
@@ -4795,6 +4799,10 @@ msgstr "Εξειδικευμένο μοντέλο: εκτελεί μία εργ�
 #: src/components/clio/flow-run-edits.ts
 msgid "a step with that name already exists"
 msgstr "υπάρχει ήδη βήμα με αυτό το όνομα"
+
+#: src/components/clio/subagent-ask-signpost.tsx
+msgid "A subagent is waiting for you"
+msgstr "Ένας υποπράκτορας περιμένει εσάς"
 
 #: src/components/clio/attention-center.tsx
 msgid "A system notice and sound when a conversation needs your answer or approval, or finishes while you are away."
@@ -19026,6 +19034,10 @@ msgstr "Δεν έχει ελεγχθεί ακόμη."
 msgid "It is a trusted address in your settings"
 msgstr "Είναι αξιόπιστη διεύθυνση στις ρυθμίσεις σας"
 
+#: src/components/clio/subagent-ask-signpost.tsx
+msgid "It is answered in that conversation."
+msgstr "Απαντάται σε εκείνη τη συνομιλία."
+
 #: src/components/clio/question-interaction-forms.tsx
 msgid "It is on this computer, served by {name}"
 msgstr "Βρίσκεται σε αυτόν τον υπολογιστή και την εξυπηρετεί το {name}"
@@ -25266,6 +25278,7 @@ msgstr "Άνοιγμα πλήρους αποθηκευμένης εξόδου"
 #: src/components/clio/run-actions.tsx
 #: src/components/clio/run-record.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/subagent-ask-signpost.tsx
 #: src/components/clio/task-activity-row.tsx
 msgid "Open conversation"
 msgstr "Άνοιγμα συνομιλίας"
@@ -33160,10 +33173,6 @@ msgstr "Συνεδρία"
 msgid "Session {session_id}"
 msgstr "Συνεδρία {session_id}"
 
-#: src/components/clio/permission-response.tsx
-msgid "session {session}"
-msgstr "συνεδρία {session}"
-
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Session actions for {title}"
 msgstr "Ενέργειες συνεδρίας για {title}"
@@ -33217,11 +33226,6 @@ msgstr "Η συνεδρία εισήχθη"
 #: src/components/clio/spotter-quarantine-card.tsx
 msgid "Session in quarantine"
 msgstr "Συνεδρία σε καραντίνα"
-
-#: src/components/clio/pending-interaction-notices.tsx
-#: src/components/clio/permission-response.tsx
-msgid "Session not listed yet"
-msgstr "Η συνεδρία δεν εμφανίζεται ακόμη στη λίστα"
 
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Session pinned"
@@ -40725,6 +40729,7 @@ msgid "Untitled"
 msgstr "Χωρίς τίτλο"
 
 #: src/components/clio/settings-report-problem.tsx
+#: src/components/clio/workspace-route-state.ts
 msgid "Untitled conversation"
 msgstr "Συνομιλία χωρίς τίτλο"
 

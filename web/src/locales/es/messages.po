@@ -4692,6 +4692,10 @@ msgstr "Una mezcla de expertos: {active} parámetros activos por token, de {tota
 msgid "A mixture of experts: {sizes} in all."
 msgstr "Una mezcla de expertos: {sizes} en total."
 
+#: src/components/clio/workspace-route-state.ts
+msgid "A new subagent"
+msgstr "Un subagente nuevo"
+
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "A one-time run uses the time zone of this device."
 msgstr "Una ejecución única usa la zona horaria de este dispositivo."
@@ -4795,6 +4799,10 @@ msgstr "Un modelo especializado: realiza una sola tarea en lugar de mantener una
 #: src/components/clio/flow-run-edits.ts
 msgid "a step with that name already exists"
 msgstr "ya existe un paso con ese nombre"
+
+#: src/components/clio/subagent-ask-signpost.tsx
+msgid "A subagent is waiting for you"
+msgstr "Un subagente te está esperando"
 
 #: src/components/clio/attention-center.tsx
 msgid "A system notice and sound when a conversation needs your answer or approval, or finishes while you are away."
@@ -19026,6 +19034,10 @@ msgstr "Aún no se ha comprobado."
 msgid "It is a trusted address in your settings"
 msgstr "Es una dirección de confianza en tu configuración"
 
+#: src/components/clio/subagent-ask-signpost.tsx
+msgid "It is answered in that conversation."
+msgstr "Se responde en esa conversación."
+
 #: src/components/clio/question-interaction-forms.tsx
 msgid "It is on this computer, served by {name}"
 msgstr "Está en este equipo y la sirve {name}"
@@ -25266,6 +25278,7 @@ msgstr "Abrir la salida guardada completa"
 #: src/components/clio/run-actions.tsx
 #: src/components/clio/run-record.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/subagent-ask-signpost.tsx
 #: src/components/clio/task-activity-row.tsx
 msgid "Open conversation"
 msgstr "Abrir conversación"
@@ -33160,10 +33173,6 @@ msgstr "Sesión"
 msgid "Session {session_id}"
 msgstr "Sesión {session_id}"
 
-#: src/components/clio/permission-response.tsx
-msgid "session {session}"
-msgstr "sesión {session}"
-
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Session actions for {title}"
 msgstr "Acciones de sesión para {title}"
@@ -33217,11 +33226,6 @@ msgstr "Sesión importada"
 #: src/components/clio/spotter-quarantine-card.tsx
 msgid "Session in quarantine"
 msgstr "Sesión en cuarentena"
-
-#: src/components/clio/pending-interaction-notices.tsx
-#: src/components/clio/permission-response.tsx
-msgid "Session not listed yet"
-msgstr "La sesión aún no aparece en la lista"
 
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Session pinned"
@@ -40725,6 +40729,7 @@ msgid "Untitled"
 msgstr "Sin título"
 
 #: src/components/clio/settings-report-problem.tsx
+#: src/components/clio/workspace-route-state.ts
 msgid "Untitled conversation"
 msgstr "Conversación sin título"
 

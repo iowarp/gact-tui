@@ -105,7 +105,6 @@ export function WorkspacePage() {
     entities,
     installedAgents,
     interactions,
-    interactionSessionIds,
     session,
     sessionLookupPending,
     sessions,
@@ -126,10 +125,10 @@ export function WorkspacePage() {
     () =>
       workspaceRouteState.interactionOwnerLabels(
         interactions,
-        interactionSessionIds,
         navigationSessions,
+        Object.values(entities.subagents),
       ),
-    [interactionSessionIds, interactions, navigationSessions],
+    [entities.subagents, interactions, navigationSessions],
   );
   const messageCount = useSessionMessageCount(sessionId);
   const transcriptDamaged = workspaceRouteState.conversationDamaged(transcript.error);
@@ -244,6 +243,7 @@ export function WorkspacePage() {
             label: t`Script`,
           }),
         ownerLabels: interactionOwnerLabels,
+        onOpenOwner: workbench.openConversation,
         surfaces: data.interactionSurfaces,
         viewedSessionId: sessionId,
       },

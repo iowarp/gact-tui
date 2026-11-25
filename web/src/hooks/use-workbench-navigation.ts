@@ -144,6 +144,17 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     [navigate, openSubagent, workspaceId],
   );
 
+  /** Opens a conversation as its own page, where its asks are answered. */
+  const openConversation = useCallback(
+    (conversationId: string) => {
+      const owner = allSessionsRef.current.find((item) => item.id === conversationId);
+      void navigate(
+        `/workspaces/${encodeURIComponent(owner?.workspace_id ?? workspaceId)}/sessions/${encodeURIComponent(conversationId)}`,
+      );
+    },
+    [navigate, workspaceId],
+  );
+
   useEffect(() => {
     const open = (event: Event) => {
       const request = (event as CustomEvent<KnowledgeOpenRequest>).detail;
@@ -341,5 +352,6 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     openWorkspaceResource,
     revealWorkbench,
     revealSurfaceOwner,
+    openConversation,
   };
 }
