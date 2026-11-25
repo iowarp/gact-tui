@@ -1767,6 +1767,10 @@ msgstr ""
 msgid "{count, plural, one {# task} other {# tasks}}"
 msgstr ""
 
+#: src/components/clio/todo-tool-presentation.ts
+msgid "{count, plural, one {# todo changed} other {# todos changed}}"
+msgstr ""
+
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/settings-mcp-services.tsx
 #: src/components/clio/settings-tool-permissions.tsx
@@ -4166,6 +4170,10 @@ msgstr ""
 
 #: src/lib/plugin-presentation.ts
 msgid "{total, plural, one {{active} of # member in this conversation} other {{active} of # members in this conversation}}"
+msgstr ""
+
+#: src/components/clio/run-tab.tsx
+msgid "{total, plural, one {{done} of # step} other {{done} of # steps}}"
 msgstr ""
 
 #: src/components/clio/task-progress-label.ts
@@ -13983,6 +13991,7 @@ msgstr ""
 #: src/components/clio/file-viewer-take.tsx
 #: src/components/clio/memory-document-dialog.tsx
 #: src/components/clio/resource-states.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/settings-app-updates.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
@@ -18263,6 +18272,7 @@ msgstr ""
 msgid "Index more sessions"
 msgstr ""
 
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 msgid "Indexing"
@@ -23857,6 +23867,10 @@ msgstr ""
 
 #: src/components/clio/workbench-list-column.tsx
 msgid "No terminal here"
+msgstr ""
+
+#: src/components/clio/todo-tool-presentation.ts
+msgid "No todos in this list"
 msgstr ""
 
 #: src/components/clio/catalog-toolset.tsx
@@ -31058,6 +31072,7 @@ msgstr ""
 
 #: src/components/clio/permission-operation-labels.ts
 #: src/components/clio/tool-operation-contract.ts
+#: src/routes/runs-rows.ts
 msgid "Run command"
 msgstr ""
 
@@ -39627,6 +39642,7 @@ msgstr ""
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-tools-header.tsx
@@ -42051,6 +42067,7 @@ msgstr ""
 #: src/components/clio/composer-run-announcer.tsx
 #: src/components/clio/flow-run-edit-list.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/work-kind-status.tsx
 msgid "Waiting for your answer"

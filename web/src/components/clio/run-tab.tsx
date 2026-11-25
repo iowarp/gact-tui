@@ -12,11 +12,12 @@ import { taskProgressLabel } from '@/components/clio/task-progress-label';
 import { RunRecord, RunRetry } from '@/components/clio/run-record';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useNow } from '@/hooks/use-now';
+import { useRunQuestions } from '@/hooks/use-run-questions';
 import { useCountedTaskProgress } from '@/hooks/use-count-up';
 import { formatDuration } from '@/lib/format';
 import { formatLocale } from '@/lib/locale-format';
 import { sourceLabels, type RunRow } from '@/routes/runs-rows';
-import { t, ph } from '@lingui/core/macro';
+import { plural, t, ph } from '@lingui/core/macro';
 
 const FlowRunView = lazy(() =>
   import('@/components/clio/flow-run-view').then((module) => ({ default: module.FlowRunView })),
@@ -72,6 +73,32 @@ export function RunStateWord({ row, stateLabel }: { row: RunRow; stateLabel: str
   );
 }
 
+/**
+ * A producer's status line as a person reads it. "relay operation is running:
+ * step 0 of 2; resolving: pvserver" repeats the state and packs a counter; it
+ * reads "Resolving pvserver" with "0 of 2 steps" beside it.
+ */
+function readableProgress(raw: string): { text?: string; steps?: string } {
+  let steps: string | undefined;
+  const parts = raw
+    .trim()
+    .replace(/^[\p{L}\p{N}_ .-]+? (?:is )?running:\s*/iu, '')
+    .split(/\s*;\s*/u)
+    .filter((part) => {
+      const counted = /^step (\d+) of (\d+)$/iu.exec(part);
+      if (!counted) return Boolean(part);
+      const done = Number(counted[1]);
+      const total = Number(counted[2]);
+      steps = plural(total, { one: `${done} of # step`, other: `${done} of # steps` });
+      return false;
+    })
+    .map((part) => part.replace(/^([\p{L} ]+):\s+/u, '$1 '));
+  const text = parts.join(', ');
+  return {
+    text: text ? text.charAt(0).toLocaleUpperCase(formatLocale()) + text.slice(1) : undefined,
+    steps,
+  };
+}
 /** One `.tsk` line: the row's own status mark, the words and a faint fact. */
 function RunLine({ row, text, meta }: { row: RunRow; text: string; meta?: string }) {
   return (
@@ -104,14 +131,18 @@ export function RunSummary({
   stop?: { onStop: () => void; stopping: boolean };
 }) {
   const shownProgress = useCountedTaskProgress(row.progress, row.taskId);
+  const pendingQuestion = useRunQuestions(row, row.state === 'waiting_user').find(
+    (question) => question.status === 'pending',
+  );
   const progress = taskProgressLabel(shownProgress, row.taskKind, row.statusDetail);
   // A lost or failed run's last message is its reported issue, kept once under Details.
-  const message =
+  const reported =
     typeof row.progress?.message === 'string' &&
     row.progress.message.trim() &&
     row.progress.message.trim() !== row.statusDetail?.trim()
-      ? row.progress.message.trim()
+      ? readableProgress(row.progress.message)
       : undefined;
+  const message = reported?.text;
   const reason =
     row.statusReason && row.state !== 'task_state_uncertain' ? row.statusReason : undefined;
   if (row.state === 'queued') {
@@ -152,13 +183,24 @@ export function RunSummary({
     );
   }
   const settled = row.state === 'cancelled' || row.state === 'stopped' || row.state === 'paused';
-  const headline =
-    row.state === 'failed'
+  // A run waiting on you leads with what it asked, not the producer's status line.
+  const waitingQuestion =
+    row.state === 'waiting_user'
+      ? pendingQuestion?.prompt?.trim() ||
+        pendingQuestion?.title?.trim() ||
+        t`Waiting for your answer`
+      : undefined;
+  const headline = waitingQuestion
+    ? waitingQuestion
+    : row.state === 'failed'
       ? (message ?? t`The run stopped with an error`)
       : settled
         ? stateLabel
         : (message ?? (RUNNING.includes(row.state) ? t`Working` : stateLabel));
-  const meta = progress && progress !== headline ? progress : undefined;
+  const meta =
+    progress && progress !== headline && progress !== row.progress?.message
+      ? progress
+      : reported?.steps;
   const answerHref =
     row.state === 'waiting_user' || row.state === 'waiting_permission'
       ? runConversationHref(row, false)

@@ -200,6 +200,11 @@ export const RunListRow = memo(function RunListRow({
       : undefined;
   const reason =
     row.statusReason && row.state !== 'task_state_uncertain' ? row.statusReason : undefined;
+  // A run that still reports progress updates every few seconds: its age, not its last tick.
+  const when =
+    (look.tone === 'running' || look.tone === 'waiting' || row.state === 'queued'
+      ? row.createdAt
+      : row.terminalAt) ?? row.updatedAt;
   const where = row.source === 'flow' ? row.placement : row.host || t`Host unavailable`;
   const source =
     row.source === 'flow' ? sourceLabels.flow : `${sourceLabels[row.source]} on ${where}`;
@@ -313,10 +318,10 @@ export const RunListRow = memo(function RunListRow({
                 'w-[30px] shrink-0 text-right text-caption text-muted-foreground',
                 !rail && NARROW_TIME_UNDER_ACTIONS,
               )}
-              dateTime={row.updatedAt}
-              title={fullWhen(row.updatedAt)}
+              dateTime={when}
+              title={fullWhen(when)}
             >
-              {compactWhen(row.updatedAt)}
+              {compactWhen(when)}
             </time>
           )}
         </>

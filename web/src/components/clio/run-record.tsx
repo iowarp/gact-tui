@@ -26,6 +26,7 @@ import { TechnicalDetails } from '@/components/clio/technical-details';
 import { callerName } from '@/components/clio/tool-presentation';
 import { TOOL_OPERATIONS } from '@/components/clio/tool-operation-contract';
 import { useRunChildSession } from '@/hooks/use-flow-run';
+import { useRunQuestions } from '@/hooks/use-run-questions';
 import { useRepository } from '@/hooks/use-repository';
 import { formatDuration } from '@/lib/format';
 import { jobFromTask } from '@/lib/job-snapshot';
@@ -343,27 +344,7 @@ function questionState(question: PendingInteraction): string {
 
 /** The questions this run asked and how each was answered, oldest first. */
 function RunQuestions({ row, live }: { row: RunRow; live: boolean }) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const sessionId = row.ownerSessionId ?? row.targetSessionId ?? '';
-  const delegated = row.taskKind === 'Subagent';
-  const { child } = useRunChildSession(row.handleId, delegated, live);
-  const questions = useQuery({
-    queryKey: queryKeys.key('flow-questions', settings.endpoint, sessionId),
-    enabled: Boolean(sessionId),
-    queryFn: ({ signal }) => repository.flowQuestions(sessionId, signal),
-    refetchInterval: live ? RUN_POLL_MS : false,
-    retry: false,
-  });
-  const invocation = row.task?.invocation_id;
-  const asked = (questions.data ?? [])
-    .filter(
-      (question) =>
-        question.task_id === row.handleId ||
-        (invocation && question.source.invocation_id === invocation) ||
-        (child && (question.owner_session_id === child || question.attended_session_id === child)),
-    )
-    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const asked = useRunQuestions(row, live);
   if (!asked.length) return null;
   const answerHref = runConversationHref(row, false);
   return (
@@ -385,7 +366,7 @@ function RunQuestions({ row, live }: { row: RunRow; live: boolean }) {
                     ? t`Asked ${formatDateTime(question.created_at)}`
                     : t`No answer recorded`}
               </p>
-              {question.status === 'pending' && answerHref ? (
+              {question.status === 'pending' && answerHref && row.state !== 'waiting_user' ? (
                 <Button
                   asChild
                   className="mt-1 ml-6 justify-self-start"
