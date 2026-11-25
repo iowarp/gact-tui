@@ -29,8 +29,9 @@ export function humanFailureText(text: string | undefined | null): string | unde
   return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 }
 
-/** Typed refusals that mean CLIO cannot record anything new (its store refuses writes). */
-const STORE_REFUSALS = new Set(['clio_core_writes_refused']);
+/** The typed refusal that means CLIO cannot record anything new (its store refuses writes). */
+export const STORE_REFUSED = 'clio_core_writes_refused';
+const STORE_REFUSALS = new Set([STORE_REFUSED]);
 
 /**
  * The service's own sentence when a send was refused because CLIO's conversation

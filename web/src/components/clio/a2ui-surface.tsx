@@ -605,7 +605,7 @@ function ClioA2UISurfaceContent({
   );
   const surfaceFeedback = (
     <>
-      <ClioA2UIActionLifecycle lifecycle={actionLifecycle} />
+      <ClioA2UIActionLifecycle lifecycle={actionLifecycle} surface={surface} />
       {localActionPending || localActionStatus ? (
         <div aria-live="polite" className="py-2 text-xs">
           <ClioStatus

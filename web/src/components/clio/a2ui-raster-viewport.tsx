@@ -13,23 +13,17 @@ import { buildZoneReference, type DataZoneReference } from './data-zone-referenc
 import { downloadBlob, filenameStemFromTitle } from './surface-export';
 import { SurfaceFullScreenHost, useSurfaceFullScreen } from './surface-full-screen';
 import { SurfaceToolbar, type SurfaceCapabilities } from './surface-toolbar';
-import { COLORMAP_STOPS, DATA_SCALE_EXEMPTION, type Colormap } from '@/theme/data-scales';
+import {
+  COLORMAP_STOPS,
+  DATA_SCALE_EXEMPTION,
+  colormapRgb,
+  type Colormap,
+} from '@/theme/data-scales';
 import { t, ph } from '@lingui/core/macro';
 
 type Extent = [number, number, number, number];
 type Box = { x0: number; y0: number; x1: number; y1: number };
-function colorAt(map: Colormap, fraction: number): [number, number, number] {
-  const scaled = Math.max(0, Math.min(0.9999, fraction)) * 4;
-  const index = Math.floor(scaled);
-  const position = scaled - index;
-  const from = COLORMAP_STOPS[map][index]!;
-  const to = COLORMAP_STOPS[map][index + 1]!;
-  return [1, 3, 5].map((offset) => {
-    const a = Number.parseInt(from.slice(offset, offset + 2), 16);
-    const b = Number.parseInt(to.slice(offset, offset + 2), 16);
-    return Math.round(a + (b - a) * position);
-  }) as [number, number, number];
-}
+const colorAt = colormapRgb;
 
 function drawRaster(
   canvas: HTMLCanvasElement,

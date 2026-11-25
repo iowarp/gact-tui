@@ -84,10 +84,37 @@ export function TranscriptLoadError({ error, onRetry }: { error: string; onRetry
   );
 }
 
-/** A background refresh, at row height in the control lane so it never covers a message. */
+/** A background refresh, as a small pill that never takes layout space. */
 export function TranscriptSyncing() {
-  return <StateView className="w-fit" kind="loading" size="row" title={t`Syncing history…`} />;
+  return (
+    <StateView
+      className="w-fit rounded-full bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/15 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-100"
+      kind="loading"
+      size="row"
+      title={t`Syncing history…`}
+    />
+  );
 }
+
+/** A refresh shorter than this shows nothing, so routine syncs stay invisible. */
+export const TRANSCRIPT_SYNC_REVEAL_MS = 1000;
+
+/**
+ * A long background refresh while no control lane is shown. The slot is a
+ * zero-height sticky box at the start of the scroller, and the pill hangs down
+ * from the top edge of the view, away from the newest row. Showing or hiding it
+ * never changes the transcript's height, so the history never jumps while syncs
+ * come and go.
+ */
+export const TranscriptSyncOverlay = memo(function TranscriptSyncOverlay() {
+  return (
+    <div className="pointer-events-none sticky top-0 z-20 h-0" data-slot="transcript-sync-overlay">
+      <div className="absolute inset-x-0 top-2 flex justify-center">
+        <TranscriptSyncing />
+      </div>
+    </div>
+  );
+});
 
 /** Height of the lane above the composer that holds the transcript's floating controls. */
 export const TRANSCRIPT_CONTROL_LANE_PX = 40;
@@ -107,7 +134,7 @@ export const TranscriptControlLane = memo(function TranscriptControlLane({
 }: {
   /** Present while the reader is away from the latest message. */
   onJump?: () => void;
-  /** A background refresh of the history is in flight. */
+  /** A long background refresh of the history is in flight. */
   syncing?: boolean;
 }) {
   return (

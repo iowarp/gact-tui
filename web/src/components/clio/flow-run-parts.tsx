@@ -344,7 +344,17 @@ export function FlowStall({
       ? t`Research was blocked`
       : outcome.reason === 'flow_stall'
         ? t`The flow stalled`
-        : t`The flow stopped`;
+        : outcome.reason === 'flow_error'
+          ? t`The flow hit an error`
+          : t`The flow stopped`;
+  // An unexpected error's message can be a whole model reply: the headline is its first
+  // line, clamped, and the full text is in Details (live, 2,000 characters of JSON).
+  const message = outcome.message.trim();
+  const headline = message.split('\n', 1)[0] ?? '';
+  const errorType = typeof outcome.error === 'string' ? outcome.error : '';
+  const cut =
+    typeof outcome.message_truncated_chars === 'number' ? outcome.message_truncated_chars : 0;
+  const fullMessage = message !== headline || headline.length > 240 || cut > 0;
   const open = outcome.handle ? (
     <Button
       className="h-6 w-fit px-2 text-xs"
@@ -375,6 +385,12 @@ export function FlowStall({
           <dd>{outcome.ended_by.message}</dd>
         </>
       ) : null}
+      {errorType ? (
+        <>
+          <dt className="text-muted-foreground">{t`Error`}</dt>
+          <dd className="font-mono">{errorType}</dd>
+        </>
+      ) : null}
       {outcome.step ? (
         <>
           <dt className="text-muted-foreground">{t`Step`}</dt>
@@ -402,12 +418,15 @@ export function FlowStall({
           {title}
           {outcome.step ? ` at ${outcome.step}` : ''}:
         </span>
-        <span className="min-w-[min(100%,14rem)] flex-1 [overflow-wrap:anywhere]">
+        <span
+          className="line-clamp-2 min-w-[min(100%,14rem)] flex-1 [overflow-wrap:anywhere]"
+          data-slot="flow-stall-headline"
+        >
           {stopped
             ? outcome.stop_reason === 'conversation_stop'
               ? t`Stopped with this conversation's Stop. A restart keeps the steps that finished.`
               : t`A restart keeps the steps that finished.`
-            : outcome.message || t`No message was recorded.`}
+            : headline || t`No message was recorded.`}
         </span>
         {open}
       </div>
@@ -416,6 +435,21 @@ export function FlowStall({
           <summary className="w-fit cursor-pointer text-muted-foreground">{t`Details`}</summary>
           <div className="mt-1 grid gap-1">
             {facts}
+            {!stopped && fullMessage ? (
+              <div className="grid gap-1">
+                <p className="text-muted-foreground">
+                  {cut > 0
+                    ? plural(cut, {
+                        one: 'Message (the record kept its start; # more character was cut)',
+                        other: 'Message (the record kept its start; # more characters were cut)',
+                      })
+                    : t`Message`}
+                </p>
+                <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words font-mono">
+                  {message}
+                </pre>
+              </div>
+            ) : null}
             {outcome.observed !== undefined ? (
               <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words font-mono">
                 {JSON.stringify(outcome.observed, null, 2)}

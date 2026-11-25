@@ -176,6 +176,7 @@ export async function navigateComposerReference({
     case 'workflow':
     case 'flow':
     case 'server':
+    case 'plugin':
       // A summons names what handles the message; there is nothing to open.
       return unresolved(t`What you summoned has no page of its own.`);
     case 'unknown':

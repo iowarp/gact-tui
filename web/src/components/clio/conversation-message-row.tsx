@@ -9,6 +9,7 @@ import { MessageBlockSequence, ReplyErrorLine } from './conversation-message-blo
 import { replyFailureCode, replyFailureReason } from './reply-failure';
 import { ReplyRecoveryActions } from './reply-failure-recovery';
 import { ConversationTurn } from './conversation-turn';
+import type { TurnEnd } from './conversation-activity-lane';
 import { VariantRunsForMessage } from './variant-runs-for-message';
 import { subagentsForTool } from './subagent-tool-link';
 import type { ConversationMessageRowProps } from './conversation-types';
@@ -170,11 +171,24 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const answerStarted = visibleResidualBlocks.some(
     (block) => block.type === 'text' && block.text.trim().length > 0,
   );
-  // A settled run folds into its counted row once the agent moves past it.
+  // While the turn runs, its calls stay as rows; they fold into counted rows once it ends.
   const turnLive =
     active ||
     (liveActivityId !== undefined &&
       turn.iterations.some((iteration) => iteration.id === liveActivityId));
+  // A turn that ended without finishing marks its last run so, never as done.
+  const turnEnd: TurnEnd | undefined =
+    message.role !== 'assistant' || turnLive
+      ? undefined
+      : emptyResponseWasClientCancelled
+        ? 'stopped'
+        : interruptedByService
+          ? 'interrupted'
+          : emptyResponseErrorCode ||
+              emptyResponseErrorMessage ||
+              message.blocks.some((block) => block.type === 'error')
+            ? 'failed'
+            : undefined;
   const executionMode = specialMessageExecutionMode(message);
   const messageAttentionIndex = useMessageAttentionIndex(entities.attentionData, message);
 
@@ -431,6 +445,13 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                                   .slice(segmentIndex + 1)
                                   .some((later) => later.kind !== 'feedback')
                               }
+                              turnRunning={turnLive}
+                              turnEnd={
+                                segmentIndex ===
+                                segments.findLastIndex((later) => later.kind === 'iterations')
+                                  ? turnEnd
+                                  : undefined
+                              }
                               answerStarted={answerStarted}
                               artifacts={entities.artifacts}
                               interactions={entities.interactions}
@@ -505,6 +526,20 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   )}
                   data-slot="user-message-actions"
                 >
+                  <div
+                    className={cn(
+                      'flex items-center gap-3',
+                      // Time and actions show on hover; opacity, not visibility, keeps them focusable.
+                      // They come first: hidden, they still take their width, and after the
+                      // mode tag they pushed it off the bubble's edge (live 2026-11-18).
+                      'sm:pointer-events-none sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
+                    )}
+                  >
+                    <time dateTime={message.created_at} title={formatDateTime(message.created_at)}>
+                      {formatClockTime(message.created_at)}
+                    </time>
+                    {actions}
+                  </div>
                   {pendingSteer ? (
                     <>
                       {/* runs-attention: Queued is an empty ring and the word. */}
@@ -546,18 +581,6 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                       role="img"
                     />
                   ) : null}
-                  <div
-                    className={cn(
-                      'flex items-center gap-3',
-                      // Time and actions show on hover; opacity, not visibility, keeps them focusable.
-                      'sm:pointer-events-none sm:opacity-0 sm:group-focus-within/prompt:pointer-events-auto sm:group-focus-within/prompt:opacity-100 sm:group-hover/prompt:pointer-events-auto sm:group-hover/prompt:opacity-100',
-                    )}
-                  >
-                    <time dateTime={message.created_at} title={formatDateTime(message.created_at)}>
-                      {formatClockTime(message.created_at)}
-                    </time>
-                    {actions}
-                  </div>
                 </div>
               ) : null}
             </div>

@@ -68,6 +68,29 @@ it('labels special prompt modes while leaving Execute unmarked', () => {
   expect(screen.getByText('Run this task.')).toBeInTheDocument();
 });
 
+// Live 2026-11-18: the hover-only time and actions after the tag kept their width while
+// hidden, so the tag sat well left of the bubble's right edge.
+it('ends the prompt row with the mode tag, after the hover-only time and actions', () => {
+  render(
+    <AppearanceProvider>
+      <ConversationDisplayProvider>
+        <ClioConversation
+          artifacts={{}}
+          messages={[prompt('deep_research', 'Research this topic.')]}
+          subagents={{}}
+          surfaces={{}}
+          tasks={{}}
+          tools={{}}
+        />
+      </ConversationDisplayProvider>
+    </AppearanceProvider>,
+  );
+  const tag = screen.getByLabelText('Sent in Deep research mode');
+  const row = tag.closest('[data-slot="user-message-actions"]')!;
+  expect(row.lastElementChild).toBe(tag);
+  expect(row.firstElementChild?.querySelector('time')).not.toBeNull();
+});
+
 it('retains the recorded Plan mode after a transcript round trip', () => {
   const sent = prompt('plan', 'Plan this change before executing it.');
   const reloaded = JSON.parse(JSON.stringify(sent)) as Message;

@@ -3,6 +3,11 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest';
 import { DeferredA2UISurface } from './conversation-message-blocks';
 
+// A suspended surface keeps its viewer lease with the service; these tests check layout only.
+vi.mock('@/hooks/use-repository', () => ({
+  useRepository: () => ({ reportA2uiViewer: () => Promise.resolve([]) }),
+}));
+
 vi.mock('./a2ui-surface', () => ({
   ClioA2UISurface: () => <input aria-label="Unsent response" defaultValue="" />,
 }));

@@ -26,6 +26,40 @@ afterEach(() => {
 });
 
 describe('paintAppFrames', () => {
+  it('places a later view where it sits when the page scrolled during an earlier snapshot', async () => {
+    vi.stubGlobal(
+      'Image',
+      class {
+        src = '';
+        decode() {
+          return Promise.resolve();
+        }
+      },
+    );
+    let scroll = 0;
+    const at = (element: Element, top: number) =>
+      (element.getBoundingClientRect = () =>
+        ({ left: 0, top: top - scroll, width: 200, height: 100, right: 200 }) as DOMRect);
+    const target = document.createElement('div');
+    target.innerHTML =
+      '<iframe data-mcp-app-iframe="a"></iframe><iframe data-mcp-app-iframe="b"></iframe>';
+    const [a, b] = [...target.querySelectorAll('iframe')] as HTMLIFrameElement[];
+    at(target, 100);
+    at(a!, 100);
+    at(b!, 250);
+    const image = { image: 'data:image/png;base64,iVBORw0KGgo=', skipped: [] };
+    registerViewSnapshot(a!, async () => {
+      scroll += 40;
+      return image as never;
+    });
+    registerViewSnapshot(b!, async () => image as never);
+    const { calls, context } = fakeContext();
+
+    await paintAppFrames(context, target, 1, 1);
+
+    expect(calls.drawImage.mock.calls.map((call: unknown[]) => call[2])).toEqual([0, 150]);
+  });
+
   it('paints a view from its snapshot at its frame box, and names why another is missing', async () => {
     vi.stubGlobal(
       'Image',

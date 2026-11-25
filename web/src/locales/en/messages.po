@@ -48,6 +48,15 @@ msgstr ", unsaved changes"
 msgid ", your answer"
 msgstr ", your answer"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "; dashed: {overlay}"
+msgstr "; dashed: {overlay}"
+
+#. The label of the control the person pressed, quoted
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "“{control}”"
+msgstr "“{control}”"
+
 #: src/components/clio/a2ui-mesh-viewport.tsx
 msgid "“{label}” is per-node; a threshold needs per-element values, so the threshold is off."
 msgstr "“{label}” is per-node; a threshold needs per-element values, so the threshold is off."
@@ -263,6 +272,11 @@ msgstr "{0, plural, one {# comment sent to the agent.} other {# comments sent to
 msgid "{0, plural, one {# dataset} other {# datasets}}"
 msgstr "{0, plural, one {# dataset} other {# datasets}}"
 
+#. placeholder {0}: run.denied
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# denied} other {# denied}}"
+msgstr "{0, plural, one {# denied} other {# denied}}"
+
 #. placeholder {0}: model.downloads
 #: src/components/clio/model-download-search.tsx
 msgid "{0, plural, one {# download} other {# downloads}}"
@@ -470,6 +484,11 @@ msgstr "{0, plural, one {# plugin} other {# plugins}}"
 msgid "{0, plural, one {# problem} other {# problems}}"
 msgstr "{0, plural, one {# problem} other {# problems}}"
 
+#. placeholder {0}: profiles.length
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{0, plural, one {# profile} other {# profiles}}"
+msgstr "{0, plural, one {# profile} other {# profiles}}"
+
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
 msgid "{0, plural, one {# prompt family available.} other {# prompt families available.}}"
@@ -615,6 +634,11 @@ msgstr "{0, plural, one {# step, {state}} other {# steps, {state}}}"
 #: src/components/clio/workbench-variant-try-tab.tsx
 msgid "{0, plural, one {# step} other {# steps}}"
 msgstr "{0, plural, one {# step} other {# steps}}"
+
+#. placeholder {0}: run.interrupted
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "{0, plural, one {# stopped} other {# stopped}}"
+msgstr "{0, plural, one {# stopped} other {# stopped}}"
 
 #. placeholder {0}: request.data.events
 #: src/components/clio/ndp-endpoint-operation.tsx
@@ -796,6 +820,11 @@ msgstr "{0, plural, one {Enter at least # character.} other {Enter at least # ch
 msgid "{0, plural, one {Enter no more than # character.} other {Enter no more than # characters.}}"
 msgstr "{0, plural, one {Enter no more than # character.} other {Enter no more than # characters.}}"
 
+#. placeholder {0}: focus.length
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{0, plural, one {Exclude # picked profile} other {Exclude # picked profiles}}"
+msgstr "{0, plural, one {Exclude # picked profile} other {Exclude # picked profiles}}"
+
 #. placeholder {0}: result.added.length
 #: src/components/clio/provider-model-refresh.ts
 msgid "{0, plural, one {Found # new model after updating the client.} other {Found # new models after updating the client.}}"
@@ -975,21 +1004,6 @@ msgstr "{0, plural, one {Workflow graph of # step and what it waits on} other {W
 #: src/components/clio/permission-operation-details.tsx
 msgid "{0, plural, one {writes to # folder} other {writes to # folders}}"
 msgstr "{0, plural, one {writes to # folder} other {writes to # folders}}"
-
-#. placeholder {0}: run.denied
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# denied}}"
-msgstr "{0, plural, other {# denied}}"
-
-#. placeholder {0}: run.failed
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# failed}}"
-msgstr "{0, plural, other {# failed}}"
-
-#. placeholder {0}: run.interrupted
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{0, plural, other {# stopped}}"
-msgstr "{0, plural, other {# stopped}}"
 
 #. placeholder {0}: /^[aeiou]/iu.test(agentName) ? 'an' : 'a'
 #: src/components/clio/clio-menu.tsx
@@ -1851,6 +1865,14 @@ msgstr "{count} more: {tags}"
 msgid "{count} of {total} brought in"
 msgstr "{count} of {total} brought in"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{count} profiles of {variable} against {vertical}, {excluded} excluded"
+msgstr "{count} profiles of {variable} against {vertical}, {excluded} excluded"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{count} profiles, {excluded} excluded"
+msgstr "{count} profiles, {excluded} excluded"
+
 #: src/components/clio/memory-creation-log.tsx
 msgid "{count} rejected"
 msgstr "{count} rejected"
@@ -1880,6 +1902,10 @@ msgstr "{count}, up to {atOnce} at a time"
 msgid "{count}+ links"
 msgstr "{count}+ links"
 
+#: src/components/clio/flow-run-parts.tsx
+msgid "{cut, plural, one {Message (the record kept its start; # more character was cut)} other {Message (the record kept its start; # more characters were cut)}}"
+msgstr "{cut, plural, one {Message (the record kept its start; # more character was cut)} other {Message (the record kept its start; # more characters were cut)}}"
+
 #: src/hooks/use-execution-provenance.ts
 msgid "{danglingEdges, plural, one {# relationship references missing nodes} other {# relationships reference missing nodes}}"
 msgstr "{danglingEdges, plural, one {# relationship references missing nodes} other {# relationships reference missing nodes}}"
@@ -1895,10 +1921,6 @@ msgstr "{delegated, plural, one {delegated # task} other {delegated # tasks}}"
 #: src/lib/transcript-message-preview.ts
 msgid "{delegates, plural, one {# delegate} other {# delegates}}"
 msgstr "{delegates, plural, one {# delegate} other {# delegates}}"
-
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{denied} denied"
-msgstr "{denied} denied"
 
 #: src/components/clio/settings-session-defaults.tsx
 msgid "{description} Workspace and organization rules still apply."
@@ -2014,7 +2036,6 @@ msgstr "{failed, plural, one {# could not be enabled} other {# could not be enab
 msgid "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
 msgstr "{failed, plural, one {# unsuccessful} other {# unsuccessful}}"
 
-#: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/nested-tool-calls.tsx
 msgid "{failed} failed"
 msgstr "{failed} failed"
@@ -2205,6 +2226,10 @@ msgstr "{hidden, plural, one {# more workspace} other {# more workspaces}}"
 msgid "{hidden, plural, one {# more} other {# more}}"
 msgstr "{hidden, plural, one {# more} other {# more}}"
 
+#: src/components/clio/layered-map-category-legend.tsx
+msgid "{hidden, plural, one {+# more} other {+# more}}"
+msgstr "{hidden, plural, one {+# more} other {+# more}}"
+
 #: src/components/clio/knowledge-note-body.tsx
 msgid "{hidden} more"
 msgstr "{hidden} more"
@@ -2271,10 +2296,6 @@ msgstr "{input} in, {output} out"
 msgid "{input} input, {output} output tokens"
 msgstr "{input} input, {output} output tokens"
 
-#: src/components/clio/conversation-activity-lane.tsx
-msgid "{interrupted} stopped"
-msgstr "{interrupted} stopped"
-
 #: src/components/clio/memory-creation-log.tsx
 msgid "{kept} kept of {returned}"
 msgstr "{kept} kept of {returned}"
@@ -2324,6 +2345,10 @@ msgstr "{kind}: {title}, {state}"
 #: src/components/clio/pending-interactions.tsx
 msgid "{kind}: {words}"
 msgstr "{kind}: {words}"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "{km} km, {level}: {value}"
+msgstr "{km} km, {level}: {value}"
 
 #: src/components/clio/refresh-button.tsx
 msgid "{label} — refreshing"
@@ -3260,6 +3285,10 @@ msgstr "{plugin} subagents"
 #: src/components/clio/agent-package-items.ts
 msgid "{plugin} tools"
 msgstr "{plugin} tools"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "{position} of {count}"
+msgstr "{position} of {count}"
 
 #: src/components/clio/a2ui-carousel.tsx
 #: src/components/clio/pending-interactions.tsx
@@ -4242,6 +4271,14 @@ msgstr "{value}°"
 msgid "{valueLabel} colour scale"
 msgstr "{valueLabel} colour scale"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{variable} {unit} against {vertical} {verticalUnit}"
+msgstr "{variable} {unit} against {vertical} {verticalUnit}"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "{variable} along {km} km against {vertical}, {stations} stations"
+msgstr "{variable} along {km} km against {vertical}, {stations} stations"
+
 #: src/components/clio/attention-center.tsx
 msgid "{verb, select, approval {{title} wants approval} question {{title} asked a question} value {{title} needs a value} form {{title} shows a form} request {{title} sent a request} command {{title} wants to run a command} other {{title} needs you}}"
 msgstr "{verb, select, approval {{title} wants approval} question {{title} asked a question} value {{title} needs a value} form {{title} shows a form} request {{title} sent a request} command {{title} wants to run a command} other {{title} needs you}}"
@@ -4463,6 +4500,10 @@ msgstr "3D viewport"
 msgid "6 months"
 msgstr "6 months"
 
+#: src/widget-gallery-demos.ts
+msgid "600 profiles against a model"
+msgstr "600 profiles against a model"
+
 #: src/components/clio/managed-service-target-utils.ts
 msgid "64-bit"
 msgstr "64-bit"
@@ -4555,6 +4596,10 @@ msgstr "A general model: it can hold a conversation."
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "A git repository URL or a folder on the service's host."
 msgstr "A git repository URL or a folder on the service's host."
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "A grid layer could not be read: {reason}"
+msgstr "A grid layer could not be read: {reason}"
 
 #: src/components/clio/answer-hook-notice.tsx
 msgid "a hook"
@@ -5355,6 +5400,10 @@ msgstr "Add another computer…"
 msgid "Add answer to chat"
 msgstr "Add answer to chat"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Add as an injection"
+msgstr "Add as an injection"
+
 #: src/components/clio/composer-file-upload.tsx
 msgid "Add attachments"
 msgstr "Add attachments"
@@ -5522,6 +5571,10 @@ msgstr "Add to chat"
 msgid "Add to message"
 msgstr "Add to message"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Add to the tool list"
+msgstr "Add to the tool list"
+
 #: src/components/clio/ndp-browser-tab.tsx
 msgid "Add to workspace"
 msgstr "Add to workspace"
@@ -5615,6 +5668,10 @@ msgstr "added by {addedBy}"
 #: src/lib/plugin-presentation.ts
 msgid "Added by you"
 msgstr "Added by you"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "Added the plugin {target} as you asked"
+msgstr "Added the plugin {target} as you asked"
 
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Added:"
@@ -6414,6 +6471,10 @@ msgstr "Analysis"
 msgid "Analysis: <0>{0}</0>"
 msgstr "Analysis: <0>{0}</0>"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "and {more} more"
+msgstr "and {more} more"
+
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Angle"
 msgstr "Angle"
@@ -7072,6 +7133,10 @@ msgstr "Asked in a conversation"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "asked questions"
 msgstr "asked questions"
+
+#: src/components/clio/summon-chip.tsx
+msgid "Asked to add the plugin {target}"
+msgstr "Asked to add the plugin {target}"
 
 #: src/components/clio/flow-step-details.tsx
 msgid "Asked to answer as"
@@ -8374,6 +8439,10 @@ msgstr "Cancel download?"
 #: src/components/clio/source-operation-status.tsx
 msgid "Cancel downloading “{label}”? Cleanup must finish before this task settles."
 msgstr "Cancel downloading “{label}”? Cleanup must finish before this task settles."
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Cancel drawing"
+msgstr "Cancel drawing"
 
 #: src/components/clio/plugin-source-editor.tsx
 msgid "Cancel editing"
@@ -9813,6 +9882,10 @@ msgstr "Clear the terminal"
 msgid "Clear timer for {title}"
 msgstr "Clear timer for {title}"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Click a curve to pick it."
+msgstr "Click a curve to pick it."
+
 #: src/components/clio/a2ui-chart.tsx
 msgid "Click a point to select it. {primary}-click selects its curve. Shift-click toggles a point; {primaryShift}-click merges or removes a curve. Drag selects points; {primary}-drag selects curves. {alt}-drag pans and {primary}-scroll zooms."
 msgstr "Click a point to select it. {primary}-click selects its curve. Shift-click toggles a point; {primaryShift}-click merges or removes a curve. Drag selects points; {primary}-drag selects curves. {alt}-drag pans and {primary}-scroll zooms."
@@ -9838,9 +9911,21 @@ msgstr "Click an element to pick it."
 msgid "Click the second face. Esc cancels."
 msgstr "Click the second face. Esc cancels."
 
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Click to add points, then Finish path."
+msgstr "Click to add points, then Finish path."
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Click to place the point."
+msgstr "Click to place the point."
+
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Click two faces."
 msgstr "Click two faces."
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Click two opposite corners."
+msgstr "Click two opposite corners."
 
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Click two points. Vertices and edges snap."
@@ -10143,6 +10228,7 @@ msgid "Collections and transfers through Globus"
 msgstr "Collections and transfers through Globus"
 
 #: src/components/clio/a2ui-mesh-viewport.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 msgid "colored by {field}"
 msgstr "colored by {field}"
 
@@ -10150,6 +10236,10 @@ msgstr "colored by {field}"
 #: src/components/clio/settings-folders.tsx
 msgid "Colour"
 msgstr "Colour"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Colour scale from {low} to {high} {unit}, {stops} stops"
+msgstr "Colour scale from {low} to {high} {unit}, {stops} stops"
 
 #: src/components/clio/model-picker-catalog.tsx
 #: src/components/reui/data-grid/data-grid-column-header.tsx
@@ -10330,6 +10420,10 @@ msgstr "Compact this agent's working context?"
 msgid "Compact this conversation?"
 msgstr "Compact this conversation?"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Compact, then add"
+msgstr "Compact, then add"
+
 #: src/components/clio/conversation-summarization.tsx
 msgid "Compacted here, earlier messages summarized"
 msgstr "Compacted here, earlier messages summarized"
@@ -10383,6 +10477,10 @@ msgstr "Compaction settings"
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "Compaction skipped"
 msgstr "Compaction skipped"
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "Compacts the conversation before the agent's next step; its tools go in with it."
+msgstr "Compacts the conversation before the agent's next step; its tools go in with it."
 
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "Compacts the conversation now; the change goes in with it."
@@ -13492,6 +13590,10 @@ msgstr "Did not run"
 msgid "did not run or cancelled"
 msgstr "did not run or cancelled"
 
+#: src/components/clio/conversation-activity-lane.tsx
+msgid "Didn’t finish"
+msgstr "Didn’t finish"
+
 #: src/components/clio/provider-auth-panel.tsx
 msgid "Didn't finish? Paste the address or code here"
 msgstr "Didn't finish? Paste the address or code here"
@@ -13664,6 +13766,10 @@ msgstr "Displays the mobile sidebar."
 #: src/components/clio/cad-measure-tool.tsx
 msgid "Distance"
 msgstr "Distance"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "Distance (km) along the path; vertical: {vertical} {units}"
+msgstr "Distance (km) along the path; vertical: {vertical} {units}"
 
 #: src/components/clio/plugin-change-dialog.tsx
 msgid "Do you want to proceed?"
@@ -14199,6 +14305,14 @@ msgstr "Drag to select mesh nodes"
 #: src/components/clio/a2ui-chart.tsx
 msgid "Drag to select points. {primary}-drag selects whole curves. Shift adds or removes."
 msgstr "Drag to select points. {primary}-drag selects whole curves. Shift adds or removes."
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Draw a box"
+msgstr "Draw a box"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Draw a path"
+msgstr "Draw a path"
 
 #: src/components/clio/mcp-app-frame-menu.tsx
 msgid "Drawing"
@@ -14857,6 +14971,7 @@ msgid "error"
 msgstr "error"
 
 #: src/components/clio/agent-plugin-tree.tsx
+#: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/tool-technical-details.tsx
 #: src/components/clio/workspace-resource-derivatives.tsx
@@ -14897,6 +15012,10 @@ msgstr "Evaluates candidate answers and refinements."
 #: src/components/clio/variant-pick-card.tsx
 msgid "Evaluation criteria"
 msgstr "Evaluation criteria"
+
+#: src/widget-gallery-demos.ts
+msgid "Event centres"
+msgstr "Event centres"
 
 #: src/components/clio/ndp-workflow-form.tsx
 #: src/components/clio/workbench-list-column.tsx
@@ -15050,6 +15169,14 @@ msgstr "Excel workbook"
 #: src/components/clio/tool-result-resource-memory.tsx
 msgid "Excerpt {number}"
 msgstr "Excerpt {number}"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Exclude"
+msgstr "Exclude"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Excluded profiles"
+msgstr "Excluded profiles"
 
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
@@ -15857,6 +15984,10 @@ msgstr "Find a model"
 msgid "Find a previous decision, locate a passage, or ask what your files say.<0/>Press Enter to search with the selected model."
 msgstr "Find a previous decision, locate a passage, or ask what your files say.<0/>Press Enter to search with the selected model."
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Find a profile"
+msgstr "Find a profile"
+
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "Find a shortcut"
 msgstr "Find a shortcut"
@@ -15926,6 +16057,10 @@ msgstr "Finding the release to install"
 #: src/components/clio/provider-auth-panel.tsx
 msgid "Finish"
 msgstr "Finish"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Finish path"
+msgstr "Finish path"
 
 #: src/components/clio/managed-services.tsx
 msgid "Finish setting up your local model runtime"
@@ -17452,6 +17587,10 @@ msgstr "How {title} was started"
 msgid "How hard the model thinks before it answers. Default is the model's own level."
 msgstr "How hard the model thinks before it answers. Default is the model's own level."
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "How it joins this turn"
+msgstr "How it joins this turn"
+
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "How long"
 msgstr "How long"
@@ -17986,6 +18125,10 @@ msgstr "Include a letter or number in the connection name"
 #: src/components/clio/extension-add-dialog.tsx
 msgid "Include a letter or number in the extension name"
 msgstr "Include a letter or number in the extension name"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Include all"
+msgstr "Include all"
 
 #: src/components/clio/session-access.tsx
 msgid "Include delegated children"
@@ -18992,6 +19135,10 @@ msgstr "Its source is not known"
 msgid "Its source is not known, version {version}"
 msgstr "Its source is not known, version {version}"
 
+#: src/components/clio/connector-offer-response.tsx
+msgid "Its tools join the tool list now; the prompt cache is rebuilt on the next call."
+msgstr "Its tools join the tool list now; the prompt cache is rebuilt on the next call."
+
 #: src/components/clio/attention-away.ts
 msgid "Its turn is done"
 msgstr "Its turn is done"
@@ -19065,6 +19212,7 @@ msgstr "Jump to latest"
 msgid "Kafka topic"
 msgstr "Kafka topic"
 
+#: src/components/clio/a2ui-profile-stack.tsx
 #: src/components/clio/primitives/row-confirm.tsx
 #: src/components/clio/settings-access-rule-row.tsx
 #: src/components/clio/settings-model-server-row.tsx
@@ -19096,6 +19244,10 @@ msgstr "Keep {product} available in the system tray, if your desktop shows one, 
 #: src/components/clio/desktop-title-bar.tsx
 msgid "Keep {product} running?"
 msgstr "Keep {product} running?"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Keep {profile}"
+msgstr "Keep {profile}"
 
 #: src/components/clio/resource-dialogs.tsx
 msgid "Keep {workspace}"
@@ -19373,9 +19525,17 @@ msgstr "LaTeX source"
 msgid "LaTeX workspace"
 msgstr "LaTeX workspace"
 
+#: src/widget-gallery-demos.ts
+msgid "Layered map"
+msgstr "Layered map"
+
 #: src/components/clio/data-filter-popover.tsx
 msgid "Layered on top of the agent's own query."
 msgstr "Layered on top of the agent's own query."
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Layers"
+msgstr "Layers"
 
 #: src/widget-gallery-demos.ts
 msgid "Layout and media"
@@ -20810,6 +20970,7 @@ msgstr "Managed packages"
 msgid "Manual entry"
 msgstr "Manual entry"
 
+#: src/components/clio/a2ui-layered-map.tsx
 #: src/components/clio/a2ui-presentation.ts
 #: src/widget-gallery-demos.ts
 msgid "Map"
@@ -20819,6 +20980,7 @@ msgstr "Map"
 msgid "Map background unavailable"
 msgstr "Map background unavailable"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Map category colours"
 msgstr "Map category colours"
@@ -21323,6 +21485,10 @@ msgstr "Merge"
 msgid "Merges, replaces and retires remembered facts."
 msgstr "Merges, replaces and retires remembered facts."
 
+#: src/widget-gallery-demos.ts
+msgid "Meridional section"
+msgstr "Meridional section"
+
 #: src/components/mermaidcn/mermaid.tsx
 msgid "Mermaid diagram"
 msgstr "Mermaid diagram"
@@ -21335,6 +21501,7 @@ msgstr "Mermaid source"
 msgid "Mesh unavailable"
 msgstr "Mesh unavailable"
 
+#: src/components/clio/flow-run-parts.tsx
 #: src/lib/transcript-message-preview.ts
 msgid "Message"
 msgstr "Message"
@@ -21936,6 +22103,10 @@ msgstr "Move to Right"
 msgid "Moved to {label}"
 msgstr "Moved to {label}"
 
+#: src/components/clio/send-script-to-background.tsx
+msgid "Moved to the background"
+msgstr "Moved to the background"
+
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "Moved to version {headVersion}"
 msgstr "Moved to version {headVersion}"
@@ -22474,6 +22645,10 @@ msgstr "Next steps"
 msgid "Next tab"
 msgstr "Next tab"
 
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Next time"
+msgstr "Next time"
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "Next try"
 msgstr "Next try"
@@ -22728,6 +22903,10 @@ msgstr "No custody receipt was returned for {path}"
 #: src/lib/search-source-text.ts
 msgid "No daily limit; paced"
 msgstr "No daily limit; paced"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "no data"
+msgstr "no data"
 
 #: src/components/clio/a2ui-raster-viewport.tsx
 msgid "No data"
@@ -23269,6 +23448,10 @@ msgstr "No problems found."
 #: src/components/clio/latex-list.tsx
 msgid "No problems."
 msgstr "No problems."
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "No profiles in this table."
+msgstr "No profiles in this table."
 
 #: src/components/clio/settings-prompts.tsx
 msgid "No prompt families in this view."
@@ -24253,6 +24436,10 @@ msgstr "Nothing matches {shown}"
 #: src/components/clio/attention-center.tsx
 msgid "Nothing needs you."
 msgstr "Nothing needs you."
+
+#: src/components/clio/pending-interaction-notices.tsx
+msgid "Nothing new can be recorded"
+msgstr "Nothing new can be recorded"
 
 #: src/lib/extension-library-entries.ts
 #: src/lib/plugin-presentation.ts
@@ -26239,6 +26426,10 @@ msgstr "Pick a try"
 msgid "picked entry {winner}"
 msgstr "picked entry {winner}"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Picked profile"
+msgstr "Picked profile"
+
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx
 #: src/components/clio/workspace-actions-menu.tsx
@@ -26289,6 +26480,10 @@ msgstr "Pinned, attached to agent"
 #: src/components/clio/context-sources.tsx
 msgid "Pinned, in last request"
 msgstr "Pinned, in last request"
+
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Place a point"
+msgstr "Place a point"
 
 #: src/components/clio/run-tab.tsx
 msgid "Placement"
@@ -26384,6 +26579,10 @@ msgstr "Plane at {axis} = {position}, keeping the side above. Cut faces are fill
 msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
 msgstr "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
 
+#: src/widget-gallery-demos.ts
+msgid "Planned stations"
+msgstr "Planned stations"
+
 #: src/components/clio/catalog-tool-bundles.ts
 #: src/lib/tool-domain-labels.ts
 msgid "Planning"
@@ -26432,6 +26631,10 @@ msgstr "Plot the vertical displacement at station BKL1."
 msgid "Plots, tables and reports show up as file cards in the conversation."
 msgstr "Plots, tables and reports show up as file cards in the conversation."
 
+#: src/lib/composer-reference-domain.ts
+msgid "plugin"
+msgstr "plugin"
+
 #: src/components/clio/a2ui-surface.tsx
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
@@ -26440,6 +26643,7 @@ msgstr "Plots, tables and reports show up as file cards in the conversation."
 #: src/components/clio/plugin-explorer.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/lib/agent-needs.ts
+#: src/lib/composer-reference-domain.ts
 #: src/lib/extension-library-entries.ts
 msgid "Plugin"
 msgstr "Plugin"
@@ -26548,6 +26752,10 @@ msgstr "Plugins in this pack"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Plugins that leave too"
 msgstr "Plugins that leave too"
+
+#: src/components/clio/composer-references.tsx
+msgid "Plugins to add"
+msgstr "Plugins to add"
 
 #: src/components/reui/time-picker.tsx
 msgid "PM"
@@ -26910,6 +27118,10 @@ msgstr "Previous slide"
 msgid "Previous tab"
 msgstr "Previous tab"
 
+#: src/components/clio/a2ui-layered-map.tsx
+msgid "Previous time"
+msgstr "Previous time"
+
 #: src/components/clio/variant-pick-card.tsx
 msgid "Previous try"
 msgstr "Previous try"
@@ -27040,6 +27252,14 @@ msgstr "Profile name"
 #: src/components/clio/settings-profile.tsx
 msgid "Profile saved"
 msgstr "Profile saved"
+
+#: src/widget-gallery-demos.ts
+msgid "Profile stack"
+msgstr "Profile stack"
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Profiles"
+msgstr "Profiles"
 
 #: src/components/clio/settings-tools-header.tsx
 msgid "Programmatic tool calling: who calls the tool"
@@ -27973,9 +28193,17 @@ msgstr "Reading model details…"
 msgid "Reading plugin…"
 msgstr "Reading plugin…"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Reading profiles"
+msgstr "Reading profiles"
+
 #: src/components/clio/service-management-panel.tsx
 msgid "Reading recent logs from {hostLabel}…"
 msgstr "Reading recent logs from {hostLabel}…"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "Reading section"
+msgstr "Reading section"
 
 #: src/components/clio/source-files-browser.tsx
 msgid "Reading source files…"
@@ -32023,9 +32251,11 @@ msgstr "Seconds between records"
 msgid "Secret access key"
 msgstr "Secret access key"
 
+#: src/components/clio/a2ui-section.tsx
 #: src/components/clio/agent-package-item-detail.tsx
 #: src/components/clio/cad-model-view.tsx
 #: src/components/clio/cad-tool-panels.tsx
+#: src/widget-gallery-demos.ts
 msgid "Section"
 msgstr "Section"
 
@@ -32377,6 +32607,15 @@ msgstr "Send response"
 #: src/lib/onboarding/tour-script.ts
 msgid "Send this request too."
 msgstr "Send this request too."
+
+#: src/components/clio/a2ui-layered-map.tsx
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Send to agent"
+msgstr "Send to agent"
+
+#: src/components/clio/send-script-to-background.tsx
+msgid "Send to background"
+msgstr "Send to background"
 
 #: src/components/clio/ndp-endpoint-editor.tsx
 msgid "Send your saved NDP account token to this API. The Endpoint must accept your account and grant access."
@@ -33192,6 +33431,7 @@ msgstr "Show exactly as sent"
 
 #: src/components/clio/discover-catalog.tsx
 #: src/components/clio/knowledge-note-body.tsx
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "Show fewer"
 msgstr "Show fewer"
@@ -33947,13 +34187,10 @@ msgid "Some background work is no longer attached to this service and may contin
 msgstr "Some background work is no longer attached to this service and may continue after the service stops."
 
 #: src/components/clio/conversation-activity-lane.tsx
-msgid "Some calls failed"
-msgstr "Some calls failed"
-
-#: src/components/clio/conversation-activity-lane.tsx
 msgid "Some calls were denied"
 msgstr "Some calls were denied"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Some category colours repeat; use labels or filter to compare them."
 msgstr "Some category colours repeat; use labels or filter to compare them."
@@ -35710,6 +35947,10 @@ msgid "Temperature"
 msgstr "Temperature"
 
 #: src/widget-gallery-demos.ts
+msgid "Temperature anomaly"
+msgstr "Temperature anomaly"
+
+#: src/widget-gallery-demos.ts
 msgid "Temperature field"
 msgstr "Temperature field"
 
@@ -35967,6 +36208,10 @@ msgstr "The agent is still writing the plan."
 #: src/components/clio/task-activity-row.tsx
 msgid "The agent is stopping. New input stays queued until its current execution exits."
 msgstr "The agent is stopping. New input stays queued until its current execution exits."
+
+#: src/components/clio/connector-offer-response.tsx
+msgid "The agent is told about its tools and can call them now; the prompt cache is kept until the next compaction."
+msgstr "The agent is told about its tools and can call them now; the prompt cache is kept until the next compaction."
 
 #: src/components/clio/mcp-app-look-waiting-notice.tsx
 msgid "The agent is waiting to see this view."
@@ -36469,6 +36714,10 @@ msgid "The flow has not started any task yet."
 msgstr "The flow has not started any task yet."
 
 #: src/components/clio/flow-run-parts.tsx
+msgid "The flow hit an error"
+msgstr "The flow hit an error"
+
+#: src/components/clio/flow-run-parts.tsx
 msgid "The flow saw"
 msgstr "The flow saw"
 
@@ -36850,6 +37099,22 @@ msgstr "The plan is empty."
 msgid "The plan was not saved: {message}"
 msgstr "The plan was not saved: {message}"
 
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added"
+msgstr "The plugin {target} was not added"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: {reason}"
+msgstr "The plugin {target} was not added: {reason}"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: the turn was stopped first"
+msgstr "The plugin {target} was not added: the turn was stopped first"
+
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "The plugin {target} was not added: you chose Not now"
+msgstr "The plugin {target} was not added: you chose Not now"
+
 #: src/components/clio/agent-composition-view.tsx
 msgid "The plugin changes are in the agent’s system prompt now."
 msgstr "The plugin changes are in the agent’s system prompt now."
@@ -36886,6 +37151,10 @@ msgstr "The process started; service readiness was not confirmed."
 #: src/components/clio/workspace-resource-view.tsx
 msgid "The processor completed without publishing any structured collections for this document."
 msgstr "The processor completed without publishing any structured collections for this document."
+
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "The profiles could not be read"
+msgstr "The profiles could not be read"
 
 #: src/lib/mcp-preparation.ts
 msgid "The program that runs this server is not installed on the agent’s computer."
@@ -37134,9 +37403,21 @@ msgstr "The script had already attached as many files as one result may carry, s
 msgid "The script had already attached as many files as one result may carry, so the model did not see this PDF."
 msgstr "The script had already attached as many files as one result may carry, so the model did not see this PDF."
 
+#: src/components/clio/send-script-to-background.tsx
+msgid "The script had already finished or moved."
+msgstr "The script had already finished or moved."
+
 #: src/components/clio/injection-presentation.ts
 msgid "The script sent no text."
 msgstr "The script sent no text."
+
+#: src/components/clio/a2ui-section.tsx
+msgid "The section could not be read"
+msgstr "The section could not be read"
+
+#: src/components/clio/a2ui-section.tsx
+msgid "The section is not a registered file"
+msgstr "The section is not a registered file"
 
 #: src/components/clio/a2ui-tabs.tsx
 msgid "The selected dashboard tab is unavailable."
@@ -38843,6 +39124,7 @@ msgid "Thursday"
 msgstr "Thursday"
 
 #: src/components/clio/a2ui-date-time-input.tsx
+#: src/components/clio/a2ui-layered-map.tsx
 #: src/components/clio/date-time-field.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -39774,6 +40056,7 @@ msgstr "Unavailable on this computer"
 msgid "Unavailable options"
 msgstr "Unavailable options"
 
+#: src/components/clio/layered-map-category-legend.tsx
 #: src/components/clio/map-legend.tsx
 msgid "Uncategorized"
 msgstr "Uncategorized"
@@ -40883,6 +41166,8 @@ msgstr "Values above 1 discourage repeating recent tokens; 1 turns it off."
 msgid "Values: {values}"
 msgstr "Values: {values}"
 
+#: src/components/clio/a2ui-profile-stack.tsx
+#: src/components/clio/a2ui-section.tsx
 #: src/components/clio/environment-table.tsx
 msgid "Variable"
 msgstr "Variable"
@@ -41464,6 +41749,10 @@ msgstr "Waits on"
 #: src/widget-gallery-demos.ts
 msgid "Warm"
 msgstr "Warm"
+
+#: src/widget-gallery-demos.ts
+msgid "Warm events over a month"
+msgstr "Warm events over a month"
 
 #: src/components/clio/settings-appearance.tsx
 msgid "Warm ink with verdigris accents."
@@ -42399,6 +42688,10 @@ msgstr "You asked for the flow {target} on this message"
 msgid "You asked for the workflow {target} on this message"
 msgstr "You asked for the workflow {target} on this message"
 
+#: src/components/clio/conversation-summoned-work.tsx
+msgid "You asked to add the plugin {target} for this message"
+msgstr "You asked to add the plugin {target} for this message"
+
 #: src/components/clio/permission-request-text.ts
 msgid "You blocked it"
 msgstr "You blocked it"
@@ -42513,6 +42806,10 @@ msgstr "Your answers"
 #: src/components/clio/settings-session-defaults.tsx
 msgid "Your change could not be saved."
 msgstr "Your change could not be saved."
+
+#: src/components/clio/a2ui-action-lifecycle.tsx
+msgid "Your choice"
+msgstr "Your choice"
 
 #. placeholder {0}: tab.comment
 #: src/components/clio/workbench-variant-try-tab.tsx

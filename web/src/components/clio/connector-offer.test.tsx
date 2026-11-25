@@ -181,7 +181,7 @@ describe('the agent offers to add a connector to this conversation', () => {
     expect(onResponse).toHaveBeenCalledWith(offer, {
       action: 'submit',
       values: { token: 'zz-token', address: 'node08' },
-      metadata: { save_as_default: [] },
+      metadata: { save_as_default: [], apply: 'note' },
     });
   });
 
@@ -263,7 +263,7 @@ describe('the agent offers to add a connector to this conversation', () => {
     expect(onResponse).toHaveBeenCalledWith(filled, {
       action: 'submit',
       values: { address: 'https://lab.example' },
-      metadata: { save_as_default: ['address'] },
+      metadata: { save_as_default: ['address'], apply: 'note' },
     });
   });
 
@@ -335,6 +335,42 @@ describe('the agent offers to add a connector to this conversation', () => {
     }
   });
 
+  it('says how the plugin joins this turn, injection by default, and sends the choice', async () => {
+    const user = userEvent.setup();
+    const pluginOffer: PendingInteraction = {
+      ...offer,
+      id: 'connector:join',
+      payload: {
+        connector_id: '',
+        connector_name: 'tariff-calc',
+        tool_name: 'offer_plugin',
+        intent: 'add_plugin',
+        plugin_id: 'tariff-calc',
+        plugin_ref: 'trade-lab/tariff-calc',
+        reason: 'It computes duty.',
+        missing: [],
+      },
+    };
+    const onResponse = vi.fn(async () => undefined);
+    renderWith(
+      <ClioPendingInteractions
+        interactions={[pluginOffer]}
+        onResponse={onResponse}
+        viewedSessionId="sess_root"
+      />,
+    );
+    const join = await screen.findByRole('combobox', { name: 'How it joins this turn' });
+    expect(join.textContent).toContain('Add as an injection');
+    await user.click(join);
+    await user.click(await screen.findByRole('option', { name: 'Add to the tool list' }));
+    await user.click(screen.getByRole('button', { name: /^1?\s*Add$/u }));
+    expect(onResponse).toHaveBeenCalledWith(pluginOffer, {
+      action: 'submit',
+      values: {},
+      metadata: { save_as_default: [], apply: 'now' },
+    });
+  });
+
   it('offers a plugin the same way: its name, Plugin from its marketplace, the reason, Add', async () => {
     const user = userEvent.setup();
     const pluginOffer: PendingInteraction = {
@@ -368,7 +404,7 @@ describe('the agent offers to add a connector to this conversation', () => {
     expect(onResponse).toHaveBeenCalledWith(pluginOffer, {
       action: 'submit',
       values: {},
-      metadata: { save_as_default: [] },
+      metadata: { save_as_default: [], apply: 'note' },
     });
     cleanup();
     renderWith(<ConversationInteractionActivity artifacts={{}} interaction={pluginOffer} />);

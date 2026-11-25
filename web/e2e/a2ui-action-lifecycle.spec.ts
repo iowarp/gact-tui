@@ -53,7 +53,14 @@ async function publishLifecycle(
   extra: Record<string, unknown> = {},
 ) {
   const response = await page.request.post(`${fixtureEndpoint}/__test/a2ui-action-lifecycle`, {
-    data: { surface_id: surfaceId, action_name: 'login', status, ...extra },
+    data: {
+      surface_id: surfaceId,
+      action_name: 'login',
+      // The chip names the pressed control, never the producer's action name.
+      source_component_id: 'login-btn',
+      status,
+      ...extra,
+    },
   });
   expect(response.ok()).toBe(true);
 }
@@ -81,11 +88,11 @@ test('wires the lifecycle footer into the transcript surface, worded for every s
 
   await test.step('no lifecycle is known before an action is sent', async () => {
     for (const phrase of [
-      'login received by the agent',
-      "login delivered to the agent's turn",
-      'login recorded',
-      'login failed',
-      'login ignored as a duplicate',
+      '“Sign in” received by the agent',
+      "“Sign in” delivered to the agent's turn",
+      '“Sign in” recorded',
+      '“Sign in” failed',
+      '“Sign in” ignored as a duplicate',
     ]) {
       await expect(page.getByText(phrase)).toHaveCount(0);
     }
@@ -123,26 +130,26 @@ test('wires the lifecycle footer into the transcript surface, worded for every s
 
   await test.step('received', async () => {
     await publishLifecycle(page, 'received');
-    await expect(page.getByText('login received by the agent')).toBeVisible();
+    await expect(page.getByText('“Sign in” received by the agent')).toBeVisible();
   });
 
   await test.step('delivered', async () => {
     await publishLifecycle(page, 'delivered');
-    await expect(page.getByText("login delivered to the agent's turn")).toBeVisible();
+    await expect(page.getByText("“Sign in” delivered to the agent's turn")).toBeVisible();
   });
 
   await test.step('consumed', async () => {
     await publishLifecycle(page, 'consumed');
-    await expect(page.getByText('login recorded')).toBeVisible();
+    await expect(page.getByText('“Sign in” recorded')).toBeVisible();
   });
 
   await test.step('failed, with the reason worded inline', async () => {
     await publishLifecycle(page, 'failed', { reason: 'busy turn' });
-    await expect(page.getByText('login failed: busy turn')).toBeVisible();
+    await expect(page.getByText('“Sign in” failed: busy turn')).toBeVisible();
   });
 
   await test.step('duplicate', async () => {
     await publishLifecycle(page, 'duplicate');
-    await expect(page.getByText('login ignored as a duplicate')).toBeVisible();
+    await expect(page.getByText('“Sign in” ignored as a duplicate')).toBeVisible();
   });
 });

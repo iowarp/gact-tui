@@ -25,7 +25,7 @@ import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-present
 import { toolSandboxBoundary } from './sandbox-boundary';
 import { TurnSandboxNotices } from './sandbox-boundary-notice';
 import { useShownMcpAppIds } from './mcp-app-live-set';
-import { ActivityLane } from './conversation-activity-lane';
+import { ActivityLane, type TurnEnd } from './conversation-activity-lane';
 import {
   IterationDetail,
   McpAppActivity,
@@ -46,11 +46,15 @@ interface ConversationTurnProps {
   answerStarted?: boolean;
   /** Open the last live group until a newer entry arrives, unless the reader chose otherwise. */
   followLiveActivity?: boolean;
-  /**
-   * These calls are the agent's latest work and it is still going. They stay as
-   * rows until it moves past them, then fold into their counted row.
-   */
+  /** These calls are the agent's latest work and it is still going. */
   turnLive?: boolean;
+  /**
+   * The turn these calls belong to is still running. Every run stays as rows while
+   * it works and folds into its counted row only once the turn has ended.
+   */
+  turnRunning?: boolean;
+  /** How the turn ended when it didn't finish, given to its last calls only. */
+  turnEnd?: TurnEnd;
   /**
    * The live message's latest calls: a call held for approval before the service
    * projects it is shown here, even when a context injection follows these calls.
@@ -160,6 +164,8 @@ function withWaitingCalls(
 export function ConversationTurn({
   followLiveActivity = false,
   turnLive = false,
+  turnRunning = false,
+  turnEnd,
   holdsWaitingCalls = turnLive,
   iterations: recordedIterations,
   mode,
@@ -265,6 +271,7 @@ export function ConversationTurn({
     }
     if (group.length) sections.push({ kind: 'activity', iterations: group });
     const activityInteractions = interactions?.filter((item) => !planReviews.includes(item));
+    const lastActivity = sections.findLastIndex((section) => section.kind === 'activity');
     return (
       <div className="flex min-w-0 flex-col gap-4" data-slot="plan-review-sequence">
         {sections.map((section, index) =>
@@ -295,6 +302,8 @@ export function ConversationTurn({
               iterations={section.iterations}
               followLiveActivity={followLiveActivity && index === sections.length - 1}
               turnLive={turnLive && index === sections.length - 1}
+              turnRunning={turnRunning}
+              turnEnd={index === lastActivity ? turnEnd : undefined}
               holdsWaitingCalls={false}
               mode={mode}
               subagents={subagents}
@@ -397,7 +406,8 @@ export function ConversationTurn({
                 group={group}
                 label={summary.label}
                 live={followLiveActivity && index === groups.length - 1}
-                turnLive={laneLive}
+                turnLive={turnRunning || laneLive}
+                turnEnd={index === blocks.length - 1 ? turnEnd : undefined}
                 subagents={subagents}
                 interactions={interactions}
                 rowInputs={[

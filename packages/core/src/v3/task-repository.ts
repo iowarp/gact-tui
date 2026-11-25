@@ -311,4 +311,20 @@ export class TaskRepository extends MemoryRepository {
     if (result.errors.length)
       throw new Error(result.errors.map((error) => `${error.handle}: ${error.error}`).join('; '));
   }
+
+  /**
+   * Moves the session's running foreground scripts, still running, to background
+   * tasks: the agent's call returns with each task's handle and the agent goes on.
+   * Returns how many were asked to move.
+   */
+  public async sendScriptsToBackground(sessionId: string, signal?: AbortSignal): Promise<number> {
+    const result = await this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/scripts/foreground/background`,
+      body: {},
+      decode: (value) => z.object({ moved: z.number() }).parse(value),
+      signal,
+    });
+    return result.moved;
+  }
 }

@@ -9,6 +9,7 @@ const memoryProposals = vi.hoisted(() => vi.fn());
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => ({ memoryProposals }) }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://memory.test', token: '' } }),
+  useOfflineArchive: () => false,
 }));
 afterEach(cleanup);
 const tool = (name: string, output: unknown): ToolInvocation => ({

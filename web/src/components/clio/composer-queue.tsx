@@ -294,6 +294,7 @@ export function ClioComposerQueue({
       {!collapsed && below > 0 ? (
         <button
           className="mx-1 mt-0.5 flex h-[22px] shrink-0 items-center gap-1 self-start rounded-[5px] px-1.5 text-label text-muted-foreground hover:bg-hover hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+          data-queue-more=""
           onClick={() =>
             viewport?.scrollBy({ top: viewport.clientHeight, behavior: smoothScroll() })
           }
@@ -305,7 +306,7 @@ export function ClioComposerQueue({
       ) : !collapsed && overflowing ? (
         // Scrolled to the end: hold the line's height so the strip, and the
         // pending responses sharing the composer's height, do not resize.
-        <span aria-hidden="true" className="mt-0.5 h-[22px] shrink-0" />
+        <span aria-hidden="true" className="mt-0.5 h-[22px] shrink-0" data-queue-more="" />
       ) : null}
     </section>
   );

@@ -62,6 +62,8 @@ describe('ViewerFileGate', () => {
     });
     expect(screen.getByTestId('scene')).toBeInTheDocument();
     expect(gate).not.toHaveAttribute('data-viewer-deferred');
+    // Still off screen: what it shows is the capture's, not part of the person's view.
+    expect(gate).toHaveAttribute('data-viewer-offscreen');
     await act(async () => {
       finish();
       await capture;
@@ -81,6 +83,7 @@ describe('ViewerFileGate', () => {
     expect(screen.queryByTestId('scene')).toBeNull();
     scroll(true);
     expect(screen.getByTestId('scene')).toBeInTheDocument();
+    expect(screen.getByTestId('scene').closest('[data-viewer-offscreen]')).toBeNull();
     scroll(false);
     expect(screen.queryByTestId('scene')).toBeNull();
     expect(mounts).toHaveBeenCalledTimes(1);

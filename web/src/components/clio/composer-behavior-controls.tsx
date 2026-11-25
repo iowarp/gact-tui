@@ -319,41 +319,20 @@ export function ClioComposerBehaviorControls({
           type="button"
         />
       ) : null}
-      {spotterModelControl &&
-      behavior.confirmation_policy === 'spotter-ai' &&
-      spotterAvailability?.available
-        ? spotterModelControl
-        : null}
-      {/* A narrow row has no slack to right-align into: the model stays put after
-          the reasoning control while a wait status appears or the route name loads. */}
-      <span aria-hidden="true" className="min-w-0 flex-1 @max-[440px]/composer:hidden" />
-      {beforeModel}
-      {modelControl}
-      {/* The mode is a word beside the model (spec v10); a fifth-width row keeps its icon.
-          After the route, the word is the next to give way, whole, so the model keeps its name. */}
+      {/* The mode is an icon with the other behavior controls; its name is the tooltip and
+          accessible label, and a mode other than Execute takes the accent colour. */}
       <DropdownMenu onOpenChange={(open) => setMenuOpen('mode', open)} open={openMenu === 'mode'}>
         <DropdownMenuTrigger asChild>
           <IconButton
             className={cn(
-              'h-[26px] w-auto min-w-[26px] shrink gap-1.5 px-1.5 text-meta font-normal aria-expanded:bg-hover @max-[300px]/composer:w-[26px] @max-[300px]/composer:min-w-0 @max-[300px]/composer:shrink-0 @max-[300px]/composer:px-0 [&_svg:not([class*=size-])]:size-3.5',
+              'aria-expanded:bg-hover',
               selectedMode &&
                 selectedMode.value !== 'edit' &&
                 'text-accent-foreground hover:text-accent-foreground',
             )}
             data-slot="composer-mode"
             disabled={disabled}
-            icon={
-              <>
-                <ModeIcon />
-                <span
-                  className="flex h-[1lh] min-w-0 flex-wrap overflow-hidden @max-[300px]/composer:hidden"
-                  data-slot="composer-mode-label"
-                >
-                  <span aria-hidden="true" className="h-full w-0" />
-                  <span className="shrink-0 whitespace-nowrap">{modeLabel}</span>
-                </span>
-              </>
-            }
+            icon={<ModeIcon />}
             label={t`Mode: ${modeLabel}`}
             shortcut="mode"
             shortcutSide="above-icon"
@@ -363,7 +342,7 @@ export function ClioComposerBehaviorControls({
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          align="end"
+          align="start"
           className="w-[21rem]"
           collisionPadding={8}
           onCloseAutoFocus={closeFocus}
@@ -394,6 +373,16 @@ export function ClioComposerBehaviorControls({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+      {spotterModelControl &&
+      behavior.confirmation_policy === 'spotter-ai' &&
+      spotterAvailability?.available
+        ? spotterModelControl
+        : null}
+      {/* A narrow row has no slack to right-align into: the model stays put after
+          the reasoning control while a wait status appears or the route name loads. */}
+      <span aria-hidden="true" className="min-w-0 flex-1 @max-[440px]/composer:hidden" />
+      {beforeModel}
+      {modelControl}
       <AlertDialog onOpenChange={setConfirmBypass} open={confirmBypass}>
         <AlertDialogContent
           onCloseAutoFocus={(event) => {

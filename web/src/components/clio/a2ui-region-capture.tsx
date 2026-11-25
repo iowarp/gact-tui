@@ -1,4 +1,5 @@
 import {
+  boxInCapture,
   displayedRegion,
   geographicBounds,
   mapSurface,
@@ -69,10 +70,62 @@ function regionRect(region: Region, bounds: DOMRect): CSSProperties {
   };
 }
 
+/** Where the target and every painted canvas sit, so a capture can tell its layout held. */
+function layoutSignature(target: HTMLElement): string {
+  const origin = target.getBoundingClientRect();
+  const boxes = [target, ...target.querySelectorAll<HTMLElement>('canvas, iframe')].map((node) => {
+    const rect = node.getBoundingClientRect();
+    return [rect.left - origin.left, rect.top - origin.top, rect.width, rect.height]
+      .map((value) => Math.round(value))
+      .join(',');
+  });
+  return boxes.join(';');
+}
+
+/**
+ * Whether a node paints nothing, so the DOM copy can leave it (and its subtree) out.
+ * html-to-image clones every node and copies its computed style on the main thread;
+ * a profile stack's search suggestions, a `<datalist>` of about a thousand options,
+ * held the page for seven seconds per capture, during which no view in the page
+ * could renew its capture lease. A node with `display: none` affects no layout.
+ */
+function paintsNothing(node: Node): boolean {
+  if (!(node instanceof Element)) return false;
+  if (node instanceof HTMLDataListElement || node instanceof HTMLTemplateElement) return true;
+  // A select's options give the copy its shown value, whatever their own display.
+  if (node instanceof HTMLOptionElement || node instanceof HTMLOptGroupElement) return false;
+  return getComputedStyle(node).display === 'none';
+}
+
+/** Most attempts when a view keeps changing its layout while it is captured. */
+const CAPTURE_LAYOUT_ATTEMPTS = 4;
+
+/**
+ * Capture ``target`` once its layout holds for the whole capture. The DOM is cloned
+ * first and live canvases are painted afterwards at their positions then; a chart that
+ * grows in between (a legend laid out late) would land below its title and push the
+ * last component out of the image. Such a capture is taken again, and after the last
+ * attempt it fails with the reason instead of returning a misaligned image.
+ */
 async function labelledPng(
   target: HTMLElement,
   regions: readonly Region[],
   pixelRatio = Math.min(window.devicePixelRatio || 1, 2),
+): Promise<Blob> {
+  for (let attempt = 1; ; attempt += 1) {
+    const before = layoutSignature(target);
+    const blob = await paintedPng(target, regions, pixelRatio);
+    if (layoutSignature(target) === before) return blob;
+    if (attempt >= CAPTURE_LAYOUT_ATTEMPTS)
+      throw new Error('The view kept changing its layout while it was captured. Try again.');
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+  }
+}
+
+async function paintedPng(
+  target: HTMLElement,
+  regions: readonly Region[],
+  pixelRatio: number,
 ): Promise<Blob> {
   // A part still loading shows a placeholder; a capture of it would show the agent nothing.
   if (target.querySelector('[aria-busy="true"]'))
@@ -94,6 +147,8 @@ async function labelledPng(
   const fontEmbedCSS = `${await getFontEmbedCSS(target)}
     [data-slot="data-grid"] [role="region"],
     [data-slot="clio-data-grid-viewport"] { overflow: hidden !important; }
+    [data-slot="surface-toolbar"],
+    [data-capture-ui="true"] { visibility: hidden !important; }
   `;
   const canvas = await toCanvas(target, {
     // Reference images use immutable blob URLs. Appending a cache-busting query
@@ -105,21 +160,21 @@ async function labelledPng(
     fontEmbedCSS,
     // Canvases and app frames are painted below from their live pixels; a cloned copy
     // would sit beside the live one (a chart drawn twice) or stay blank (an app frame).
+    // Toolbars and comment controls are hidden by the style above, not removed: a
+    // removed toolbar shortens the copy's layout, and the live canvases painted at
+    // their live positions then land below their titles (the agents' captures in
+    // Q19 and Q13, about 40 px off).
     filter: (node) =>
       node.nodeType !== Node.ELEMENT_NODE ||
-      !(
-        (node as Element).getAttribute('data-slot') === 'surface-toolbar' ||
-        (node as Element).getAttribute('data-capture-ui') === 'true' ||
-        node instanceof HTMLCanvasElement ||
-        isAppFrame(node as Element)
-      ),
+      !(node instanceof HTMLCanvasElement || isAppFrame(node as Element) || paintsNothing(node)),
     pixelRatio,
   });
   const context = canvas.getContext('2d');
   if (!context) throw new Error('The browser could not create an image drawing context.');
   const scaleX = canvas.width / target.getBoundingClientRect().width;
   const scaleY = canvas.height / target.getBoundingClientRect().height;
-  const targetRect = target.getBoundingClientRect();
+  // Every paint below places its node with `boxInCapture`, which reads the target's
+  // rect again beside the node's: the page may scroll while a paint awaits.
   const mapCanvases = new Set<HTMLCanvasElement>();
   // The capture target can be the map surface itself, which querySelectorAll never returns.
   const mapSelector = '[data-slot="a2ui-map-surface"]';
@@ -134,14 +189,8 @@ async function labelledPng(
     if (!mapElement.__clioMap)
       throw new Error('The map is still loading, so its tiles cannot be captured yet.');
     const mapImage = await createImageBitmap(await mapPngBlob(mapElement.__clioMap));
-    const rect = mapCanvas.getBoundingClientRect();
-    context.drawImage(
-      mapImage,
-      (rect.left - targetRect.left) * scaleX,
-      (rect.top - targetRect.top) * scaleY,
-      rect.width * scaleX,
-      rect.height * scaleY,
-    );
+    const mapBox = boxInCapture(target, mapCanvas, scaleX, scaleY);
+    context.drawImage(mapImage, mapBox.x, mapBox.y, mapBox.width, mapBox.height);
     mapImage.close();
     // The live WebGL frame covers the DOM clone's markers and attribution.
     // Composite the actual DOM overlay above it, retaining marker colours,
@@ -152,22 +201,16 @@ async function labelledPng(
       fetchRequestInit: { cache: 'no-store' },
       backgroundColor: 'transparent',
       pixelRatio,
-      filter: (node) => !(node instanceof HTMLCanvasElement),
+      filter: (node) => !(node instanceof HTMLCanvasElement || paintsNothing(node)),
     });
-    const overlayRect = mapElement.getBoundingClientRect();
-    context.drawImage(
-      overlay,
-      (overlayRect.left - targetRect.left) * scaleX,
-      (overlayRect.top - targetRect.top) * scaleY,
-      overlayRect.width * scaleX,
-      overlayRect.height * scaleY,
-    );
+    const overlayBox = boxInCapture(target, mapElement, scaleX, scaleY);
+    context.drawImage(overlay, overlayBox.x, overlayBox.y, overlayBox.width, overlayBox.height);
   }
   for (const source of target.querySelectorAll('canvas')) {
     if (mapCanvases.has(source)) continue;
     if (!source.width || !source.height) continue;
-    const rect = source.getBoundingClientRect();
-    if (!rect.width || !rect.height) continue;
+    const box = boxInCapture(target, source, scaleX, scaleY);
+    if (!box.width || !box.height) continue;
     try {
       // html-to-image cannot clone a live WebGL framebuffer. Read the live
       // canvas directly while it is still mounted, then paint the boxes last.
@@ -177,13 +220,7 @@ async function labelledPng(
             | (HTMLElement & { __clioMeshCapture?: () => HTMLCanvasElement })
             | null
         )?.__clioMeshCapture?.() ?? source;
-      context.drawImage(
-        liveSource,
-        (rect.left - targetRect.left) * scaleX,
-        (rect.top - targetRect.top) * scaleY,
-        rect.width * scaleX,
-        rect.height * scaleY,
-      );
+      context.drawImage(liveSource, box.x, box.y, box.width, box.height);
     } catch (error) {
       throw new Error(
         `The ${source.classList.contains('maplibregl-canvas') ? 'map' : 'canvas'} pixels cannot be captured: ${error instanceof Error ? error.message : String(error)}`,

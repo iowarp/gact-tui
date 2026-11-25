@@ -12,6 +12,7 @@ import type { PendingInteraction } from '@clio/core/v3';
 import { AlertTriangleIcon, BotIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AskError } from './ask-card';
+import { STORE_REFUSED } from './composer-failure';
 import { t, ph } from '@lingui/core/macro';
 
 /**
@@ -34,7 +35,11 @@ export function PendingSurfaceNotices({
       {error ? (
         <Alert variant="destructive">
           <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>{t`Some responses could not be read`}</AlertTitle>
+          <AlertTitle>
+            {error.name === STORE_REFUSED
+              ? t`Nothing new can be recorded`
+              : t`Some responses could not be read`}
+          </AlertTitle>
           <AlertDescription>{error.message}</AlertDescription>
         </Alert>
       ) : null}

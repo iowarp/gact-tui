@@ -148,6 +148,35 @@ describe('the @ popover', () => {
   });
 });
 
+describe('the @ popover, plugins to add', () => {
+  const withPlugins: SummonTargets = {
+    subagents: [{ id: 'explore', plugin: 'core', description: 'Finds things.' }],
+    servers: [],
+    plugins: [
+      { id: 'paraview', name: 'ParaView', kind: 'connector', description: 'See 3D fields.' },
+      { id: 'explore', name: 'explore', kind: 'plugin', description: 'A plugin of the same name.' },
+    ],
+  };
+
+  it('lists a plugin the conversation lacks with its name and summary', () => {
+    const row = summonReferences(withPlugins).find((item) => item.kind === 'plugin');
+    expect(row).toMatchObject({
+      id: 'paraview',
+      label: 'paraview',
+      detail: 'ParaView — See 3D fields.',
+    });
+  });
+
+  it('turns @paraview into a plugin summons, and a name the conversation has wins', () => {
+    expect(typedSummons('show it in @paraview', withPlugins, [])).toEqual([
+      { type: 'summon', target_kind: 'plugin', target: 'paraview' },
+    ]);
+    expect(typedSummons('ask @explore', withPlugins, [])).toEqual([
+      { type: 'summon', target_kind: 'subagent', target: 'explore' },
+    ]);
+  });
+});
+
 describe('the transcript', () => {
   it('shows what the person summoned and what their command loaded', () => {
     render(
@@ -189,6 +218,23 @@ describe('the transcript', () => {
     expect(screen.getByText('Started explore as you asked')).toBeVisible();
     expect(screen.getByText('The workflow draft-review was not started')).toBeVisible();
     expect(screen.getByText('The flow council was not started: flow_not_resolved')).toBeVisible();
+  });
+
+  it('says a plugin the person asked to add was added, or why not', () => {
+    render(
+      <ConversationSummonedWork
+        metadata={{
+          summons: { subagents: [], workflows: [], flows: [], servers: [], plugins: ['paraview'] },
+          summons_outcome: {
+            started: [{ kind: 'plugin', target: 'paraview' }],
+            not_started: [{ kind: 'plugin', target: 'kicad', reason: 'plugin_offer_declined' }],
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText('You asked to add the plugin paraview for this message')).toBeVisible();
+    expect(screen.getByText('Added the plugin paraview as you asked')).toBeVisible();
+    expect(screen.getByText('The plugin kicad was not added: you chose Not now')).toBeVisible();
   });
 
   it('names the tools a server summons loaded', () => {

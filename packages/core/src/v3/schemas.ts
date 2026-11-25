@@ -557,6 +557,17 @@ export const summonTargetsSchema = z.object({
       }),
     )
     .default([]),
+  /** Plugins and connectors the person has that this conversation does not carry yet. */
+  plugins: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string().default(''),
+        kind: z.string().default(''),
+        description: z.string().default(''),
+      }),
+    )
+    .default([]),
 });
 
 export const contextStateSchema = z.object({
