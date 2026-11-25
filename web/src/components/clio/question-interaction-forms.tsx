@@ -156,14 +156,15 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     };
     const pair = fieldPair(choice);
     const choiceContext = declaredChoiceContext(interaction, choice.name);
+    // Relay's note is also the field's description: it is said once, beside the answers.
+    const choiceDescription =
+      choice.description?.trim() === choiceContext.note ? undefined : choice.description;
     return (
       <QuestionFrame {...props} escapeAnswers={Boolean(pair)}>
         <AskError error={props.responseError} />
-        {choice.description ? (
+        {choiceDescription ? (
           <AskBody>
-            <AskSection className="text-meta text-muted-foreground">
-              {choice.description}
-            </AskSection>
+            <AskSection className="text-meta text-muted-foreground">{choiceDescription}</AskSection>
           </AskBody>
         ) : null}
         {errors[choice.name] ? (
@@ -221,14 +222,18 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     const options = answerChoice.enum ?? [];
     const others = fields.filter((field) => field.name !== answerChoice.name);
     const answerContext = declaredChoiceContext(interaction, answerChoice.name);
+    const answerDescription =
+      answerChoice.description?.trim() === answerContext.note
+        ? undefined
+        : answerChoice.description;
     return (
       <QuestionFrame {...props} escapeAnswers={Boolean(answerPair)}>
         <AskError error={props.responseError} />
-        {answerChoice.description || others.length ? (
+        {answerDescription || others.length ? (
           <AskBody>
-            {answerChoice.description ? (
+            {answerDescription ? (
               <AskSection className="text-meta text-muted-foreground">
-                {answerChoice.description}
+                {answerDescription}
               </AskSection>
             ) : null}
             {others.length ? (
