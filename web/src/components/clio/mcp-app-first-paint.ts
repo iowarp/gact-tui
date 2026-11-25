@@ -99,6 +99,30 @@ export async function pictureCoverage(image: string): Promise<number | undefined
 }
 
 /**
+ * What a view says it shows nothing for, from the context it reported to the model: a
+ * view whose `structuredContent` carries `drawn: false` (its picture has not arrived, its
+ * service stopped) has drawn nothing whatever a look at its page finds, its toolbar and
+ * its own notice included. The words are the view's own text for the model; any later
+ * report without `drawn: false` withdraws it. Null when the view claims nothing.
+ */
+export function reportedUndrawn(context: Record<string, unknown>): string | null {
+  const structured = context.structuredContent;
+  if (!structured || typeof structured !== 'object') return null;
+  if ((structured as Record<string, unknown>).drawn !== false) return null;
+  const content = Array.isArray(context.content) ? context.content : [];
+  const text = content
+    .map((part) =>
+      part && typeof part === 'object' && typeof (part as { text?: unknown }).text === 'string'
+        ? (part as { text: string }).text
+        : '',
+    )
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  return text;
+}
+
+/**
  * Watch one mounted view's first paint; returns `recheck` (on resize or a new state) and
  * `stop`. A recheck inside the probe window looks sooner but keeps the window, so a view
  * that reports state before its first frame is not called blank early.

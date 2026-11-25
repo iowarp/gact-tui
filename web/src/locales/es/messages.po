@@ -490,6 +490,12 @@ msgstr "{0, plural, one {# problema} other {# problemas}}"
 msgid "{0, plural, one {# profile} other {# profiles}}"
 msgstr "{0, plural, one {# perfil} other {# perfiles}}"
 
+#. placeholder {0}: profiles.length - excluded.size
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "{0, plural, one {# profile kept} other {# profiles kept}}"
+msgstr "{0, plural, one {# perfil conservado} other {# perfiles conservados}}"
+
+
 #. placeholder {0}: result.prompt_count
 #: src/components/clio/settings-prompts.tsx
 msgid "{0, plural, one {# prompt family available.} other {# prompt families available.}}"
@@ -2008,6 +2014,10 @@ msgstr "{edited, plural, one {editó # archivo} other {editó # archivos}}"
 msgid "{elapsed} elapsed. Setup continues if you leave this page. {agent} will notify you when it finishes."
 msgstr "Tiempo transcurrido: {elapsed}. La configuración continúa si sales de esta página. {agent} te avisará cuando termine."
 
+#: src/components/clio/job-card.tsx
+msgid "{elapsed} of {limit}"
+msgstr "{elapsed} de {limit}"
+
 #: src/components/clio/composer.tsx
 msgid "{enteredId} is ambiguous; use {alternatives}"
 msgstr "{enteredId} es ambiguo; usa {alternatives}"
@@ -2886,6 +2896,10 @@ msgstr "{name} ({count})"
 msgid "{name} (fork of {forkOf})"
 msgstr "{name} (bifurcación de {forkOf})"
 
+#: src/components/clio/job-card.tsx
+msgid "{name} ×{nodes}"
+msgstr "{name} ×{nodes}"
+
 #: src/components/clio/provider-panel-footer.tsx
 #: src/components/clio/skill-tool-result.tsx
 #: src/components/clio/workbench-variant-try-tab.tsx
@@ -3515,6 +3529,10 @@ msgstr "{rule} para {path}"
 #: src/components/clio/tool-operation.ts
 msgid "{running, plural, one {# running} other {# running}}"
 msgstr "{running, plural, one {# en ejecución} other {# en ejecución}}"
+
+#: src/components/clio/job-card.tsx
+msgid "{running} of {nodes} running"
+msgstr "{running} de {nodes} en marcha"
 
 #: src/lib/variant-runs.ts
 msgid "{running} of {total} running"
@@ -5095,6 +5113,7 @@ msgstr "Acceso a otras sesiones"
 msgid "Access token"
 msgstr "Token de acceso"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-document-helpers.ts
 #: src/components/clio/session-usage-readout.tsx
 msgid "Account"
@@ -8557,6 +8576,7 @@ msgstr "cancelada"
 #: src/components/clio/deploy-progress.tsx
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
@@ -13891,6 +13911,7 @@ msgstr "completada"
 #: src/components/clio/comments/comment-editor.tsx
 #: src/components/clio/conversation-activity-lane.tsx
 #: src/components/clio/deploy-progress.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/managed-service-inventory.tsx
 #: src/components/clio/mcp-sign-in.tsx
 #: src/components/clio/model-acquisition.tsx
@@ -14744,6 +14765,7 @@ msgid "End time"
 msgstr "Hora de fin"
 
 #: src/components/clio/attention-center.tsx
+#: src/components/clio/job-card.tsx
 msgid "Ended"
 msgstr "Terminada"
 
@@ -15179,6 +15201,10 @@ msgstr "Excluir"
 msgid "Excluded profiles"
 msgstr "Perfiles excluidos"
 
+msgid "Exclude selected"
+msgstr "Excluir los seleccionados"
+
+
 #: src/components/clio/context-canvas-panel.tsx
 msgid "Excluded, {tokens}"
 msgstr "Excluido, {tokens}"
@@ -15564,6 +15590,7 @@ msgstr "falló"
 #: src/components/clio/deploy-progress.tsx
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/message-completion-footer.tsx
 #: src/components/clio/model-inventory-row.tsx
@@ -15632,6 +15659,10 @@ msgstr "Modelo rápido"
 #: src/components/clio/response-rating.tsx
 msgid "Feedback saved"
 msgstr "Comentarios guardados"
+
+#: src/components/clio/job-card.tsx
+msgid "Feeds"
+msgstr "Alimenta"
 
 #: src/components/clio/table-query-rows.ts
 msgid "fewer"
@@ -16088,6 +16119,7 @@ msgid "Finish with a return URL"
 msgstr "Terminar con una URL de retorno"
 
 #: src/components/clio/composer-run-announcer.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/operation-progress.tsx
 msgid "Finished"
@@ -16113,6 +16145,10 @@ msgstr "Trabajo terminado"
 #: src/components/clio/run-tab.tsx
 msgid "Finished."
 msgstr "Terminado."
+
+#: src/components/clio/job-card.tsx
+msgid "Finishing"
+msgstr "Terminando"
 
 #: src/lib/runtime-install-progress.ts
 msgid "Finishing the installation"
@@ -17758,6 +17794,10 @@ msgstr "Si no se abre nada, elige Gmail u Outlook."
 msgid "If required"
 msgstr "Si se requiere"
 
+#: src/components/clio/job-card.tsx
+msgid "If this is wrong"
+msgstr "Si esto es incorrecto"
+
 #: src/widget-gallery-demos.ts
 msgid "Illustrative load field"
 msgstr "Campo de carga ilustrativo"
@@ -19159,6 +19199,22 @@ msgstr "Su vista no superó la validación."
 #: src/components/clio/plugin-tab-view.tsx
 msgid "Its view was not shown. {reason}"
 msgstr "Su vista no se mostró. {reason}"
+
+#: src/components/clio/job-card.tsx
+msgid "JARVIS notes"
+msgstr "Notas de JARVIS"
+
+#: src/components/clio/job-card.tsx
+msgid "Job"
+msgstr "Trabajo"
+
+#: src/components/clio/job-card.tsx
+msgid "Job on {site}"
+msgstr "Trabajo en {site}"
+
+#: src/components/clio/infrastructure-jobs.tsx
+msgid "Jobs"
+msgstr "Trabajos"
 
 #: src/components/clio/a2ui-chart.tsx
 msgid "JPG image"
@@ -22867,6 +22923,10 @@ msgstr "No hay trabajo completado."
 msgid "No completion was recorded. Inspect the captured output before running this action again."
 msgstr "No se registró ninguna finalización. Inspecciona la salida capturada antes de volver a ejecutar esta acción."
 
+#: src/components/clio/job-card.tsx
+msgid "No components described"
+msgstr "No se describen componentes"
+
 #: src/components/clio/managed-service-host-selector.tsx
 msgid "No computer matches"
 msgstr "Ningún equipo coincide"
@@ -23819,6 +23879,14 @@ msgstr "Todavía no hay espacios de trabajo."
 #: src/components/clio/settings-report-problem-preview.tsx
 msgid "No, only reply outcomes"
 msgstr "No, solo el resultado de las respuestas"
+
+#: src/components/clio/job-card.tsx
+msgid "Node {first}"
+msgstr "Nodo {first}"
+
+#: src/components/clio/job-card.tsx
+msgid "Nodes {first} to {last}"
+msgstr "Nodos {first} a {last}"
 
 #: src/components/clio/agent-tab-values.ts
 msgid "None"
@@ -26084,6 +26152,10 @@ msgstr "Resultado parcial"
 msgid "partially selected"
 msgstr "seleccionado parcialmente"
 
+#: src/components/clio/job-card.tsx
+msgid "Partition"
+msgstr "Partición"
+
 #: src/components/clio/cad-parts-panel.tsx
 msgid "Parts"
 msgstr "Piezas"
@@ -26579,6 +26651,10 @@ msgstr "Plano en {axis} = {position}, se conserva el lado superior. Las caras co
 #: src/components/clio/cad-tool-panels.tsx
 msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
 msgstr "Plano en {axis} = {position}, se conserva el lado inferior. Las caras cortadas se rellenan."
+
+#: src/components/clio/job-card.tsx
+msgid "Planned"
+msgstr "Planificado"
 
 #: src/widget-gallery-demos.ts
 msgid "Planned stations"
@@ -27745,6 +27821,10 @@ msgstr "La cola cambió en otro lugar, así que no se aplicó tu nuevo orden"
 msgid "Queue is empty"
 msgstr "La cola está vacía"
 
+#: src/components/clio/job-card.tsx
+msgid "Queue reason"
+msgstr "Motivo de la cola"
+
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "queued"
@@ -27762,6 +27842,7 @@ msgstr "en cola"
 
 #: src/components/clio/conversation-message-row.tsx
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/resource-availability.ts
@@ -27796,6 +27877,10 @@ msgstr "Mensajes en cola"
 #: src/components/clio/run-tab.tsx
 msgid "queued on {host}"
 msgstr "en cola en {host}"
+
+#: src/components/clio/job-card.tsx
+msgid "Queued, position {position}"
+msgstr "En cola, posición {position}"
 
 #: src/components/clio/composer-run-announcer.tsx
 msgid "Queued, waiting to start"
@@ -27862,6 +27947,10 @@ msgstr "Se ejecutó en"
 #: src/components/clio/tool-operation-result.tsx
 msgid "Ran on {model}"
 msgstr "Se ejecutó en {model}"
+
+#: src/components/clio/job-card.tsx
+msgid "Ran out of time"
+msgstr "Se agotó el tiempo"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Ran without asking"
@@ -30897,6 +30986,7 @@ msgstr "en ejecución"
 #: src/components/clio/flow-diagram-source.ts
 #: src/components/clio/flow-run-presentation.ts
 #: src/components/clio/infrastructure-activity.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/session-rail-layout.ts
@@ -32301,6 +32391,10 @@ msgstr "Mira cómo encajan tu agente, tus equipos y tus servicios."
 msgid "See linked views"
 msgstr "Ver vistas vinculadas"
 
+#: src/components/clio/job-card.tsx
+msgid "See script"
+msgstr "Ver script"
+
 #: src/components/clio/extension-discover.tsx
 msgid "See server documentation"
 msgstr "Consulta la documentación del servidor"
@@ -33402,6 +33496,7 @@ msgstr "Mostrar completados"
 msgid "Show completed {count}"
 msgstr "Mostrar completados ({count})"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/managed-service-host-facts.tsx
 #: src/components/clio/model-inventory-row.tsx
 msgid "Show details"
@@ -33724,6 +33819,10 @@ msgstr "Se muestran {shown} de {total} filas, submuestreadas ({method})."
 msgid "Showing {shown} of {total} rows."
 msgstr "Se muestran {shown} de {total} filas."
 
+#: src/components/clio/a2ui-profile-stack.tsx
+msgid "Showing 500 of {count}; search to narrow."
+msgstr "Se muestran 500 de {count}; busque para acotar."
+
 #: src/components/clio/workbench-resource-browser.tsx
 msgid "Showing part of this workspace; filter to find the rest."
 msgstr "Se muestra parte de este espacio de trabajo; filtra para encontrar el resto."
@@ -34029,9 +34128,14 @@ msgstr "Cocinar la salsa a fuego lento"
 msgid "Simple tomato pasta"
 msgstr "Pasta sencilla con tomate"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/permission-operation-details.tsx
 msgid "Site"
 msgstr "Sitio"
+
+#: src/components/clio/job-card.tsx
+msgid "site default"
+msgstr "predeterminada del sitio"
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Site-provided"
@@ -34722,6 +34826,7 @@ msgid "Started the workflow {target} as you asked"
 msgstr "Se inició el flujo de trabajo {target} como pediste"
 
 #: src/components/clio/composer-attachments.tsx
+#: src/components/clio/job-card.tsx
 #: src/components/clio/resource-availability.ts
 #: src/components/clio/workspace-terminal-panel.tsx
 #: src/hooks/use-connection-availability.ts
@@ -34816,6 +34921,10 @@ msgstr "Parte de"
 #: src/components/clio/save-user-agent-dialog.tsx
 msgid "Starts from {parentName} and keeps your changes. Updates to {parentName} reach this agent in its next conversation."
 msgstr "Parte de {parentName} y conserva tus cambios. Las actualizaciones de {parentName} llegan a este agente en su siguiente conversación."
+
+#: src/components/clio/job-card.tsx
+msgid "Starts in"
+msgstr "Empieza en"
 
 #: src/lib/mcp-service-presentation.ts
 msgid "Starts when used"
@@ -35349,6 +35458,10 @@ msgstr "Flujos de datos"
 msgid "Streams results"
 msgstr "Resultados de flujos de datos"
 
+#: src/components/clio/job-card.tsx
+msgid "Streams to"
+msgstr "Transmite a"
+
 #: src/components/clio/science-log-panel.tsx
 msgid "Strength"
 msgstr "Fuerza"
@@ -35498,6 +35611,10 @@ msgstr "Enviar"
 #: src/components/clio/question-bundle-response.tsx
 msgid "Submit all answers"
 msgstr "Enviar todas las respuestas"
+
+#: src/components/clio/job-card.tsx
+msgid "Submitted"
+msgstr "Enviado"
 
 #: src/lib/fleet-usage.ts
 msgid "Subscription"
@@ -38804,6 +38921,10 @@ msgstr "Esta ejecución se detuvo y después se reinició."
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
 msgstr "Esta vista guardada no se pudo decodificar. Su registro exacto permanece en Evidencia."
 
+#: src/components/clio/conversation-turn-model.ts
+msgid "This script's own row is in an earlier part of the conversation. Its calls are listed here."
+msgstr "La fila de este script está en una parte anterior de la conversación. Sus llamadas se muestran aquí."
+
 #: src/routes/infrastructure-page.tsx
 msgid "This section could not load completely"
 msgstr "Esta sección no se pudo cargar por completo"
@@ -39131,6 +39252,11 @@ msgstr "Jueves"
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "Time"
 msgstr "Hora"
+
+#: src/components/clio/job-card.tsx
+msgctxt "job wall time"
+msgid "Time"
+msgstr "Tiempo"
 
 #: src/components/clio/work-record-controls.tsx
 msgid "Time limit (seconds)"
@@ -41632,6 +41758,10 @@ msgstr "Esperando una respuesta"
 #: src/components/clio/memory-creation-log.tsx
 msgid "Waiting for more conversation messages"
 msgstr "Esperando más mensajes de la conversación"
+
+#: src/components/clio/job-card.tsx
+msgid "Waiting for nodes"
+msgstr "Esperando nodos"
 
 #: src/components/clio/transcript-tool-bodies.tsx
 #: src/components/clio/workbench-activity-detail.tsx

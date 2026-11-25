@@ -40,6 +40,7 @@ export type ClioQueryNamespace =
   | 'language-model-configuration'
   | 'latest-release'
   | 'mcp-server'
+  | 'mcp-server-resource'
   | 'mcp-configuration'
   | 'mcp-server-inventory'
   | 'mcp-configurations'

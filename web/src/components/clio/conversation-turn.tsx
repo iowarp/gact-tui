@@ -21,6 +21,9 @@ import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 import { transcriptActivitySummary } from './transcript-activity-summary';
 import { IterationReasoningText, TranscriptIterationText } from './transcript-iteration-text';
 import { FlowRunCard } from './flow-run-card';
+import { JobCards } from './tool-job-cards';
+import { useSessionJobRows } from '@/hooks/use-job-snapshots';
+import type { JobSnapshot } from '@/lib/job-snapshot';
 import { flowToolDescriptor, type FlowToolDescriptor } from './flow-tool-presentation';
 import { toolSandboxBoundary } from './sandbox-boundary';
 import { TurnSandboxNotices } from './sandbox-boundary-notice';
@@ -183,6 +186,8 @@ export function ConversationTurn({
 }: ConversationTurnProps) {
   // Apps whose card shows something live stand apart from the folded activity.
   const shownMcpApps = useShownMcpAppIds();
+  // A job the person waits on stands apart too, so a folded group never hides it.
+  const jobRows = useSessionJobRows(mode === 'chain' && flowCards ? messageSessionId : undefined);
   const iterations = withWaitingCalls(
     withoutRestatedAnswers(recordedIterations, interactions),
     holdsWaitingCalls ? interactions : undefined,
@@ -226,12 +231,16 @@ export function ConversationTurn({
       (entry) => entry.kind === 'mcp_app' && shownMcpApps.has(entry.block.app_instance_id),
     ),
   );
-  if (mode === 'chain' && (boundaries.size > 0 || hasActiveApp || flowStarts.size > 0)) {
+  if (
+    mode === 'chain' &&
+    (boundaries.size > 0 || hasActiveApp || flowStarts.size > 0 || jobRows.size > 0)
+  ) {
     const sections: Array<
       | { kind: 'activity'; iterations: ConversationIteration[] }
       | { kind: 'review'; interaction: PendingInteraction }
       | { kind: 'app'; entry: McpAppActivityEntry }
       | { kind: 'flow'; id: string; flow: FlowToolDescriptor & { handle: string } }
+      | { kind: 'jobs'; id: string; jobs: JobSnapshot[] }
     > = [];
     let group: ConversationIteration[] = [];
     for (const iteration of iterations) {
@@ -258,11 +267,13 @@ export function ConversationTurn({
         }
         const reviews = entry.kind === 'tool' ? boundaries.get(entry.id) : undefined;
         const flow = entry.kind === 'tool' ? flowStarts.get(entry.id) : undefined;
-        if (!reviews && !flow) return;
+        const jobs = entry.kind === 'tool' ? jobRows.get(entry.id) : undefined;
+        if (!reviews && !flow && !jobs) return;
         appendSegment(index + 1);
         sections.push({ kind: 'activity', iterations: group });
         group = [];
         if (flow) sections.push({ kind: 'flow', id: entry.id, flow });
+        if (jobs) sections.push({ kind: 'jobs', id: entry.id, jobs });
         reviews?.forEach((interaction) => sections.push({ kind: 'review', interaction }));
         start = index + 1;
       });
@@ -289,6 +300,8 @@ export function ConversationTurn({
               key={`flow:${section.id}`}
               sessionId={messageSessionId!}
             />
+          ) : section.kind === 'jobs' ? (
+            <JobCards jobs={section.jobs} key={`jobs:${section.id}`} />
           ) : section.kind === 'app' ? (
             <McpAppActivity
               key={section.entry.id}

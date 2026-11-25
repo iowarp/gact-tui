@@ -40,6 +40,8 @@ export const taskSnapshotSchema = z.object({
     output: coreReferenceSchema.nullable(),
   }),
   supported_actions: z.array(z.string()),
+  /** Namespaced facts the task's server sent with its status (`_meta`), passed through. */
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
   cancellation_requested_at: z.string().nullable(),
   terminal_at: z.string().nullable(),
   connection_freshness: z.string(),
@@ -157,6 +159,8 @@ export class TaskRepository extends MemoryRepository {
       kind?: TaskSnapshot['kind'];
       activeOnly?: boolean;
       limit?: number;
+      /** ``newest`` lists the most recently created work first. */
+      order?: 'oldest' | 'newest';
     } = {},
     signal?: AbortSignal,
   ): Promise<TaskPage> {
@@ -164,12 +168,47 @@ export class TaskRepository extends MemoryRepository {
     if (options.cursor) query.set('cursor', options.cursor);
     if (options.kind) query.set('kind', options.kind);
     if (options.activeOnly) query.set('active_only', 'true');
+    if (options.order) query.set('order', options.order);
     return this.transport.request({
       method: 'GET',
       path: `/v1/tasks/query?${query}`,
       decode: (value) => taskPageSchema.parse(value),
       signal,
     });
+  }
+  /** The newest tasks in this conversation's tree, of one kind when given. */
+  public sessionTasks(
+    sessionId: string,
+    options: { kind?: TaskSnapshot['kind']; limit?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<TaskPage> {
+    const query = new URLSearchParams({
+      scope: 'tree',
+      order: 'newest',
+      limit: String(options.limit ?? 50),
+    });
+    if (options.kind) query.set('kind', options.kind);
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tasks/query?${query}`,
+      decode: (value) => taskPageSchema.parse(value),
+      signal,
+    });
+  }
+  /** One task in this conversation's tree at its latest status, or `null` when it is not there. */
+  public async sessionTask(
+    sessionId: string,
+    handle: string,
+    signal?: AbortSignal,
+  ): Promise<TaskPage['tasks'][number] | null> {
+    const query = new URLSearchParams({ handle, scope: 'tree', limit: '1' });
+    const page = await this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tasks/query?${query}`,
+      decode: (value) => taskPageSchema.parse(value),
+      signal,
+    });
+    return page.tasks.find((task) => task.handle === handle) ?? null;
   }
   /**
    * What one task in this conversation's tree was given: its assignment text, read

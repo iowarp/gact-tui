@@ -1,5 +1,6 @@
 import {
   PLUGIN_CHANGE_INJECTION_SOURCE,
+  childToolInvocations,
   isNestedToolInvocation,
   type Message,
   type MessageBlock,
@@ -154,6 +155,8 @@ function fallbackIterations(
   ];
   let current = emptyIteration(message, iterations.length);
   let publicThought: string | undefined;
+  // Scripts whose own row is not here but whose calls are: one stand-in row each.
+  const standIns = new Set<string>();
 
   const flush = (terminal = false, interrupted = false) => {
     if (!hasIterationContent(current)) return;
@@ -316,6 +319,23 @@ function fallbackIterations(
         joinThought = followsThought;
         continue;
       }
+      if (tool.parent_call_id) {
+        // A script whose row is not loaded here (a background script still calling after
+        // its turn ended, or an earlier page of history): its calls gather under one
+        // stand-in script row at the first one, never as rows of their own.
+        const parentId = tool.parent_call_id;
+        consumed.add(block.id);
+        if (!standIns.has(parentId)) {
+          standIns.add(parentId);
+          const standIn = scriptStandIn(tools, parentId, tool);
+          current.activity.push({ kind: 'tool', id: parentId, tool: standIn });
+          current.streaming ||= standIn.state === 'running';
+        } else {
+          joinText = followsText;
+          joinThought = followsThought;
+        }
+        continue;
+      }
       if (!alreadyInLane(current, 'tool', tool.id)) {
         current.activity.push({ kind: 'tool', id: tool.id, tool });
       }
@@ -446,6 +466,34 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined;
+}
+
+/**
+ * The row of a script whose own call is not in the loaded transcript: named as a
+ * script, its state and timing read from its calls, so its calls nest under it.
+ */
+function scriptStandIn(
+  tools: Readonly<Record<string, ToolInvocation>>,
+  parentId: string,
+  first: ToolInvocation,
+): ToolInvocation {
+  const children = childToolInvocations(tools, parentId);
+  const running = children.some((tool) => ['pending', 'running'].includes(tool.state));
+  const ends = children.map((tool) => tool.completed_at ?? '').filter(Boolean);
+  const note = t`This script's own row is in an earlier part of the conversation. Its calls are listed here.`;
+  return {
+    id: parentId,
+    session_id: first.session_id,
+    name: 'run_code',
+    // A script's outcome is its own; its calls ending is all that is known here.
+    state: running ? 'running' : 'succeeded',
+    started_at: children[0]?.started_at ?? first.started_at,
+    ...(running || !ends.length ? {} : { completed_at: ends.sort().at(-1) }),
+    presentation: {
+      summary: note,
+      blocks: [{ id: 'script-stand-in', type: 'text', text: note }],
+    },
+  };
 }
 
 function alreadyInLane(

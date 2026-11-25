@@ -180,17 +180,36 @@ export function adoptMcpAppTab(appInstanceId: string): void {
 /** The session event CLIO publishes when it closes an App itself (reaped server, cleanup). */
 export const MCP_APP_CLOSED_EVENT = 'mcp_app_closed';
 
-/** A streamed `mcp_app_closed`: the App ended on the server; its card offers Reopen. */
-export function dispatchMcpAppClosedFrame(frame: { eventName?: string; data: unknown }): void {
-  if (frame.eventName !== MCP_APP_CLOSED_EVENT) return;
+/**
+ * The session event CLIO publishes when a call opened a view that is already open:
+ * no new card or tab is made, and the App that shows it is brought forward.
+ */
+export const MCP_APP_SHOWN_EVENT = 'mcp_app_shown';
+
+function framedAppId(frame: { data: unknown }): string | undefined {
   let payload: unknown;
   try {
     payload = decodeEventEnvelope(frame.data).payload;
   } catch {
-    return; // Frame reduction owns malformed-envelope reporting.
+    return undefined; // Frame reduction owns malformed-envelope reporting.
   }
   const id = (payload as { app_instance_id?: unknown } | null)?.app_instance_id;
-  if (typeof id === 'string' && useMcpAppLiveSetStore.getState().apps[id]) markMcpAppEnded(id);
+  return typeof id === 'string' ? id : undefined;
+}
+
+/** A streamed `mcp_app_closed`: the App ended on the server; its card offers Reopen. */
+export function dispatchMcpAppClosedFrame(frame: { eventName?: string; data: unknown }): void {
+  if (frame.eventName !== MCP_APP_CLOSED_EVENT) return;
+  const id = framedAppId(frame);
+  if (id && useMcpAppLiveSetStore.getState().apps[id]) markMcpAppEnded(id);
+}
+
+/** A streamed `mcp_app_shown`: focus the App's tab, the one frame of that view. */
+export function dispatchMcpAppShownFrame(frame: { eventName?: string; data: unknown }): void {
+  if (frame.eventName !== MCP_APP_SHOWN_EVENT) return;
+  const id = framedAppId(frame);
+  const entry = id ? useMcpAppLiveSetStore.getState().apps[id] : undefined;
+  if (entry?.placement === 'tab') focusMcpAppTab(entry);
 }
 
 /** A frame found the record gone (404): the App ended on the server. */

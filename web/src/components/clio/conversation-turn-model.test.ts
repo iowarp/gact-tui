@@ -751,4 +751,35 @@ describe('conversationTurnPresentation', () => {
       'I expect `view_image` to return a metadata dict.',
     ]);
   });
+
+  it("gathers a background script's calls under one script row when its own row is not here", () => {
+    const call = (id: string, state: ToolInvocation['state']): ToolInvocation => ({
+      id,
+      session_id: 'session_1',
+      name: 'relay_exec_read',
+      state,
+      started_at: `2026-11-23T12:4${id.slice(-1)}:00Z`,
+      completed_at: `2026-11-23T12:4${id.slice(-1)}:01Z`,
+      parent_call_id: 'call_script',
+    });
+    const tools = { call_1: call('call_1', 'failed'), call_2: call('call_2', 'failed') };
+    const message: Message = {
+      id: 'assistant_later',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-11-23T12:50:00Z',
+      blocks: [
+        { id: 'answer', type: 'text', text: 'Still running.' },
+        { id: 'b1', type: 'tool', tool_id: 'call_1' },
+        { id: 'b2', type: 'tool', tool_id: 'call_2' },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools);
+    const rows = view.iterations.flatMap((entry) => entry.tools);
+
+    expect(rows.map((tool) => [tool.id, tool.name, tool.state])).toEqual([
+      ['call_script', 'run_code', 'succeeded'],
+    ]);
+  });
 });

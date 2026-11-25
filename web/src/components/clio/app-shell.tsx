@@ -1,13 +1,5 @@
 import { PanelRightIcon } from 'lucide-react';
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
 import { cn } from '@/lib/utils';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -36,6 +28,11 @@ import { useWorkbenchRequest, type WorkbenchRequestSource } from '@/lib/workbenc
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 import { usePhoneAppDock, useWorkbenchAppTabs } from './phone-app-dock';
 import { appTabShare } from './workbench-app-width';
+import {
+  clearOfSplitGrip,
+  useWorkbenchSlotBounds,
+  useWorkbenchSplitDrag,
+} from './workbench-keeper';
 import { OPEN_TERMINAL_EVENT } from './workspace-canvas-visibility-context';
 import { DesktopWorkspaceToolbar } from './desktop-workspace-toolbar';
 import { ToolbarAction } from './viewer-toolbar';
@@ -291,6 +288,8 @@ function DesktopNavigationLayout({
 }
 
 const WORKBENCH_SHARE_KEY = 'clio.workbench-share.v1';
+/** The open or closed canvas, kept for this browser tab so a reload shows what was on screen. */
+const WORKBENCH_OPEN_KEY = 'clio.workbench-open.v1';
 const DEFAULT_WORKBENCH_SHARE = 0.4;
 const MAX_WORKBENCH_SHARE = 0.7;
 const MIN_WORKBENCH_WIDTH = 320;
@@ -311,6 +310,24 @@ function storedWorkbenchShare(): number {
 
 function workbenchWidth(share: number, windowWidth: number): number {
   return Math.max(MIN_WORKBENCH_WIDTH, Math.min(share, MAX_WORKBENCH_SHARE) * windowWidth);
+}
+
+function storedWorkbenchOpen(): boolean | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const value = window.sessionStorage.getItem(WORKBENCH_OPEN_KEY);
+    return value === 'open' ? true : value === 'closed' ? false : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function storeWorkbenchOpen(open: boolean): void {
+  try {
+    window.sessionStorage.setItem(WORKBENCH_OPEN_KEY, open ? 'open' : 'closed');
+  } catch {
+    // Storage may be off; the choice then lasts while the shell is mounted.
+  }
 }
 
 /** Up to this the left bar folds whenever the workbench is open (spec "Laptop, 1280px"). */
@@ -354,7 +371,9 @@ export function ClioAppShell({
   const [conversationCrowded, setConversationCrowded] = useState(() =>
     conversationNeedsFoldedNavigation(initialWorkbenchShare, currentWindowWidth()),
   );
-  const [workbenchPreference, setWorkbenchPreference] = useState<boolean>();
+  const [workbenchPreference, setWorkbenchPreference] = useState<boolean | undefined>(
+    storedWorkbenchOpen,
+  );
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string>();
   // Under the split the workbench is a sheet the person slides over the
   // conversation, so a docked pocket never becomes one: narrowing the window
@@ -379,18 +398,28 @@ export function ClioAppShell({
   }
   // A wide viewport makes the canvas available, but it does not imply that the
   // user asked to open it. Explicit resource requests still reveal it, and an
-  // open/closed choice survives route changes while this shell stays mounted.
+  // open/closed choice survives route changes and reloads of this browser tab.
   const hasWorkbench = Boolean(workbench);
   const workbenchOpen =
     hasWorkbench &&
     (revealRequested || (desktopWorkbench ? (workbenchPreference ?? false) : sheetOpen));
+  useEffect(() => {
+    if (workbenchPreference !== undefined) storeWorkbenchOpen(workbenchPreference);
+  }, [workbenchPreference]);
   const collapseNavigationForWorkbench = workbenchOpen && conversationCrowded;
   const workbenchPanelRef = useRef<PanelImperativeHandle>(null);
   const workbenchSheetRef = useRef<HTMLDivElement>(null);
+  // The canvas lives in one keeper at the shell's root, fixed over the slot the
+  // current layout keeps for it (the split panel or the phone sheet). Crossing the
+  // split breakpoint swaps the slot, never the canvas's place in the DOM, so an
+  // App view's iframe is not reloaded by a resize.
+  const workbenchKeeperRef = useRef<HTMLDivElement>(null);
+  const [workbenchSlot, setWorkbenchSlot] = useState<HTMLDivElement | null>(null);
+  const workbenchSlotBounds = useWorkbenchSlotBounds(workbenchSlot);
   // An App tab shown on a phone docks between the conversation's header and composer.
   const appTabShown = useWorkbenchAppTabs((state) => state.shown);
-  // With an App tab open the closed sheet stays mounted and hidden: unmounting it
-  // would reload the App's view when the sheet opens again.
+  // With an App tab open the closed sheet stays mounted and hidden, so it opens
+  // straight back to its box over the docked App.
   const keepSheetMounted = useWorkbenchAppTabs((state) => state.open);
   const appDock = usePhoneAppDock(
     hasWorkbench && !desktopWorkbench && workbenchOpen && appTabShown,
@@ -490,6 +519,7 @@ export function ClioAppShell({
   // shrink (un-maximizing) landed before the group re-laid its panels out, and
   // the pocket kept a few pixels too many.
   const [workbenchHost, setWorkbenchHost] = useState<HTMLElement | null>(null);
+  const splitDragging = useWorkbenchSplitDrag(workbenchHost);
   useEffect(() => {
     const host = workbenchHost;
     if (!hasWorkbench || !host) return;
@@ -633,6 +663,15 @@ export function ClioAppShell({
       {workbench}
     </WorkspaceCanvasVisibilityProvider>
   );
+  // The empty box each layout keeps for the canvas; the keeper below covers it.
+  const workbenchSlotElement = (
+    <div
+      className="h-full min-h-0 w-full flex-1"
+      data-slot="workbench-slot"
+      ref={setWorkbenchSlot}
+    />
+  );
+  const workbenchShown = workbenchOpen && Boolean(workbenchSlotBounds?.width);
 
   const workspace = (
     <SidebarInset
@@ -673,7 +712,7 @@ export function ClioAppShell({
               minSize="320px"
               panelRef={workbenchPanelRef}
             >
-              {visibleWorkbench}
+              {workbenchSlotElement}
             </ResizablePanel>
           </ResizablePanelGroup>
         ) : (
@@ -710,19 +749,30 @@ export function ClioAppShell({
           <SheetContent
             // Under the split breakpoint the workbench slides over the conversation at 86%,
             // whichever tab is open; the spec's shadow sets the conversation strip beside
-            // it underneath, not cut off.
-            className="w-[86vw] p-0 shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_60%,transparent)] data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_75%,transparent)] [&>[data-slot=sheet-close]]:right-12 has-[aside[data-maximized=true]]:inset-0 has-[aside[data-maximized=true]]:w-screen has-[aside[data-maximized=true]]:max-w-none has-[aside[data-maximized=true]]:border-0 sm:has-[aside[data-maximized=true]]:max-w-none data-[state=closed]:pointer-events-none data-[state=closed]:invisible"
-            // Land on the sheet itself, announced by its title, rather than on whichever icon
-            // button comes first (which would also pop its tooltip).
+            // it underneath, not cut off. The sheet is the canvas's box: the keeper over it
+            // draws the canvas and takes its input, so the sheet itself is see-through.
+            className="w-[86vw] bg-transparent p-0 pointer-events-none shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_60%,transparent)] data-[side=right]:w-[86vw] data-[side=right]:sm:max-w-none dark:shadow-[-14px_0_30px_color-mix(in_srgb,var(--shadow-color)_75%,transparent)] [&>[data-slot=sheet-close]]:right-12 [body[data-canvas-maximized]_&]:inset-0 [body[data-canvas-maximized]_&]:w-screen [body[data-canvas-maximized]_&]:max-w-none [body[data-canvas-maximized]_&]:border-0 sm:[body[data-canvas-maximized]_&]:max-w-none data-[state=closed]:invisible"
+            // Land on the canvas rather than on whichever icon button comes first (which
+            // would also pop its tooltip); the keeper is placed over the sheet a frame on.
             onOpenAutoFocus={(event) => {
               event.preventDefault();
               workbenchSheetRef.current?.focus();
+              window.requestAnimationFrame(() =>
+                workbenchKeeperRef.current?.focus({ preventScroll: true }),
+              );
             }}
             forceMount={keepSheetMounted || undefined}
             inert={!workbenchOpen || undefined}
-            // Docked beside the composer, typing in the conversation keeps the App shown.
+            // The canvas is drawn by the keeper, outside the sheet's DOM: a press in it is
+            // inside the sheet. Docked beside the composer, typing in the conversation
+            // keeps the App shown.
             onInteractOutside={(event) => {
-              if (appDock) event.preventDefault();
+              const target = event.detail.originalEvent.target;
+              if (
+                appDock ||
+                (target instanceof Node && workbenchKeeperRef.current?.contains(target))
+              )
+                event.preventDefault();
             }}
             // Non-modal, the sheet would close whenever focus leaves it, including when
             // the conversation moves focus itself (a #message- link refocusing its turn
@@ -748,9 +798,28 @@ export function ClioAppShell({
                 {t`Session activity, child conversations, files, artifacts, and the conversation’s agent.`}
               </SheetDescription>
             </SheetHeader>
-            {visibleWorkbench}
+            {workbenchSlotElement}
           </SheetContent>
         </Sheet>
+      ) : null}
+      {/* Last at the root with a stable key, so a layout change never remounts it. */}
+      {hasWorkbench ? (
+        <div
+          className={cn(
+            'fixed z-50 outline-none',
+            (!workbenchShown || splitDragging) && 'pointer-events-none',
+            !workbenchShown && 'invisible',
+          )}
+          data-slot="workbench-keeper"
+          data-workbench-keeper={desktopWorkbench ? 'section' : 'sheet'}
+          inert={!workbenchShown}
+          key="workbench-keeper"
+          ref={workbenchKeeperRef}
+          style={desktopWorkbench ? clearOfSplitGrip(workbenchSlotBounds) : workbenchSlotBounds}
+          tabIndex={-1}
+        >
+          {visibleWorkbench}
+        </div>
       ) : null}
       <HeldKeysScrim />
     </SidebarProvider>
