@@ -2254,6 +2254,14 @@ msgstr "{host}, Models"
 msgid "{host}, Services"
 msgstr "{host}, Services"
 
+#: src/components/clio/job-card.tsx
+msgid "{hours} h"
+msgstr "{hours} h"
+
+#: src/components/clio/job-card.tsx
+msgid "{hours} h {rest} min"
+msgstr "{hours} h {rest} min"
+
 #: src/components/clio/provider-panel-footer.tsx
 #: src/components/clio/run-presentation.ts
 msgid "{hours}h"
