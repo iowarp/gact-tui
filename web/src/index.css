@@ -1097,45 +1097,45 @@ html[data-clio-motion='reduced'] *::after {
    one frame per block, a 30px header, compact rows and tight list rhythm. The
    final reply and the agent's interim prose between tool calls share it, so the
    same text reads at one scale before and after a tool call. */
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) .space-y-4 > :not(:last-child) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) .space-y-4 > :not(:last-child) {
   margin-block-end: 10px;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) :is(h1, h2, h3, h4, h5, h6)[data-streamdown] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) :is(h1, h2, h3, h4, h5, h6)[data-streamdown] {
   margin: 0;
   font-family: var(--font-heading);
   font-weight: 600;
   line-height: 1.35;
   color: var(--foreground);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:last-child) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:last-child) {
   margin-block-end: 6px;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:first-child) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) .space-y-4 > :is(h1, h2, h3, h4, h5, h6):not(:first-child) {
   margin-block-start: 14px;
 }
 /* The spec's largest transcript heading is `.md h3` at 17px; h1 stops there. */
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) h1[data-streamdown] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) h1[data-streamdown] {
   font-size: var(--text-title);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) h2[data-streamdown] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) h2[data-streamdown] {
   font-size: var(--text-title);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) h3[data-streamdown] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) h3[data-streamdown] {
   font-size: var(--text-h3);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) :is(h4, h5, h6)[data-streamdown] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) :is(h4, h5, h6)[data-streamdown] {
   font-size: 0.875rem;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message'])
   :is([data-streamdown='unordered-list'], [data-streamdown='ordered-list']) {
   list-style-position: outside;
   padding-left: 20px;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) li[data-streamdown='list-item'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) li[data-streamdown='list-item'] {
   margin: 3px 0;
   padding: 0;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message'])
   li
   > :is([data-streamdown='unordered-list'], [data-streamdown='ordered-list']) {
   margin-top: 3px;
@@ -1145,13 +1145,13 @@ html[data-clio-motion='reduced'] *::after {
    would overflow it and be clipped by the message frame. MarkdownText marks a
    list whose widest marker (start + items − 1) has more digits, and the gutter
    widens to that count so every marker shows whole and item text keeps one edge. */
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='ordered-list'][data-marker-digits] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='ordered-list'][data-marker-digits] {
   padding-left: calc(var(--marker-digits, 2) * 1ch + 0.75em);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) li::marker {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) li::marker {
   font-variant-numeric: tabular-nums;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='blockquote'] {
   margin: 0;
   border-left: 2px solid var(--border);
   padding-left: 12px;
@@ -1163,17 +1163,17 @@ html[data-clio-motion='reduced'] *::after {
    it as a console block: no quote chrome, monospace, whitespace kept so columns line
    up. Only styling changes; the text, and so the attention-heat mapping, is untouched,
    and the ">>>" marker is drawn by CSS, never part of the page text. */
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote']:has([data-streamdown='blockquote'] [data-streamdown='blockquote']) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='blockquote']:has([data-streamdown='blockquote'] [data-streamdown='blockquote']) {
   margin: 0.75rem 0;
   border-left: 0;
   padding-left: 0;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote']:has([data-streamdown='blockquote'] [data-streamdown='blockquote']) [data-streamdown='blockquote'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='blockquote']:has([data-streamdown='blockquote'] [data-streamdown='blockquote']) [data-streamdown='blockquote'] {
   margin: 0;
   border-left: 0;
   padding-left: 0;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] {
   overflow-x: auto;
   border-radius: 0.375rem;
   background-color: color-mix(in oklch, var(--muted) 70%, transparent);
@@ -1183,15 +1183,15 @@ html[data-clio-motion='reduced'] *::after {
   line-height: 1.45;
   color: var(--foreground);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] p {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] p {
   margin: 0;
   white-space: pre;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] > p:first-child::before {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='blockquote'] [data-streamdown='blockquote'] [data-streamdown='blockquote'] > p:first-child::before {
   content: '>>> ';
   opacity: 0.6;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) :is([data-streamdown='code-block'], [data-streamdown='table-wrapper']) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) :is([data-streamdown='code-block'], [data-streamdown='table-wrapper']) {
   position: relative;
   gap: 0;
   margin: 0;
@@ -1201,8 +1201,8 @@ html[data-clio-motion='reduced'] *::after {
   background: var(--background);
   padding: 0;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-header'],
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:first-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='code-block-header'],
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-wrapper'] > div:first-child {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1214,27 +1214,27 @@ html[data-clio-motion='reduced'] *::after {
   color: var(--muted-foreground);
   white-space: nowrap;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-header'] > span {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='code-block-header'] > span {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--text-meta);
   font-weight: 500;
   color: var(--foreground);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-header'] > span:empty::before {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='code-block-header'] > span:empty::before {
   content: 'Code';
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:first-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-wrapper'] > div:first-child {
   gap: 0;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:first-child::before {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-wrapper'] > div:first-child::before {
   content: 'Table';
   margin-right: auto;
   font-size: var(--text-meta);
   font-weight: 500;
   color: var(--foreground);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message'])
   [data-streamdown='code-block']
   > div:has(> [data-streamdown='code-block-actions']) {
   top: 0;
@@ -1242,14 +1242,14 @@ html[data-clio-motion='reduced'] *::after {
   margin-top: -30px;
   padding-right: 4px;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-actions'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='code-block-actions'] {
   gap: 0;
   border: 0;
   background: transparent;
   padding: 0;
   backdrop-filter: none;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message'])
   :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
   button {
   display: grid;
@@ -1259,19 +1259,19 @@ html[data-clio-motion='reduced'] *::after {
   padding: 0;
   border-radius: 6px;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message'])
   :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
   button:hover {
   background: var(--hover);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry'])
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message'])
   :is([data-streamdown='code-block-actions'], [data-streamdown='table-wrapper'] > div:first-child)
   button
   svg {
   width: 13px;
   height: 13px;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='code-block-body'] {
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1279,14 +1279,14 @@ html[data-clio-motion='reduced'] *::after {
   overflow-x: auto;
   font: var(--text-label)/1.65 var(--font-mono);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] :is(pre, code) {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='code-block-body'] :is(pre, code) {
   font: inherit;
   white-space: pre;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] code > span {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='code-block-body'] code > span {
   padding-left: 34px;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='code-block-body'] code > span::before {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='code-block-body'] code > span::before {
   box-sizing: border-box;
   width: 34px;
   margin: 0 0 0 -34px;
@@ -1294,12 +1294,12 @@ html[data-clio-motion='reduced'] *::after {
   font-size: var(--text-label);
   color: var(--faint);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-wrapper'] {
   min-width: 0;
   max-width: 100%;
 }
 /* Only a table whose code columns cannot fit scrolls, and then with a visible bar. */
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:last-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-wrapper'] > div:last-child {
   min-width: 0;
   max-width: 100%;
   overflow-x: auto;
@@ -1318,31 +1318,31 @@ html[data-clio-motion='reduced'] *::after {
   scrollbar-color: color-mix(in oklch, var(--muted-foreground) 40%, transparent) transparent;
   scrollbar-width: thin;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:last-child::-webkit-scrollbar {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-wrapper'] > div:last-child::-webkit-scrollbar {
   height: 8px;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-wrapper'] > div:last-child::-webkit-scrollbar-thumb {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-wrapper'] > div:last-child::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-header'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-header'] {
   background: transparent;
 }
 /* Spec table.p: the table fills the column, prose cells wrap and only code columns stay
    on one line (full-picture.html:36-40). */
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table'] {
   width: 100%;
   min-width: 0;
   max-width: none;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-header-cell'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-header-cell'] {
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   font: 500 var(--text-caption) var(--font-sans);
   color: var(--muted-foreground);
   white-space: normal;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-cell'] {
   min-width: 6em;
   padding: 6px 8px;
   vertical-align: top;
@@ -1352,20 +1352,20 @@ html[data-clio-motion='reduced'] *::after {
   overflow-wrap: break-word;
 }
 /* The trailing prose column carries the sentence; keep a readable measure and let the table scroll instead. */
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell']:last-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-cell']:last-child {
   min-width: 14em;
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell'][data-code-only] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-cell'][data-code-only] {
   min-width: 0;
   white-space: nowrap;
 }
 /* Spec table.p draws an identifier column as plain mono at the cell's scale, not a pill. */
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-cell'] [data-streamdown='inline-code'] {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-cell'] [data-streamdown='inline-code'] {
   padding: 0;
   background: transparent;
   font-size: var(--text-label);
 }
-:is([data-slot='message-text'], [data-slot='transcript-text-entry']) [data-streamdown='table-row'] > :first-child {
+:is([data-slot='message-text'], [data-slot='transcript-text-entry'], [data-slot='run-message']) [data-streamdown='table-row'] > :first-child {
   padding-left: 10px;
 }
 [data-diff-line='addition'] {
