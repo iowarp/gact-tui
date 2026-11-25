@@ -36,6 +36,7 @@ export interface WorkbenchActivitySource {
   onCancelTask?: (task: AsyncProcess) => Promise<void>;
   onControlTask?: (task: AsyncProcess, action: 'pause' | 'resume' | 'restart') => Promise<void>;
   onOpenFlow?: (handle: string, title: string) => void;
+  onOpenRun?: (handle: string, label?: string, sessionId?: string) => void;
 }
 
 const ActivitySourceContext = createContext<WorkbenchActivitySource | undefined>(undefined);
@@ -63,6 +64,7 @@ export function WorkbenchActivityProvider({
     onCancelTask,
     onControlTask,
     onOpenFlow,
+    onOpenRun,
   } = source;
   // One value per change of an actual record list, not per parent render.
   const value = useMemo(
@@ -82,6 +84,7 @@ export function WorkbenchActivityProvider({
       onCancelTask,
       onControlTask,
       onOpenFlow,
+      onOpenRun,
     }),
     [
       sessionId,
@@ -99,6 +102,7 @@ export function WorkbenchActivityProvider({
       onCancelTask,
       onControlTask,
       onOpenFlow,
+      onOpenRun,
     ],
   );
   return <ActivitySourceContext.Provider value={value}>{children}</ActivitySourceContext.Provider>;

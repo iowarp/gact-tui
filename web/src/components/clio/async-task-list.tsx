@@ -91,6 +91,7 @@ export interface AsyncTaskListProps {
   subagents?: readonly SubagentRun[];
   onOpenSubagent?: SessionEvidenceActions['onOpenSubagent'];
   onOpenFlow?: SessionEvidenceActions['onOpenFlow'];
+  onOpenRun?: SessionEvidenceActions['onOpenRun'];
   onCancelTask?: (task: AsyncProcess) => Promise<void>;
   onControlTask?: (task: AsyncProcess, action: 'pause' | 'resume' | 'restart') => Promise<void>;
   pagination?: TaskPageControls;
@@ -102,6 +103,7 @@ export function AsyncTaskList({
   subagents,
   onOpenSubagent,
   onOpenFlow,
+  onOpenRun,
   onCancelTask,
   onControlTask,
   pagination,
@@ -207,6 +209,7 @@ export function AsyncTaskList({
         entry={entry}
         onOpenSubagent={onOpenSubagent}
         onOpenFlow={onOpenFlow}
+        onOpenRun={onOpenRun}
         status={
           cancelling
             ? 'cancellation_requested'

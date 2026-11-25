@@ -43,6 +43,8 @@ export interface RunRow {
   elapsedMs?: number;
   /** The task handle of a flow run, opened in its conversation with `?flow=`. */
   flowHandle?: string;
+  /** The task snapshot the row was built from, for its job, backend and call facts. */
+  task?: TaskSnapshot;
 }
 
 export const sourceLabels: Record<RunSource, string> = {
@@ -128,6 +130,7 @@ export function buildRows(
       updatedAt: run.updated_at,
       createdAt: run.created_at || undefined,
       terminalAt: run.terminal_at || undefined,
+      task: run,
     };
   });
 }

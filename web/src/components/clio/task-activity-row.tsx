@@ -41,6 +41,7 @@ export function TaskActivityRow({
   actions,
   onOpenSubagent,
   onOpenFlow,
+  onOpenRun,
   compact = false,
 }: {
   entry: TaskActivity;
@@ -49,6 +50,8 @@ export function TaskActivityRow({
   onOpenSubagent?: SessionEvidenceActions['onOpenSubagent'];
   /** A task that runs a flow opens its run view. */
   onOpenFlow?: SessionEvidenceActions['onOpenFlow'];
+  /** Any other task opens its run record: log, questions and details. */
+  onOpenRun?: SessionEvidenceActions['onOpenRun'];
   compact?: boolean;
 }) {
   const { process: task, subagent } = entry;
@@ -223,6 +226,18 @@ export function TaskActivityRow({
                   : t`Open the ${ph({ flow: flowName.toLowerCase() })} run: ${title}`
               }
               onClick={() => onOpenFlow(entry.key, flowRun)}
+            >
+              {t`Open the run`}
+            </Button>
+          ) : !flow && task && onOpenRun ? (
+            <Button
+              variant="link"
+              size="sm"
+              className="h-8 px-0"
+              aria-label={t`Open the run record: ${title}`}
+              onClick={() =>
+                onOpenRun(entry.key, title, task.owner?.session_id ?? task.owner_session_id)
+              }
             >
               {t`Open the run`}
             </Button>

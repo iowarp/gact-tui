@@ -14,6 +14,26 @@ export function runConversationHref(row: RunRow, withFlow = true): string | unde
   return withFlow && row.flowHandle ? `${base}?flow=${encodeURIComponent(row.flowHandle)}` : base;
 }
 
+/** The backend's task kind as a reader names it; a kind added later reads as reported. */
+export function runKindName(kind: string): string {
+  switch (kind) {
+    case 'Subagent':
+      return t`Subagent`;
+    case 'Shell':
+      return t`Shell`;
+    case 'Session':
+      return t`Session`;
+    case 'Flow':
+      return t`Flow`;
+    case 'Question':
+      return t`Question`;
+    case 'Code':
+      return t`Script`;
+    default:
+      return kind;
+  }
+}
+
 export type RunGroup = 'needs-you' | 'running' | 'queued' | 'earlier';
 
 export const RUN_GROUP_LABELS: Record<RunGroup, string> = {

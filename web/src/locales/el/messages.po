@@ -137,6 +137,11 @@ msgstr "{0, plural, one {Το {agent} χρησιμοποιεί {names}, που �
 msgid "{0, plural, one {{count}/# step complete} other {{count}/# steps complete}}"
 msgstr "{0, plural, one {{count}/# βήμα ολοκληρώθηκε} other {{count}/# βήματα ολοκληρώθηκαν}}"
 
+#. placeholder {0}: progress.completed
+#: src/components/clio/task-progress-label.ts
+msgid "{0, plural, one {{doneText} iteration} other {{doneText} iterations}}"
+msgstr "{0, plural, one {{doneText} επανάληψη} other {{doneText} επαναλήψεις}}"
+
 #. placeholder {0}: chip.count
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "{0, plural, one {{label}: # model (replaces {replaced})} other {{label}: # models (replaces {replaced})}}"
@@ -4175,6 +4180,10 @@ msgstr "{total, plural, one {{doneText} / {totalText} καταχώριση ευ�
 msgid "{total, plural, one {{doneText} / {totalText} entry} other {{doneText} / {totalText} entries}}"
 msgstr "{total, plural, one {{doneText} / {totalText} καταχώριση} other {{doneText} / {totalText} καταχωρίσεις}}"
 
+#: src/components/clio/task-progress-label.ts
+msgid "{total, plural, one {{doneText} / {totalText} iteration} other {{doneText} / {totalText} iterations}}"
+msgstr "{total, plural, one {{doneText} / {totalText} επανάληψη} other {{doneText} / {totalText} επαναλήψεις}}"
+
 #: src/routes/runs-page-copy.tsx
 msgid "{total, plural, one {{indexed} of # session indexed} other {{indexed} of # sessions indexed}}"
 msgstr "{total, plural, one {{indexed} από # συνεδρία ευρετηριάστηκαν} other {{indexed} από # συνεδρίες ευρετηριάστηκαν}}"
@@ -5857,6 +5866,7 @@ msgstr "πράκτορας"
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/private-local-library.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-session-defaults.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/subagent-card.tsx
@@ -6179,14 +6189,6 @@ msgstr "Όλα τα εργαλεία μόνο ανάγνωσης"
 #: src/lib/shortcuts/catalog.ts
 msgid "All results"
 msgstr "Όλα τα αποτελέσματα"
-
-#: src/components/clio/rail-runs.tsx
-msgid "All runs"
-msgstr "Όλες οι εκτελέσεις"
-
-#: src/components/clio/rail-runs.tsx
-msgid "All runs ({count})"
-msgstr "Όλες οι εκτελέσεις ({count})"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "All services"
@@ -6543,6 +6545,7 @@ msgstr "Άλλο παράθυρο χρησιμοποιεί αυτή τη σελ�
 #: src/components/clio/pending-interaction-question-response.tsx
 #: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/run-record.tsx
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/variant-pick-card.tsx
 msgid "Answer"
@@ -6608,6 +6611,14 @@ msgstr "Απαντήστε όταν είστε έτοιμοι. Ο {agent} μπο
 msgid "Answer when ready. {agent} can continue working; your answer enters the message queue."
 msgstr "Απαντήστε όταν είστε έτοιμοι. Ο {agent} μπορεί να συνεχίσει να εργάζεται· η απάντησή σας μπαίνει στην ουρά μηνυμάτων."
 
+#: src/components/clio/run-record.tsx
+msgid "Answer: {answer}"
+msgstr "Απάντηση: {answer}"
+
+#: src/components/clio/run-record.tsx
+msgid "answered"
+msgstr "απαντήθηκε"
+
 #: src/components/clio/workbench-activity-model.ts
 msgctxt "request state"
 msgid "answered"
@@ -6635,6 +6646,10 @@ msgstr "Απαντήθηκε αυτόματα με την προεπιλογή, 
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "Answered automatically: nobody was watching this run, so the agent went ahead on its own judgment"
 msgstr "Απαντήθηκε αυτόματα: κανείς δεν παρακολουθούσε αυτή την εκτέλεση, οπότε ο πράκτορας συνέχισε με δική του κρίση"
+
+#: src/components/clio/run-record.tsx
+msgid "answered by the agent"
+msgstr "απάντησε ο πράκτορας"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Answered by you"
@@ -7127,6 +7142,11 @@ msgstr "Ρωτήστε αυτό τον άλλο βοηθό σας και, στη
 msgid "Asked"
 msgstr "Ερωτήθηκε"
 
+#. placeholder {0}: formatDateTime(question.created_at)
+#: src/components/clio/run-record.tsx
+msgid "Asked {0}"
+msgstr "Ρωτήθηκε {0}"
+
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Asked by"
@@ -7188,7 +7208,6 @@ msgstr "Σας ρωτά πριν από κάθε κλήση"
 msgid "asks you to sign in when first used"
 msgstr "ζητά σύνδεση την πρώτη φορά"
 
-#: src/components/clio/run-tab.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/tool-operation-result.tsx
 #: src/lib/session-export/archive-orchestration.tsx
@@ -7689,9 +7708,13 @@ msgstr "Αντίγραφο ασφαλείας με GitHub…"
 msgid "Backend build"
 msgstr "Έκδοση backend"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 msgid "Backend status"
 msgstr "Κατάσταση backend"
+
+#: src/components/clio/run-record.tsx
+msgid "Backend task"
+msgstr "Εργασία backend"
 
 #: src/components/clio/memory-create.tsx
 msgid "Background creation"
@@ -8263,6 +8286,10 @@ msgstr "Επιτυχίες κρυφής μνήμης"
 msgid "Cache misses"
 msgstr "Αστοχίες κρυφής μνήμης"
 
+#: src/components/clio/run-record.tsx
+msgid "Call"
+msgstr "Κλήση"
+
 #: src/components/clio/flow-run-presentation.ts
 msgid "call {number}"
 msgstr "κλήση {number}"
@@ -8557,6 +8584,7 @@ msgstr "Ζητήθηκε ακύρωση"
 msgid "Cancellation requested; waiting for settlement"
 msgstr "Ζητήθηκε ακύρωση· αναμονή για διευθέτηση"
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "cancelled"
 msgstr "ακυρώθηκε"
@@ -11436,6 +11464,7 @@ msgstr "συνομιλία"
 
 #: src/components/clio/conversation.tsx
 #: src/components/clio/markdown-content-link.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-prompt-scope.ts
 #: src/components/clio/settings-report-problem.tsx
@@ -12405,9 +12434,11 @@ msgstr "Δεν ήταν δυνατό το άνοιγμα ξανά: {displayName}
 msgid "Could not restart {agent}"
 msgstr "Δεν ήταν δυνατή η επανεκκίνηση του {agent}"
 
-#: src/components/clio/rail-runs.tsx
-msgid "Could not retry {label}: {message}"
-msgstr "Δεν ήταν δυνατή η επανάληψη του {label}: {message}"
+#. placeholder {0}: row.label
+#. placeholder {1}: error.message
+#: src/components/clio/run-record.tsx
+msgid "Could not retry {0}: {1}"
+msgstr "Δεν ήταν δυνατή η επανάληψη του {0}: {1}"
 
 #: src/hooks/use-message-marks.ts
 msgid "Could not save message mark"
@@ -13301,6 +13332,7 @@ msgstr "Παραδόθηκε στο μοντέλο"
 msgid "Demo action: {lastAction}"
 msgstr "Ενέργεια επίδειξης: {lastAction}"
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "denied"
 msgstr "απορρίφθηκε"
@@ -13487,7 +13519,7 @@ msgstr "Λεπτομέρεια"
 #: src/components/clio/deploy-progress.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/mcp-server-preparation.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/sandbox-inactive-banner.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-mcp-services.tsx
@@ -14437,6 +14469,10 @@ msgstr "Παλαιότερα"
 msgid "Earlier drafts could not be loaded"
 msgstr "Δεν ήταν δυνατή η φόρτωση προηγούμενων πρόχειρων"
 
+#: src/components/clio/run-record.tsx
+msgid "Earlier messages are in the conversation."
+msgstr "Τα προηγούμενα μηνύματα είναι στη συνομιλία."
+
 #: src/components/clio/transcript-inline-states.tsx
 msgid "Earlier messages didn’t load"
 msgstr "Τα προηγούμενα μηνύματα δεν φορτώθηκαν"
@@ -14448,6 +14484,10 @@ msgstr "Τα παλαιότερα μηνύματα δεν συνοψίστηκα
 #: src/components/clio/operation-log-terminal.tsx
 msgid "Earlier output is no longer kept by the service."
 msgstr "Η υπηρεσία δεν διατηρεί πλέον την προηγούμενη έξοδο."
+
+#: src/components/clio/run-record.tsx
+msgid "Earlier output was recorded in an older format and can't be shown."
+msgstr "Η προηγούμενη έξοδος καταγράφηκε σε παλιότερη μορφή και δεν μπορεί να εμφανιστεί."
 
 #: src/components/clio/session-rail-layout.ts
 msgid "Earlier plans"
@@ -14784,6 +14824,7 @@ msgstr "Ώρα λήξης"
 
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/job-card.tsx
+#: src/components/clio/run-record.tsx
 msgid "Ended"
 msgstr "Ολοκληρώθηκε"
 
@@ -15236,7 +15277,6 @@ msgstr "Εκτέλεση"
 msgid "Execute plan"
 msgstr "Εκτέλεση σχεδίου"
 
-#: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-schema-copy.ts
 msgid "Execution"
 msgstr "Εκτέλεση"
@@ -15390,6 +15430,10 @@ msgstr "Αναπτυγμένο"
 #: src/components/clio/science-log-model.ts
 msgid "Experiment"
 msgstr "Πείραμα"
+
+#: src/components/clio/run-record.tsx
+msgid "expired"
+msgstr "έληξε"
 
 #: src/components/clio/workbench-activity-model.ts
 msgctxt "request state"
@@ -16278,6 +16322,7 @@ msgstr "ροή"
 #: src/components/clio/flow-step-details.tsx
 #: src/components/clio/flow-tool-presentation.ts
 #: src/components/clio/flow-trust-details.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/work-kind-status.tsx
 #: src/lib/composer-reference-domain.ts
@@ -17237,7 +17282,7 @@ msgctxt "run state"
 msgid "halted"
 msgstr "τερματίστηκε"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-task-row.tsx
 msgid "Handle"
@@ -17591,14 +17636,12 @@ msgstr "Άγκιστρα"
 msgid "Hop"
 msgstr "Ενδιάμεσος κόμβος"
 
-#: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Host"
 msgstr "Κεντρικός υπολογιστής"
 
 #: src/components/clio/run-list-row.tsx
-#: src/components/clio/run-tab.tsx
 msgid "Host unavailable"
 msgstr "Ο κεντρικός υπολογιστής δεν είναι διαθέσιμος"
 
@@ -18757,6 +18800,7 @@ msgstr "Οδηγία"
 #: src/components/clio/agent-tab-values.ts
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-prompt-editor.tsx
 msgid "Instructions"
 msgstr "Οδηγίες"
@@ -19026,6 +19070,10 @@ msgstr "Μπορεί να έχει διαγραφεί ή μετακινηθεί.
 msgid "It may have been deleted, or it belongs to another connection."
 msgstr "Μπορεί να έχει διαγραφεί ή να ανήκει σε άλλη σύνδεση."
 
+#: src/components/clio/workbench-run-tab.tsx
+msgid "It may have been removed, or it belongs to another conversation. Runs lists every run."
+msgstr "Μπορεί να έχει αφαιρεθεί ή να ανήκει σε άλλη συνομιλία. Οι Εκτελέσεις δείχνουν κάθε εκτέλεση."
+
 #: src/components/clio/observability-provenance.tsx
 msgid "It may still be running, or its final update may be missing."
 msgstr "Μπορεί να εκτελείται ακόμη ή να λείπει η τελική του ενημέρωση."
@@ -19224,6 +19272,7 @@ msgid "JARVIS notes"
 msgstr "Σημειώσεις του JARVIS"
 
 #: src/components/clio/job-card.tsx
+#: src/components/clio/run-record.tsx
 msgid "Job"
 msgstr "Εργασία"
 
@@ -19477,7 +19526,7 @@ msgid "Keys and sign-ins"
 msgstr "Κλειδιά και συνδέσεις"
 
 #: src/components/clio/connector-pane.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/settings-tool-detail.tsx
@@ -20272,6 +20321,10 @@ msgstr "Φόρτωση προηγούμενων"
 msgid "Loading earlier messages…"
 msgstr "Φόρτωση προηγούμενων μηνυμάτων…"
 
+#: src/components/clio/run-record.tsx
+msgid "Loading earlier output"
+msgstr "Φόρτωση προηγούμενης εξόδου"
+
 #: src/components/clio/observability-provenance.tsx
 msgid "Loading evidence sources"
 msgstr "Φόρτωση πηγών τεκμηρίων"
@@ -20817,6 +20870,7 @@ msgid "Locations saved for new deployments."
 msgstr "Οι τοποθεσίες αποθηκεύτηκαν για νέες αναπτύξεις."
 
 #: src/components/clio/infrastructure-activity-row.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/science-log-tab.tsx
 #: src/components/clio/science-log-take.tsx
 #: src/components/clio/workbench-activity-detail.tsx
@@ -22814,6 +22868,10 @@ msgstr "Καμία απάντηση σε αυτή τη διεύθυνση"
 msgid "No answer at this address."
 msgstr "Καμία απάντηση σε αυτή τη διεύθυνση."
 
+#: src/components/clio/run-record.tsx
+msgid "No answer recorded"
+msgstr "Δεν καταγράφηκε απάντηση"
+
 #: src/components/clio/question-answer-presentation.ts
 msgid "No answer text was recorded."
 msgstr "Δεν καταγράφηκε κείμενο απάντησης."
@@ -22970,6 +23028,10 @@ msgstr "Δεν υπάρχει διαθέσιμο στιγμιότυπο πλαι
 #: src/components/clio/settings-report-problem.tsx
 msgid "No conversation"
 msgstr "Καμία συνομιλία"
+
+#: src/components/clio/run-record.tsx
+msgid "No conversation recorded"
+msgstr "Δεν καταγράφηκε συνομιλία"
 
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
@@ -23324,6 +23386,7 @@ msgid "No message was recorded."
 msgstr "Δεν καταγράφηκε μήνυμα."
 
 #: src/components/ai-elements/conversation.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "No messages yet"
 msgstr "Δεν υπάρχουν μηνύματα ακόμη"
@@ -23444,6 +23507,10 @@ msgstr "Καμία έξοδος"
 #: src/components/clio/conversation-inspector.tsx
 msgid "No output files"
 msgstr "Δεν υπάρχουν αρχεία εξόδου"
+
+#: src/components/clio/run-record.tsx
+msgid "No output recorded"
+msgstr "Δεν καταγράφηκε έξοδος"
 
 #: src/components/clio/agent-package-items.ts
 msgid "No package brings commands."
@@ -23948,6 +24015,10 @@ msgstr "δεν απομένει κανένα από τα μέλη του"
 #: src/lib/variant-runs.ts
 msgid "None of these drafts was used."
 msgstr "Δεν χρησιμοποιήθηκε κανένα από αυτά τα πρόχειρα."
+
+#: src/components/clio/session-evidence-items.tsx
+msgid "none running"
+msgstr "καμία σε εκτέλεση"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "None written; the step receives the workflow's task and the answers it waits on."
@@ -24484,6 +24555,10 @@ msgstr "Τίποτα σε αυτή τη μελέτη δεν ταιριάζει"
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "Nothing is moved or copied"
 msgstr "Τίποτα δεν μετακινείται ή αντιγράφεται"
+
+#: src/components/clio/rail-runs.tsx
+msgid "Nothing is running"
+msgstr "Τίποτα δεν εκτελείται"
 
 #: src/lib/local-servers.ts
 msgid "Nothing is running at its address right now."
@@ -25196,6 +25271,7 @@ msgstr "Άνοιγμα πλήρους αποθηκευμένης εξόδου"
 
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/run-actions.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
 msgid "Open conversation"
@@ -25222,7 +25298,6 @@ msgid "Open flagged records"
 msgstr "Άνοιγμα εγγραφών με σήμανση"
 
 #: src/components/clio/run-actions.tsx
-#: src/components/clio/tool-technical-details.tsx
 msgid "Open flow run"
 msgstr "Άνοιγμα εκτέλεσης ροής"
 
@@ -25277,6 +25352,10 @@ msgstr "Άνοιγμα στον φάκελο"
 #: src/components/clio/a2ui-message-draft.tsx
 msgid "Open in Mail"
 msgstr "Άνοιγμα στο Mail"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "Open in Runs"
+msgstr "Άνοιγμα στις Εκτελέσεις"
 
 #: src/components/clio/draft-actions.tsx
 #: src/components/clio/session-actions.tsx
@@ -25385,6 +25464,12 @@ msgstr "Άνοιγμα αποθετηρίου"
 #: src/components/clio/settings-context-history.tsx
 msgid "Open retained summary in conversation"
 msgstr "Άνοιγμα της διατηρημένης περίληψης στη συνομιλία"
+
+#: src/components/clio/job-card.tsx
+#: src/components/clio/tool-compact-row.tsx
+#: src/components/clio/tool-technical-details.tsx
+msgid "Open run"
+msgstr "Άνοιγμα εκτέλεσης"
 
 #: src/components/clio/run-tab.tsx
 msgid "Open runs"
@@ -25518,6 +25603,10 @@ msgstr "Ανοίξτε τη γραμμή για να δείτε το σενάρ�
 #: src/components/clio/task-activity-row.tsx
 msgid "Open the run"
 msgstr "Άνοιγμα της εκτέλεσης"
+
+#: src/components/clio/task-activity-row.tsx
+msgid "Open the run record: {title}"
+msgstr "Άνοιγμα της εγγραφής εκτέλεσης: {title}"
 
 #: src/components/clio/subagent-card.tsx
 msgid "Open the SPOTTER review conversation"
@@ -26595,7 +26684,7 @@ msgstr "Καρφιτσωμένο, στο τελευταίο αίτημα"
 msgid "Place a point"
 msgstr "Τοποθέτηση σημείου"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 msgid "Placement"
 msgstr "Τοποθέτηση"
 
@@ -27798,6 +27887,7 @@ msgstr "ερώτηση"
 #: src/components/clio/pending-interactions.tsx
 #: src/components/clio/question-answer-reader.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-model.ts
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/study-tree.tsx
@@ -27838,6 +27928,7 @@ msgstr "Ερώτηση: {subject}"
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/question-response-frame.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/workbench-activity-model.ts
 #: src/lib/tool-domain-labels.ts
@@ -27849,6 +27940,7 @@ msgid "Questions awaiting your answer"
 msgstr "Ερωτήσεις που περιμένουν την απάντησή σας"
 
 #: src/components/clio/composer-submit-controls.tsx
+#: src/components/clio/run-record.tsx
 #: src/hooks/use-composer-delivery.ts
 msgid "Queue"
 msgstr "Στην ουρά"
@@ -27979,6 +28071,7 @@ msgstr "Εκτελέστηκε για {duration}"
 msgid "Ran in {folder}. Copy the folder path"
 msgstr "Εκτελέστηκε στο {folder}. Αντιγραφή διαδρομής φακέλου"
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Ran on"
 msgstr "Εκτελέστηκε σε"
@@ -28347,6 +28440,14 @@ msgstr "Ανάγνωση αρχείων πηγής…"
 msgid "Reading the call's record…"
 msgstr "Ανάγνωση της εγγραφής της κλήσης…"
 
+#: src/components/clio/run-record.tsx
+msgid "Reading the conversation"
+msgstr "Ανάγνωση της συνομιλίας"
+
+#: src/components/clio/run-record.tsx
+msgid "Reading the log"
+msgstr "Ανάγνωση του αρχείου καταγραφής"
+
 #: src/components/clio/managed-service-context.tsx
 msgid "Reading the model and this host’s GPUs…"
 msgstr "Ανάγνωση του μοντέλου και των GPU αυτού του κεντρικού υπολογιστή…"
@@ -28354,6 +28455,10 @@ msgstr "Ανάγνωση του μοντέλου και των GPU αυτού τ
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "Reading the plugin…"
 msgstr "Ανάγνωση του πρόσθετου…"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "Reading the run"
+msgstr "Ανάγνωση της εκτέλεσης"
 
 #: src/components/clio/agent-item-details.tsx
 msgid "Reading the skill"
@@ -29822,9 +29927,10 @@ msgstr "Αναφέρθηκε από τον διακομιστή"
 msgid "Reported issue"
 msgstr "Αναφερθέν πρόβλημα"
 
-#: src/components/clio/run-tab.tsx
-msgid "Reported issue: {issue}"
-msgstr "Αναφερθέν πρόβλημα: {issue}"
+#. placeholder {0}: row.statusDetail
+#: src/components/clio/run-record.tsx
+msgid "Reported issue: {0}"
+msgstr "Αναφερθέν πρόβλημα: {0}"
 
 #: src/components/clio/task-activity-row.tsx
 msgid "Reported status"
@@ -30509,6 +30615,7 @@ msgstr "Ανάκτηση"
 #: src/components/clio/question-surface.tsx
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-about.tsx
@@ -30549,7 +30656,6 @@ msgstr "Ανάκτηση"
 msgid "Retry"
 msgstr "Επανάληψη"
 
-#: src/components/clio/rail-runs.tsx
 #: src/components/clio/settings-model-server-row.tsx
 msgid "Retry {label}"
 msgstr "Επανάληψη {label}"
@@ -30600,6 +30706,7 @@ msgid "Retry upload for {name}"
 msgstr "Επανάληψη μεταφόρτωσης για {name}"
 
 #: src/components/clio/conversation-message-blocks.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-permissions-lines.tsx
 msgid "Retrying"
@@ -30920,6 +31027,7 @@ msgstr "οι κανόνες αποθηκεύονται μαζί"
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/subagent-card.tsx
+#: src/components/clio/workbench-open-request.ts
 msgid "Run"
 msgstr "Εκτέλεση"
 
@@ -30941,6 +31049,7 @@ msgstr "Εκτέλεση script σε ιστοσελίδα"
 
 #: src/components/clio/run-actions.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/workbench-run-tab.tsx
 msgid "Run actions"
 msgstr "Ενέργειες εκτέλεσης"
 
@@ -31000,6 +31109,7 @@ msgid "Run workflow"
 msgstr "Εκτέλεση ροής εργασιών"
 
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/workbench-run-tab.tsx
 msgid "Run: {label}"
 msgstr "Εκτέλεση: {label}"
 
@@ -31057,6 +31167,10 @@ msgstr "εκτελεί εντολές"
 msgid "Running flow {flow}"
 msgstr "Εκτέλεση της ροής {flow}"
 
+#: src/components/clio/rail-runs.tsx
+msgid "Running in this conversation"
+msgstr "Εκτελούνται σε αυτήν τη συνομιλία"
+
 #: src/components/clio/tool-terminal-result.tsx
 msgid "Running in: {folder}"
 msgstr "Εκτελείται στο: {folder}"
@@ -31087,6 +31201,7 @@ msgstr "Σε εκτέλεση, αλλά δεν έχει φορτωθεί ακό�
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/memory-creation-log.tsx
+#: src/components/clio/navigation-header.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -31159,7 +31274,6 @@ msgstr "Εκτελείται στο παρασκήνιο ως εργασία. Τ
 msgid "Runs in the background as the task “{name}”. Its progress and a cancel control are in Work, under Background tasks."
 msgstr "Εκτελείται στο παρασκήνιο ως η εργασία «{name}». Την πρόοδό της και την ακύρωσή της θα τα βρείτε στην Εργασία, στις Εργασίες στο παρασκήνιο."
 
-#: src/components/clio/rail-runs.tsx
 #: src/lib/shortcuts/catalog.ts
 msgid "Runs in this conversation"
 msgstr "Εκτελέσεις σε αυτή τη συνομιλία"
@@ -31871,6 +31985,7 @@ msgid "score {score}"
 msgstr "βαθμολογία {score}"
 
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/stop-children-dialog.tsx
@@ -32865,6 +32980,7 @@ msgid "Separate values with commas"
 msgstr "Διαχωρίστε τις τιμές με κόμματα"
 
 #: src/components/clio/a2ui-surface.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 msgid "Server"
 msgstr "Διακομιστής"
@@ -33015,6 +33131,7 @@ msgid "Servings"
 msgstr "Μερίδες"
 
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/settings-access-rule-dialog.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -33380,6 +33497,10 @@ msgstr "Κοινόχρηστα αρχεία χώρου εργασίας"
 msgid "Shared, no key"
 msgstr "Κοινόχρηστο, χωρίς κλειδί"
 
+#: src/components/clio/run-presentation.ts
+msgid "Shell"
+msgstr "Κέλυφος"
+
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Shell exited"
 msgstr "Ο φλοιός τερματίστηκε"
@@ -33547,6 +33668,10 @@ msgstr "Εμφάνιση λεπτομερειών"
 #: src/lib/settings-search-rows.ts
 msgid "Show diffusion"
 msgstr "Εμφάνιση διάχυσης"
+
+#: src/components/clio/run-record.tsx
+msgid "Show earlier output"
+msgstr "Εμφάνιση προηγούμενης εξόδου"
 
 #: src/components/clio/cad-model-view.tsx
 msgid "Show edges"
@@ -34837,6 +34962,7 @@ msgid "started"
 msgstr "ξεκίνησε"
 
 #: src/components/clio/flow-run-presentation.ts
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Started"
 msgstr "Ξεκίνησε"
@@ -35592,6 +35718,7 @@ msgstr "υποπράκτορας"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-relationships.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 msgid "Subagent"
 msgstr "Υποπράκτορας"
@@ -35894,6 +36021,7 @@ msgstr "Συνθετικές τροχιές καταιγίδων του Ατλα
 #: src/components/clio/conversation-message-row.tsx
 #: src/components/clio/global-search-results.tsx
 #: src/components/clio/infrastructure-host-inspection.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-appearance.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 msgid "System"
@@ -35952,7 +36080,7 @@ msgstr "Ο στόχος δεν αναφέρθηκε"
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/model-picker-anchors.tsx
 #: src/components/clio/registry-model-details.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/task-activity-row.tsx
@@ -36048,6 +36176,7 @@ msgstr "Εργασίες και διεργασίες"
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/plugin-review-dialog.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-model-server-details.tsx
@@ -36631,9 +36760,22 @@ msgstr "Η συνομιλία"
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
 msgstr "Η συνομιλία άλλαξε ενώ διαβαζόταν. Ένα μεταγενέστερο πέρασμα μπορεί να διαβάσει τα νέα μηνύματα."
 
+#: src/components/clio/run-record.tsx
+msgid "The conversation could not be found."
+msgstr "Η συνομιλία δεν βρέθηκε."
+
+#. placeholder {0}: conversation.error.message
+#: src/components/clio/run-record.tsx
+msgid "The conversation could not be read: {0}"
+msgstr "Δεν ήταν δυνατή η ανάγνωση της συνομιλίας: {0}"
+
 #: src/components/clio/agent-answer-activity.tsx
 msgid "The conversation did not establish a confident answer."
 msgstr "Η συνομιλία δεν κατέληξε σε μια βέβαιη απάντηση."
+
+#: src/components/clio/run-record.tsx
+msgid "The conversation starts when the run does."
+msgstr "Η συνομιλία ξεκινά με την εκτέλεση."
 
 #: src/components/clio/composer-failure.ts
 msgid "The conversation store is refusing writes."
@@ -37055,6 +37197,11 @@ msgstr "Το τοπικό περιβάλλον εκτέλεσης είναι ν�
 #: src/tauri/desktop-updater.ts
 msgid "The local runtime is unavailable. Restore the app and runtime to the same release."
 msgstr "Το τοπικό περιβάλλον εκτέλεσης δεν είναι διαθέσιμο. Επαναφέρετε την εφαρμογή και το περιβάλλον εκτέλεσης στην ίδια έκδοση."
+
+#. placeholder {0}: log.error.message
+#: src/components/clio/run-record.tsx
+msgid "The log could not be read: {0}"
+msgstr "Δεν ήταν δυνατή η ανάγνωση του αρχείου καταγραφής: {0}"
 
 #: src/components/clio/settings-report-problem-preview.tsx
 msgid "The log file could not be read."
@@ -38570,6 +38717,7 @@ msgstr "τοπικά"
 #: src/components/clio/deploy-name.ts
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/managed-service-host-selector.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/ssh-connection-route.tsx
 #: src/hooks/use-known-connections.ts
 msgid "This computer"
@@ -38961,6 +39109,14 @@ msgstr "Αυτός ο κανόνας"
 msgid "This run continues one that was stopped. Steps that finished were kept; only unfinished steps run again."
 msgstr "Αυτή η εκτέλεση συνεχίζει μία που σταμάτησε. Τα ολοκληρωμένα βήματα διατηρήθηκαν· εκτελούνται ξανά μόνο τα ημιτελή."
 
+#: src/components/clio/workbench-run-tab.tsx
+msgid "This run could not be read"
+msgstr "Δεν ήταν δυνατή η ανάγνωση αυτής της εκτέλεσης"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "This run is not in this conversation"
+msgstr "Αυτή η εκτέλεση δεν είναι σε αυτήν τη συνομιλία"
+
 #: src/components/clio/flow-run-parts.tsx
 msgid "This run was stopped"
 msgstr "Αυτή η εκτέλεση σταμάτησε"
@@ -38968,6 +39124,10 @@ msgstr "Αυτή η εκτέλεση σταμάτησε"
 #: src/components/clio/flow-run-card.tsx
 msgid "This run was stopped and later restarted."
 msgstr "Αυτή η εκτέλεση σταμάτησε και αργότερα επανεκκινήθηκε."
+
+#: src/components/clio/run-record.tsx
+msgid "This run's log is not available to you."
+msgstr "Το αρχείο καταγραφής αυτής της εκτέλεσης δεν είναι διαθέσιμο για εσάς."
 
 #: src/offline-review.tsx
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
@@ -39325,7 +39485,7 @@ msgstr "Η ώρα δεν καταγράφηκε"
 #: src/components/clio/activity-causal.ts
 #: src/components/clio/observability-activity.tsx
 #: src/components/clio/run-list-row.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-context-history.tsx
 msgid "Time unavailable"
 msgstr "Η ώρα δεν είναι διαθέσιμη"
@@ -39473,6 +39633,7 @@ msgstr "Tokens"
 msgid "Too many files. Some were not added."
 msgstr "Πάρα πολλά αρχεία. Ορισμένα δεν προστέθηκαν."
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Took"
 msgstr "Διάρκεια"
@@ -39480,6 +39641,7 @@ msgstr "Διάρκεια"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -40759,7 +40921,7 @@ msgstr "Ενημέρωση γραφικού στοιχείου"
 
 #: src/components/clio/infrastructure-activity-row.tsx
 #: src/components/clio/memory-document-dialog.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 msgid "Updated"
 msgstr "Ενημερώθηκε"
 
@@ -41207,6 +41369,11 @@ msgstr "χρησιμοποιήθηκε"
 #: src/components/clio/settings-usage.tsx
 msgid "Used"
 msgstr "Χρησιμοποιήθηκε"
+
+#. placeholder {0}: formatList(names, { and: true })
+#: src/components/clio/run-record.tsx
+msgid "Used {0}"
+msgstr "Χρησιμοποίησε {0}"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Used as"
@@ -41864,6 +42031,7 @@ msgstr "Αναμονή για μεταφόρτωση"
 
 #: src/components/clio/agent-answer-activity.tsx
 #: src/components/clio/conversation-activity-lane.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/transcript-activity-summary.ts
 msgid "waiting for you"
 msgstr "σας περιμένει"
@@ -42538,7 +42706,7 @@ msgstr "Λειτουργεί μόνο μέσω των πρακτόρων του 
 
 #: src/components/clio/command-menu-result-groups.tsx
 #: src/components/clio/connection-empty-service.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-folders.tsx
 #: src/components/clio/settings-prompt-scope.ts
 #: src/components/clio/settings-source-connect.tsx

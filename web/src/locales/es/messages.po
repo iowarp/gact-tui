@@ -137,6 +137,11 @@ msgstr "{0, plural, one {{agent} usa {names}, que aún no está listo. ¿Prepara
 msgid "{0, plural, one {{count}/# step complete} other {{count}/# steps complete}}"
 msgstr "{0, plural, one {{count}/# paso completado} other {{count}/# pasos completados}}"
 
+#. placeholder {0}: progress.completed
+#: src/components/clio/task-progress-label.ts
+msgid "{0, plural, one {{doneText} iteration} other {{doneText} iterations}}"
+msgstr "{0, plural, one {{doneText} iteración} other {{doneText} iteraciones}}"
+
 #. placeholder {0}: chip.count
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "{0, plural, one {{label}: # model (replaces {replaced})} other {{label}: # models (replaces {replaced})}}"
@@ -4175,6 +4180,10 @@ msgstr "{total, plural, one {{doneText} / {totalText} entrada indexada} other {{
 msgid "{total, plural, one {{doneText} / {totalText} entry} other {{doneText} / {totalText} entries}}"
 msgstr "{total, plural, one {{doneText} / {totalText} entrada} other {{doneText} / {totalText} entradas}}"
 
+#: src/components/clio/task-progress-label.ts
+msgid "{total, plural, one {{doneText} / {totalText} iteration} other {{doneText} / {totalText} iterations}}"
+msgstr "{total, plural, one {{doneText} / {totalText} iteración} other {{doneText} / {totalText} iteraciones}}"
+
 #: src/routes/runs-page-copy.tsx
 msgid "{total, plural, one {{indexed} of # session indexed} other {{indexed} of # sessions indexed}}"
 msgstr "{total, plural, one {{indexed} de # sesión indexadas} other {{indexed} de # sesiones indexadas}}"
@@ -5857,6 +5866,7 @@ msgstr "agente"
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/private-local-library.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-session-defaults.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/subagent-card.tsx
@@ -6179,14 +6189,6 @@ msgstr "Todas las herramientas de solo lectura"
 #: src/lib/shortcuts/catalog.ts
 msgid "All results"
 msgstr "Todos los resultados"
-
-#: src/components/clio/rail-runs.tsx
-msgid "All runs"
-msgstr "Todas las ejecuciones"
-
-#: src/components/clio/rail-runs.tsx
-msgid "All runs ({count})"
-msgstr "Todas las ejecuciones ({count})"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "All services"
@@ -6543,6 +6545,7 @@ msgstr "Otra ventana está usando esta página."
 #: src/components/clio/pending-interaction-question-response.tsx
 #: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/run-record.tsx
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/variant-pick-card.tsx
 msgid "Answer"
@@ -6608,6 +6611,14 @@ msgstr "Responde cuando quieras. {agent} puede seguir trabajando y recibirá tu 
 msgid "Answer when ready. {agent} can continue working; your answer enters the message queue."
 msgstr "Responde cuando quieras. {agent} puede seguir trabajando; tu respuesta entra en la cola de mensajes."
 
+#: src/components/clio/run-record.tsx
+msgid "Answer: {answer}"
+msgstr "Respuesta: {answer}"
+
+#: src/components/clio/run-record.tsx
+msgid "answered"
+msgstr "respondida"
+
 #: src/components/clio/workbench-activity-model.ts
 msgctxt "request state"
 msgid "answered"
@@ -6635,6 +6646,10 @@ msgstr "Respondida automáticamente con el valor predeterminado, porque nadie es
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "Answered automatically: nobody was watching this run, so the agent went ahead on its own judgment"
 msgstr "Respondida automáticamente: nadie estaba siguiendo esta ejecución, así que el agente continuó según su propio criterio"
+
+#: src/components/clio/run-record.tsx
+msgid "answered by the agent"
+msgstr "respondida por el agente"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Answered by you"
@@ -7127,6 +7142,11 @@ msgstr "Pregúntale esto a tu otro asistente y pega su respuesta abajo."
 msgid "Asked"
 msgstr "Preguntado"
 
+#. placeholder {0}: formatDateTime(question.created_at)
+#: src/components/clio/run-record.tsx
+msgid "Asked {0}"
+msgstr "Preguntada {0}"
+
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Asked by"
@@ -7188,7 +7208,6 @@ msgstr "Te pregunta antes de cada llamada"
 msgid "asks you to sign in when first used"
 msgstr "pide iniciar sesión la primera vez"
 
-#: src/components/clio/run-tab.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/tool-operation-result.tsx
 #: src/lib/session-export/archive-orchestration.tsx
@@ -7689,9 +7708,13 @@ msgstr "Hacer copia de seguridad con GitHub…"
 msgid "Backend build"
 msgstr "Compilación del backend"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 msgid "Backend status"
 msgstr "Estado del backend"
+
+#: src/components/clio/run-record.tsx
+msgid "Backend task"
+msgstr "Tarea del backend"
 
 #: src/components/clio/memory-create.tsx
 msgid "Background creation"
@@ -8263,6 +8286,10 @@ msgstr "Aciertos de caché"
 msgid "Cache misses"
 msgstr "Fallos de caché"
 
+#: src/components/clio/run-record.tsx
+msgid "Call"
+msgstr "Llamada"
+
 #: src/components/clio/flow-run-presentation.ts
 msgid "call {number}"
 msgstr "llamada {number}"
@@ -8557,6 +8584,7 @@ msgstr "Cancelación solicitada"
 msgid "Cancellation requested; waiting for settlement"
 msgstr "Cancelación solicitada; esperando a que se resuelva"
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "cancelled"
 msgstr "cancelado"
@@ -11436,6 +11464,7 @@ msgstr "conversación"
 
 #: src/components/clio/conversation.tsx
 #: src/components/clio/markdown-content-link.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-prompt-scope.ts
 #: src/components/clio/settings-report-problem.tsx
@@ -12405,9 +12434,11 @@ msgstr "No se pudo volver a abrir {displayName}"
 msgid "Could not restart {agent}"
 msgstr "No se pudo reiniciar {agent}"
 
-#: src/components/clio/rail-runs.tsx
-msgid "Could not retry {label}: {message}"
-msgstr "No se pudo reintentar {label}: {message}"
+#. placeholder {0}: row.label
+#. placeholder {1}: error.message
+#: src/components/clio/run-record.tsx
+msgid "Could not retry {0}: {1}"
+msgstr "No se pudo reintentar {0}: {1}"
 
 #: src/hooks/use-message-marks.ts
 msgid "Could not save message mark"
@@ -13301,6 +13332,7 @@ msgstr "Entregado al modelo"
 msgid "Demo action: {lastAction}"
 msgstr "Acción de demostración: {lastAction}"
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "denied"
 msgstr "denegado"
@@ -13487,7 +13519,7 @@ msgstr "Detalle"
 #: src/components/clio/deploy-progress.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/mcp-server-preparation.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/sandbox-inactive-banner.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-mcp-services.tsx
@@ -14437,6 +14469,10 @@ msgstr "Anterior"
 msgid "Earlier drafts could not be loaded"
 msgstr "No se pudieron cargar los borradores anteriores"
 
+#: src/components/clio/run-record.tsx
+msgid "Earlier messages are in the conversation."
+msgstr "Los mensajes anteriores están en la conversación."
+
 #: src/components/clio/transcript-inline-states.tsx
 msgid "Earlier messages didn’t load"
 msgstr "No se cargaron los mensajes anteriores"
@@ -14448,6 +14484,10 @@ msgstr "Los mensajes anteriores no se resumieron<0>: {factList}</0>"
 #: src/components/clio/operation-log-terminal.tsx
 msgid "Earlier output is no longer kept by the service."
 msgstr "El servicio ya no conserva la salida anterior."
+
+#: src/components/clio/run-record.tsx
+msgid "Earlier output was recorded in an older format and can't be shown."
+msgstr "La salida anterior se registró en un formato antiguo y no se puede mostrar."
 
 #: src/components/clio/session-rail-layout.ts
 msgid "Earlier plans"
@@ -14784,6 +14824,7 @@ msgstr "Hora de fin"
 
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/job-card.tsx
+#: src/components/clio/run-record.tsx
 msgid "Ended"
 msgstr "Terminada"
 
@@ -15236,7 +15277,6 @@ msgstr "Ejecutar"
 msgid "Execute plan"
 msgstr "Ejecutar plan"
 
-#: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-schema-copy.ts
 msgid "Execution"
 msgstr "Ejecución"
@@ -15390,6 +15430,10 @@ msgstr "Expandido"
 #: src/components/clio/science-log-model.ts
 msgid "Experiment"
 msgstr "Experimento"
+
+#: src/components/clio/run-record.tsx
+msgid "expired"
+msgstr "caducada"
 
 #: src/components/clio/workbench-activity-model.ts
 msgctxt "request state"
@@ -16278,6 +16322,7 @@ msgstr "flujo"
 #: src/components/clio/flow-step-details.tsx
 #: src/components/clio/flow-tool-presentation.ts
 #: src/components/clio/flow-trust-details.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/work-kind-status.tsx
 #: src/lib/composer-reference-domain.ts
@@ -17237,7 +17282,7 @@ msgctxt "run state"
 msgid "halted"
 msgstr "interrumpida"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-task-row.tsx
 msgid "Handle"
@@ -17591,14 +17636,12 @@ msgstr "Hooks"
 msgid "Hop"
 msgstr "Salto"
 
-#: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Host"
 msgstr "Host"
 
 #: src/components/clio/run-list-row.tsx
-#: src/components/clio/run-tab.tsx
 msgid "Host unavailable"
 msgstr "Host no disponible"
 
@@ -18757,6 +18800,7 @@ msgstr "Instrucción"
 #: src/components/clio/agent-tab-values.ts
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-prompt-editor.tsx
 msgid "Instructions"
 msgstr "Instrucciones"
@@ -19026,6 +19070,10 @@ msgstr "Puede que se haya eliminado o movido."
 msgid "It may have been deleted, or it belongs to another connection."
 msgstr "Puede que se haya eliminado o que pertenezca a otra conexión."
 
+#: src/components/clio/workbench-run-tab.tsx
+msgid "It may have been removed, or it belongs to another conversation. Runs lists every run."
+msgstr "Puede que se haya eliminado o que pertenezca a otra conversación. Ejecuciones muestra todas las ejecuciones."
+
 #: src/components/clio/observability-provenance.tsx
 msgid "It may still be running, or its final update may be missing."
 msgstr "Puede que siga en ejecución o que falte su actualización final."
@@ -19224,6 +19272,7 @@ msgid "JARVIS notes"
 msgstr "Notas de JARVIS"
 
 #: src/components/clio/job-card.tsx
+#: src/components/clio/run-record.tsx
 msgid "Job"
 msgstr "Trabajo"
 
@@ -19477,7 +19526,7 @@ msgid "Keys and sign-ins"
 msgstr "Claves e inicios de sesión"
 
 #: src/components/clio/connector-pane.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/settings-tool-detail.tsx
@@ -20272,6 +20321,10 @@ msgstr "Cargando anteriores"
 msgid "Loading earlier messages…"
 msgstr "Cargando mensajes anteriores…"
 
+#: src/components/clio/run-record.tsx
+msgid "Loading earlier output"
+msgstr "Cargando la salida anterior"
+
 #: src/components/clio/observability-provenance.tsx
 msgid "Loading evidence sources"
 msgstr "Cargando fuentes de evidencia"
@@ -20817,6 +20870,7 @@ msgid "Locations saved for new deployments."
 msgstr "Ubicaciones guardadas para nuevas implementaciones."
 
 #: src/components/clio/infrastructure-activity-row.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/science-log-tab.tsx
 #: src/components/clio/science-log-take.tsx
 #: src/components/clio/workbench-activity-detail.tsx
@@ -22814,6 +22868,10 @@ msgstr "No hay respuesta en esta dirección"
 msgid "No answer at this address."
 msgstr "No hay respuesta en esta dirección."
 
+#: src/components/clio/run-record.tsx
+msgid "No answer recorded"
+msgstr "No hay respuesta registrada"
+
 #: src/components/clio/question-answer-presentation.ts
 msgid "No answer text was recorded."
 msgstr "No se registró ningún texto de respuesta."
@@ -22970,6 +23028,10 @@ msgstr "No hay ninguna instantánea del contexto disponible para este agente."
 #: src/components/clio/settings-report-problem.tsx
 msgid "No conversation"
 msgstr "Ninguna conversación"
+
+#: src/components/clio/run-record.tsx
+msgid "No conversation recorded"
+msgstr "No hay conversación registrada"
 
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
@@ -23324,6 +23386,7 @@ msgid "No message was recorded."
 msgstr "No se registró ningún mensaje."
 
 #: src/components/ai-elements/conversation.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "No messages yet"
 msgstr "Aún no hay mensajes"
@@ -23444,6 +23507,10 @@ msgstr "Sin salida"
 #: src/components/clio/conversation-inspector.tsx
 msgid "No output files"
 msgstr "No hay archivos de salida"
+
+#: src/components/clio/run-record.tsx
+msgid "No output recorded"
+msgstr "No hay salida registrada"
 
 #: src/components/clio/agent-package-items.ts
 msgid "No package brings commands."
@@ -23948,6 +24015,10 @@ msgstr "no queda ninguno de sus miembros"
 #: src/lib/variant-runs.ts
 msgid "None of these drafts was used."
 msgstr "No se usó ninguno de estos borradores."
+
+#: src/components/clio/session-evidence-items.tsx
+msgid "none running"
+msgstr "ninguna en curso"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "None written; the step receives the workflow's task and the answers it waits on."
@@ -24484,6 +24555,10 @@ msgstr "Nada en este estudio coincide"
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "Nothing is moved or copied"
 msgstr "No se mueve ni se copia nada"
+
+#: src/components/clio/rail-runs.tsx
+msgid "Nothing is running"
+msgstr "No hay nada en ejecución"
 
 #: src/lib/local-servers.ts
 msgid "Nothing is running at its address right now."
@@ -25196,6 +25271,7 @@ msgstr "Abrir la salida guardada completa"
 
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/run-actions.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
 msgid "Open conversation"
@@ -25222,7 +25298,6 @@ msgid "Open flagged records"
 msgstr "Abrir los registros marcados"
 
 #: src/components/clio/run-actions.tsx
-#: src/components/clio/tool-technical-details.tsx
 msgid "Open flow run"
 msgstr "Abrir ejecución del flujo"
 
@@ -25277,6 +25352,10 @@ msgstr "Abrir en la carpeta"
 #: src/components/clio/a2ui-message-draft.tsx
 msgid "Open in Mail"
 msgstr "Abrir en Mail"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "Open in Runs"
+msgstr "Abrir en Ejecuciones"
 
 #: src/components/clio/draft-actions.tsx
 #: src/components/clio/session-actions.tsx
@@ -25385,6 +25464,12 @@ msgstr "Abrir repositorio"
 #: src/components/clio/settings-context-history.tsx
 msgid "Open retained summary in conversation"
 msgstr "Abrir el resumen conservado en la conversación"
+
+#: src/components/clio/job-card.tsx
+#: src/components/clio/tool-compact-row.tsx
+#: src/components/clio/tool-technical-details.tsx
+msgid "Open run"
+msgstr "Abrir ejecución"
 
 #: src/components/clio/run-tab.tsx
 msgid "Open runs"
@@ -25518,6 +25603,10 @@ msgstr "Abre la fila para ver el script y su salida."
 #: src/components/clio/task-activity-row.tsx
 msgid "Open the run"
 msgstr "Abrir la ejecución"
+
+#: src/components/clio/task-activity-row.tsx
+msgid "Open the run record: {title}"
+msgstr "Abrir el registro de la ejecución: {title}"
 
 #: src/components/clio/subagent-card.tsx
 msgid "Open the SPOTTER review conversation"
@@ -26595,7 +26684,7 @@ msgstr "Fijado, en la última solicitud"
 msgid "Place a point"
 msgstr "Colocar un punto"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 msgid "Placement"
 msgstr "Ubicación"
 
@@ -27798,6 +27887,7 @@ msgstr "pregunta"
 #: src/components/clio/pending-interactions.tsx
 #: src/components/clio/question-answer-reader.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-model.ts
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/study-tree.tsx
@@ -27838,6 +27928,7 @@ msgstr "Pregunta: {subject}"
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/question-response-frame.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/workbench-activity-model.ts
 #: src/lib/tool-domain-labels.ts
@@ -27849,6 +27940,7 @@ msgid "Questions awaiting your answer"
 msgstr "Preguntas pendientes de tu respuesta"
 
 #: src/components/clio/composer-submit-controls.tsx
+#: src/components/clio/run-record.tsx
 #: src/hooks/use-composer-delivery.ts
 msgid "Queue"
 msgstr "Poner en cola"
@@ -27979,6 +28071,7 @@ msgstr "Se ejecutó durante {duration}"
 msgid "Ran in {folder}. Copy the folder path"
 msgstr "Se ejecutó en {folder}. Copiar la ruta de la carpeta"
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Ran on"
 msgstr "Se ejecutó en"
@@ -28347,6 +28440,14 @@ msgstr "Leyendo archivos de la fuente…"
 msgid "Reading the call's record…"
 msgstr "Leyendo el registro de la llamada…"
 
+#: src/components/clio/run-record.tsx
+msgid "Reading the conversation"
+msgstr "Leyendo la conversación"
+
+#: src/components/clio/run-record.tsx
+msgid "Reading the log"
+msgstr "Leyendo el registro"
+
 #: src/components/clio/managed-service-context.tsx
 msgid "Reading the model and this host’s GPUs…"
 msgstr "Leyendo el modelo y las GPU de este host…"
@@ -28354,6 +28455,10 @@ msgstr "Leyendo el modelo y las GPU de este host…"
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "Reading the plugin…"
 msgstr "Leyendo el complemento…"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "Reading the run"
+msgstr "Leyendo la ejecución"
 
 #: src/components/clio/agent-item-details.tsx
 msgid "Reading the skill"
@@ -29822,9 +29927,10 @@ msgstr "Informado por el servidor"
 msgid "Reported issue"
 msgstr "Problema notificado"
 
-#: src/components/clio/run-tab.tsx
-msgid "Reported issue: {issue}"
-msgstr "Problema informado: {issue}"
+#. placeholder {0}: row.statusDetail
+#: src/components/clio/run-record.tsx
+msgid "Reported issue: {0}"
+msgstr "Problema notificado: {0}"
 
 #: src/components/clio/task-activity-row.tsx
 msgid "Reported status"
@@ -30509,6 +30615,7 @@ msgstr "Recuperación"
 #: src/components/clio/question-surface.tsx
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-about.tsx
@@ -30549,7 +30656,6 @@ msgstr "Recuperación"
 msgid "Retry"
 msgstr "Reintentar"
 
-#: src/components/clio/rail-runs.tsx
 #: src/components/clio/settings-model-server-row.tsx
 msgid "Retry {label}"
 msgstr "Reintentar {label}"
@@ -30600,6 +30706,7 @@ msgid "Retry upload for {name}"
 msgstr "Reintentar la subida de {name}"
 
 #: src/components/clio/conversation-message-blocks.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-permissions-lines.tsx
 msgid "Retrying"
@@ -30920,6 +31027,7 @@ msgstr "las reglas se guardan juntas"
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/subagent-card.tsx
+#: src/components/clio/workbench-open-request.ts
 msgid "Run"
 msgstr "Ejecutar"
 
@@ -30941,6 +31049,7 @@ msgstr "Ejecutar un script en una página web"
 
 #: src/components/clio/run-actions.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/workbench-run-tab.tsx
 msgid "Run actions"
 msgstr "Acciones de la ejecución"
 
@@ -31000,6 +31109,7 @@ msgid "Run workflow"
 msgstr "Ejecutar flujo de trabajo"
 
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/workbench-run-tab.tsx
 msgid "Run: {label}"
 msgstr "Ejecución: {label}"
 
@@ -31057,6 +31167,10 @@ msgstr "ejecutando comandos"
 msgid "Running flow {flow}"
 msgstr "Ejecutando el flujo {flow}"
 
+#: src/components/clio/rail-runs.tsx
+msgid "Running in this conversation"
+msgstr "En ejecución en esta conversación"
+
 #: src/components/clio/tool-terminal-result.tsx
 msgid "Running in: {folder}"
 msgstr "Ejecutándose en: {folder}"
@@ -31087,6 +31201,7 @@ msgstr "En ejecución, pero aún no hay ningún modelo cargado."
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/memory-creation-log.tsx
+#: src/components/clio/navigation-header.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -31159,7 +31274,6 @@ msgstr "Se ejecuta en segundo plano como tarea. Puedes seguir su progreso y canc
 msgid "Runs in the background as the task “{name}”. Its progress and a cancel control are in Work, under Background tasks."
 msgstr "Se ejecuta en segundo plano como la tarea «{name}». Puedes seguir su progreso y cancelarla en Trabajo, en Tareas en segundo plano."
 
-#: src/components/clio/rail-runs.tsx
 #: src/lib/shortcuts/catalog.ts
 msgid "Runs in this conversation"
 msgstr "Ejecuciones en esta conversación"
@@ -31871,6 +31985,7 @@ msgid "score {score}"
 msgstr "puntuación {score}"
 
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/stop-children-dialog.tsx
@@ -32865,6 +32980,7 @@ msgid "Separate values with commas"
 msgstr "Separa los valores con comas"
 
 #: src/components/clio/a2ui-surface.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 msgid "Server"
 msgstr "Servidor"
@@ -33015,6 +33131,7 @@ msgid "Servings"
 msgstr "Raciones"
 
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/settings-access-rule-dialog.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -33380,6 +33497,10 @@ msgstr "Archivos compartidos del espacio de trabajo"
 msgid "Shared, no key"
 msgstr "Compartido, sin clave"
 
+#: src/components/clio/run-presentation.ts
+msgid "Shell"
+msgstr "Shell"
+
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Shell exited"
 msgstr "El shell finalizó"
@@ -33547,6 +33668,10 @@ msgstr "Mostrar detalles"
 #: src/lib/settings-search-rows.ts
 msgid "Show diffusion"
 msgstr "Mostrar difusión"
+
+#: src/components/clio/run-record.tsx
+msgid "Show earlier output"
+msgstr "Mostrar la salida anterior"
 
 #: src/components/clio/cad-model-view.tsx
 msgid "Show edges"
@@ -34837,6 +34962,7 @@ msgid "started"
 msgstr "iniciado"
 
 #: src/components/clio/flow-run-presentation.ts
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Started"
 msgstr "Iniciado"
@@ -35592,6 +35718,7 @@ msgstr "subagente"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-relationships.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 msgid "Subagent"
 msgstr "Subagente"
@@ -35894,6 +36021,7 @@ msgstr "Trayectorias sintéticas de tormentas del Atlántico"
 #: src/components/clio/conversation-message-row.tsx
 #: src/components/clio/global-search-results.tsx
 #: src/components/clio/infrastructure-host-inspection.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-appearance.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 msgid "System"
@@ -35952,7 +36080,7 @@ msgstr "Destino no informado"
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/model-picker-anchors.tsx
 #: src/components/clio/registry-model-details.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/task-activity-row.tsx
@@ -36048,6 +36176,7 @@ msgstr "Tareas y procesos"
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/plugin-review-dialog.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-model-server-details.tsx
@@ -36631,9 +36760,22 @@ msgstr "La conversación"
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
 msgstr "La conversación cambió mientras se leía. Una pasada posterior puede leer los mensajes nuevos."
 
+#: src/components/clio/run-record.tsx
+msgid "The conversation could not be found."
+msgstr "No se encontró la conversación."
+
+#. placeholder {0}: conversation.error.message
+#: src/components/clio/run-record.tsx
+msgid "The conversation could not be read: {0}"
+msgstr "No se pudo leer la conversación: {0}"
+
 #: src/components/clio/agent-answer-activity.tsx
 msgid "The conversation did not establish a confident answer."
 msgstr "La conversación no permitió establecer una respuesta fiable."
+
+#: src/components/clio/run-record.tsx
+msgid "The conversation starts when the run does."
+msgstr "La conversación empieza cuando empiece la ejecución."
 
 #: src/components/clio/composer-failure.ts
 msgid "The conversation store is refusing writes."
@@ -37055,6 +37197,11 @@ msgstr "El entorno de ejecución local es más reciente que la versión de la ap
 #: src/tauri/desktop-updater.ts
 msgid "The local runtime is unavailable. Restore the app and runtime to the same release."
 msgstr "El entorno de ejecución local no está disponible. Restaura la aplicación y el entorno de ejecución a la misma versión."
+
+#. placeholder {0}: log.error.message
+#: src/components/clio/run-record.tsx
+msgid "The log could not be read: {0}"
+msgstr "No se pudo leer el registro: {0}"
 
 #: src/components/clio/settings-report-problem-preview.tsx
 msgid "The log file could not be read."
@@ -38570,6 +38717,7 @@ msgstr "este equipo"
 #: src/components/clio/deploy-name.ts
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/managed-service-host-selector.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/ssh-connection-route.tsx
 #: src/hooks/use-known-connections.ts
 msgid "This computer"
@@ -38961,6 +39109,14 @@ msgstr "Esta regla"
 msgid "This run continues one that was stopped. Steps that finished were kept; only unfinished steps run again."
 msgstr "Esta ejecución continúa una que se detuvo. Se conservaron los pasos terminados; solo se vuelven a ejecutar los pendientes."
 
+#: src/components/clio/workbench-run-tab.tsx
+msgid "This run could not be read"
+msgstr "No se pudo leer esta ejecución"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "This run is not in this conversation"
+msgstr "Esta ejecución no está en esta conversación"
+
 #: src/components/clio/flow-run-parts.tsx
 msgid "This run was stopped"
 msgstr "Esta ejecución se detuvo"
@@ -38968,6 +39124,10 @@ msgstr "Esta ejecución se detuvo"
 #: src/components/clio/flow-run-card.tsx
 msgid "This run was stopped and later restarted."
 msgstr "Esta ejecución se detuvo y después se reinició."
+
+#: src/components/clio/run-record.tsx
+msgid "This run's log is not available to you."
+msgstr "El registro de esta ejecución no está disponible para ti."
 
 #: src/offline-review.tsx
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
@@ -39325,7 +39485,7 @@ msgstr "Hora no registrada"
 #: src/components/clio/activity-causal.ts
 #: src/components/clio/observability-activity.tsx
 #: src/components/clio/run-list-row.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-context-history.tsx
 msgid "Time unavailable"
 msgstr "Hora no disponible"
@@ -39473,6 +39633,7 @@ msgstr "Tokens"
 msgid "Too many files. Some were not added."
 msgstr "Demasiados archivos. Algunos no se añadieron."
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Took"
 msgstr "Duración"
@@ -39480,6 +39641,7 @@ msgstr "Duración"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -40759,7 +40921,7 @@ msgstr "Actualizar widget"
 
 #: src/components/clio/infrastructure-activity-row.tsx
 #: src/components/clio/memory-document-dialog.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 msgid "Updated"
 msgstr "Actualizado"
 
@@ -41207,6 +41369,11 @@ msgstr "usado"
 #: src/components/clio/settings-usage.tsx
 msgid "Used"
 msgstr "Usado"
+
+#. placeholder {0}: formatList(names, { and: true })
+#: src/components/clio/run-record.tsx
+msgid "Used {0}"
+msgstr "Usó {0}"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Used as"
@@ -41864,6 +42031,7 @@ msgstr "Esperando la subida"
 
 #: src/components/clio/agent-answer-activity.tsx
 #: src/components/clio/conversation-activity-lane.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/transcript-activity-summary.ts
 msgid "waiting for you"
 msgstr "esperándote"
@@ -42538,7 +42706,7 @@ msgstr "Funciona solo a través de los agentes de {agent}: no abre archivos, no 
 
 #: src/components/clio/command-menu-result-groups.tsx
 #: src/components/clio/connection-empty-service.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-folders.tsx
 #: src/components/clio/settings-prompt-scope.ts
 #: src/components/clio/settings-source-connect.tsx

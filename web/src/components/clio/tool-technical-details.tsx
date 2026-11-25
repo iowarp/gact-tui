@@ -542,7 +542,7 @@ export function TechnicalDetailsLink({
           onOpenFlow();
         }}
       >
-        {flowLabel ? t`Open ${ph({ flow: flowLabel.toLowerCase() })} run` : t`Open flow run`}
+        {flowLabel ? t`Open ${ph({ flow: flowLabel.toLowerCase() })} run` : t`Open run`}
       </Button>
     );
   return subject ? <PresentationLink block={subject} /> : null;

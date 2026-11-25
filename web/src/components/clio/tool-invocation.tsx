@@ -23,6 +23,7 @@ import { TranscriptDiffBody, TranscriptTerminalBody } from './transcript-tool-bo
 import { ToolDetailsContent } from './tool-details-content';
 import { PresentationLink } from './presentation-link';
 import {
+  getToolActionLabel,
   getToolSubject,
   getToolStatus,
   getToolFailureDetail,
@@ -153,10 +154,18 @@ export function ClioToolInvocation({
   );
   if (!tool) return <p className="text-sm text-muted-foreground">{t`Tool details unavailable`}</p>;
   const flow = flowToolDescriptor(tool);
+  const runHandle = tool.execution_task?.handle;
   const openFlow =
     flow?.handle && navigation?.onOpenFlow
       ? () => navigation.onOpenFlow?.(flow.handle!, t`${ph({ flow: flow.label })} run`)
-      : undefined;
+      : !flow?.handle && runHandle && navigation?.onOpenRun
+        ? () =>
+            navigation.onOpenRun?.(
+              runHandle,
+              getToolActionLabel(tool),
+              sessionId || tool.session_id || undefined,
+            )
+        : undefined;
   const presentedTool = withStoppedOutcome(
     withOperationOutcome(
       withAgentMessagePresentation(

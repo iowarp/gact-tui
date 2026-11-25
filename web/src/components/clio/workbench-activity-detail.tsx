@@ -650,6 +650,7 @@ function TaskDetail({
           compact
           onControlTask={source.onControlTask}
           onOpenFlow={source.onOpenFlow}
+          onOpenRun={source.onOpenRun}
           onOpenSubagent={onOpenSubagent}
           processes={process ? [process] : []}
           subagents={subagent ? [subagent] : []}

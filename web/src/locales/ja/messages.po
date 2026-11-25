@@ -137,6 +137,11 @@ msgstr "{0, plural, other {{agent} は {names} を使いますが、まだ準備
 msgid "{0, plural, one {{count}/# step complete} other {{count}/# steps complete}}"
 msgstr "{0, plural, one {{count}/#ステップ完了} other {{count}/#ステップ完了}}"
 
+#. placeholder {0}: progress.completed
+#: src/components/clio/task-progress-label.ts
+msgid "{0, plural, one {{doneText} iteration} other {{doneText} iterations}}"
+msgstr "{0, plural, other {{doneText} 回の反復}}"
+
 #. placeholder {0}: chip.count
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "{0, plural, one {{label}: # model (replaces {replaced})} other {{label}: # models (replaces {replaced})}}"
@@ -4175,6 +4180,10 @@ msgstr "{total, plural, one {{doneText} / {totalText}件のエントリーをイ
 msgid "{total, plural, one {{doneText} / {totalText} entry} other {{doneText} / {totalText} entries}}"
 msgstr "{total, plural, one {{doneText} / {totalText}件のエントリー} other {{doneText} / {totalText}件のエントリー}}"
 
+#: src/components/clio/task-progress-label.ts
+msgid "{total, plural, one {{doneText} / {totalText} iteration} other {{doneText} / {totalText} iterations}}"
+msgstr "{total, plural, other {{doneText} / {totalText} 回の反復}}"
+
 #: src/routes/runs-page-copy.tsx
 msgid "{total, plural, one {{indexed} of # session indexed} other {{indexed} of # sessions indexed}}"
 msgstr "{total, plural, one {#件中{indexed}件のセッションをインデックス済み} other {#件中{indexed}件のセッションをインデックス済み}}"
@@ -5857,6 +5866,7 @@ msgstr "エージェント"
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/message-reply-facts.tsx
 #: src/components/clio/private-local-library.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-session-defaults.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/subagent-card.tsx
@@ -6179,14 +6189,6 @@ msgstr "すべての読み取り専用ツール"
 #: src/lib/shortcuts/catalog.ts
 msgid "All results"
 msgstr "すべての結果"
-
-#: src/components/clio/rail-runs.tsx
-msgid "All runs"
-msgstr "すべての実行"
-
-#: src/components/clio/rail-runs.tsx
-msgid "All runs ({count})"
-msgstr "すべての実行（{count}）"
 
 #: src/components/clio/managed-service-inventory.tsx
 msgid "All services"
@@ -6543,6 +6545,7 @@ msgstr "別のウィンドウがこのページを使用しています。"
 #: src/components/clio/pending-interaction-question-response.tsx
 #: src/components/clio/question-interaction-forms.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/run-record.tsx
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/variant-pick-card.tsx
 msgid "Answer"
@@ -6608,6 +6611,14 @@ msgstr "準備ができたら回答してください。{agent}は作業を続�
 msgid "Answer when ready. {agent} can continue working; your answer enters the message queue."
 msgstr "準備ができたら回答してください。{agent}は作業を続けることができ、回答はメッセージキューに入ります。"
 
+#: src/components/clio/run-record.tsx
+msgid "Answer: {answer}"
+msgstr "回答: {answer}"
+
+#: src/components/clio/run-record.tsx
+msgid "answered"
+msgstr "回答済み"
+
 #: src/components/clio/workbench-activity-model.ts
 msgctxt "request state"
 msgid "answered"
@@ -6635,6 +6646,10 @@ msgstr "この実行を見ている人がいなかったため、既定値で自
 #: src/components/clio/flow-run-edit-list.tsx
 msgid "Answered automatically: nobody was watching this run, so the agent went ahead on its own judgment"
 msgstr "自動的に回答しました：この実行を見ている人がいなかったため、エージェントが自らの判断で進めました"
+
+#: src/components/clio/run-record.tsx
+msgid "answered by the agent"
+msgstr "エージェントが回答"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Answered by you"
@@ -7127,6 +7142,11 @@ msgstr "もう一方のアシスタントにこれを尋ね、その回答を下
 msgid "Asked"
 msgstr "質問済み"
 
+#. placeholder {0}: formatDateTime(question.created_at)
+#: src/components/clio/run-record.tsx
+msgid "Asked {0}"
+msgstr "{0} に質問"
+
 #: src/components/clio/permission-response.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Asked by"
@@ -7188,7 +7208,6 @@ msgstr "呼び出しのたびに確認する"
 msgid "asks you to sign in when first used"
 msgstr "初回利用時にサインインを求めます"
 
-#: src/components/clio/run-tab.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/tool-operation-result.tsx
 #: src/lib/session-export/archive-orchestration.tsx
@@ -7689,9 +7708,13 @@ msgstr "GitHubでバックアップ…"
 msgid "Backend build"
 msgstr "バックエンドのビルド"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 msgid "Backend status"
 msgstr "バックエンドの状態"
+
+#: src/components/clio/run-record.tsx
+msgid "Backend task"
+msgstr "バックエンドのタスク"
 
 #: src/components/clio/memory-create.tsx
 msgid "Background creation"
@@ -8263,6 +8286,10 @@ msgstr "キャッシュヒット"
 msgid "Cache misses"
 msgstr "キャッシュミス"
 
+#: src/components/clio/run-record.tsx
+msgid "Call"
+msgstr "呼び出し"
+
 #: src/components/clio/flow-run-presentation.ts
 msgid "call {number}"
 msgstr "呼び出し{number}"
@@ -8557,6 +8584,7 @@ msgstr "キャンセルを要求しました"
 msgid "Cancellation requested; waiting for settlement"
 msgstr "キャンセルを要求しました。確定を待機中"
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "cancelled"
 msgstr "キャンセル済み"
@@ -11436,6 +11464,7 @@ msgstr "会話"
 
 #: src/components/clio/conversation.tsx
 #: src/components/clio/markdown-content-link.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-prompt-scope.ts
 #: src/components/clio/settings-report-problem.tsx
@@ -12405,9 +12434,11 @@ msgstr "{displayName}を再度開けませんでした"
 msgid "Could not restart {agent}"
 msgstr "{agent}を再起動できませんでした"
 
-#: src/components/clio/rail-runs.tsx
-msgid "Could not retry {label}: {message}"
-msgstr "{label}を再試行できませんでした：{message}"
+#. placeholder {0}: row.label
+#. placeholder {1}: error.message
+#: src/components/clio/run-record.tsx
+msgid "Could not retry {0}: {1}"
+msgstr "{0} を再試行できませんでした: {1}"
 
 #: src/hooks/use-message-marks.ts
 msgid "Could not save message mark"
@@ -13301,6 +13332,7 @@ msgstr "モデルに配信済み"
 msgid "Demo action: {lastAction}"
 msgstr "デモ操作：{lastAction}"
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "denied"
 msgstr "拒否"
@@ -13487,7 +13519,7 @@ msgstr "詳細"
 #: src/components/clio/deploy-progress.tsx
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/mcp-server-preparation.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/sandbox-inactive-banner.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-mcp-services.tsx
@@ -14437,6 +14469,10 @@ msgstr "以前"
 msgid "Earlier drafts could not be loaded"
 msgstr "以前の下書きを読み込めませんでした"
 
+#: src/components/clio/run-record.tsx
+msgid "Earlier messages are in the conversation."
+msgstr "以前のメッセージは会話にあります。"
+
 #: src/components/clio/transcript-inline-states.tsx
 msgid "Earlier messages didn’t load"
 msgstr "以前のメッセージを読み込めませんでした"
@@ -14448,6 +14484,10 @@ msgstr "以前のメッセージは要約されませんでした<0>: {factList}
 #: src/components/clio/operation-log-terminal.tsx
 msgid "Earlier output is no longer kept by the service."
 msgstr "以前の出力はサービスに保持されていません。"
+
+#: src/components/clio/run-record.tsx
+msgid "Earlier output was recorded in an older format and can't be shown."
+msgstr "以前の出力は古い形式で記録されているため表示できません。"
 
 #: src/components/clio/session-rail-layout.ts
 msgid "Earlier plans"
@@ -14784,6 +14824,7 @@ msgstr "終了時刻"
 
 #: src/components/clio/attention-center.tsx
 #: src/components/clio/job-card.tsx
+#: src/components/clio/run-record.tsx
 msgid "Ended"
 msgstr "終了"
 
@@ -15236,7 +15277,6 @@ msgstr "実行"
 msgid "Execute plan"
 msgstr "プランを実行"
 
-#: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-schema-copy.ts
 msgid "Execution"
 msgstr "実行"
@@ -15390,6 +15430,10 @@ msgstr "展開"
 #: src/components/clio/science-log-model.ts
 msgid "Experiment"
 msgstr "実験"
+
+#: src/components/clio/run-record.tsx
+msgid "expired"
+msgstr "期限切れ"
 
 #: src/components/clio/workbench-activity-model.ts
 msgctxt "request state"
@@ -16278,6 +16322,7 @@ msgstr "フロー"
 #: src/components/clio/flow-step-details.tsx
 #: src/components/clio/flow-tool-presentation.ts
 #: src/components/clio/flow-trust-details.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/work-kind-status.tsx
 #: src/lib/composer-reference-domain.ts
@@ -17237,7 +17282,7 @@ msgctxt "run state"
 msgid "halted"
 msgstr "中断"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/transcript-task-row.tsx
 msgid "Handle"
@@ -17591,14 +17636,12 @@ msgstr "フック"
 msgid "Hop"
 msgstr "ホップ"
 
-#: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Host"
 msgstr "ホスト"
 
 #: src/components/clio/run-list-row.tsx
-#: src/components/clio/run-tab.tsx
 msgid "Host unavailable"
 msgstr "ホストを利用できません"
 
@@ -18757,6 +18800,7 @@ msgstr "指示"
 #: src/components/clio/agent-tab-values.ts
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/flow-run-parts.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-prompt-editor.tsx
 msgid "Instructions"
 msgstr "指示"
@@ -19026,6 +19070,10 @@ msgstr "削除または移動された可能性があります。"
 msgid "It may have been deleted, or it belongs to another connection."
 msgstr "削除されたか、別の接続に属している可能性があります。"
 
+#: src/components/clio/workbench-run-tab.tsx
+msgid "It may have been removed, or it belongs to another conversation. Runs lists every run."
+msgstr "削除されたか、別の会話のものです。すべての実行は「実行」にあります。"
+
 #: src/components/clio/observability-provenance.tsx
 msgid "It may still be running, or its final update may be missing."
 msgstr "まだ実行中か、最終更新が欠落している可能性があります。"
@@ -19224,6 +19272,7 @@ msgid "JARVIS notes"
 msgstr "JARVIS のメモ"
 
 #: src/components/clio/job-card.tsx
+#: src/components/clio/run-record.tsx
 msgid "Job"
 msgstr "ジョブ"
 
@@ -19477,7 +19526,7 @@ msgid "Keys and sign-ins"
 msgstr "キーとサインイン"
 
 #: src/components/clio/connector-pane.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-add-server-dialog.tsx
 #: src/components/clio/settings-prompts.tsx
 #: src/components/clio/settings-tool-detail.tsx
@@ -20272,6 +20321,10 @@ msgstr "以前の項目を読み込み中"
 msgid "Loading earlier messages…"
 msgstr "以前のメッセージを読み込み中…"
 
+#: src/components/clio/run-record.tsx
+msgid "Loading earlier output"
+msgstr "以前の出力を読み込み中"
+
 #: src/components/clio/observability-provenance.tsx
 msgid "Loading evidence sources"
 msgstr "エビデンスのソースを読み込み中"
@@ -20817,6 +20870,7 @@ msgid "Locations saved for new deployments."
 msgstr "新しいデプロイ用に場所を保存しました。"
 
 #: src/components/clio/infrastructure-activity-row.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/science-log-tab.tsx
 #: src/components/clio/science-log-take.tsx
 #: src/components/clio/workbench-activity-detail.tsx
@@ -22814,6 +22868,10 @@ msgstr "このアドレスから応答がありません"
 msgid "No answer at this address."
 msgstr "このアドレスから応答がありません。"
 
+#: src/components/clio/run-record.tsx
+msgid "No answer recorded"
+msgstr "回答は記録されていません"
+
 #: src/components/clio/question-answer-presentation.ts
 msgid "No answer text was recorded."
 msgstr "回答テキストは記録されていません。"
@@ -22970,6 +23028,10 @@ msgstr "このエージェントのコンテキストスナップショットは
 #: src/components/clio/settings-report-problem.tsx
 msgid "No conversation"
 msgstr "会話なし"
+
+#: src/components/clio/run-record.tsx
+msgid "No conversation recorded"
+msgstr "会話は記録されていません"
 
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/workspace-navigation-loose-conversations.tsx
@@ -23324,6 +23386,7 @@ msgid "No message was recorded."
 msgstr "メッセージは記録されていません。"
 
 #: src/components/ai-elements/conversation.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "No messages yet"
 msgstr "メッセージはまだありません"
@@ -23444,6 +23507,10 @@ msgstr "出力なし"
 #: src/components/clio/conversation-inspector.tsx
 msgid "No output files"
 msgstr "出力ファイルはありません"
+
+#: src/components/clio/run-record.tsx
+msgid "No output recorded"
+msgstr "出力は記録されていません"
 
 #: src/components/clio/agent-package-items.ts
 msgid "No package brings commands."
@@ -23948,6 +24015,10 @@ msgstr "メンバーが残っていません"
 #: src/lib/variant-runs.ts
 msgid "None of these drafts was used."
 msgstr "これらの下書きはいずれも使用されませんでした。"
+
+#: src/components/clio/session-evidence-items.tsx
+msgid "none running"
+msgstr "実行中なし"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "None written; the step receives the workflow's task and the answers it waits on."
@@ -24484,6 +24555,10 @@ msgstr "この研究に一致するものはありません"
 #: src/components/clio/settings-folders-dialogs.tsx
 msgid "Nothing is moved or copied"
 msgstr "何も移動またはコピーされません"
+
+#: src/components/clio/rail-runs.tsx
+msgid "Nothing is running"
+msgstr "実行中のものはありません"
 
 #: src/lib/local-servers.ts
 msgid "Nothing is running at its address right now."
@@ -25196,6 +25271,7 @@ msgstr "保存された完全な出力を開く"
 
 #: src/components/clio/conversation-inspector.tsx
 #: src/components/clio/run-actions.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/task-activity-row.tsx
 msgid "Open conversation"
@@ -25222,7 +25298,6 @@ msgid "Open flagged records"
 msgstr "フラグ付きのレコードを開く"
 
 #: src/components/clio/run-actions.tsx
-#: src/components/clio/tool-technical-details.tsx
 msgid "Open flow run"
 msgstr "フローの実行を開く"
 
@@ -25277,6 +25352,10 @@ msgstr "フォルダーで開く"
 #: src/components/clio/a2ui-message-draft.tsx
 msgid "Open in Mail"
 msgstr "メールで開く"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "Open in Runs"
+msgstr "実行で開く"
 
 #: src/components/clio/draft-actions.tsx
 #: src/components/clio/session-actions.tsx
@@ -25385,6 +25464,12 @@ msgstr "リポジトリを開く"
 #: src/components/clio/settings-context-history.tsx
 msgid "Open retained summary in conversation"
 msgstr "保持された要約を会話で開く"
+
+#: src/components/clio/job-card.tsx
+#: src/components/clio/tool-compact-row.tsx
+#: src/components/clio/tool-technical-details.tsx
+msgid "Open run"
+msgstr "実行を開く"
 
 #: src/components/clio/run-tab.tsx
 msgid "Open runs"
@@ -25518,6 +25603,10 @@ msgstr "行を開くと、スクリプトとその出力が表示されます。
 #: src/components/clio/task-activity-row.tsx
 msgid "Open the run"
 msgstr "実行を開く"
+
+#: src/components/clio/task-activity-row.tsx
+msgid "Open the run record: {title}"
+msgstr "実行の記録を開く: {title}"
 
 #: src/components/clio/subagent-card.tsx
 msgid "Open the SPOTTER review conversation"
@@ -26595,7 +26684,7 @@ msgstr "固定、前回のリクエストに含む"
 msgid "Place a point"
 msgstr "点を置く"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 msgid "Placement"
 msgstr "配置"
 
@@ -27798,6 +27887,7 @@ msgstr "質問"
 #: src/components/clio/pending-interactions.tsx
 #: src/components/clio/question-answer-reader.tsx
 #: src/components/clio/question-tool-presentation.ts
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-model.ts
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/study-tree.tsx
@@ -27838,6 +27928,7 @@ msgstr "質問：{subject}"
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/question-response-frame.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/workbench-activity-model.ts
 #: src/lib/tool-domain-labels.ts
@@ -27849,6 +27940,7 @@ msgid "Questions awaiting your answer"
 msgstr "回答待ちの質問"
 
 #: src/components/clio/composer-submit-controls.tsx
+#: src/components/clio/run-record.tsx
 #: src/hooks/use-composer-delivery.ts
 msgid "Queue"
 msgstr "キューに追加"
@@ -27979,6 +28071,7 @@ msgstr "実行時間{duration}"
 msgid "Ran in {folder}. Copy the folder path"
 msgstr "{folder}で実行しました。フォルダーのパスをコピー"
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Ran on"
 msgstr "実行場所"
@@ -28347,6 +28440,14 @@ msgstr "ソースのファイルを読み取り中…"
 msgid "Reading the call's record…"
 msgstr "呼び出しの記録を読み取り中…"
 
+#: src/components/clio/run-record.tsx
+msgid "Reading the conversation"
+msgstr "会話を読み込み中"
+
+#: src/components/clio/run-record.tsx
+msgid "Reading the log"
+msgstr "ログを読み込み中"
+
 #: src/components/clio/managed-service-context.tsx
 msgid "Reading the model and this host’s GPUs…"
 msgstr "モデルとこのホストのGPUを読み取り中…"
@@ -28354,6 +28455,10 @@ msgstr "モデルとこのホストのGPUを読み取り中…"
 #: src/components/clio/plugin-review-dialog.tsx
 msgid "Reading the plugin…"
 msgstr "プラグインを読み取り中…"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "Reading the run"
+msgstr "実行を読み込み中"
 
 #: src/components/clio/agent-item-details.tsx
 msgid "Reading the skill"
@@ -29822,9 +29927,10 @@ msgstr "サーバーからの報告"
 msgid "Reported issue"
 msgstr "報告された問題"
 
-#: src/components/clio/run-tab.tsx
-msgid "Reported issue: {issue}"
-msgstr "報告された問題：{issue}"
+#. placeholder {0}: row.statusDetail
+#: src/components/clio/run-record.tsx
+msgid "Reported issue: {0}"
+msgstr "報告された問題: {0}"
 
 #: src/components/clio/task-activity-row.tsx
 msgid "Reported status"
@@ -30509,6 +30615,7 @@ msgstr "検索取得"
 #: src/components/clio/question-surface.tsx
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/settings-about.tsx
@@ -30549,7 +30656,6 @@ msgstr "検索取得"
 msgid "Retry"
 msgstr "再試行"
 
-#: src/components/clio/rail-runs.tsx
 #: src/components/clio/settings-model-server-row.tsx
 msgid "Retry {label}"
 msgstr "{label}を再試行"
@@ -30600,6 +30706,7 @@ msgid "Retry upload for {name}"
 msgstr "{name}のアップロードを再試行"
 
 #: src/components/clio/conversation-message-blocks.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-permissions-lines.tsx
 msgid "Retrying"
@@ -30920,6 +31027,7 @@ msgstr "ルールはまとめて保存されます"
 
 #: src/components/clio/composer-command-menu.tsx
 #: src/components/clio/subagent-card.tsx
+#: src/components/clio/workbench-open-request.ts
 msgid "Run"
 msgstr "実行"
 
@@ -30941,6 +31049,7 @@ msgstr "ウェブページでスクリプトを実行"
 
 #: src/components/clio/run-actions.tsx
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/workbench-run-tab.tsx
 msgid "Run actions"
 msgstr "実行の操作"
 
@@ -31000,6 +31109,7 @@ msgid "Run workflow"
 msgstr "ワークフローを実行"
 
 #: src/components/clio/run-tab.tsx
+#: src/components/clio/workbench-run-tab.tsx
 msgid "Run: {label}"
 msgstr "実行：{label}"
 
@@ -31057,6 +31167,10 @@ msgstr "コマンドを実行中"
 msgid "Running flow {flow}"
 msgstr "フロー{flow}を実行中"
 
+#: src/components/clio/rail-runs.tsx
+msgid "Running in this conversation"
+msgstr "この会話で実行中"
+
 #: src/components/clio/tool-terminal-result.tsx
 msgid "Running in: {folder}"
 msgstr "実行場所：{folder}"
@@ -31087,6 +31201,7 @@ msgstr "実行中ですが、モデルはまだ読み込まれていません。
 
 #: src/components/clio/activity-timeline-list.tsx
 #: src/components/clio/memory-creation-log.tsx
+#: src/components/clio/navigation-header.tsx
 #: src/components/clio/plugin-tool-settings-text.ts
 #: src/components/clio/run-tab.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -31159,7 +31274,6 @@ msgstr "タスクとしてバックグラウンドで実行されます。進行
 msgid "Runs in the background as the task “{name}”. Its progress and a cancel control are in Work, under Background tasks."
 msgstr "タスク「{name}」としてバックグラウンドで実行されます。進行状況の確認とキャンセルは、［作業］の［バックグラウンドタスク］から行えます。"
 
-#: src/components/clio/rail-runs.tsx
 #: src/lib/shortcuts/catalog.ts
 msgid "Runs in this conversation"
 msgstr "この会話の実行"
@@ -31871,6 +31985,7 @@ msgid "score {score}"
 msgstr "スコア{score}"
 
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/science-log-sources.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/stop-children-dialog.tsx
@@ -32865,6 +32980,7 @@ msgid "Separate values with commas"
 msgstr "値をカンマで区切ってください"
 
 #: src/components/clio/a2ui-surface.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 msgid "Server"
 msgstr "サーバー"
@@ -33015,6 +33131,7 @@ msgid "Servings"
 msgstr "人数分"
 
 #: src/components/clio/catalog-toolset.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/settings-access-rule-dialog.tsx
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/settings-schedule-dialog.tsx
@@ -33380,6 +33497,10 @@ msgstr "共有ワークスペースファイル"
 msgid "Shared, no key"
 msgstr "共有、キーなし"
 
+#: src/components/clio/run-presentation.ts
+msgid "Shell"
+msgstr "シェル"
+
 #: src/components/clio/workspace-terminal-panel.tsx
 msgid "Shell exited"
 msgstr "シェルが終了しました"
@@ -33547,6 +33668,10 @@ msgstr "詳細を表示"
 #: src/lib/settings-search-rows.ts
 msgid "Show diffusion"
 msgstr "拡散を表示"
+
+#: src/components/clio/run-record.tsx
+msgid "Show earlier output"
+msgstr "以前の出力を表示"
 
 #: src/components/clio/cad-model-view.tsx
 msgid "Show edges"
@@ -34837,6 +34962,7 @@ msgid "started"
 msgstr "開始済み"
 
 #: src/components/clio/flow-run-presentation.ts
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 msgid "Started"
 msgstr "開始済み"
@@ -35592,6 +35718,7 @@ msgstr "サブエージェント"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-relationships.tsx
+#: src/components/clio/run-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 msgid "Subagent"
 msgstr "サブエージェント"
@@ -35894,6 +36021,7 @@ msgstr "大西洋の嵐の合成経路"
 #: src/components/clio/conversation-message-row.tsx
 #: src/components/clio/global-search-results.tsx
 #: src/components/clio/infrastructure-host-inspection.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-appearance.tsx
 #: src/components/clio/settings-report-problem-preview.tsx
 msgid "System"
@@ -35952,7 +36080,7 @@ msgstr "対象は報告されていません"
 #: src/components/clio/flow-run-parts.tsx
 #: src/components/clio/model-picker-anchors.tsx
 #: src/components/clio/registry-model-details.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/stop-children-dialog.tsx
 #: src/components/clio/storage-tool-presentation.ts
 #: src/components/clio/task-activity-row.tsx
@@ -36048,6 +36176,7 @@ msgstr "タスクとプロセス"
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/observability-provenance.tsx
 #: src/components/clio/plugin-review-dialog.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-about.tsx
 #: src/components/clio/settings-model-server-details.tsx
@@ -36631,9 +36760,22 @@ msgstr "会話"
 msgid "The conversation changed while it was being read. A later pass can read the new messages."
 msgstr "読み取り中に会話が変更されました。後の処理で新しいメッセージを読み取れます。"
 
+#: src/components/clio/run-record.tsx
+msgid "The conversation could not be found."
+msgstr "会話が見つかりませんでした。"
+
+#. placeholder {0}: conversation.error.message
+#: src/components/clio/run-record.tsx
+msgid "The conversation could not be read: {0}"
+msgstr "会話を読み込めませんでした: {0}"
+
 #: src/components/clio/agent-answer-activity.tsx
 msgid "The conversation did not establish a confident answer."
 msgstr "会話から確実な回答を得られませんでした。"
+
+#: src/components/clio/run-record.tsx
+msgid "The conversation starts when the run does."
+msgstr "実行が始まると会話も始まります。"
 
 #: src/components/clio/composer-failure.ts
 msgid "The conversation store is refusing writes."
@@ -37055,6 +37197,11 @@ msgstr "ローカルランタイムは選択したアプリリリースより新
 #: src/tauri/desktop-updater.ts
 msgid "The local runtime is unavailable. Restore the app and runtime to the same release."
 msgstr "ローカルランタイムは利用できません。アプリとランタイムを同じリリースに復元してください。"
+
+#. placeholder {0}: log.error.message
+#: src/components/clio/run-record.tsx
+msgid "The log could not be read: {0}"
+msgstr "ログを読み込めませんでした: {0}"
 
 #: src/components/clio/settings-report-problem-preview.tsx
 msgid "The log file could not be read."
@@ -38570,6 +38717,7 @@ msgstr "ローカル"
 #: src/components/clio/deploy-name.ts
 #: src/components/clio/infrastructure-overview.tsx
 #: src/components/clio/managed-service-host-selector.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/ssh-connection-route.tsx
 #: src/hooks/use-known-connections.ts
 msgid "This computer"
@@ -38961,6 +39109,14 @@ msgstr "このルール"
 msgid "This run continues one that was stopped. Steps that finished were kept; only unfinished steps run again."
 msgstr "この実行は停止した実行の続きです。完了したステップは保持され、未完了のステップだけが再実行されます。"
 
+#: src/components/clio/workbench-run-tab.tsx
+msgid "This run could not be read"
+msgstr "この実行を読み込めませんでした"
+
+#: src/components/clio/workbench-run-tab.tsx
+msgid "This run is not in this conversation"
+msgstr "この実行はこの会話にありません"
+
 #: src/components/clio/flow-run-parts.tsx
 msgid "This run was stopped"
 msgstr "この実行は停止しました"
@@ -38968,6 +39124,10 @@ msgstr "この実行は停止しました"
 #: src/components/clio/flow-run-card.tsx
 msgid "This run was stopped and later restarted."
 msgstr "この実行は停止され、その後再開されました。"
+
+#: src/components/clio/run-record.tsx
+msgid "This run's log is not available to you."
+msgstr "この実行のログは閲覧できません。"
 
 #: src/offline-review.tsx
 msgid "This saved view could not be decoded. Its exact record remains in Evidence."
@@ -39325,7 +39485,7 @@ msgstr "時刻は記録されていません"
 #: src/components/clio/activity-causal.ts
 #: src/components/clio/observability-activity.tsx
 #: src/components/clio/run-list-row.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-context-history.tsx
 msgid "Time unavailable"
 msgstr "時刻を利用できません"
@@ -39473,6 +39633,7 @@ msgstr "トークン"
 msgid "Too many files. Some were not added."
 msgstr "ファイルが多すぎます。一部は追加されませんでした。"
 
+#: src/components/clio/run-record.tsx
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Took"
 msgstr "所要時間"
@@ -39480,6 +39641,7 @@ msgstr "所要時間"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
 #: src/components/clio/settings-tools-header.tsx
 #: src/components/clio/task-activity-row.tsx
@@ -40759,7 +40921,7 @@ msgstr "ウィジェットを更新"
 
 #: src/components/clio/infrastructure-activity-row.tsx
 #: src/components/clio/memory-document-dialog.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 msgid "Updated"
 msgstr "更新日時"
 
@@ -41207,6 +41369,11 @@ msgstr "使用"
 #: src/components/clio/settings-usage.tsx
 msgid "Used"
 msgstr "使用"
+
+#. placeholder {0}: formatList(names, { and: true })
+#: src/components/clio/run-record.tsx
+msgid "Used {0}"
+msgstr "{0} を使用"
 
 #: src/components/clio/workbench-activity-detail.tsx
 msgid "Used as"
@@ -41864,6 +42031,7 @@ msgstr "アップロード待ち"
 
 #: src/components/clio/agent-answer-activity.tsx
 #: src/components/clio/conversation-activity-lane.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/transcript-activity-summary.ts
 msgid "waiting for you"
 msgstr "あなたの対応待ち"
@@ -42538,7 +42706,7 @@ msgstr "{agent}のエージェントを通じてのみ動作します。自ら�
 
 #: src/components/clio/command-menu-result-groups.tsx
 #: src/components/clio/connection-empty-service.tsx
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-record.tsx
 #: src/components/clio/settings-folders.tsx
 #: src/components/clio/settings-prompt-scope.ts
 #: src/components/clio/settings-source-connect.tsx

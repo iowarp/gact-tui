@@ -1,4 +1,5 @@
-import { SearchIcon, UploadIcon } from 'lucide-react';
+import { ActivityIcon, SearchIcon, UploadIcon } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { HeldKeyBadge, ShortcutKeys } from '@/components/clio/primitives/key-chip';
@@ -34,10 +35,9 @@ interface NavigationHeaderProps {
 
 /**
  * The top of the left bar: the CLIO menu, the bell and the collapse button on
- * one line, then New conversation (with import beside it), Search and the
- * pages plugins add. Files
- * and Runs left the bar: the crumb and the workspace menu open files, and
- * Search or Ctrl . open runs. Collapsed to icons, the same rows stack.
+ * one line, then New conversation (with import beside it), Search, the pages
+ * plugins add (Compute) and Runs. Files left the bar: the crumb and the
+ * workspace menu open them. Collapsed to icons, the same rows stack.
  */
 export function NavigationHeader({
   endpoint,
@@ -138,7 +138,35 @@ export function NavigationHeader({
           </SidebarMenuButton>
         </SidebarMenuItem>
         <NavigationPluginPages />
+        <NavigationRunsEntry />
       </SidebarMenu>
     </SidebarHeader>
+  );
+}
+
+/** Every run the agent started, across conversations: the Runs page and its records. */
+function NavigationRunsEntry() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { isMobile, setOpenMobile } = useSidebar();
+  const active = pathname === '/runs' || pathname.startsWith('/runs/');
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        aria-current={active ? 'page' : undefined}
+        className="h-[30px] gap-2.5 text-ui"
+        data-slot="navigation-runs"
+        isActive={active}
+        onClick={() => {
+          if (isMobile) setOpenMobile(false);
+          navigate('/runs');
+        }}
+        tooltip={t`Runs`}
+        type="button"
+      >
+        <ActivityIcon aria-hidden="true" />
+        <span className="truncate">{t`Runs`}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 }

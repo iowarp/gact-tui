@@ -39,6 +39,7 @@ export type ObservabilityNavigation = Pick<
   | 'openArtifact'
   | 'openDiff'
   | 'openFlow'
+  | 'openRun'
   | 'openSubagent'
   | 'openWorkspaceFile'
   | 'openWorkspaceResource'
@@ -63,6 +64,7 @@ function sharedProps(
     onOpenFile: navigation.openWorkspaceFile,
     onOpenFileReference: navigation.openWorkspaceFile,
     onOpenFlow: navigation.openFlow,
+    onOpenRun: navigation.openRun,
     onOpenResource: navigation.openWorkspaceResource,
     onOpenSubagent: navigation.openSubagent,
     onProvenanceProviderChange: provenance.setProvider,

@@ -31,11 +31,10 @@ function renderRuns(props: Partial<RailRunsProps> = {}) {
   );
 }
 
-it('stops a run from Delete only after asking, and retries a failed one with Shift+Enter', async () => {
+it('stops a run from Delete only after asking, and lists only what is running', async () => {
   const user = userEvent.setup();
   const onCancelTask = vi.fn().mockResolvedValue(undefined);
-  const onControlTask = vi.fn().mockResolvedValue(undefined);
-  renderRuns({ onCancelTask, onControlTask });
+  renderRuns({ onCancelTask });
 
   screen.getByRole('button', { name: 'Export stations' }).focus();
   await user.keyboard('{Delete}');
@@ -48,25 +47,24 @@ it('stops a run from Delete only after asking, and retries a failed one with Shi
   await user.click(screen.getByRole('button', { name: 'Stop run' }));
   expect(onCancelTask).toHaveBeenCalledWith(exporting);
 
-  screen.getByRole('button', { name: 'Merge catalog' }).focus();
-  await user.keyboard('{Shift>}{Enter}{/Shift}');
-  expect(onControlTask).toHaveBeenCalledWith(broken, 'restart');
-  // Delete does nothing on a run that has already settled.
-  await user.keyboard('{Delete}');
-  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  // A failed run has left Running; its record in Runs offers Retry.
+  expect(screen.queryByRole('button', { name: 'Merge catalog' })).not.toBeInTheDocument();
 });
 
-it('opens a flow run as a tab and links to every run', async () => {
+it('opens a flow run as a tab and any other run as its record', async () => {
   const user = userEvent.setup();
   const onOpenFlow = vi.fn();
-  renderRuns({ onOpenFlow });
+  const onOpenRun = vi.fn();
+  renderRuns({ onOpenFlow, onOpenRun });
   // The row and its tab are named by the task; the flow is how it opens.
   await user.click(screen.getByRole('button', { name: /^Research$/iu }));
   expect(onOpenFlow).toHaveBeenCalledWith('Research', 'Research');
-  expect(screen.getByRole('link', { name: 'All runs' })).toHaveAttribute('href', '/runs');
+  await user.click(screen.getByRole('button', { name: /^Export stations$/iu }));
+  expect(onOpenRun).toHaveBeenCalledWith('Export stations', 'Export stations', undefined);
+  expect(screen.queryByRole('link', { name: 'All runs' })).not.toBeInTheDocument();
 });
 
-it('says how long a child agent without a timestamp ran, beside its state', () => {
+it('says when nothing is running', () => {
   renderRuns({
     processes: [],
     subagents: [
@@ -79,9 +77,7 @@ it('says how long a child agent without a timestamp ran, beside its state', () =
       },
     ],
   });
-  expect(screen.getByRole('img', { name: 'Completed' })).toBeInTheDocument();
-  expect(screen.getByText('done')).toBeVisible();
-  expect(screen.getByTitle('Ran for 40 min')).toHaveTextContent('40m');
+  expect(screen.getByText('Nothing is running')).toBeVisible();
 });
 
 it('reports a stop the server refused, naming the run', async () => {
