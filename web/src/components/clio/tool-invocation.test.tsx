@@ -226,7 +226,7 @@ describe('ClioToolInvocation content and subject rendering', () => {
         }}
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Show result for Update checklist' }));
+    await user.click(screen.getByRole('button', { name: 'Show result for Update todos' }));
     expect(screen.getAllByText('1 todo changed')).toHaveLength(1);
     expect(screen.queryByText('Review evidence')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Show completed 1' }));

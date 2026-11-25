@@ -34,27 +34,45 @@ const MENU_HINTS = [
   { id: 'menu-pick', label: t({ message: 'choose', context: 'menu key hint' }) },
   { id: 'menu-close', label: t({ message: 'close', context: 'menu key hint' }) },
 ] as const;
-/** An icon with a small D when its value is a default. */
+const DEFAULT_TAG =
+  'rounded-[3px] bg-faint/70 px-[2px] py-px text-[0.53125rem] leading-none font-bold text-foreground';
+
+/**
+ * An icon with a small D when its value is a default. The D sits on the
+ * icon's lower corner, which Settings › Tools' round glyphs leave empty.
+ * `beside` drops it just past the glyph instead, for glyphs that fill that
+ * corner (a lock, a bell), and keeps its room when there is no D so the
+ * labels of a column line up.
+ */
 export function ValueMark({
   icon: Glyph,
   isDefault,
+  beside = false,
   className,
 }: {
   icon: Icon;
   isDefault: boolean;
+  beside?: boolean;
   className?: string;
 }) {
-  return (
-    <span
-      aria-hidden="true"
-      // In rem like its glyph: a px box lets a larger interface size push the glyph low and into the label.
-      className="relative inline-grid size-[0.9375rem] shrink-0 place-items-center"
-    >
+  // In rem like its glyph: a px box lets a larger interface size push the glyph low and into the label.
+  const glyph = (
+    <span className="inline-grid size-[0.9375rem] shrink-0 place-items-center">
       <Glyph className={cn('size-3.5', className)} />
+    </span>
+  );
+  if (beside)
+    return (
+      <span aria-hidden="true" className="inline-flex shrink-0 items-end gap-px">
+        {glyph}
+        <b className={cn(DEFAULT_TAG, 'translate-y-[0.3125rem]', !isDefault && 'invisible')}>D</b>
+      </span>
+    );
+  return (
+    <span aria-hidden="true" className="relative inline-grid shrink-0 place-items-center">
+      {glyph}
       {isDefault ? (
-        <b className="absolute -right-1.5 -bottom-[0.3125rem] rounded-[3px] bg-faint/70 px-[2px] py-px text-[0.53125rem] leading-none font-bold text-foreground">
-          D
-        </b>
+        <b className={cn(DEFAULT_TAG, 'absolute -right-1.5 -bottom-[0.3125rem]')}>D</b>
       ) : null}
     </span>
   );
@@ -121,6 +139,7 @@ export function ChoicePicker<Value extends string>({
   label,
   title,
   isDefault = false,
+  markBeside = false,
   chosen = false,
   bulk = false,
   disabled = false,
@@ -139,6 +158,8 @@ export function ChoicePicker<Value extends string>({
   title?: string;
   /** The value shown is a default: muted, with a D on its icon. */
   isDefault?: boolean;
+  /** The D goes beside the icon, its room kept when there is none (see ValueMark). */
+  markBeside?: boolean;
   /** The value shown is the person's own choice: accent color. */
   chosen?: boolean;
   /** Sets every tool of a group: dashed and bold. */
@@ -163,6 +184,7 @@ export function ChoicePicker<Value extends string>({
           disabled={disabled}
           icon={
             <ValueMark
+              beside={markBeside}
               icon={icon}
               isDefault={isDefault}
               className={cn(chosen && 'text-primary', iconClassName)}

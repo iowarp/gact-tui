@@ -10606,6 +10606,7 @@ msgstr "completed"
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/tool-result-primitives.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 #: src/routes/runs-page-copy.tsx
 msgid "Completed"
@@ -13969,11 +13970,6 @@ msgstr "done"
 msgid "Done"
 msgstr "Done"
 
-#: src/components/clio/session-plan-section.tsx
-msgctxt "plan step state"
-msgid "Done"
-msgstr "Done"
-
 #: src/components/clio/run-tab.tsx
 msgid "done in {time}"
 msgstr "done in {time}"
@@ -14427,11 +14423,6 @@ msgstr "Drop them anywhere in this window, or choose files from your device."
 #: src/components/clio/settings-models-form.ts
 msgid "Drop tokens less likely than this fraction of the most likely one."
 msgstr "Drop tokens less likely than this fraction of the most likely one."
-
-#: src/components/clio/session-plan-section.tsx
-msgctxt "plan step state"
-msgid "Dropped"
-msgstr "Dropped"
 
 #: src/components/clio/settings-access-rule-row.tsx
 msgid "Duplicate rule"
@@ -18157,11 +18148,7 @@ msgstr "In place. {agent} works on your original folder, and its changes affect 
 #: src/components/clio/session-rail-content.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/tool-result-primitives.tsx
-msgid "In progress"
-msgstr "In progress"
-
-#: src/components/clio/session-plan-section.tsx
-msgctxt "plan step state"
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "In progress"
 msgstr "In progress"
 
@@ -22055,8 +22042,8 @@ msgid "More actions for {title}"
 msgstr "More actions for {title}"
 
 #: src/components/clio/workbench-plan-tab.tsx
-msgid "More actions for the working plan"
-msgstr "More actions for the working plan"
+msgid "More actions for the plan"
+msgstr "More actions for the plan"
 
 #: src/components/clio/runs-explorer.tsx
 msgid "More available; search covers loaded runs."
@@ -23564,9 +23551,17 @@ msgstr "No pending or recorded requests on this connection."
 msgid "No perspective: parallel edges stay parallel"
 msgstr "No perspective: parallel edges stay parallel"
 
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "No plan or todos in this conversation yet."
+msgstr "No plan or todos in this conversation yet."
+
 #: src/components/clio/injection-presentation.ts
 msgid "No plan text was recorded."
 msgstr "No plan text was recorded."
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "No plan was written for this conversation. The agent kept only todos."
+msgstr "No plan was written for this conversation. The agent kept only todos."
 
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "No plugin adds skills"
@@ -25057,11 +25052,6 @@ msgctxt "keyboard hint verb"
 msgid "Open"
 msgstr "Open"
 
-#: src/components/clio/session-plan-section.tsx
-msgctxt "plan step state"
-msgid "Open"
-msgstr "Open"
-
 #: src/components/clio/workbench-list-column.tsx
 msgctxt "state"
 msgid "Open"
@@ -26492,6 +26482,7 @@ msgstr "pending"
 #: src/components/clio/session-work.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/tool-result-primitives.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "Pending"
 msgstr "Pending"
 
@@ -26704,6 +26695,9 @@ msgstr "plan"
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/session-work.tsx
 #: src/components/clio/workbench-activity-model.ts
+#: src/components/clio/workbench-open-request.ts
+#: src/components/clio/workbench-plan-tab.tsx
+#: src/components/clio/workbench-tab-storage.ts
 #: src/lib/composer-reference-domain.ts
 msgid "Plan"
 msgstr "Plan"
@@ -26711,6 +26705,10 @@ msgstr "Plan"
 #: src/components/clio/workbench-activity-model.ts
 msgid "plan {status}"
 msgstr "plan {status}"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Plan actions"
+msgstr "Plan actions"
 
 #: src/components/clio/injection-presentation.ts
 msgid "Plan approved"
@@ -26756,10 +26754,6 @@ msgstr "Plan review expired"
 #: src/components/clio/injection-presentation.ts
 msgid "Plan sent back"
 msgstr "Plan sent back"
-
-#: src/components/clio/session-plan-section.tsx
-msgid "Plan steps"
-msgstr "Plan steps"
 
 #: src/components/clio/plan-decision-controls.tsx
 msgid "Plan still writing…"
@@ -36496,6 +36490,10 @@ msgstr "The agent did not register the copied file."
 msgid "The agent had not recorded its system prompt when this compaction ran"
 msgstr "The agent had not recorded its system prompt when this compaction ran"
 
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "The agent has kept no todos in this conversation."
+msgstr "The agent has kept no todos in this conversation."
+
 #: src/components/clio/plan-exit-interaction.tsx
 msgid "The agent is still writing the plan."
 msgstr "The agent is still writing the plan."
@@ -36553,10 +36551,6 @@ msgstr "The agent’s call waits for this, then continues."
 #: src/components/clio/settings-connection-dialogs.tsx
 msgid "The agent’s full address, including http or https."
 msgstr "The agent’s full address, including http or https."
-
-#: src/lib/plan-status.ts
-msgid "The agent's own working plan for this conversation. It didn't come from a planning session, and nobody has approved it."
-msgstr "The agent's own working plan for this conversation. It didn't come from a planning session, and nobody has approved it."
 
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "The agent’s turn failed"
@@ -37419,10 +37413,6 @@ msgstr "The plan file is empty."
 #: src/components/clio/plan-exit-interaction.tsx
 msgid "The plan is empty."
 msgstr "The plan is empty."
-
-#: src/lib/plan-status.ts
-msgid "The plan the agent kept for this conversation."
-msgstr "The plan the agent kept for this conversation."
 
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "The plugin {target} was not added"
@@ -38774,10 +38764,6 @@ msgstr "This conversation has no messages yet, so nothing is cached and the chan
 msgid "This conversation has no resolved agent"
 msgstr "This conversation has no resolved agent"
 
-#: src/components/clio/workbench-plan-tab.tsx
-msgid "This conversation has no working plan yet."
-msgstr "This conversation has no working plan yet."
-
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "This conversation isn't available"
 msgstr "This conversation isn't available"
@@ -39573,6 +39559,7 @@ msgstr "Todo list reminder"
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/session-work.tsx
 #: src/components/clio/workbench-activity-model.ts
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "Todos"
 msgstr "Todos"
 
@@ -40824,10 +40811,6 @@ msgstr "Update and connect"
 msgid "Update available"
 msgstr "Update available"
 
-#: src/components/clio/tool-operation-contract.ts
-msgid "Update checklist"
-msgstr "Update checklist"
-
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Update details"
 msgstr "Update details"
@@ -40918,6 +40901,10 @@ msgstr "Update to {updateTo}"
 #: src/components/clio/provider-component-status.tsx
 msgid "Update to {version}"
 msgstr "Update to {version}"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Update todos"
+msgstr "Update todos"
 
 #: src/components/clio/todo-tool-presentation.ts
 msgid "Update Todos"
@@ -42685,15 +42672,6 @@ msgstr "Working now"
 msgid "Working on it"
 msgstr "Working on it"
 
-#: src/components/clio/workbench-open-request.ts
-#: src/components/clio/workbench-tab-storage.ts
-msgid "Working plan"
-msgstr "Working plan"
-
-#: src/components/clio/workbench-plan-tab.tsx
-msgid "Working plan actions"
-msgstr "Working plan actions"
-
 #: src/components/clio/document-workspace.tsx
 msgid "Working-copy conflict resolved against the confirmed artifact head."
 msgstr "Working-copy conflict resolved against the confirmed artifact head."
@@ -42966,8 +42944,16 @@ msgid "Written by agent"
 msgstr "Written by agent"
 
 #: src/lib/plan-status.ts
+msgid "Written by the agent without plan mode. Nobody approved it."
+msgstr "Written by the agent without plan mode. Nobody approved it."
+
+#: src/lib/plan-status.ts
 msgid "Written in plan mode and approved by you."
 msgstr "Written in plan mode and approved by you."
+
+#: src/lib/plan-status.ts
+msgid "Written in plan mode."
+msgstr "Written in plan mode."
 
 #: src/lib/plan-status.ts
 msgid "Written in plan mode. It waits for your approval."

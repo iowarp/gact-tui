@@ -205,7 +205,7 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
     standalone: t`Weather`,
   },
   plan_exit: define(t`Review plan`),
-  write_todos: define(t`Update checklist`),
+  write_todos: define(t`Update todos`),
   load_skill: { ...define(t`Load skill`), presentedAction: true },
   web_search: search(t`Search web`),
   web_fetch: define(

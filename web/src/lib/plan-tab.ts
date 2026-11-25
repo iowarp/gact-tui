@@ -1,4 +1,4 @@
-/** Opens a conversation's working plan in a workbench tab. */
+/** Opens a conversation's plan and todos in a workbench tab. */
 export const OPEN_PLAN_TAB_EVENT = 'clio:open-plan-tab';
 
 export interface OpenPlanTabDetail {

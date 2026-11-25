@@ -193,7 +193,9 @@ export function SessionRailContent({
                       ? t`Completed`
                       : t`Pending`
                 }
-                onOpen={evidence.onOpenWork}
+                onOpen={
+                  evidence.sessionId ? () => openPlanTab(evidence.sessionId!) : evidence.onOpenWork
+                }
               />
             </li>
           )}
