@@ -3179,6 +3179,10 @@ msgstr ""
 msgid "{names}. Values are hidden."
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "{nodes, plural, one {{name} · # node} other {{name} · # nodes}}"
+msgstr ""
+
 #: src/components/clio/document-workspace.tsx
 msgid "{opened} Opened a desktop copy; edits are local to this copy."
 msgstr ""

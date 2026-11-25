@@ -1,5 +1,5 @@
-import { t, ph } from '@lingui/core/macro';
-import { MonitorIcon, PackageIcon } from 'lucide-react';
+import { t, ph, plural } from '@lingui/core/macro';
+import { MonitorIcon, PackageIcon, ServerIcon } from 'lucide-react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { Fragment, type ReactNode } from 'react';
 import { formatDuration } from '@/lib/format';
@@ -284,6 +284,46 @@ function ComponentBlock({
   );
 }
 
+/**
+ * A job with one component and nothing flowing in or out: there is no graph to
+ * draw, so it reads as one line, its name, how many nodes and its state.
+ */
+function SingleComponent({ component }: { component: JobComponent }) {
+  const nodes = component.nodes ?? null;
+  const state = componentStateLabel(component);
+  const tone = componentTone(component.state);
+  const shape = componentShape(component);
+  const Icon = shape === 'service' ? MonitorIcon : shape === 'install' ? PackageIcon : ServerIcon;
+  const hosts = component.hosts?.length ? component.hosts.join(', ') : undefined;
+  const name = componentName(component);
+  return (
+    <div
+      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border border-border px-3 py-2"
+      data-component-id={component.id}
+      data-component-state={component.state ?? undefined}
+      data-slot="job-pipeline"
+      data-single=""
+      title={hosts}
+    >
+      <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 truncate font-medium text-foreground">
+        {nodes != null
+          ? plural(nodes, {
+              one: `${ph({ name })} · # node`,
+              other: `${ph({ name })} · # nodes`,
+            })
+          : name}
+      </span>
+      {state ? (
+        <span className={cn('inline-flex items-center gap-1 text-meta', TONE_TEXT[tone])}>
+          <span aria-hidden="true" className={cn('size-1.5 rounded-full', TONE_DOT[tone])} />
+          {state}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 /** JARVIS's host slice (`start:end`, end exclusive) as the nodes it names, counted from 1. */
 function hostSlice(slice: string): string {
   const range = /^(\d+):(\d+)$/.exec(slice.trim());
@@ -496,25 +536,29 @@ export function JobCard({ job, fallback, className, onOpen }: JobCardProps) {
           {jobStatusLabel(job)}
         </span>
       </div>
-      <div
-        className="flex min-w-0 flex-wrap items-start justify-center gap-3 rounded-lg border border-dashed border-foreground/35 px-3 py-3 @max-[420px]/job:flex-col @max-[420px]/job:items-center"
-        data-slot="job-pipeline"
-      >
-        {job.components.length ? (
-          orderedComponents(job).map(({ component, coupling }) => (
-            <Fragment key={component.id}>
-              {coupling !== undefined ? <CouplingArrow coupling={coupling} /> : null}
-              <ComponentBlock
-                component={component}
-                phase={job.phase}
-                placed={job.components.length > 1}
-              />
-            </Fragment>
-          ))
-        ) : (
-          <span className="text-muted-foreground">{t`No components described`}</span>
-        )}
-      </div>
+      {job.components.length === 1 && !job.couplings.length && job.components[0] ? (
+        <SingleComponent component={job.components[0]} />
+      ) : (
+        <div
+          className="flex min-w-0 flex-wrap items-start justify-center gap-3 rounded-lg border border-dashed border-foreground/35 px-3 py-3 @max-[420px]/job:flex-col @max-[420px]/job:items-center"
+          data-slot="job-pipeline"
+        >
+          {job.components.length ? (
+            orderedComponents(job).map(({ component, coupling }) => (
+              <Fragment key={component.id}>
+                {coupling !== undefined ? <CouplingArrow coupling={coupling} /> : null}
+                <ComponentBlock
+                  component={component}
+                  phase={job.phase}
+                  placed={job.components.length > 1}
+                />
+              </Fragment>
+            ))
+          ) : (
+            <span className="text-muted-foreground">{t`No components described`}</span>
+          )}
+        </div>
+      )}
       {site || job.job_id != null || onOpen ? (
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-meta">
           {site ? <Fact label={t`Site`} value={site} /> : null}

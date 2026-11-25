@@ -3186,6 +3186,10 @@ msgstr "{names} を有効にしました"
 msgid "{names}. Values are hidden."
 msgstr "{names}。値は非表示です。"
 
+#: src/components/clio/job-card.tsx
+msgid "{nodes, plural, one {{name} · # node} other {{name} · # nodes}}"
+msgstr "{nodes, plural, other {{name} · # ノード}}"
+
 #: src/components/clio/document-workspace.tsx
 msgid "{opened} Opened a desktop copy; edits are local to this copy."
 msgstr "{opened}デスクトップのコピーを開きました。編集はこのコピーにのみ反映されます。"
