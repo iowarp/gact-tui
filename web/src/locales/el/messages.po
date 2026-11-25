@@ -10579,6 +10579,7 @@ msgstr "ολοκληρώθηκε"
 #: src/components/clio/settings-context-history.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/tool-result-primitives.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 #: src/components/clio/workspace-navigation-session-row.tsx
 #: src/routes/runs-page-copy.tsx
 msgid "Completed"
@@ -13938,11 +13939,6 @@ msgstr "ολοκληρώθηκε"
 msgid "Done"
 msgstr "Ολοκληρώθηκε"
 
-#: src/components/clio/session-plan-section.tsx
-msgctxt "plan step state"
-msgid "Done"
-msgstr "Ολοκληρώθηκε"
-
 #: src/components/clio/run-tab.tsx
 msgid "done in {time}"
 msgstr "ολοκληρώθηκε σε {time}"
@@ -14396,11 +14392,6 @@ msgstr "Αποθέστε τα οπουδήποτε σε αυτό το παράθ
 #: src/components/clio/settings-models-form.ts
 msgid "Drop tokens less likely than this fraction of the most likely one."
 msgstr "Απορρίπτει tokens λιγότερο πιθανά από αυτό το κλάσμα του πιο πιθανού."
-
-#: src/components/clio/session-plan-section.tsx
-msgctxt "plan step state"
-msgid "Dropped"
-msgstr "Απορρίφθηκε"
 
 #: src/components/clio/settings-access-rule-row.tsx
 msgid "Duplicate rule"
@@ -18115,11 +18106,7 @@ msgstr "Επί τόπου. Ο {agent} εργάζεται στον αρχικό �
 #: src/components/clio/session-rail-content.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/tool-result-primitives.tsx
-msgid "In progress"
-msgstr "Σε εξέλιξη"
-
-#: src/components/clio/session-plan-section.tsx
-msgctxt "plan step state"
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "In progress"
 msgstr "Σε εξέλιξη"
 
@@ -22001,8 +21988,8 @@ msgid "More actions for {title}"
 msgstr "Περισσότερες ενέργειες για {title}"
 
 #: src/components/clio/workbench-plan-tab.tsx
-msgid "More actions for the working plan"
-msgstr "Περισσότερες ενέργειες για το σχέδιο εργασίας"
+msgid "More actions for the plan"
+msgstr "Περισσότερες ενέργειες για το σχέδιο"
 
 #: src/routes/runs-page.tsx
 msgid "More available; search covers loaded runs."
@@ -23497,9 +23484,17 @@ msgstr "Δεν υπάρχουν εκκρεμή ή καταγεγραμμένα �
 msgid "No perspective: parallel edges stay parallel"
 msgstr "Χωρίς προοπτική: οι παράλληλες ακμές μένουν παράλληλες"
 
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "No plan or todos in this conversation yet."
+msgstr "Αυτή η συνομιλία δεν έχει ακόμη σχέδιο ούτε εκκρεμότητες."
+
 #: src/components/clio/injection-presentation.ts
 msgid "No plan text was recorded."
 msgstr "Δεν καταγράφηκε κείμενο σχεδίου."
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "No plan was written for this conversation. The agent kept only todos."
+msgstr "Δεν γράφτηκε σχέδιο για αυτή τη συνομιλία. Ο πράκτορας κράτησε μόνο εκκρεμότητες."
 
 #: src/components/clio/agent-plugin-tree.tsx
 msgid "No plugin adds skills"
@@ -24982,11 +24977,6 @@ msgctxt "keyboard hint verb"
 msgid "Open"
 msgstr "Άνοιγμα"
 
-#: src/components/clio/session-plan-section.tsx
-msgctxt "plan step state"
-msgid "Open"
-msgstr "Ανοιχτό"
-
 #: src/components/clio/workbench-list-column.tsx
 msgctxt "state"
 msgid "Open"
@@ -26399,6 +26389,7 @@ msgstr "σε εκκρεμότητα"
 #: src/components/clio/session-work.tsx
 #: src/components/clio/status.tsx
 #: src/components/clio/tool-result-primitives.tsx
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "Pending"
 msgstr "Σε εκκρεμότητα"
 
@@ -26611,6 +26602,9 @@ msgstr "σχέδιο"
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/session-work.tsx
 #: src/components/clio/workbench-activity-model.ts
+#: src/components/clio/workbench-open-request.ts
+#: src/components/clio/workbench-plan-tab.tsx
+#: src/components/clio/workbench-tab-storage.ts
 #: src/lib/composer-reference-domain.ts
 msgid "Plan"
 msgstr "Σχέδιο"
@@ -26618,6 +26612,10 @@ msgstr "Σχέδιο"
 #: src/components/clio/workbench-activity-model.ts
 msgid "plan {status}"
 msgstr "σχέδιο {status}"
+
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "Plan actions"
+msgstr "Ενέργειες σχεδίου"
 
 #: src/components/clio/injection-presentation.ts
 msgid "Plan approved"
@@ -26663,10 +26661,6 @@ msgstr "Ο έλεγχος του σχεδίου έληξε"
 #: src/components/clio/injection-presentation.ts
 msgid "Plan sent back"
 msgstr "Το σχέδιο επιστράφηκε"
-
-#: src/components/clio/session-plan-section.tsx
-msgid "Plan steps"
-msgstr "Βήματα σχεδίου"
 
 #: src/components/clio/plan-decision-controls.tsx
 msgid "Plan still writing…"
@@ -36355,6 +36349,10 @@ msgstr "Ο πράκτορας δεν καταχώρισε το αντιγραμ�
 msgid "The agent had not recorded its system prompt when this compaction ran"
 msgstr "Ο πράκτορας δεν είχε καταγράψει την προτροπή συστήματός του όταν εκτελέστηκε αυτή η συμπύκνωση"
 
+#: src/components/clio/workbench-plan-tab.tsx
+msgid "The agent has kept no todos in this conversation."
+msgstr "Ο πράκτορας δεν έχει κρατήσει εκκρεμότητες σε αυτή τη συνομιλία."
+
 #: src/components/clio/plan-exit-interaction.tsx
 msgid "The agent is still writing the plan."
 msgstr "Ο πράκτορας γράφει ακόμη το σχέδιο."
@@ -36412,10 +36410,6 @@ msgstr "Η κλήση του πράκτορα περιμένει αυτό και
 #: src/components/clio/settings-connection-dialogs.tsx
 msgid "The agent’s full address, including http or https."
 msgstr "Η πλήρης διεύθυνση του πράκτορα, συμπεριλαμβανομένου του http ή https."
-
-#: src/lib/plan-status.ts
-msgid "The agent's own working plan for this conversation. It didn't come from a planning session, and nobody has approved it."
-msgstr "Το δικό του σχέδιο εργασίας του πράκτορα για αυτή τη συνομιλία. Δεν προέρχεται από συνεδρία σχεδιασμού και κανείς δεν το έχει εγκρίνει."
 
 #: src/components/clio/comments/comment-thread-list.tsx
 msgid "The agent’s turn failed"
@@ -37260,10 +37254,6 @@ msgstr "Το αρχείο του σχεδίου είναι κενό."
 #: src/components/clio/plan-exit-interaction.tsx
 msgid "The plan is empty."
 msgstr "Το σχέδιο είναι κενό."
-
-#: src/lib/plan-status.ts
-msgid "The plan the agent kept for this conversation."
-msgstr "Το σχέδιο που κράτησε ο πράκτορας για αυτή τη συνομιλία."
 
 #: src/components/clio/conversation-summoned-work.tsx
 msgid "The plugin {target} was not added"
@@ -38614,10 +38604,6 @@ msgstr "Αυτή η συνομιλία δεν έχει ακόμη μηνύματ
 msgid "This conversation has no resolved agent"
 msgstr "Αυτή η συνομιλία δεν έχει επιλυμένο πράκτορα"
 
-#: src/components/clio/workbench-plan-tab.tsx
-msgid "This conversation has no working plan yet."
-msgstr "Αυτή η συνομιλία δεν έχει ακόμη σχέδιο εργασίας."
-
 #: src/components/clio/workspace-route-surfaces.tsx
 msgid "This conversation isn't available"
 msgstr "Αυτή η συνομιλία δεν είναι διαθέσιμη"
@@ -39401,6 +39387,7 @@ msgstr "Υπενθύμιση λίστας εκκρεμοτήτων"
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/session-work.tsx
 #: src/components/clio/workbench-activity-model.ts
+#: src/components/clio/workbench-plan-tab.tsx
 msgid "Todos"
 msgstr "Εκκρεμότητες"
 
@@ -40650,10 +40637,6 @@ msgstr "Ενημέρωση και σύνδεση"
 msgid "Update available"
 msgstr "Διαθέσιμη ενημέρωση"
 
-#: src/components/clio/tool-operation-contract.ts
-msgid "Update checklist"
-msgstr "Ενημέρωση λίστας ελέγχου"
-
 #: src/components/clio/update-restart-overlay.tsx
 msgid "Update details"
 msgstr "Λεπτομέρειες ενημέρωσης"
@@ -40744,6 +40727,10 @@ msgstr "Ενημέρωση σε {updateTo}"
 #: src/components/clio/provider-component-status.tsx
 msgid "Update to {version}"
 msgstr "Ενημέρωση σε {version}"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Update todos"
+msgstr "Ενημέρωση εκκρεμοτήτων"
 
 #: src/components/clio/todo-tool-presentation.ts
 msgid "Update Todos"
@@ -42504,15 +42491,6 @@ msgstr "Εργάζεται τώρα"
 msgid "Working on it"
 msgstr "Σε εξέλιξη"
 
-#: src/components/clio/workbench-open-request.ts
-#: src/components/clio/workbench-tab-storage.ts
-msgid "Working plan"
-msgstr "Σχέδιο εργασίας"
-
-#: src/components/clio/workbench-plan-tab.tsx
-msgid "Working plan actions"
-msgstr "Ενέργειες σχεδίου εργασίας"
-
 #: src/components/clio/document-workspace.tsx
 msgid "Working-copy conflict resolved against the confirmed artifact head."
 msgstr "Η διένεξη του αντιγράφου εργασίας επιλύθηκε με βάση την επιβεβαιωμένη τρέχουσα έκδοση του τεχνουργήματος."
@@ -42785,8 +42763,16 @@ msgid "Written by agent"
 msgstr "Γράφτηκε από τον πράκτορα"
 
 #: src/lib/plan-status.ts
+msgid "Written by the agent without plan mode. Nobody approved it."
+msgstr "Το έγραψε ο πράκτορας χωρίς λειτουργία σχεδίου. Δεν το ενέκρινε κανείς."
+
+#: src/lib/plan-status.ts
 msgid "Written in plan mode and approved by you."
 msgstr "Γράφτηκε σε λειτουργία σχεδίου και το ενέκρινες εσύ."
+
+#: src/lib/plan-status.ts
+msgid "Written in plan mode."
+msgstr "Γράφτηκε σε λειτουργία σχεδίου."
 
 #: src/lib/plan-status.ts
 msgid "Written in plan mode. It waits for your approval."

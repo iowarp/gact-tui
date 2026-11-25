@@ -49,9 +49,17 @@ export const sessionWorkSchema = z.object({
   todo_history_next_cursor: z.number().int().nullable().default(null),
   schedule_history: z.array(workScheduleHistorySchema).default([]),
   schedule_history_next_cursor: z.number().int().nullable().default(null),
-  /** The session plan (path, status, Markdown text), or null when there is none. */
+  /**
+   * The session plan (path, status, Markdown text and where it was written), or null when
+   * there is none. Older agents send no origin.
+   */
   plan: z
-    .object({ path: z.string(), status: z.string(), text: z.string() })
+    .object({
+      path: z.string(),
+      status: z.string(),
+      text: z.string(),
+      origin: z.enum(['plan_mode', 'outside_plan_mode']).optional().catch(undefined),
+    })
     .nullable()
     .default(null),
 });

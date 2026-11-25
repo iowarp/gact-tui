@@ -46,7 +46,7 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'subagent'; subagent: SubagentRun }
   /** A flow run (a workflow, a council, ...) recorded under the task `handle`. */
   | { kind: 'flow'; handle: string; label?: string }
-  /** A conversation's working plan, read only. */
+  /** A conversation's plan document and todos, read only. */
   | { kind: 'plan'; sessionId?: string }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
   /** `view` names the timeline tab's view; without one, Activity shows its list. */
@@ -166,7 +166,7 @@ export function tabForOpenRequest(
       return {
         id: planTabId(owner),
         kind: 'plan',
-        label: t`Working plan`,
+        label: t`Plan`,
         sessionId: owner,
         workspaceId,
       };
