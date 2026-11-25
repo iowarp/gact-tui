@@ -34756,6 +34756,10 @@ msgstr ""
 msgid "Smallest zoom"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
+msgid "Software install"
+msgstr ""
+
 #: src/hooks/use-system-version-status.ts
 msgid "Software update available"
 msgstr ""

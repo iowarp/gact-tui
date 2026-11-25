@@ -34773,6 +34773,10 @@ msgstr "Small groups stay visible. Larger lists open in a searchable dropdown. T
 msgid "Smallest zoom"
 msgstr "Smallest zoom"
 
+#: src/components/clio/job-card.tsx
+msgid "Software install"
+msgstr "Software install"
+
 #: src/hooks/use-system-version-status.ts
 msgid "Software update available"
 msgstr "Software update available"

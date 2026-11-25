@@ -34774,6 +34774,10 @@ msgstr "Los grupos pequeños permanecen visibles. Las listas más largas se abre
 msgid "Smallest zoom"
 msgstr "Zoom mínimo"
 
+#: src/components/clio/job-card.tsx
+msgid "Software install"
+msgstr "Instalación de software"
+
 #: src/hooks/use-system-version-status.ts
 msgid "Software update available"
 msgstr "Actualización de software disponible"

@@ -31,8 +31,6 @@ export function JobCards({
   const open = useOpenToolRun(tool);
   const task = useToolTask(tool, jobs.length > 0);
   if (!jobs.length) return null;
-  // A declared title names the call; a bare MCP name ("install_lammps") does not.
-  const title = tool?.title?.trim() || undefined;
   return (
     <div className={cn('grid min-w-0 gap-2', className)} data-slot="tool-job-cards">
       {jobs.map((job) => (
@@ -50,7 +48,7 @@ export function JobCards({
                     state: jobFailed(job) ? 'failed' : 'running',
                     ownerSessionId: task.owner.session_id,
                     handleId: task.handle,
-                    label: title ?? getToolActionLabel(tool),
+                    label: getToolActionLabel(tool),
                     task,
                   }}
                 />
@@ -58,7 +56,6 @@ export function JobCards({
             }
             job={job}
             onOpen={open}
-            title={title}
           />
         </div>
       ))}

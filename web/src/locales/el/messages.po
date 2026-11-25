@@ -34774,6 +34774,10 @@ msgstr "Οι μικρές ομάδες παραμένουν ορατές. Οι �
 msgid "Smallest zoom"
 msgstr "Ελάχιστη μεγέθυνση"
 
+#: src/components/clio/job-card.tsx
+msgid "Software install"
+msgstr "Εγκατάσταση λογισμικού"
+
 #: src/hooks/use-system-version-status.ts
 msgid "Software update available"
 msgstr "Διαθέσιμη ενημέρωση λογισμικού"

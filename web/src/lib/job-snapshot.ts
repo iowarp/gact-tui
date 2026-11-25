@@ -85,6 +85,8 @@ export const jobSnapshotSchema = z.object({
   updated_at: optionalText,
   /** The job's name, when its producer gives one ("LAMMPS install"). */
   label: optionalText,
+  /** What the job does: `run`, `serve` or `install`. */
+  kind: optionalText,
   /** `jarvis` when JARVIS planned the job; `relay` when relay filled it from the spec. */
   source: optionalText,
   site: z.object({ id: z.string(), label: optionalText }).nullish().catch(null),

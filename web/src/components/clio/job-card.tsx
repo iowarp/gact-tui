@@ -117,9 +117,9 @@ function ComponentState({ component }: { component: JobComponent }) {
 
 /**
  * What the card is called: the job's own name, else what its components are
- * (an install names its package), else the caller's name for it, else where it runs.
+ * (an install names its package), else what kind of job it is, else where it runs.
  */
-function jobTitle(job: JobSnapshot, given: string | undefined): string {
+function jobTitle(job: JobSnapshot): string {
   if (job.label?.trim()) return job.label.trim();
   const only = job.components.length === 1 ? job.components[0] : undefined;
   if (only) {
@@ -127,7 +127,7 @@ function jobTitle(job: JobSnapshot, given: string | undefined): string {
     return componentShape(only) === 'install' ? t`${name} install` : name;
   }
   if (job.components.length) return formatList(job.components.map(componentName));
-  if (given?.trim()) return given.trim();
+  if (job.kind === 'install') return t`Software install`;
   const site = job.site?.label || job.site?.id;
   return site ? t`Job on ${site}` : t`Scheduler job`;
 }
@@ -595,8 +595,6 @@ export interface JobCardProps {
   className?: string;
   /** Open the run this job belongs to: its record, with the log and what it asked. */
   onOpen?: () => void;
-  /** What the caller calls the job (the call that started it), when the job names nothing. */
-  title?: string;
   /** Actions shown on hover beside the state, as on a run row (Retry). */
   actions?: ReactNode;
 }
@@ -607,14 +605,7 @@ export interface JobCardProps {
  * the batch script one disclosure away. The same card is the planned job in an
  * ask, the running job in a transcript and a row in a job list.
  */
-export function JobCard({
-  job: reported,
-  fallback,
-  className,
-  onOpen,
-  title,
-  actions,
-}: JobCardProps) {
+export function JobCard({ job: reported, fallback, className, onOpen, actions }: JobCardProps) {
   const live = reported.phase === 'running' || reported.phase === 'ending';
   const limitEnd = live ? limitEndsAt(reported) : null;
   const now = useNow(live && Boolean(reported.started_at));
@@ -622,7 +613,7 @@ export function JobCard({
   const time = timeFact(job, now);
   const site = job.site?.label || job.site?.id;
   const run = jobRunState(job);
-  const name = jobTitle(job, title);
+  const name = jobTitle(job);
   const progress = stepPercent(job);
   return (
     <section

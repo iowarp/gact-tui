@@ -34774,6 +34774,10 @@ msgstr "小さなグループは常に表示されます。長いリストは検
 msgid "Smallest zoom"
 msgstr "最小ズーム"
 
+#: src/components/clio/job-card.tsx
+msgid "Software install"
+msgstr "ソフトウェアのインストール"
+
 #: src/hooks/use-system-version-status.ts
 msgid "Software update available"
 msgstr "ソフトウェアアップデートがあります"
