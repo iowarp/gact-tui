@@ -153,23 +153,48 @@ function resourceKey(ref: JobResourceRef): string {
   return `${ref.sessionId}\u0000${ref.namespace}\u0000${ref.uri}`;
 }
 
+/** A job some conversation showed, with the conversation it showed in. */
+interface SeenJob {
+  sessionId: string;
+  job: JobSnapshot;
+}
+
 /**
- * The jobs still in flight whose task has ended, such as a service whose task
- * completed once it was ready. The task stops changing then, so the card is
- * followed on its server instead.
+ * The jobs still in flight that no open task follows: a service whose task
+ * completed once it was ready, a task whose server lost its address, or a job
+ * only a call's result carried. Nothing else updates them, so the card is
+ * followed on the server that runs it: the task's own server, else the one the
+ * conversation's other jobs came from, else any server a job came from.
  */
-function jobResourceRefs(found: TaskJob[]): JobResourceRef[] {
-  const refs = new Map<string, JobResourceRef>();
-  for (const { task, job } of found) {
-    const namespace = task.backend?.server;
-    if (!task.terminal_at || !namespace || !jobInFlight(job)) continue;
-    const ref = {
-      sessionId: task.owner.session_id,
-      namespace,
-      uri: jobResourceUri(job),
-    };
-    refs.set(resourceKey(ref), ref);
+function jobResourceRefs(found: TaskJob[], seen: SeenJob[] = []): JobResourceRef[] {
+  const bySession = new Map<string, string>();
+  let anyServer: string | undefined;
+  for (const { task } of found) {
+    const server = task.backend?.server;
+    if (!server) continue;
+    anyServer ??= server;
+    if (!bySession.has(task.owner.session_id)) bySession.set(task.owner.session_id, server);
   }
+  const newest = new Map(
+    latestJobs([...found.map(({ job }) => job), ...seen.map(({ job }) => job)]).map((job) => [
+      job.operation_id,
+      job,
+    ]),
+  );
+  const followedByTask = new Set(
+    found.filter(({ task }) => !task.terminal_at).map(({ job }) => job.operation_id),
+  );
+  const refs = new Map<string, JobResourceRef>();
+  const follow = (sessionId: string, job: JobSnapshot, server?: string) => {
+    const latest = newest.get(job.operation_id) ?? job;
+    if (followedByTask.has(job.operation_id) || !jobInFlight(latest)) return;
+    const namespace = server || bySession.get(sessionId) || anyServer;
+    if (!namespace) return;
+    const ref = { sessionId, namespace, uri: jobResourceUri(latest) };
+    refs.set(resourceKey(ref), ref);
+  };
+  for (const { task, job } of found) follow(task.owner.session_id, job, task.backend?.server);
+  for (const { sessionId, job } of seen) follow(sessionId, job);
   return [...refs.values()];
 }
 
@@ -220,10 +245,10 @@ function useWatchedResources(refs: JobResourceRef[]): void {
  * from the job's resource, reread on each update the server announces and
  * slowly without one, until the card says the job ended.
  */
-function useJobResources(found: TaskJob[]): JobSnapshot[] {
+function useJobResources(found: TaskJob[], seen?: SeenJob[]): JobSnapshot[] {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const refs = useMemo(() => jobResourceRefs(found), [found]);
+  const refs = useMemo(() => jobResourceRefs(found, seen), [found, seen]);
   const jobs = useQueries({
     queries: refs.map((ref) => ({
       queryKey: serverResourceQueryKey(settings.endpoint, ref.sessionId, ref.namespace, ref.uri),
@@ -307,7 +332,14 @@ export function useSessionJobRows(sessionId: string | undefined): Map<string, Jo
   const following = session.taskRunning || session.jobs.some(jobInFlight);
   const byHandle = useTaskRefJobs(session.taskRefs);
   const open = useSessionTaskJobs(sessionId, following, session.rowOf.size > 0);
-  const fromResources = useJobResources(useMemo(() => [...byHandle, ...open], [byHandle, open]));
+  const seen = useMemo(
+    () => (sessionId ? session.jobs.map((job) => ({ sessionId, job })) : []),
+    [session, sessionId],
+  );
+  const fromResources = useJobResources(
+    useMemo(() => [...byHandle, ...open], [byHandle, open]),
+    seen,
+  );
   return useMemo(() => {
     const owners = new Map(session.owners);
     const fromTasks: JobSnapshot[] = [];
@@ -343,10 +375,17 @@ export function useToolJobs(tool: ToolInvocation): JobSnapshot[] {
  */
 export function useAllJobs(): JobSnapshot[] {
   const tools = useLiveStore((state) => state.entities.tools);
-  const fromCalls = useMemo(
-    () => latestJobs(Object.values(tools).flatMap((call) => jobsFromToolOutput(call.output))),
+  const seen = useMemo(
+    () =>
+      Object.values(tools).flatMap((call) => {
+        const sessionId = call.session_id;
+        return sessionId
+          ? jobsFromToolOutput(call.output).map((job) => ({ sessionId, job }))
+          : [];
+      }),
     [tools],
   );
+  const fromCalls = useMemo(() => latestJobs(seen.map(({ job }) => job)), [seen]);
   const open = useRecentTaskJobs(true);
   const [followed, setFollowed] = useState<TaskRef[]>(readFollowed);
   const known = new Set(followed.map(refKey));
@@ -365,7 +404,10 @@ export function useAllJobs(): JobSnapshot[] {
     return [...all.values()];
   }, [followed, tools]);
   const byHandle = useTaskRefJobs(refs);
-  const fromResources = useJobResources(useMemo(() => [...byHandle, ...open], [byHandle, open]));
+  const fromResources = useJobResources(
+    useMemo(() => [...byHandle, ...open], [byHandle, open]),
+    seen,
+  );
   return useMemo(
     () =>
       latestJobs([

@@ -8413,6 +8413,10 @@ msgstr "No se puede conectar con {name}"
 msgid "Can't reach {name}, retrying"
 msgstr "No se puede conectar con {name}; reintentando"
 
+#: src/components/clio/runs-explorer.tsx
+msgid "Can't reach the {agent}, retrying"
+msgstr "No se puede conectar con {agent}; reintentando"
+
 #: src/routes/connection-page.tsx
 msgid "Can't sign in to the running {agent}"
 msgstr "No se puede iniciar sesión en el {agent} en ejecución"
@@ -24246,6 +24250,10 @@ msgstr "Aún no está cargado: el servidor le asignará {tokens} tokens cuando s
 msgid "not made in {agent}"
 msgstr "no creado en {agent}"
 
+#: src/components/clio/context-composition-model.ts
+msgid "Not measured yet"
+msgstr "Aún sin medir"
+
 #: src/components/clio/deploy-progress-model.ts
 msgid "Not needed: connected directly"
 msgstr "No es necesario: conectado directamente"
@@ -30702,6 +30710,10 @@ msgstr "Reintentar la instalación"
 msgid "Retry loading rating"
 msgstr "Reintentar la carga de la valoración"
 
+#: src/components/clio/runs-explorer.tsx
+msgid "Retry now"
+msgstr "Reintentar ahora"
+
 #: src/components/clio/document-workspace.tsx
 msgid "Retry preview"
 msgstr "Reintentar la vista previa"
@@ -31274,6 +31286,14 @@ msgstr "Ejecuta un comando dentro de las carpetas permitidas del espacio de trab
 #: src/components/clio/settings-schema-copy.ts
 msgid "Runs after a completed turn or idle delay, at the next background check."
 msgstr "Se ejecuta tras un turno completado o un periodo de inactividad, en la siguiente comprobación en segundo plano."
+
+#: src/components/clio/runs-explorer.tsx
+msgid "Runs appear once it answers."
+msgstr "Las ejecuciones aparecerán en cuanto responda."
+
+#: src/components/clio/runs-explorer.tsx
+msgid "Runs are taking longer than usual"
+msgstr "Las ejecuciones tardan más de lo habitual"
 
 #: src/components/clio/extension-library-panes.tsx
 msgid "Runs as"
@@ -35422,6 +35442,10 @@ msgstr "¿Detener el trabajo que inició esta conversación?"
 msgid "Stop this run?"
 msgstr "¿Detener esta ejecución?"
 
+#: src/components/clio/runs-explorer.tsx
+msgid "Stop waiting"
+msgstr "Dejar de esperar"
+
 #: src/components/clio/ask-code.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Stop wrapping long lines"
@@ -35481,6 +35505,10 @@ msgstr "detenido o rechazado"
 #: src/components/clio/plugin-open-waiting.tsx
 msgid "Stopped waiting for {label}"
 msgstr "Se dejó de esperar a {label}"
+
+#: src/components/clio/runs-explorer.tsx
+msgid "Stopped waiting for runs"
+msgstr "Se dejó de esperar las ejecuciones"
 
 #: src/components/clio/flow-run-parts.tsx
 msgid "Stopped with this conversation's Stop. A restart keeps the steps that finished."
@@ -36403,6 +36431,14 @@ msgstr "Esa llamada a herramienta no está en la transcripción."
 #: src/hooks/use-open-view-runtime.ts
 msgid "That view is not one of this conversation's study views."
 msgstr "Esa vista no es una de las vistas de estudio de esta conversación."
+
+#: src/components/clio/runs-explorer.tsx
+msgid "The {agent} can't be reached."
+msgstr "No se puede conectar con {agent}."
+
+#: src/components/clio/runs-explorer.tsx
+msgid "The {agent} hasn't answered yet."
+msgstr "{agent} aún no ha respondido."
 
 #: src/components/clio/deploy-clio-dialog.tsx
 msgid "The {agent} service bundled with this app"
@@ -39494,6 +39530,10 @@ msgstr "Tiempo"
 #: src/components/clio/work-record-controls.tsx
 msgid "Time limit (seconds)"
 msgstr "Límite de tiempo (segundos)"
+
+#: src/components/clio/job-card.tsx
+msgid "Time limit passed"
+msgstr "Tiempo límite superado"
 
 #: src/components/clio/session-work.tsx
 msgid "Time limit reached"

@@ -94,6 +94,9 @@ export function contextComposition(
     sections,
     reserve,
     free: remaining - reserve,
+    // Nothing reported a size: the service has not measured this context (no request
+    // since it started, or the reading is unavailable). That is not an empty context.
+    measured: used > 0,
     estimated: context?.used_tokens_source !== 'provider',
     estimateMismatch: Boolean(breakdown && attributed > used),
   };
@@ -125,7 +128,8 @@ export function contextPercent(value: number, limit: number): string {
 
 /** "16.6K of 1M": the used total against the model's window. */
 export function contextUsedSummary(context?: ContextSnapshot, messages: readonly Message[] = []) {
-  const { used, limit } = contextComposition(context, messages);
+  const { used, limit, measured } = contextComposition(context, messages);
+  if (!measured) return t`Not measured yet`;
   const usedText = contextTokens(used);
   const limitText = contextTokens(limit);
   return limit ? t`${usedText} of ${limitText}` : t`${usedText} used`;

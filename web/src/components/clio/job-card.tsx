@@ -63,6 +63,8 @@ function jobStatusLabel(job: JobSnapshot): string {
           return t`Cancelled`;
         case 'timed_out':
           return t`Ran out of time`;
+        case PAST_LIMIT:
+          return t`Time limit passed`;
         default:
           return t`Ended`;
       }
@@ -421,6 +423,41 @@ function wallTime(milliseconds: number): string {
   return rest ? t`${ph({ hours })} h ${ph({ rest })} min` : t`${ph({ hours })} h`;
 }
 
+/**
+ * Slack past a job's limit before the card stops calling it running: the
+ * scheduler ends it at the limit, and the site's update can take a minute or
+ * two to arrive.
+ */
+const LIMIT_GRACE_MS = 2 * 60_000;
+/** The outcome a card draws when the limit passed and no end was reported. */
+const PAST_LIMIT = 'past_limit';
+
+/** When a running job is past its limit for sure, or null without a start and a limit. */
+function limitEndsAt(job: JobSnapshot): number | null {
+  if (job.time_limit_s == null || !job.started_at) return null;
+  const started = Date.parse(job.started_at);
+  return Number.isNaN(started) ? null : started + job.time_limit_s * 1000 + LIMIT_GRACE_MS;
+}
+
+/**
+ * A job the scheduler must have ended, since its limit passed, whose end has
+ * not arrived: drawn ended at its limit, with no outcome claimed and no node
+ * still running.
+ */
+function pastLimit(job: JobSnapshot, endsAt: number): JobSnapshot {
+  return {
+    ...job,
+    phase: 'ended',
+    outcome: PAST_LIMIT,
+    ended_at: new Date(endsAt - LIMIT_GRACE_MS).toISOString(),
+    components: job.components.map((component) =>
+      component.state === 'done' || component.state === 'failed' || component.state === 'cancelled'
+        ? component
+        : { ...component, state: null, nodes_running: 0, nodes_allocated: 0 },
+    ),
+  };
+}
+
 function timeFact(job: JobSnapshot, now: number): string | null {
   const limit = job.time_limit_s != null ? wallTime(job.time_limit_s * 1000) : null;
   // Relay stamps started_at when the operation starts; the job's clock runs only once it runs.
@@ -503,9 +540,11 @@ export interface JobCardProps {
  * the batch script one disclosure away. The same card is the planned job in an
  * ask, the running job in a transcript and a row in a job list.
  */
-export function JobCard({ job, fallback, className, onOpen }: JobCardProps) {
-  const live = job.phase === 'running' || job.phase === 'ending';
-  const now = useNow(live && Boolean(job.started_at));
+export function JobCard({ job: reported, fallback, className, onOpen }: JobCardProps) {
+  const live = reported.phase === 'running' || reported.phase === 'ending';
+  const limitEnd = live ? limitEndsAt(reported) : null;
+  const now = useNow(live && Boolean(reported.started_at));
+  const job = limitEnd !== null && now >= limitEnd ? pastLimit(reported, limitEnd) : reported;
   const tone = jobTone(job);
   const time = timeFact(job, now);
   const site = job.site?.label || job.site?.id;

@@ -47,6 +47,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useRepository } from '@/hooks/use-repository';
+import { useConnectionIndicatorState } from '@/hooks/use-connection-indicator-state';
+import { useStalled } from '@/hooks/use-stalled';
+import { vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildFlowRows, buildRows, retainFlowTools, type RunRow } from '@/routes/runs-rows';
 import { matchesRunState } from '@/lib/session-agent-tasks';
@@ -345,6 +348,28 @@ export function RunsExplorer({
     sessions.isPending ||
     workspaces.isPending ||
     (category === 'executions' ? runs.isPending : flowRows.length === 0 && flowsIndexing);
+  // A list that does not arrive says why within the stall limit, with a retry
+  // and a way to stop waiting, instead of a spinner that never ends.
+  const connection = useConnectionIndicatorState({ poll: false });
+  const unreachable = connection === 'offline';
+  const stalled = useStalled(loading);
+  const [stoppedWaiting, setStoppedWaiting] = useState(false);
+  if (stoppedWaiting && !loading) setStoppedWaiting(false);
+  const retryLoading = () => {
+    setStoppedWaiting(false);
+    void refreshRuns();
+    void queryClient.invalidateQueries({ queryKey: queryKeys.key('workspaces', settings.endpoint) });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.key('session-directory', settings.endpoint),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.key('session-pages', settings.endpoint, 'runs-flows'),
+    });
+  };
+  const stopWaiting = () => {
+    setStoppedWaiting(true);
+    void queryClient.cancelQueries({ queryKey: queryKeys.key('tasks', settings.endpoint) });
+  };
   const groups = useMemo(() => {
     const byGroup = new Map<RunGroup, RunRow[]>();
     for (const row of shownRows) {
@@ -588,6 +613,29 @@ export function RunsExplorer({
           detail={error.message}
           kind="error"
           title={t`Run explorer unavailable`}
+        />
+      ) : loading && stoppedWaiting ? (
+        <StateView
+          action={{ label: t`Retry`, onClick: retryLoading }}
+          detail={unreachable ? t`The ${ph({ agent: vocab.agent })} can't be reached.` : undefined}
+          kind="unavailable"
+          title={t`Stopped waiting for runs`}
+        />
+      ) : loading && (unreachable || stalled) ? (
+        <StateView
+          action={{ label: t`Retry now`, onClick: retryLoading }}
+          detail={
+            unreachable
+              ? t`Runs appear once it answers.`
+              : t`The ${ph({ agent: vocab.agent })} hasn't answered yet.`
+          }
+          kind="loading"
+          secondaryAction={{ label: t`Stop waiting`, onClick: stopWaiting }}
+          title={
+            unreachable
+              ? t`Can't reach the ${ph({ agent: vocab.agent })}, retrying`
+              : t`Runs are taking longer than usual`
+          }
         />
       ) : loading ? (
         <StateView

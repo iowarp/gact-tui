@@ -8404,6 +8404,10 @@ msgstr ""
 msgid "Can't reach {name}, retrying"
 msgstr ""
 
+#: src/components/clio/runs-explorer.tsx
+msgid "Can't reach the {agent}, retrying"
+msgstr ""
+
 #: src/routes/connection-page.tsx
 msgid "Can't sign in to the running {agent}"
 msgstr ""
@@ -24228,6 +24232,10 @@ msgstr ""
 msgid "not made in {agent}"
 msgstr ""
 
+#: src/components/clio/context-composition-model.ts
+msgid "Not measured yet"
+msgstr ""
+
 #: src/components/clio/deploy-progress-model.ts
 msgid "Not needed: connected directly"
 msgstr ""
@@ -30684,6 +30692,10 @@ msgstr ""
 msgid "Retry loading rating"
 msgstr ""
 
+#: src/components/clio/runs-explorer.tsx
+msgid "Retry now"
+msgstr ""
+
 #: src/components/clio/document-workspace.tsx
 msgid "Retry preview"
 msgstr ""
@@ -31255,6 +31267,14 @@ msgstr ""
 
 #: src/components/clio/settings-schema-copy.ts
 msgid "Runs after a completed turn or idle delay, at the next background check."
+msgstr ""
+
+#: src/components/clio/runs-explorer.tsx
+msgid "Runs appear once it answers."
+msgstr ""
+
+#: src/components/clio/runs-explorer.tsx
+msgid "Runs are taking longer than usual"
 msgstr ""
 
 #: src/components/clio/extension-library-panes.tsx
@@ -35403,6 +35423,10 @@ msgstr ""
 msgid "Stop this run?"
 msgstr ""
 
+#: src/components/clio/runs-explorer.tsx
+msgid "Stop waiting"
+msgstr ""
+
 #: src/components/clio/ask-code.tsx
 #: src/components/clio/transcript-tool-bodies.tsx
 msgid "Stop wrapping long lines"
@@ -35461,6 +35485,10 @@ msgstr ""
 
 #: src/components/clio/plugin-open-waiting.tsx
 msgid "Stopped waiting for {label}"
+msgstr ""
+
+#: src/components/clio/runs-explorer.tsx
+msgid "Stopped waiting for runs"
 msgstr ""
 
 #: src/components/clio/flow-run-parts.tsx
@@ -36383,6 +36411,14 @@ msgstr ""
 
 #: src/hooks/use-open-view-runtime.ts
 msgid "That view is not one of this conversation's study views."
+msgstr ""
+
+#: src/components/clio/runs-explorer.tsx
+msgid "The {agent} can't be reached."
+msgstr ""
+
+#: src/components/clio/runs-explorer.tsx
+msgid "The {agent} hasn't answered yet."
 msgstr ""
 
 #: src/components/clio/deploy-clio-dialog.tsx
@@ -39474,6 +39510,10 @@ msgstr ""
 
 #: src/components/clio/work-record-controls.tsx
 msgid "Time limit (seconds)"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Time limit passed"
 msgstr ""
 
 #: src/components/clio/session-work.tsx

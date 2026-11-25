@@ -96,6 +96,12 @@ export const CAPABILITIES_RETRY_MS = 2_000;
 export const OPERATIONS_POLL_MS = 30_000;
 
 /**
+ * How long a list may load before it says why and offers a retry and a way to
+ * stop waiting. Unit: milliseconds.
+ */
+export const LOAD_STALL_MS = 30_000;
+
+/**
  * Refetch cadence for the runs list, which advances while work executes.
  * Unit: milliseconds. Faster than the operations tier because a run's state is
  * the thing the page exists to show.
