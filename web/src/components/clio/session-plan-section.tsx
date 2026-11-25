@@ -7,7 +7,7 @@ import { t } from '@lingui/core/macro';
 
 type SessionPlan = NonNullable<SessionWork['plan']>;
 
-export function sessionPlanName(plan: SessionPlan): string {
+function sessionPlanName(plan: SessionPlan): string {
   return plan.path.split(/[\\/]/).pop() || plan.path;
 }
 
