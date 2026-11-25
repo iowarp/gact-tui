@@ -7281,6 +7281,7 @@ msgstr "Σας ρωτά πριν από κάθε κλήση"
 msgid "asks you to sign in when first used"
 msgstr "ζητά σύνδεση την πρώτη φορά"
 
+#: src/components/clio/conversation-harness-injection.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/tool-operation-result.tsx
 #: src/lib/session-export/archive-orchestration.tsx
@@ -36800,6 +36801,14 @@ msgstr "το τεχνούργημα δεν βρίσκεται σε αυτόν τ
 msgid "The assignment is still open. New messages and task results can continue it."
 msgstr "Η ανάθεση είναι ακόμη ανοιχτή. Νέα μηνύματα και αποτελέσματα εργασιών μπορούν να τη συνεχίσουν."
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The assignment was restarted with its saved context. The agent checks the last confirmed operations before repeating any."
+msgstr "Η ανάθεση ξεκίνησε ξανά με το αποθηκευμένο πλαίσιό της. Ο πράκτορας ελέγχει τις τελευταίες επιβεβαιωμένες λειτουργίες πριν επαναλάβει κάποια."
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The assignment was resumed. The agent checks the operations still running before retrying anything."
+msgstr "Η ανάθεση συνεχίστηκε. Ο πράκτορας ελέγχει τις λειτουργίες που εκτελούνται ακόμα πριν δοκιμάσει ξανά οτιδήποτε."
+
 #: src/components/clio/resource-availability.ts
 msgid "The attachment is not available to the agent."
 msgstr "Το συνημμένο δεν είναι διαθέσιμο στον πράκτορα."
@@ -38177,6 +38186,10 @@ msgstr "Η υπηρεσία απάντησε, αλλά δεν ήταν δυνα�
 #: src/components/clio/infrastructure-operation-presentation.ts
 msgid "The service responded."
 msgstr "Η υπηρεσία απάντησε."
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The service restarted during this assignment. The agent continues from its saved context and checks what earlier operations did before retrying anything. No operation was repeated."
+msgstr "Η υπηρεσία επανεκκινήθηκε κατά τη διάρκεια αυτής της ανάθεσης. Ο πράκτορας συνεχίζει από το αποθηκευμένο πλαίσιό του και ελέγχει τι έκαναν οι προηγούμενες λειτουργίες πριν δοκιμάσει ξανά οτιδήποτε. Καμία λειτουργία δεν επαναλήφθηκε."
 
 #: src/components/clio/workbench-list-column.tsx
 #: src/components/clio/workbench-resource-browser.tsx

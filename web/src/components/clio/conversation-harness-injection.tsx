@@ -91,30 +91,43 @@ const INJECTION_LABELS: Record<string, string> = {
  * A control notice by what it did, with the assignment it acted on as its argument:
  * "Continue after restart  Load the use-relay skill…". The text is the agent's own.
  */
-function controlNotice(text: string): { label: string; argument?: string } {
-  let body = text;
+function controlNotice(text: string): {
+  label: string;
+  argument?: string;
+  note?: string;
+  assignment?: string;
+} {
+  // The recorded notice leads with its "[CLIO; control; …]" envelope line(s).
+  let body = text.replace(/^(?:\[clio:[^\]\n]*\]\s*|\[CLIO;[^\]]*\]\s*)+/iu, '').trim();
   let assignment: string | undefined;
-  const start = text.indexOf('{');
   try {
-    // The recorded notice may lead with its "[CLIO; control; …]" envelope line.
-    const parsed: unknown = start >= 0 ? JSON.parse(text.slice(start)) : undefined;
+    const parsed: unknown = body.startsWith('{') ? JSON.parse(body) : undefined;
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       const fields = parsed as Record<string, unknown>;
-      if (typeof fields.text === 'string') body = fields.text;
+      body = typeof fields.text === 'string' ? fields.text.trim() : '';
       if (typeof fields.assignment === 'string' && fields.assignment.trim())
-        assignment = fields.assignment.trim().split('\n')[0];
+        assignment = fields.assignment.trim();
     }
   } catch {
-    // Plain text: the notice itself.
+    // Not a recorded payload: the notice is its own text.
   }
-  const label = /^The service restarted\b/u.test(body)
-    ? t`Continue after restart`
+  const [label, note] = /^The service restarted\b/u.test(body)
+    ? [
+        t`Continue after restart`,
+        t`The service restarted during this assignment. The agent continues from its saved context and checks what earlier operations did before retrying anything. No operation was repeated.`,
+      ]
     : /^Resume this assignment\b/u.test(body)
-      ? t`Resume assignment`
+      ? [
+          t`Resume assignment`,
+          t`The assignment was resumed. The agent checks the operations still running before retrying anything.`,
+        ]
       : /^This is a linked restart\b/u.test(body)
-        ? t`Restart assignment`
-        : t`Assignment control`;
-  return { label, argument: assignment };
+        ? [
+            t`Restart assignment`,
+            t`The assignment was restarted with its saved context. The agent checks the last confirmed operations before repeating any.`,
+          ]
+        : [t`Assignment control`, body.startsWith('{') ? undefined : body || undefined];
+  return { label, argument: assignment?.split('\n')[0], note, assignment };
 }
 
 /**
@@ -222,7 +235,16 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
                 )
               : undefined
           }
-          actions={<CopyAction value={presentation?.text ?? block.text} label={t`Copy ${label}`} />}
+          actions={
+            <CopyAction
+              value={
+                control
+                  ? [control.note, control.assignment].filter(Boolean).join('\n\n') || block.text
+                  : (presentation?.text ?? block.text)
+              }
+              label={t`Copy ${label}`}
+            />
+          }
           elapsed={null}
           status={null}
           info={
@@ -249,7 +271,19 @@ function RecordedInjection({ block }: { block: InjectionBlock }) {
               />
             ) : (
               <BoundedResult lines={block.source === 'peer' ? previewLines : 8} title={label}>
-                {presentation?.format === 'markdown' ? (
+                {control ? (
+                  // The notice in words and the assignment it acted on; the envelope and
+                  // payload stay in Technical details.
+                  <div className="space-y-2 text-ui leading-[1.55] [overflow-wrap:anywhere]">
+                    {control.note ? <p>{control.note}</p> : null}
+                    {control.assignment ? (
+                      <div>
+                        <p className="text-meta text-muted-foreground">{t`Assignment`}</p>
+                        <p className="whitespace-pre-wrap">{control.assignment}</p>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : presentation?.format === 'markdown' ? (
                   <GroundedMessageResponse mode="static" className={ROW_MARKDOWN}>
                     {presentation.text}
                   </GroundedMessageResponse>

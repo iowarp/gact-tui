@@ -7281,6 +7281,7 @@ msgstr "呼び出しのたびに確認する"
 msgid "asks you to sign in when first used"
 msgstr "初回利用時にサインインを求めます"
 
+#: src/components/clio/conversation-harness-injection.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/tool-operation-result.tsx
 #: src/lib/session-export/archive-orchestration.tsx
@@ -36800,6 +36801,14 @@ msgstr "成果物がこのワークスペースにありません。"
 msgid "The assignment is still open. New messages and task results can continue it."
 msgstr "割り当てはまだ開いています。新しいメッセージやタスクの結果で続行できます。"
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The assignment was restarted with its saved context. The agent checks the last confirmed operations before repeating any."
+msgstr "割り当ては保存されたコンテキストで再開始されました。エージェントは操作を繰り返す前に、最後に確認された操作を確かめます。"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The assignment was resumed. The agent checks the operations still running before retrying anything."
+msgstr "割り当てが再開されました。エージェントは再試行する前に、実行中の操作を確かめます。"
+
 #: src/components/clio/resource-availability.ts
 msgid "The attachment is not available to the agent."
 msgstr "この添付ファイルはエージェントから利用できません。"
@@ -38177,6 +38186,10 @@ msgstr "サービスは応答しましたが、ヘルスステータスを確認
 #: src/components/clio/infrastructure-operation-presentation.ts
 msgid "The service responded."
 msgstr "サービスが応答しました。"
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The service restarted during this assignment. The agent continues from its saved context and checks what earlier operations did before retrying anything. No operation was repeated."
+msgstr "この割り当ての途中でサービスが再起動しました。エージェントは保存されたコンテキストから続行し、再試行する前に以前の操作の結果を確かめます。操作は繰り返されていません。"
 
 #: src/components/clio/workbench-list-column.tsx
 #: src/components/clio/workbench-resource-browser.tsx

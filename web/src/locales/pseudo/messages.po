@@ -7272,6 +7272,7 @@ msgstr ""
 msgid "asks you to sign in when first used"
 msgstr ""
 
+#: src/components/clio/conversation-harness-injection.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/tool-operation-result.tsx
 #: src/lib/session-export/archive-orchestration.tsx
@@ -36781,6 +36782,14 @@ msgstr ""
 msgid "The assignment is still open. New messages and task results can continue it."
 msgstr ""
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The assignment was restarted with its saved context. The agent checks the last confirmed operations before repeating any."
+msgstr ""
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The assignment was resumed. The agent checks the operations still running before retrying anything."
+msgstr ""
+
 #: src/components/clio/resource-availability.ts
 msgid "The attachment is not available to the agent."
 msgstr ""
@@ -38157,6 +38166,10 @@ msgstr ""
 
 #: src/components/clio/infrastructure-operation-presentation.ts
 msgid "The service responded."
+msgstr ""
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The service restarted during this assignment. The agent continues from its saved context and checks what earlier operations did before retrying anything. No operation was repeated."
 msgstr ""
 
 #: src/components/clio/workbench-list-column.tsx

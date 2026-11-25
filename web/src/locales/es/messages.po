@@ -7281,6 +7281,7 @@ msgstr "Te pregunta antes de cada llamada"
 msgid "asks you to sign in when first used"
 msgstr "pide iniciar sesión la primera vez"
 
+#: src/components/clio/conversation-harness-injection.tsx
 #: src/components/clio/subagent-card.tsx
 #: src/components/clio/tool-operation-result.tsx
 #: src/lib/session-export/archive-orchestration.tsx
@@ -36800,6 +36801,14 @@ msgstr "el artefacto no está en este espacio de trabajo."
 msgid "The assignment is still open. New messages and task results can continue it."
 msgstr "La asignación sigue abierta. Nuevos mensajes y resultados de tareas pueden continuarla."
 
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The assignment was restarted with its saved context. The agent checks the last confirmed operations before repeating any."
+msgstr "La asignación se reinició con su contexto guardado. El agente revisa las últimas operaciones confirmadas antes de repetir alguna."
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The assignment was resumed. The agent checks the operations still running before retrying anything."
+msgstr "La asignación se reanudó. El agente revisa las operaciones que siguen en curso antes de reintentar algo."
+
 #: src/components/clio/resource-availability.ts
 msgid "The attachment is not available to the agent."
 msgstr "El adjunto no está disponible para el agente."
@@ -38177,6 +38186,10 @@ msgstr "El servicio respondió, pero no se pudo verificar su estado."
 #: src/components/clio/infrastructure-operation-presentation.ts
 msgid "The service responded."
 msgstr "El servicio respondió."
+
+#: src/components/clio/conversation-harness-injection.tsx
+msgid "The service restarted during this assignment. The agent continues from its saved context and checks what earlier operations did before retrying anything. No operation was repeated."
+msgstr "El servicio se reinició durante esta asignación. El agente continúa desde su contexto guardado y revisa qué hicieron las operaciones anteriores antes de reintentar algo. No se repitió ninguna operación."
 
 #: src/components/clio/workbench-list-column.tsx
 #: src/components/clio/workbench-resource-browser.tsx
