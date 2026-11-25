@@ -2,6 +2,7 @@ import type { RunState } from '@clio/core/v3';
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import { clioStatusLabel } from '@/components/clio/status';
 import type { RunRow } from '@/routes/runs-rows';
+import { formatDuration } from '@/lib/format';
 import { formatLocale } from '@/lib/locale-format';
 import { t } from '@lingui/core/macro';
 
@@ -125,4 +126,22 @@ const LOOK: Partial<Record<RunState, { tone: StatusTone; word: string }>> = {
 /** The mark tone and the one word a run's state column shows. */
 export function runLook(row: Pick<RunRow, 'state'>): { tone: StatusTone; word: string } {
   return LOOK[row.state] ?? { tone: 'info', word: row.state };
+}
+
+/** States in which a run is working now. */
+export const RUNNING_STATES: readonly RunRow['state'][] = [
+  'running',
+  'recovering',
+  'stopping',
+  'cancellation_requested',
+  'pause_requested',
+];
+
+/** Time since a run started, as its state word says it. */
+export function elapsedSince(from: string | undefined, to: number): string | undefined {
+  const at = from ? Date.parse(from) : Number.NaN;
+  if (Number.isNaN(at) || to < at) return undefined;
+  const span = to - at;
+  // Past a minute the word names whole minutes only: "running 4m", "1h 4m".
+  return formatDuration(span < 60_000 ? span : Math.floor(span / 60_000) * 60_000, 'elapsed');
 }

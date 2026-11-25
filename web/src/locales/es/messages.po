@@ -1543,6 +1543,7 @@ msgstr "{command} en {computer}"
 msgid "{command} was not run"
 msgstr "{command} no se ejecutó"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/run-list-row.tsx
 msgid "{completed} of {total}"
 msgstr "{completed} de {total}"
@@ -3038,6 +3039,7 @@ msgstr "{name} aún no se ha comprobado."
 msgid "{name} ignored as a duplicate"
 msgstr "La acción {name} se ignoró por estar duplicada"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/service-management-panel.tsx
 msgid "{name} install"
 msgstr "Instalar {name}"
@@ -12622,7 +12624,7 @@ msgstr "No se pudo reiniciar {agent}"
 
 #. placeholder {0}: row.label
 #. placeholder {1}: error.message
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 msgid "Could not retry {0}: {1}"
 msgstr "No se pudo reintentar {0}: {1}"
 
@@ -14145,7 +14147,7 @@ msgstr "Las reglas de dominio se aplican por {workspace}."
 msgid "Domain rules take effect once a specific {workspace} is chosen."
 msgstr "Las reglas de dominio entran en vigor una vez que se elige un {workspace} concreto."
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "done"
 msgstr "completado"
@@ -14180,7 +14182,7 @@ msgstr "completada"
 msgid "Done"
 msgstr "Hecho"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 msgid "done in {time}"
 msgstr "completado en {time}"
 
@@ -15028,7 +15030,6 @@ msgid "End time"
 msgstr "Hora de fin"
 
 #: src/components/clio/attention-center.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/run-record.tsx
 msgid "Ended"
 msgstr "Terminada"
@@ -15837,7 +15838,7 @@ msgstr "Datos que indico directamente"
 msgid "Facts to apply, one per line"
 msgstr "Datos que aplicar, uno por línea"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "failed"
 msgstr "con error"
@@ -16399,7 +16400,6 @@ msgid "Finish with a return URL"
 msgstr "Terminar con una URL de retorno"
 
 #: src/components/clio/composer-run-announcer.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/operation-progress.tsx
 msgid "Finished"
@@ -27077,10 +27077,6 @@ msgstr "Plano en {axis} = {position}, se conserva el lado superior. Las caras co
 msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
 msgstr "Plano en {axis} = {position}, se conserva el lado inferior. Las caras cortadas se rellenan."
 
-#: src/components/clio/job-card.tsx
-msgid "Planned"
-msgstr "Planificado"
-
 #: src/widget-gallery-demos.ts
 msgid "Planned stations"
 msgstr "Estaciones previstas"
@@ -27341,6 +27337,10 @@ msgstr "el puerto {port} en este host"
 #: src/components/clio/managed-service-form.tsx
 msgid "Ports and storage use this computer’s defaults. Open Advanced settings to change them."
 msgstr "Los puertos y el almacenamiento usan los valores predeterminados de este equipo. Abre Ajustes avanzados para cambiarlos."
+
+#: src/components/clio/job-card.tsx
+msgid "Position {position} in the queue"
+msgstr "Posición {position} en la cola"
 
 #: src/components/clio/settings-models-form.ts
 msgid "Positive values make the model repeat the same words less."
@@ -28250,11 +28250,7 @@ msgstr "La cola cambió en otro lugar, así que no se aplicó tu nuevo orden"
 msgid "Queue is empty"
 msgstr "La cola está vacía"
 
-#: src/components/clio/job-card.tsx
-msgid "Queue reason"
-msgstr "Motivo de la cola"
-
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "queued"
 msgstr "en cola"
@@ -28271,7 +28267,6 @@ msgstr "en cola"
 
 #: src/components/clio/conversation-message-row.tsx
 #: src/components/clio/infrastructure-activity.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/resource-availability.ts
@@ -28303,13 +28298,9 @@ msgstr "El mensaje en cola no se envió"
 msgid "Queued messages"
 msgstr "Mensajes en cola"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 msgid "queued on {host}"
 msgstr "en cola en {host}"
-
-#: src/components/clio/job-card.tsx
-msgid "Queued, position {position}"
-msgstr "En cola, posición {position}"
 
 #: src/components/clio/composer-run-announcer.tsx
 msgid "Queued, waiting to start"
@@ -30943,7 +30934,7 @@ msgstr "Recuperación"
 #: src/components/clio/question-surface.tsx
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 #: src/components/clio/runs-load-state.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
@@ -31038,7 +31029,7 @@ msgid "Retry upload for {name}"
 msgstr "Reintentar la subida de {name}"
 
 #: src/components/clio/conversation-message-blocks.tsx
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-permissions-lines.tsx
 msgid "Retrying"
@@ -32265,6 +32256,10 @@ msgstr "No se guardó el trabajo programado"
 #: src/components/clio/workbench-activity-model.ts
 msgid "Scheduled: {question}"
 msgstr "Programado: {question}"
+
+#: src/components/clio/job-card.tsx
+msgid "Scheduler job"
+msgstr "Trabajo del planificador"
 
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/session-work.tsx
@@ -36144,8 +36139,8 @@ msgid "Submit all answers"
 msgstr "Enviar todas las respuestas"
 
 #: src/components/clio/job-card.tsx
-msgid "Submitted"
-msgstr "Enviado"
+msgid "Submitted, waiting for the scheduler"
+msgstr "Enviado, esperando al planificador"
 
 #: src/lib/fleet-usage.ts
 msgid "Subscription"
@@ -42507,6 +42502,14 @@ msgstr "Esperando tu respuesta"
 #: src/components/clio/run-tab.tsx
 msgid "Waiting on {host}."
 msgstr "Esperando en {host}."
+
+#: src/components/clio/job-card.tsx
+msgid "Waiting on {reason}"
+msgstr "Esperando: {reason}"
+
+#: src/components/clio/job-card.tsx
+msgid "Waiting on {reason}, position {position}"
+msgstr "Esperando: {reason}, posición {position}"
 
 #: src/components/clio/provider-actions.ts
 msgid "Waiting to install…"

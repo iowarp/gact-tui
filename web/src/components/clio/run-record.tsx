@@ -5,11 +5,10 @@ import type {
   TaskObservation,
   ToolInvocation,
 } from '@clio/core/v3';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { CheckIcon, CircleAlertIcon, MessageCircleQuestionIcon, TerminalIcon } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { AGENT_PROSE_CLASS } from '@/components/clio/agent-prose';
 import { answerText } from '@/components/clio/flow-run-edits';
@@ -654,45 +653,6 @@ function RunDetails({ row, live }: { row: RunRow; live: boolean }) {
         </div>
       </TechnicalDetails>
     </RunSection>
-  );
-}
-
-/**
- * Retry for a failed run its server can start again. Running in the context box
- * lists only live runs, so a failed run is retried from its record.
- */
-export function RunRetry({ row }: { row: RunRow }) {
-  const repository = useRepository();
-  const queryClient = useQueryClient();
-  const { settings } = useConnectionSettings();
-  const sessionId = row.ownerSessionId ?? row.targetSessionId ?? '';
-  const retry = useMutation({
-    mutationFn: () => repository.controlSubagent(sessionId, row.handleId, 'restart'),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.key('tasks', settings.endpoint) }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('run-snapshot', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.sessionObservability(settings.endpoint, sessionId),
-        }),
-      ]);
-    },
-    onError: (error) => toast.error(t`Could not retry ${row.label}: ${error.message}`),
-  });
-  if (row.state !== 'failed' || !sessionId || !row.task?.supported_actions.includes('restart'))
-    return null;
-  return (
-    <Button
-      className="mt-1 ml-6 justify-self-start"
-      disabled={retry.isPending}
-      onClick={() => retry.mutate()}
-      size="compact"
-      variant="outline"
-    >
-      {retry.isPending ? t`Retrying` : t`Retry`}
-    </Button>
   );
 }
 

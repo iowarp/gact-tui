@@ -12,7 +12,8 @@ import { FrameBar, FrameCrumbs } from './primitives/frame-bar';
 import { NamedTooltip } from './primitives/icon-button';
 import { StateView } from './primitives/state-view';
 import { runKindName, runStateLabel } from './run-presentation';
-import { RunStateWord, RunSummary } from './run-tab';
+import { RunStateWord } from './run-list-row';
+import { RunSummary } from './run-tab';
 import type { WorkbenchTab } from './workbench-shared';
 import { t } from '@lingui/core/macro';
 

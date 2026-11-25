@@ -5,75 +5,152 @@ import { Fragment, type ReactNode } from 'react';
 import { formatDuration } from '@/lib/format';
 import {
   componentShape,
-  componentTone,
-  jobTone,
   type JobAdvisory,
   type JobComponent,
   type JobCoupling,
   type JobSnapshot,
-  type JobStatusTone,
 } from '@/lib/job-snapshot';
+import { formatList } from '@/lib/locale-format';
 import { Button } from '@/components/ui/button';
 import { useNow } from '@/hooks/use-now';
 import { cn } from '@/lib/utils';
+import type { RunRow } from '@/routes/runs-rows';
+import { RunProgressBar, RunStateWord, RunStatusMark } from './run-list-row';
+import { runStateLabel } from './run-presentation';
 import { TechnicalDetails } from './technical-details';
-
-const TONE_TEXT: Record<JobStatusTone, string> = {
-  neutral: 'text-muted-foreground',
-  waiting: 'text-warning',
-  active: 'text-info',
-  good: 'text-success',
-  bad: 'text-destructive-text',
-};
-
-const TONE_DOT: Record<JobStatusTone, string> = {
-  neutral: 'bg-muted-foreground/50',
-  waiting: 'bg-warning',
-  active: 'bg-info animate-pulse',
-  good: 'bg-success',
-  bad: 'bg-destructive',
-};
 
 /** Nodes a stack draws one by one; a larger component draws three, a gap and its front node. */
 const DRAWN_NODES = 3;
 /** Depth the dots between a large component's front node and the three behind it take up. */
 const GAP_SLOTS = 2;
 
-function jobStatusLabel(job: JobSnapshot): string {
+type RunState = RunRow['state'];
+
+/**
+ * A job's state in the words and marks of a run row: a ring while it waits in
+ * the queue, the spinner while it runs, ✓ done, a red ⚠ when it failed or ran
+ * out of time, × when cancelled or declined. `detail` says what it waits on or
+ * why it ended. A planned job has none; the ask that carries it speaks for it.
+ */
+function jobRunState(job: JobSnapshot): { state: RunState; detail?: string } | null {
   switch (job.phase) {
     case 'planned':
-      return t`Planned`;
+      return null;
     case 'submitted':
-      return t`Submitted`;
-    case 'queued': {
-      const position = job.queue?.position;
-      return position ? t`Queued, position ${position}` : t`Queued`;
-    }
+      return { state: 'queued', detail: t`Submitted, waiting for the scheduler` };
+    case 'queued':
+      return { state: 'queued', detail: queueDetail(job) };
     case 'running':
-      return t`Running`;
+      return { state: 'running' };
     case 'ending':
-      return t`Finishing`;
+      return { state: 'running', detail: t`Finishing` };
     case 'ended':
       switch (job.outcome) {
         case 'succeeded':
-          return t`Finished`;
+          return { state: 'completed' };
         case 'failed':
-          return t`Failed`;
+          return { state: 'failed' };
         case 'cancelled':
-          return t`Cancelled`;
+          return { state: 'cancelled' };
         // The person said no to the job's ask, so nothing was submitted.
         case 'declined':
-          return t`You declined`;
+          return { state: 'cancelled', detail: t`You declined` };
         case 'timed_out':
-          return t`Ran out of time`;
+          return { state: 'failed', detail: t`Ran out of time` };
         case PAST_LIMIT:
-          return t`Time limit passed`;
+          return { state: 'failed', detail: t`Time limit passed` };
         default:
-          return t`Ended`;
+          return { state: 'stopped' };
       }
     default:
-      return job.phase;
+      return null;
   }
+}
+
+/** What a queued job waits on: the scheduler's reason and its place in the queue. */
+function queueDetail(job: JobSnapshot): string | undefined {
+  const reason = job.queue?.reason?.trim();
+  const position = job.queue?.position;
+  if (reason && position) return t`Waiting on ${reason}, position ${position}`;
+  if (reason) return t`Waiting on ${reason}`;
+  if (position) return t`Position ${position} in the queue`;
+  return undefined;
+}
+
+/** A component's own state as a run state, so its mark is a run row's. */
+function componentRunState(state: string | null | undefined): RunState | null {
+  switch (state) {
+    case 'waiting':
+      return 'queued';
+    case 'starting':
+    case 'running':
+      return 'running';
+    case 'done':
+      return 'completed';
+    case 'failed':
+      return 'failed';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return null;
+  }
+}
+
+/** A component's state line: the run row's mark beside the words. */
+function ComponentState({ component }: { component: JobComponent }) {
+  const label = componentStateLabel(component);
+  const state = componentRunState(component.state);
+  if (!label) return null;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 text-meta text-muted-foreground',
+        state === 'running' && 'text-accent-foreground',
+        state === 'failed' && 'text-destructive-text',
+      )}
+    >
+      {state ? <RunStatusMark cancelRequested={false} className="size-3" row={{ state }} /> : null}
+      {label}
+    </span>
+  );
+}
+
+/**
+ * What the card is called: the job's own name, else what its components are
+ * (an install names its package), else the caller's name for it, else where it runs.
+ */
+function jobTitle(job: JobSnapshot, given: string | undefined): string {
+  if (job.label?.trim()) return job.label.trim();
+  const only = job.components.length === 1 ? job.components[0] : undefined;
+  if (only) {
+    const name = componentName(only);
+    return componentShape(only) === 'install' ? t`${name} install` : name;
+  }
+  if (job.components.length) return formatList(job.components.map(componentName));
+  if (given?.trim()) return given.trim();
+  const site = job.site?.label || job.site?.id;
+  return site ? t`Job on ${site}` : t`Scheduler job`;
+}
+
+/**
+ * Counted progress of the job's current step: the task's own counts, else the
+ * "41 of 112" its step text names. Whole percent, or undefined.
+ */
+function stepPercent(job: JobSnapshot): { percent: number; counted?: string } | undefined {
+  let completed = job.progress?.completed;
+  let total = job.progress?.total;
+  let counted: string | undefined;
+  if (completed != null && total != null) {
+    counted = t`${completed} of ${total}`;
+  } else {
+    const named = job.step ? /\b(\d+)\s+(?:of|\/)\s+(\d+)\b/u.exec(job.step) : null;
+    if (!named) return undefined;
+    completed = Number(named[1]);
+    total = Number(named[2]);
+  }
+  if (!total || total <= 0) return undefined;
+  const percent = Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
+  return { percent, counted };
 }
 
 function componentStateLabel(component: JobComponent): string | null {
@@ -255,8 +332,6 @@ function ComponentBlock({
   placed: boolean;
 }) {
   const nodes = component.nodes ?? null;
-  const state = componentStateLabel(component);
-  const tone = componentTone(component.state);
   const hosts = component.hosts?.length ? component.hosts.join(', ') : undefined;
   const name = componentName(component);
   const shape = componentShape(component);
@@ -274,12 +349,7 @@ function ComponentBlock({
       <span className="line-clamp-2 max-w-44 font-medium break-words text-foreground">
         {counted ? t`${name} ×${nodes}` : name}
       </span>
-      {state ? (
-        <span className={cn('inline-flex items-center gap-1 text-meta', TONE_TEXT[tone])}>
-          <span aria-hidden="true" className={cn('size-1.5 rounded-full', TONE_DOT[tone])} />
-          {state}
-        </span>
-      ) : null}
+      <ComponentState component={component} />
       {placed && component.host_slice ? (
         <span className="max-w-40 truncate text-meta text-muted-foreground">
           {hostSlice(component.host_slice)}
@@ -295,8 +365,6 @@ function ComponentBlock({
  */
 function SingleComponent({ component }: { component: JobComponent }) {
   const nodes = component.nodes ?? null;
-  const state = componentStateLabel(component);
-  const tone = componentTone(component.state);
   const shape = componentShape(component);
   const Icon = shape === 'service' ? MonitorIcon : shape === 'install' ? PackageIcon : ServerIcon;
   const hosts = component.hosts?.length ? component.hosts.join(', ') : undefined;
@@ -320,12 +388,7 @@ function SingleComponent({ component }: { component: JobComponent }) {
             })
           : name}
       </span>
-      {state ? (
-        <span className={cn('inline-flex items-center gap-1 text-meta', TONE_TEXT[tone])}>
-          <span aria-hidden="true" className={cn('size-1.5 rounded-full', TONE_DOT[tone])} />
-          {state}
-        </span>
-      ) : null}
+      <ComponentState component={component} />
     </div>
   );
 }
@@ -532,6 +595,10 @@ export interface JobCardProps {
   className?: string;
   /** Open the run this job belongs to: its record, with the log and what it asked. */
   onOpen?: () => void;
+  /** What the caller calls the job (the call that started it), when the job names nothing. */
+  title?: string;
+  /** Actions shown on hover beside the state, as on a run row (Retry). */
+  actions?: ReactNode;
 }
 
 /**
@@ -540,23 +607,78 @@ export interface JobCardProps {
  * the batch script one disclosure away. The same card is the planned job in an
  * ask, the running job in a transcript and a row in a job list.
  */
-export function JobCard({ job: reported, fallback, className, onOpen }: JobCardProps) {
+export function JobCard({
+  job: reported,
+  fallback,
+  className,
+  onOpen,
+  title,
+  actions,
+}: JobCardProps) {
   const live = reported.phase === 'running' || reported.phase === 'ending';
   const limitEnd = live ? limitEndsAt(reported) : null;
   const now = useNow(live && Boolean(reported.started_at));
   const job = limitEnd !== null && now >= limitEnd ? pastLimit(reported, limitEnd) : reported;
-  const tone = jobTone(job);
   const time = timeFact(job, now);
   const site = job.site?.label || job.site?.id;
+  const run = jobRunState(job);
+  const name = jobTitle(job, title);
+  const progress = stepPercent(job);
   return (
     <section
       aria-label={site ? t`Job on ${site}` : t`Job`}
-      className={cn('@container/job flex min-w-0 flex-col gap-2 text-menu', className)}
+      className={cn('group/job @container/job flex min-w-0 flex-col gap-2 text-menu', className)}
       data-job-operation={job.operation_id}
       data-job-phase={job.phase}
       data-job-revision={job.revision}
       data-slot="job-card"
     >
+      {/* A planned job has no state yet; the ask that carries it names it. */}
+      {run ? (
+        <div className="flex min-w-0 items-start gap-2" data-slot="job-head">
+          <RunStatusMark cancelRequested={false} className="mt-[3px]" row={{ state: run.state }} />
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate font-medium text-foreground" title={name}>
+              {name}
+            </span>
+            {run.detail ? (
+              <span
+                className={cn(
+                  'text-meta wrap-anywhere text-muted-foreground',
+                  run.state === 'failed' && 'text-destructive-text',
+                )}
+                data-slot="job-state-detail"
+              >
+                {run.detail}
+              </span>
+            ) : null}
+          </div>
+          <span
+            className="shrink-0 text-caption whitespace-nowrap text-muted-foreground tabular-nums"
+            data-job-state={run.state}
+            data-slot="job-status"
+          >
+            <RunStateWord
+              row={{
+                state: run.state,
+                createdAt: job.started_at ?? undefined,
+                terminalAt: job.ended_at ?? undefined,
+                host: site ?? '',
+                source: 'mcp_task',
+              }}
+              stateLabel={runStateLabel({ state: run.state }, false)}
+            />
+          </span>
+          {actions ? (
+            <span
+              className="-my-0.5 flex shrink-0 items-center opacity-0 group-focus-within/job:opacity-100 group-hover/job:opacity-100 pointer-coarse:opacity-100"
+              data-slot="job-actions"
+            >
+              {actions}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
         {job.partition || job.scheduler ? (
           <Fact label={t`Partition`} value={job.partition || <SiteDefault />} />
@@ -567,13 +689,6 @@ export function JobCard({ job: reported, fallback, className, onOpen }: JobCardP
         {time ? (
           <Fact label={t({ message: 'Time', context: 'job wall time' })} value={time} />
         ) : null}
-        <span
-          className={cn('ml-auto inline-flex items-center gap-1.5 font-medium', TONE_TEXT[tone])}
-          data-slot="job-status"
-        >
-          <span aria-hidden="true" className={cn('size-2 rounded-full', TONE_DOT[tone])} />
-          {jobStatusLabel(job)}
-        </span>
       </div>
       {job.components.length === 1 && !job.couplings.length && job.components[0] ? (
         <SingleComponent component={job.components[0]} />
@@ -594,18 +709,27 @@ export function JobCard({ job: reported, fallback, className, onOpen }: JobCardP
           ))}
         </div>
       ) : job.step ? (
-        <p className="min-w-0 wrap-anywhere text-foreground" data-slot="job-step">
-          <span className="mr-1.5 text-meta text-muted-foreground">{t`Current step`}</span>
-          {job.step}
-        </p>
+        <div className="flex min-w-0 flex-col gap-1.5" data-slot="job-step">
+          <p className="min-w-0 wrap-anywhere text-foreground">
+            <span className="mr-1.5 text-meta text-muted-foreground">{t`Current step`}</span>
+            {job.step}
+          </p>
+          {progress ? (
+            <span className="flex min-w-0 items-center gap-2">
+              <RunProgressBar className="flex-1" percent={progress.percent} />
+              {progress.counted ? (
+                <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
+                  {progress.counted}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
+        </div>
       ) : null}
       {site || job.job_id != null || onOpen ? (
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-meta">
           {site ? <Fact label={t`Site`} value={site} /> : null}
           {job.job_id != null ? <Fact label={t`Job`} value={String(job.job_id)} /> : null}
-          {job.phase === 'queued' && job.queue?.reason ? (
-            <Fact label={t`Queue reason`} value={job.queue.reason} />
-          ) : null}
           {job.phase === 'queued' && job.queue?.starts_in_s != null ? (
             <Fact label={t`Starts in`} value={wallTime(job.queue.starts_in_s * 1000)} />
           ) : null}

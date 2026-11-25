@@ -1542,6 +1542,7 @@ msgstr ""
 msgid "{command} was not run"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/run-list-row.tsx
 msgid "{completed} of {total}"
 msgstr ""
@@ -3035,6 +3036,7 @@ msgstr ""
 msgid "{name} ignored as a duplicate"
 msgstr ""
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/service-management-panel.tsx
 msgid "{name} install"
 msgstr ""
@@ -12613,7 +12615,7 @@ msgstr ""
 
 #. placeholder {0}: row.label
 #. placeholder {1}: error.message
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 msgid "Could not retry {0}: {1}"
 msgstr ""
 
@@ -14136,7 +14138,7 @@ msgstr ""
 msgid "Domain rules take effect once a specific {workspace} is chosen."
 msgstr ""
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "done"
 msgstr ""
@@ -14171,7 +14173,7 @@ msgstr ""
 msgid "Done"
 msgstr ""
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 msgid "done in {time}"
 msgstr ""
 
@@ -15019,7 +15021,6 @@ msgid "End time"
 msgstr ""
 
 #: src/components/clio/attention-center.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/run-record.tsx
 msgid "Ended"
 msgstr ""
@@ -15828,7 +15829,7 @@ msgstr ""
 msgid "Facts to apply, one per line"
 msgstr ""
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "failed"
 msgstr ""
@@ -16390,7 +16391,6 @@ msgid "Finish with a return URL"
 msgstr ""
 
 #: src/components/clio/composer-run-announcer.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/operation-progress.tsx
 msgid "Finished"
@@ -27059,10 +27059,6 @@ msgstr ""
 msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
 msgstr ""
 
-#: src/components/clio/job-card.tsx
-msgid "Planned"
-msgstr ""
-
 #: src/widget-gallery-demos.ts
 msgid "Planned stations"
 msgstr ""
@@ -27322,6 +27318,10 @@ msgstr ""
 
 #: src/components/clio/managed-service-form.tsx
 msgid "Ports and storage use this computer’s defaults. Open Advanced settings to change them."
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Position {position} in the queue"
 msgstr ""
 
 #: src/components/clio/settings-models-form.ts
@@ -28232,11 +28232,7 @@ msgstr ""
 msgid "Queue is empty"
 msgstr ""
 
-#: src/components/clio/job-card.tsx
-msgid "Queue reason"
-msgstr ""
-
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "queued"
 msgstr ""
@@ -28253,7 +28249,6 @@ msgstr ""
 
 #: src/components/clio/conversation-message-row.tsx
 #: src/components/clio/infrastructure-activity.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/resource-availability.ts
@@ -28285,12 +28280,8 @@ msgstr ""
 msgid "Queued messages"
 msgstr ""
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 msgid "queued on {host}"
-msgstr ""
-
-#: src/components/clio/job-card.tsx
-msgid "Queued, position {position}"
 msgstr ""
 
 #: src/components/clio/composer-run-announcer.tsx
@@ -30925,7 +30916,7 @@ msgstr ""
 #: src/components/clio/question-surface.tsx
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 #: src/components/clio/runs-load-state.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
@@ -31020,7 +31011,7 @@ msgid "Retry upload for {name}"
 msgstr ""
 
 #: src/components/clio/conversation-message-blocks.tsx
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-permissions-lines.tsx
 msgid "Retrying"
@@ -32246,6 +32237,10 @@ msgstr ""
 
 #: src/components/clio/workbench-activity-model.ts
 msgid "Scheduled: {question}"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Scheduler job"
 msgstr ""
 
 #: src/components/clio/session-rail-layout.ts
@@ -36125,7 +36120,7 @@ msgid "Submit all answers"
 msgstr ""
 
 #: src/components/clio/job-card.tsx
-msgid "Submitted"
+msgid "Submitted, waiting for the scheduler"
 msgstr ""
 
 #: src/lib/fleet-usage.ts
@@ -42487,6 +42482,14 @@ msgstr ""
 
 #: src/components/clio/run-tab.tsx
 msgid "Waiting on {host}."
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Waiting on {reason}"
+msgstr ""
+
+#: src/components/clio/job-card.tsx
+msgid "Waiting on {reason}, position {position}"
 msgstr ""
 
 #: src/components/clio/provider-actions.ts

@@ -7,15 +7,19 @@ import { FrameBackContext } from '@/components/clio/primitives/frame-back';
 import { FrameBar, FrameCrumbs, FrameTab } from '@/components/clio/primitives/frame-bar';
 import { IconButton, NamedTooltip } from '@/components/clio/primitives/icon-button';
 import { StateView } from '@/components/clio/primitives/state-view';
-import { RunSourceIcon, RunStatusMark } from '@/components/clio/run-list-row';
-import { runConversationHref, runKindName, runLook } from '@/components/clio/run-presentation';
+import { RunSourceIcon, RunStateWord, RunStatusMark } from '@/components/clio/run-list-row';
+import {
+  RUNNING_STATES,
+  elapsedSince,
+  runConversationHref,
+  runKindName,
+} from '@/components/clio/run-presentation';
 import { taskProgressLabel } from '@/components/clio/task-progress-label';
-import { RunRecord, RunRetry } from '@/components/clio/run-record';
+import { RunRecord } from '@/components/clio/run-record';
+import { RunRetry } from '@/components/clio/run-retry';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useNow } from '@/hooks/use-now';
 import { useRunQuestions } from '@/hooks/use-run-questions';
 import { useCountedTaskProgress } from '@/hooks/use-count-up';
-import { formatDuration } from '@/lib/format';
 import { formatLocale } from '@/lib/locale-format';
 import { sourceLabels, type RunRow } from '@/routes/runs-rows';
 import { plural, t, ph } from '@lingui/core/macro';
@@ -23,58 +27,6 @@ import { plural, t, ph } from '@lingui/core/macro';
 const FlowRunView = lazy(() =>
   import('@/components/clio/flow-run-view').then((module) => ({ default: module.FlowRunView })),
 );
-
-const RUNNING: readonly RunRow['state'][] = [
-  'running',
-  'recovering',
-  'stopping',
-  'cancellation_requested',
-  'pause_requested',
-];
-
-function elapsed(from: string | undefined, to: number): string | undefined {
-  const at = from ? Date.parse(from) : Number.NaN;
-  if (Number.isNaN(at) || to < at) return undefined;
-  const span = to - at;
-  // Past a minute the tab names whole minutes only: "running 4m", "1h 4m".
-  return formatDuration(span < 60_000 ? span : Math.floor(span / 60_000) * 60_000, 'elapsed');
-}
-
-/**
- * The spec's `.tl2` state word beside the run's name: "running 4m" in teal,
- * "queued on ares", a red "failed", "done in 6m". The row and the tab say the
- * same thing.
- */
-export function RunStateWord({ row, stateLabel }: { row: RunRow; stateLabel: string }) {
-  const running = RUNNING.includes(row.state);
-  const now = useNow(running);
-  if (running) {
-    const time = elapsed(row.createdAt, now);
-    return (
-      <span className="text-accent-foreground">
-        {runLook(row).word}
-        {time ? ` ${time}` : ''}
-      </span>
-    );
-  }
-  if (row.state === 'queued') {
-    const host = row.source === 'flow' ? '' : row.host;
-    return <span>{host ? t`queued on ${host}` : t`queued`}</span>;
-  }
-  if (row.state === 'failed') return <span className="text-destructive-text">{t`failed`}</span>;
-  if (row.state === 'completed') {
-    const end = row.terminalAt ? Date.parse(row.terminalAt) : Number.NaN;
-    const time = Number.isNaN(end) ? undefined : elapsed(row.createdAt, end);
-    return <span>{time ? t`done in ${time}` : t`done`}</span>;
-  }
-  const tone = runLook(row).tone;
-  return (
-    <span className={tone === 'waiting' || tone === 'warning' ? 'text-warning' : undefined}>
-      {/* A status label shown mid-line; case-folding is safe in every offered language. */}
-      {stateLabel.toLocaleLowerCase(formatLocale())}
-    </span>
-  );
-}
 
 /**
  * A producer's status line as a person reads it. "relay operation is running:
@@ -180,7 +132,7 @@ export function RunSummary({
   }
   if (row.state === 'completed') {
     const end = row.terminalAt ? Date.parse(row.terminalAt) : Number.NaN;
-    const time = Number.isNaN(end) ? undefined : elapsed(row.createdAt, end);
+    const time = Number.isNaN(end) ? undefined : elapsedSince(row.createdAt, end);
     // The progress message is the last in-flight status ("Working"), not a result.
     return (
       <div className="grid gap-4 px-4 py-3.5">
@@ -206,7 +158,7 @@ export function RunSummary({
       ? (message ?? t`The run stopped with an error`)
       : settled
         ? stateLabel
-        : (message ?? (RUNNING.includes(row.state) ? t`Working` : stateLabel));
+        : (message ?? (RUNNING_STATES.includes(row.state) ? t`Working` : stateLabel));
   const meta =
     progress && progress !== headline && progress !== row.progress?.message
       ? progress

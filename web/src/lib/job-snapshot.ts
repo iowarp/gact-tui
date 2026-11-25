@@ -83,6 +83,8 @@ export const jobSnapshotSchema = z.object({
   job_id: z.union([z.string(), z.number()]).nullish().catch(null),
   revision: z.number().catch(0),
   updated_at: optionalText,
+  /** The job's name, when its producer gives one ("LAMMPS install"). */
+  label: optionalText,
   /** `jarvis` when JARVIS planned the job; `relay` when relay filled it from the spec. */
   source: optionalText,
   site: z.object({ id: z.string(), label: optionalText }).nullish().catch(null),
@@ -112,6 +114,11 @@ export const jobSnapshotSchema = z.object({
   resource: optionalText,
   /** The job's current step in words, from its open task's status. */
   step: optionalText,
+  /** How far the current step is, counted, from its open task's status. */
+  progress: z
+    .object({ completed: z.number().nonnegative(), total: z.number().positive() })
+    .nullish()
+    .catch(null),
 });
 
 export type JobSnapshot = z.infer<typeof jobSnapshotSchema>;
@@ -209,7 +216,8 @@ export function jobStepText(message: unknown): string | null {
 
 /**
  * The job a task's live snapshot carries in its metadata or progress. While the
- * task is open, its status message is the job's current step.
+ * task is open, its status message is the job's current step and its counts
+ * are how far that step is.
  */
 export function jobFromTask(task: {
   metadata?: unknown;
@@ -220,9 +228,18 @@ export function jobFromTask(task: {
     jobFromMeta(task.metadata) ??
     jobFromMeta(record(task.metadata)?._meta) ??
     jobFromMeta(task.progress);
-  if (!job || job.step || task.terminal_at || job.phase === 'ended') return job;
-  const step = jobStepText(record(task.progress)?.message);
-  return step ? { ...job, step } : job;
+  if (!job || task.terminal_at || job.phase === 'ended') return job;
+  const status = record(task.progress);
+  const step = job.step || jobStepText(status?.message);
+  const completed = status?.completed;
+  const total = status?.total;
+  const counted =
+    !job.progress && typeof completed === 'number' && typeof total === 'number' && total > 0
+      ? { completed: Math.max(0, completed), total }
+      : job.progress;
+  return step === job.step && counted === job.progress
+    ? job
+    : { ...job, step: step || null, progress: counted ?? null };
 }
 
 /** One snapshot per operation, the highest revision winning, in first-seen order. */

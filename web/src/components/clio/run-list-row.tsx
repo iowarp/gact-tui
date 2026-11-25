@@ -18,7 +18,9 @@ import { StatusIndicator } from '@/components/clio/primitives/status-indicator';
 import { taskProgressLabel } from '@/components/clio/task-progress-label';
 import {
   RUN_ACTIONS_WIDTH,
+  RUNNING_STATES,
   compactWhen,
+  elapsedSince,
   runCancelPending,
   runLook,
   runStateLabel,
@@ -107,6 +109,64 @@ export function RunStatusMark({
   );
 }
 
+/**
+ * The spec's `.tl2` state word beside a run's name: "running 4m" in teal,
+ * "queued on ares", a red "failed", "done in 6m". The row, the tab and a job
+ * card say the same thing.
+ */
+export function RunStateWord({
+  row,
+  stateLabel,
+}: {
+  row: Pick<RunRow, 'state' | 'createdAt' | 'terminalAt' | 'host' | 'source'>;
+  stateLabel: string;
+}) {
+  const running = RUNNING_STATES.includes(row.state);
+  const now = useNow(running);
+  if (running) {
+    const time = elapsedSince(row.createdAt, now);
+    return (
+      <span className="text-accent-foreground">
+        {runLook(row).word}
+        {time ? ` ${time}` : ''}
+      </span>
+    );
+  }
+  if (row.state === 'queued') {
+    const host = row.source === 'flow' ? '' : row.host;
+    return <span>{host ? t`queued on ${host}` : t`queued`}</span>;
+  }
+  if (row.state === 'failed') return <span className="text-destructive-text">{t`failed`}</span>;
+  if (row.state === 'completed') {
+    const end = row.terminalAt ? Date.parse(row.terminalAt) : Number.NaN;
+    const time = Number.isNaN(end) ? undefined : elapsedSince(row.createdAt, end);
+    return <span>{time ? t`done in ${time}` : t`done`}</span>;
+  }
+  const tone = runLook(row).tone;
+  return (
+    <span className={tone === 'waiting' || tone === 'warning' ? 'text-warning' : undefined}>
+      {/* A status label shown mid-line; case-folding is safe in every offered language. */}
+      {stateLabel.toLocaleLowerCase(formatLocale())}
+    </span>
+  );
+}
+
+/** A run's 3px inline progress bar: a muted track with the share done filled in. */
+export function RunProgressBar({ percent, className }: { percent: number; className?: string }) {
+  return (
+    <span
+      aria-label={t`${percent}% done`}
+      aria-valuemax={100}
+      aria-valuemin={0}
+      aria-valuenow={percent}
+      className={cn('h-[3px] w-full overflow-hidden rounded-full bg-muted', className)}
+      role="progressbar"
+    >
+      <span className="block h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+    </span>
+  );
+}
+
 function fullWhen(iso: string): string {
   const at = Date.parse(iso);
   if (Number.isNaN(at)) return t`Time unavailable`;
@@ -140,10 +200,7 @@ const LIVE_STATES: ReadonlySet<RunRow['state']> = new Set([
  * Counted progress that never steps back within one run: a producer that
  * re-reports an earlier step between phases keeps the furthest step shown.
  */
-function useForwardProgress(
-  progress: RunRow['progress'],
-  taskId: string,
-): RunRow['progress'] {
+function useForwardProgress(progress: RunRow['progress'], taskId: string): RunRow['progress'] {
   const [furthest, setFurthest] = useState<{ taskId: string; total: unknown; completed: number }>();
   const completed = progress?.completed;
   if (typeof completed !== 'number') return progress;
@@ -155,7 +212,9 @@ function useForwardProgress(
     setFurthest({ ...furthest, completed });
     return progress;
   }
-  return completed === furthest.completed ? progress : { ...progress, completed: furthest.completed };
+  return completed === furthest.completed
+    ? progress
+    : { ...progress, completed: furthest.completed };
 }
 
 /** Whole percent done, for the inline bar; undefined without counted progress. */
@@ -300,21 +359,7 @@ export const RunListRow = memo(function RunListRow({
               className="flex w-[34px] shrink-0 items-center @[560px]/runs:hidden"
               data-slot="run-progress"
             >
-              {percent === undefined ? null : (
-                <span
-                  aria-label={t`${percent}% done`}
-                  aria-valuemax={100}
-                  aria-valuemin={0}
-                  aria-valuenow={percent}
-                  className="h-[3px] w-full overflow-hidden rounded-full bg-muted"
-                  role="progressbar"
-                >
-                  <span
-                    className="block h-full rounded-full bg-primary"
-                    style={{ width: `${percent}%` }}
-                  />
-                </span>
-              )}
+              {percent === undefined ? null : <RunProgressBar percent={percent} />}
             </span>
           )}
           <span

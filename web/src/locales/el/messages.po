@@ -1543,6 +1543,7 @@ msgstr "{command} στο {computer}"
 msgid "{command} was not run"
 msgstr "Η εντολή {command} δεν εκτελέστηκε"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/run-list-row.tsx
 msgid "{completed} of {total}"
 msgstr "{completed} από {total}"
@@ -3038,6 +3039,7 @@ msgstr "Το {name} δεν έχει ελεγχθεί ακόμη."
 msgid "{name} ignored as a duplicate"
 msgstr "Η ενέργεια {name} αγνοήθηκε ως διπλότυπη"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/service-management-panel.tsx
 msgid "{name} install"
 msgstr "Εγκατάσταση {name}"
@@ -12622,7 +12624,7 @@ msgstr "Δεν ήταν δυνατή η επανεκκίνηση του {agent}"
 
 #. placeholder {0}: row.label
 #. placeholder {1}: error.message
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 msgid "Could not retry {0}: {1}"
 msgstr "Δεν ήταν δυνατή η επανάληψη του {0}: {1}"
 
@@ -14145,7 +14147,7 @@ msgstr "Οι κανόνες τομέα ισχύουν ανά {workspace}."
 msgid "Domain rules take effect once a specific {workspace} is chosen."
 msgstr "Οι κανόνες τομέα τίθενται σε ισχύ μόλις γίνει επιλογή συγκεκριμένου {workspace}."
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "done"
 msgstr "ολοκληρώθηκε"
@@ -14180,7 +14182,7 @@ msgstr "ολοκληρώθηκε"
 msgid "Done"
 msgstr "Ολοκληρώθηκε"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 msgid "done in {time}"
 msgstr "ολοκληρώθηκε σε {time}"
 
@@ -15028,7 +15030,6 @@ msgid "End time"
 msgstr "Ώρα λήξης"
 
 #: src/components/clio/attention-center.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/run-record.tsx
 msgid "Ended"
 msgstr "Ολοκληρώθηκε"
@@ -15837,7 +15838,7 @@ msgstr "Γεγονότα που δηλώνω ρητά"
 msgid "Facts to apply, one per line"
 msgstr "Γεγονότα προς εφαρμογή, ένα ανά γραμμή"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "failed"
 msgstr "απέτυχε"
@@ -16399,7 +16400,6 @@ msgid "Finish with a return URL"
 msgstr "Ολοκλήρωση με URL επιστροφής"
 
 #: src/components/clio/composer-run-announcer.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/operation-progress.tsx
 msgid "Finished"
@@ -27077,10 +27077,6 @@ msgstr "Επίπεδο στο {axis} = {position}, διατηρείται η π�
 msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
 msgstr "Επίπεδο στο {axis} = {position}, διατηρείται η κάτω πλευρά. Οι επιφάνειες τομής γεμίζουν."
 
-#: src/components/clio/job-card.tsx
-msgid "Planned"
-msgstr "Προγραμματισμένη"
-
 #: src/widget-gallery-demos.ts
 msgid "Planned stations"
 msgstr "Προγραμματισμένοι σταθμοί"
@@ -27341,6 +27337,10 @@ msgstr "τη θύρα {port} σε αυτόν τον κεντρικό υπολο�
 #: src/components/clio/managed-service-form.tsx
 msgid "Ports and storage use this computer’s defaults. Open Advanced settings to change them."
 msgstr "Οι θύρες και η αποθήκευση χρησιμοποιούν τις προεπιλογές αυτού του υπολογιστή. Ανοίξτε τις Ρυθμίσεις για προχωρημένους για να τις αλλάξετε."
+
+#: src/components/clio/job-card.tsx
+msgid "Position {position} in the queue"
+msgstr "Θέση {position} στην ουρά"
 
 #: src/components/clio/settings-models-form.ts
 msgid "Positive values make the model repeat the same words less."
@@ -28250,11 +28250,7 @@ msgstr "Η ουρά άλλαξε αλλού, οπότε η νέα σας σει�
 msgid "Queue is empty"
 msgstr "Η ουρά είναι κενή"
 
-#: src/components/clio/job-card.tsx
-msgid "Queue reason"
-msgstr "Αιτία αναμονής"
-
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "queued"
 msgstr "σε αναμονή"
@@ -28271,7 +28267,6 @@ msgstr "σε αναμονή"
 
 #: src/components/clio/conversation-message-row.tsx
 #: src/components/clio/infrastructure-activity.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/resource-availability.ts
@@ -28303,13 +28298,9 @@ msgstr "Το μήνυμα σε αναμονή δεν στάλθηκε"
 msgid "Queued messages"
 msgstr "Μηνύματα σε αναμονή"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 msgid "queued on {host}"
 msgstr "σε αναμονή στο {host}"
-
-#: src/components/clio/job-card.tsx
-msgid "Queued, position {position}"
-msgstr "Σε αναμονή, θέση {position}"
 
 #: src/components/clio/composer-run-announcer.tsx
 msgid "Queued, waiting to start"
@@ -30943,7 +30934,7 @@ msgstr "Ανάκτηση"
 #: src/components/clio/question-surface.tsx
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 #: src/components/clio/runs-load-state.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
@@ -31038,7 +31029,7 @@ msgid "Retry upload for {name}"
 msgstr "Επανάληψη μεταφόρτωσης για {name}"
 
 #: src/components/clio/conversation-message-blocks.tsx
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-permissions-lines.tsx
 msgid "Retrying"
@@ -32265,6 +32256,10 @@ msgstr "Η προγραμματισμένη εργασία δεν αποθηκε
 #: src/components/clio/workbench-activity-model.ts
 msgid "Scheduled: {question}"
 msgstr "Προγραμματισμένο: {question}"
+
+#: src/components/clio/job-card.tsx
+msgid "Scheduler job"
+msgstr "Εργασία χρονοπρογραμματιστή"
 
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/session-work.tsx
@@ -36144,8 +36139,8 @@ msgid "Submit all answers"
 msgstr "Υποβολή όλων των απαντήσεων"
 
 #: src/components/clio/job-card.tsx
-msgid "Submitted"
-msgstr "Υποβλήθηκε"
+msgid "Submitted, waiting for the scheduler"
+msgstr "Υποβλήθηκε, αναμονή για τον χρονοπρογραμματιστή"
 
 #: src/lib/fleet-usage.ts
 msgid "Subscription"
@@ -42507,6 +42502,14 @@ msgstr "Αναμονή για την απάντησή σας"
 #: src/components/clio/run-tab.tsx
 msgid "Waiting on {host}."
 msgstr "Αναμονή στο {host}."
+
+#: src/components/clio/job-card.tsx
+msgid "Waiting on {reason}"
+msgstr "Αναμονή: {reason}"
+
+#: src/components/clio/job-card.tsx
+msgid "Waiting on {reason}, position {position}"
+msgstr "Αναμονή: {reason}, θέση {position}"
 
 #: src/components/clio/provider-actions.ts
 msgid "Waiting to install…"

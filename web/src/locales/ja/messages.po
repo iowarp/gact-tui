@@ -1543,6 +1543,7 @@ msgstr "{computer}上の{command}"
 msgid "{command} was not run"
 msgstr "{command}は実行されませんでした"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/run-list-row.tsx
 msgid "{completed} of {total}"
 msgstr "{completed} / {total}"
@@ -3038,6 +3039,7 @@ msgstr "{name}はまだ確認されていません。"
 msgid "{name} ignored as a duplicate"
 msgstr "{name}は重複として無視されました"
 
+#: src/components/clio/job-card.tsx
 #: src/components/clio/service-management-panel.tsx
 msgid "{name} install"
 msgstr "{name}をインストール"
@@ -12622,7 +12624,7 @@ msgstr "{agent}を再起動できませんでした"
 
 #. placeholder {0}: row.label
 #. placeholder {1}: error.message
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 msgid "Could not retry {0}: {1}"
 msgstr "{0} を再試行できませんでした: {1}"
 
@@ -14145,7 +14147,7 @@ msgstr "ドメインルールは{workspace}ごとに適用されます。"
 msgid "Domain rules take effect once a specific {workspace} is chosen."
 msgstr "ドメインルールは特定の{workspace}を選択すると有効になります。"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "done"
 msgstr "完了"
@@ -14180,7 +14182,7 @@ msgstr "完了"
 msgid "Done"
 msgstr "完了"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 msgid "done in {time}"
 msgstr "{time}で完了"
 
@@ -15028,7 +15030,6 @@ msgid "End time"
 msgstr "終了時刻"
 
 #: src/components/clio/attention-center.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/run-record.tsx
 msgid "Ended"
 msgstr "終了"
@@ -15837,7 +15838,7 @@ msgstr "自分で直接伝えた事実"
 msgid "Facts to apply, one per line"
 msgstr "適用する事実 (1行に1つ)"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "failed"
 msgstr "失敗"
@@ -16399,7 +16400,6 @@ msgid "Finish with a return URL"
 msgstr "戻り先URLで完了"
 
 #: src/components/clio/composer-run-announcer.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/memory-creation-log.tsx
 #: src/components/clio/operation-progress.tsx
 msgid "Finished"
@@ -27077,10 +27077,6 @@ msgstr "{axis} = {position} の平面。上側を残します。断面は塗り�
 msgid "Plane at {axis} = {position}, keeping the side below. Cut faces are filled."
 msgstr "{axis} = {position} の平面。下側を残します。断面は塗りつぶされます。"
 
-#: src/components/clio/job-card.tsx
-msgid "Planned"
-msgstr "計画済み"
-
 #: src/widget-gallery-demos.ts
 msgid "Planned stations"
 msgstr "予定の観測点"
@@ -27341,6 +27337,10 @@ msgstr "このホスト上のポート{port}"
 #: src/components/clio/managed-service-form.tsx
 msgid "Ports and storage use this computer’s defaults. Open Advanced settings to change them."
 msgstr "ポートとストレージには、このコンピューターのデフォルトが使用されます。変更するには詳細設定を開いてください。"
+
+#: src/components/clio/job-card.tsx
+msgid "Position {position} in the queue"
+msgstr "キューの {position} 番目"
 
 #: src/components/clio/settings-models-form.ts
 msgid "Positive values make the model repeat the same words less."
@@ -28250,11 +28250,7 @@ msgstr "キューが別の場所で変更されたため、新しい順序は適
 msgid "Queue is empty"
 msgstr "キューは空です"
 
-#: src/components/clio/job-card.tsx
-msgid "Queue reason"
-msgstr "待機理由"
-
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
 msgid "queued"
 msgstr "待機中"
@@ -28271,7 +28267,6 @@ msgstr "待機中"
 
 #: src/components/clio/conversation-message-row.tsx
 #: src/components/clio/infrastructure-activity.tsx
-#: src/components/clio/job-card.tsx
 #: src/components/clio/model-inventory-row.tsx
 #: src/components/clio/operation-progress.tsx
 #: src/components/clio/resource-availability.ts
@@ -28303,13 +28298,9 @@ msgstr "待機中のメッセージは送信されませんでした"
 msgid "Queued messages"
 msgstr "待機中のメッセージ"
 
-#: src/components/clio/run-tab.tsx
+#: src/components/clio/run-list-row.tsx
 msgid "queued on {host}"
 msgstr "{host}で待機中"
-
-#: src/components/clio/job-card.tsx
-msgid "Queued, position {position}"
-msgstr "待機中、{position} 番目"
 
 #: src/components/clio/composer-run-announcer.tsx
 msgid "Queued, waiting to start"
@@ -30943,7 +30934,7 @@ msgstr "検索取得"
 #: src/components/clio/question-surface.tsx
 #: src/components/clio/relay-settings.tsx
 #: src/components/clio/resource-states.tsx
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 #: src/components/clio/runs-load-state.tsx
 #: src/components/clio/script-run-body.tsx
 #: src/components/clio/session-work.tsx
@@ -31038,7 +31029,7 @@ msgid "Retry upload for {name}"
 msgstr "{name}のアップロードを再試行"
 
 #: src/components/clio/conversation-message-blocks.tsx
-#: src/components/clio/run-record.tsx
+#: src/components/clio/run-retry.tsx
 #: src/components/clio/settings-connection.tsx
 #: src/components/clio/settings-permissions-lines.tsx
 msgid "Retrying"
@@ -32265,6 +32256,10 @@ msgstr "スケジュール作業は保存されませんでした"
 #: src/components/clio/workbench-activity-model.ts
 msgid "Scheduled: {question}"
 msgstr "スケジュール済み：{question}"
+
+#: src/components/clio/job-card.tsx
+msgid "Scheduler job"
+msgstr "スケジューラージョブ"
 
 #: src/components/clio/session-rail-layout.ts
 #: src/components/clio/session-work.tsx
@@ -36144,8 +36139,8 @@ msgid "Submit all answers"
 msgstr "すべての回答を送信"
 
 #: src/components/clio/job-card.tsx
-msgid "Submitted"
-msgstr "投入済み"
+msgid "Submitted, waiting for the scheduler"
+msgstr "送信済み、スケジューラー待ち"
 
 #: src/lib/fleet-usage.ts
 msgid "Subscription"
@@ -42507,6 +42502,14 @@ msgstr "あなたの回答を待っています"
 #: src/components/clio/run-tab.tsx
 msgid "Waiting on {host}."
 msgstr "{host}で待機しています。"
+
+#: src/components/clio/job-card.tsx
+msgid "Waiting on {reason}"
+msgstr "待機中: {reason}"
+
+#: src/components/clio/job-card.tsx
+msgid "Waiting on {reason}, position {position}"
+msgstr "待機中: {reason}、キューの {position} 番目"
 
 #: src/components/clio/provider-actions.ts
 msgid "Waiting to install…"
