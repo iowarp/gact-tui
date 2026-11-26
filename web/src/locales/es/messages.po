@@ -3291,6 +3291,10 @@ msgid "{path}\n"
 msgstr "{path}\n"
 "Abrir en el banco de trabajo"
 
+#: src/components/clio/tool-operation.ts
+msgid "{paused, plural, one {# paused} other {# paused}}"
+msgstr "{paused, plural, one {# en pausa} other {# en pausa}}"
+
 #: src/lib/extension-library-entries.ts
 msgid "{pendingUpdates, plural, one {# update waits for trust} other {# updates wait for trust}}"
 msgstr "{pendingUpdates, plural, one {# actualización espera confianza} other {# actualizaciones esperan confianza}}"
@@ -3455,6 +3459,10 @@ msgstr "{questions, plural, one {# pregunta} other {# preguntas}}"
 #: src/components/clio/transcript-activity-summary.ts
 msgid "{questions, plural, one {asked # question} other {asked # questions}}"
 msgstr "{questions, plural, one {hizo # pregunta} other {hizo # preguntas}}"
+
+#: src/components/clio/tool-operation.ts
+msgid "{queued, plural, one {# queued} other {# queued}}"
+msgstr "{queued, plural, one {# en cola} other {# en cola}}"
 
 #: src/components/clio/composer-run-announcer.tsx
 msgid "{queued, plural, one {Message queued. # queued message} other {Message queued. # queued messages}}"
@@ -4425,6 +4433,10 @@ msgstr "{verb, select, finished {{title} terminó} stopped {{title} se detuvo} n
 #: src/lib/plugin-presentation.ts
 msgid "{via} needs this plugin. Removing it also removes what needs it."
 msgstr "{via} necesita este complemento. Quitarlo también quita lo que lo necesita."
+
+#: src/components/clio/tool-operation.ts
+msgid "{waiting, plural, one {# waiting for input} other {# waiting for input}}"
+msgstr "{waiting, plural, one {# esperando una respuesta} other {# esperando una respuesta}}"
 
 #: src/components/clio/rail-button-look.ts
 msgid "{waiting} waiting for you"

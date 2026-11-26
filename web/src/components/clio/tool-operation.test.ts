@@ -97,6 +97,25 @@ describe('semantic operation contract', () => {
     expect(operation.metadata).toBe('0 returned, 2 running');
     expect(operation.subjects.map((s) => s.label)).toEqual(['Build package', 'Independent audit']);
   });
+  it('counts unfinished wait members by the state each task recorded', () => {
+    const operation = toolOperation(
+      call(
+        'wait_tasks',
+        { tasks: ['a', 'b'] },
+        {
+          outcomes: [],
+          unfinished: [
+            { handle: 'a', status: 'running', activity: 'executing' },
+            { handle: 'b', status: 'queued' },
+          ],
+          timed_out: true,
+        },
+      ),
+      context,
+    );
+    expect(operation.expandable).toBe(false);
+    expect(operation.metadata).toBe('0 returned, 1 running, 1 queued');
+  });
   it('renders recorded results rather than a newer child state or a summary of the result', () => {
     const operation = toolOperation(
       call(
