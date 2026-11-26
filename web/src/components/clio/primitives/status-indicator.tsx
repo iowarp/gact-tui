@@ -91,9 +91,9 @@ function ColumnMark({ hoverName, children }: { hoverName?: string; children: Rea
 }
 
 /**
- * The one status word: a mark carrying the colour and a 12px word, muted except
- * for an error or warning, so a state reads the same in every list, menu and
- * panel. Aligns in a fixed column.
+ * The one status word: a 12px word, muted except for an error or warning, led by
+ * its sign when it has one (a check, an alert, a turning ring) and never by a dot,
+ * so a state reads the same in every list, menu and panel. Aligns in a fixed column.
  */
 export const StatusIndicator = memo(function StatusIndicator({
   tone,
@@ -133,6 +133,9 @@ export const StatusIndicator = memo(function StatusIndicator({
       </ColumnMark>
     );
   }
+  // Beside its word a state never leads with a dot: an outcome with a sign shows the sign,
+  // work in progress its ring, and any other state is its word alone.
+  const wordMark = glyph ?? (tone === 'running' ? mark : GLYPH[tone]);
   return (
     <span
       data-slot="status-indicator"
@@ -143,9 +146,11 @@ export const StatusIndicator = memo(function StatusIndicator({
         className,
       )}
     >
-      <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center">
-        {mark}
-      </span>
+      {wordMark ? (
+        <span aria-hidden="true" className="grid size-4 shrink-0 place-items-center">
+          {wordMark}
+        </span>
+      ) : null}
       <span className="truncate">{label}</span>
     </span>
   );

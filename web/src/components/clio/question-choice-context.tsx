@@ -5,11 +5,28 @@ import { cn } from '@/lib/utils';
 import { AskSection } from './ask-card';
 import { t } from '@lingui/core/macro';
 
-/** What the answers cover, said once beside them. */
-export function ChoiceNote({ context }: { context: DeclaredChoiceContext }) {
+/**
+ * What the answers cover, said once beside them. On an approval it is the caveat to read
+ * before deciding, always open in the attention box.
+ */
+export function ChoiceNote({
+  context,
+  boxed = false,
+}: {
+  context: DeclaredChoiceContext;
+  boxed?: boolean;
+}) {
   if (!context.note) return null;
   return (
-    <AskSection className="text-meta text-muted-foreground" data-slot="question-choice-note">
+    <AskSection
+      className={cn(
+        'text-meta',
+        boxed
+          ? 'mt-2 rounded-md border border-warning/35 bg-warning/10 px-2.5 py-1.5 text-foreground/90'
+          : 'text-muted-foreground',
+      )}
+      data-slot="question-choice-note"
+    >
       {context.note}
     </AskSection>
   );
@@ -39,13 +56,13 @@ export function ChoiceEvidence({ context }: { context: DeclaredChoiceContext }) 
             open && 'rotate-90',
           )}
         />
-        {t`Evidence`}
+        {context.evidence.length ? t`Evidence (${context.evidence.length})` : t`Evidence`}
       </button>
       {open ? (
         <div className="mt-1 space-y-1 ps-[1.125rem] text-foreground/85" id={id}>
           {context.detail ? <p className="break-words">{context.detail}</p> : null}
           {context.evidence.length ? (
-            <ul className="list-disc space-y-0.5 ps-4 text-muted-foreground">
+            <ul className="space-y-0.5 text-muted-foreground">
               {context.evidence.map((line, index) => (
                 <li className="break-words" key={`${index}-${line}`}>
                   {line}

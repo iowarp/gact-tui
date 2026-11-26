@@ -4,7 +4,7 @@ import { flowTrustRequest } from '@/lib/plugin-review';
 import { answerWord } from '@/lib/binary-answers';
 import { cn } from '@/lib/utils';
 import { AskBody, AskCard, AskDetails, AskError, AskSection, type AskFact } from './ask-card';
-import { BinaryAsk, type BinaryAnswer } from './ask-binary';
+import { ApprovalDecision, type ApprovalScope } from './approval-decision';
 import { AskCode } from './ask-code';
 import { FlowTrustDetails } from './flow-trust-details';
 import { pendingInteractionDomId } from './interaction-control';
@@ -17,15 +17,11 @@ import { t, ph, plural } from '@lingui/core/macro';
 import { formatList } from '@/lib/locale-format';
 
 const SCOPES = [
-  { action: 'allow', label: t`Allow once`, name: t`Allow once` },
-  { action: 'allow_session', label: t`This session`, name: t`Allow for this session` },
-  { action: 'allow_workspace', label: t`This workspace`, name: t`Allow for this workspace` },
+  { action: 'allow', label: t`Approve once` },
+  { action: 'allow_session', label: t`Approve for this session` },
+  { action: 'allow_workspace', label: t`Approve for this workspace` },
   // Offered only on a question asked from a run_code script.
-  {
-    action: 'allow_script',
-    label: t`Rest of this script`,
-    name: t`Allow for the rest of this script`,
-  },
+  { action: 'allow_script', label: t`Approve for the rest of this script` },
 ];
 const KNOWN_ACTIONS = new Set(['deny', ...SCOPES.map((scope) => scope.action)]);
 
@@ -34,23 +30,18 @@ const KNOWN_ACTIONS = new Set(['deny', ...SCOPES.map((scope) => scope.action)]);
  * view-only tools, so the lasting answer leads: allowing once would ask again at the next
  * control. On a plugin page the page's own context is the session, so it reads as the page.
  * A question whose allow is kept beyond the call (`consent.lasting`, such as a connector's
- * server running outside the sandbox) answers with the plain Allow, never "Allow once".
+ * server running outside the sandbox) answers with the plain Approve, never "Approve once".
  */
 function surfaceScopes(interaction: PendingInteraction, scopes: typeof SCOPES): typeof SCOPES {
   const consent = interaction.payload?.consent;
   if (consent?.lasting === true && consent.scope !== 'server_surface') {
-    const allow = answerWord('Allow');
-    return scopes.map((scope) =>
-      scope.action === 'allow' ? { ...scope, label: allow, name: allow } : scope,
-    );
+    const approve = answerWord('Approve');
+    return scopes.map((scope) => (scope.action === 'allow' ? { ...scope, label: approve } : scope));
   }
   if (consent?.scope !== 'server_surface') return scopes;
   const lasting = scopes.find((scope) => scope.action === 'allow_session');
   if (!lasting) return scopes;
-  const first =
-    consent.place === 'page'
-      ? { ...lasting, label: t`This page`, name: t`Allow on this page` }
-      : lasting;
+  const first = consent.place === 'page' ? { ...lasting, label: t`Approve on this page` } : lasting;
   return [first, ...scopes.filter((scope) => scope !== lasting)];
 }
 
@@ -172,7 +163,7 @@ function spokenToolCall(
   return toolName;
 }
 
-/** One permission decision: facts, the exact command, then numbered scopes the server offered. */
+/** One permission decision: the facts, the exact command, then Decline and Approve once with the scopes the server offered. */
 export function PermissionResponse({
   disabled,
   interaction,
@@ -211,17 +202,14 @@ export function PermissionResponse({
     : script && !interaction.payload?.script
       ? t`Run script`
       : named;
-  // A title CLIO named from the tool keeps the tool's id beside it, faint.
-  const toolId =
-    !flowTrust && title === named && title !== interaction.title
-      ? (legacyName ?? toolName)
-      : undefined;
   const scriptLines = script ? script.code.replace(/\n$/u, '').split('\n').length : 0;
-  const answers = scopes.map(
-    (scope): BinaryAnswer => ({
-      label: flowTrust ? t`Trust and run` : scope.label,
-      name: flowTrust ? t`Trust and run` : scope.name,
-      onChoose: () => onResponse(interaction, { action: scope.action }),
+  // A comment rides with the decision as its note; with Decline it is the reason.
+  const respond = (action: string, comment: string) =>
+    onResponse(interaction, comment ? { action, answer: comment } : { action });
+  const approvals = scopes.map(
+    (scope, index): ApprovalScope => ({
+      label: flowTrust && index === 0 ? t`Trust and run` : scope.label,
+      onApprove: (comment) => respond(scope.action, comment),
     }),
   );
   const owner = askedBy(interaction, ownerLabel, showOwner);
@@ -262,15 +250,7 @@ export function PermissionResponse({
       id={pendingInteractionDomId(interaction.id)}
       kind="permission"
       spokenDetail={flowTrust ? undefined : spokenToolCall(toolName, args, script?.code)}
-      title={
-        toolId && title !== toolId ? (
-          <>
-            {title} <span className="font-mono text-caption font-normal text-faint">{toolId}</span>
-          </>
-        ) : (
-          title
-        )
-      }
+      title={title}
       titleText={title}
     >
       <AskBody>
@@ -315,25 +295,6 @@ export function PermissionResponse({
         />
       ) : null}
       <AskError error={responseError} />
-      {/* The first scope accepts (Enter); the lasting scopes are further ways to accept. */}
-      <BinaryAsk
-        accept={answers[0]}
-        alternatives={answers.slice(1)}
-        decline={
-          offered('deny')
-            ? { label: t`Deny`, onChoose: () => onResponse(interaction, { action: 'deny' }) }
-            : undefined
-        }
-        disabled={disabled}
-        enterAccepts
-        label={t`Decision`}
-        unavailable={(interaction.actions ?? [])
-          .filter((action) => !KNOWN_ACTIONS.has(action))
-          .map((action) => ({
-            label: action,
-            title: t`This client cannot offer "${action}" yet.`,
-          }))}
-      />
       {toolName || toolCall?.input !== undefined || interaction.payload?.access?.paths.length ? (
         <AskDetails hint={t`raw arguments, as the agent sent them`}>
           <div className="grid gap-2.5">
@@ -384,6 +345,18 @@ export function PermissionResponse({
           </div>
         </AskDetails>
       ) : null}
+      <ApprovalDecision
+        disabled={disabled}
+        label={t`Decision`}
+        onDecline={offered('deny') ? (comment) => respond('deny', comment) : undefined}
+        scopes={approvals}
+        unavailable={(interaction.actions ?? [])
+          .filter((action) => !KNOWN_ACTIONS.has(action))
+          .map((action) => ({
+            label: action,
+            title: t`This client cannot offer "${action}" yet.`,
+          }))}
+      />
     </AskCard>
   );
 }

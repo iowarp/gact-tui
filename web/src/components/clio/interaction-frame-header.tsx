@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { vocab } from '@/lib/brand-vocabulary';
 import { EditIcon } from '@/lib/icon-vocabulary';
 import { cn } from '@/lib/utils';
-import { jobFromInteraction, jobHasShape } from '@/lib/job-snapshot';
+import { jobFromInteraction, withPlannedNode } from '@/lib/job-snapshot';
 import { trailingCommand } from '@/lib/literal-command-text';
 import { AskCode } from './ask-code';
 import { AskCard, AskDetails, AskFooter, AskHint, AskSection, type AskCardProps } from './ask-card';
@@ -42,6 +42,15 @@ function splitQuestion(text: string, fallback: string | undefined) {
   return { title: label, body: trimmed };
 }
 
+/** The program a command runs, as its node is named: `cmd.exe /c echo hi` reads cmd.exe. */
+function commandName(command: string | undefined): string | undefined {
+  const first = command
+    ?.trim()
+    .split(/\s+/u)[0]
+    ?.replace(/^["']|["']$/gu, '');
+  return first ? first.split(/[\\/]/u).pop() || undefined : undefined;
+}
+
 const ICONS = {
   mcp_task_input: ClipboardPenLineIcon,
   a2ui: BoxesIcon,
@@ -77,10 +86,13 @@ export function QuestionCard({
   // Who asks is said once, by its attribution: "Relay: Where should…" reads "Where should…".
   const title = withoutOwnerPrefix(rawTitle, interaction);
   const recorded = jobFromInteraction(interaction.payload);
-  // A job that is only its site and one planned step tells the person nothing; the question does.
-  const job = recorded && jobHasShape(recorded) ? recorded : null;
-  const site = !job ? recorded?.site?.label || recorded?.site?.id : undefined;
-  const tail = !job && body ? trailingCommand(body) : undefined;
+  // The command an ask quotes at its end, when the job carries no script of its own.
+  const tail = body && !recorded?.script?.text ? trailingCommand(body) : undefined;
+  // Every run approval draws its job's nodes, a one-node command included; the job card
+  // says the site, so no separate site line.
+  const job = recorded
+    ? withPlannedNode(recorded, recorded.label?.trim() || commandName(tail?.command) || t`Job`)
+    : null;
   const prompt = withoutRepeatedTitle((tail ? tail.prose : body) ?? '', title);
   return (
     <AskCard
@@ -102,9 +114,9 @@ export function QuestionCard({
         <AskSection className="mt-1" data-slot="question-job">
           <JobCard
             fallback={
-              body ? (
+              prompt ? (
                 <div className="text-foreground/85 [&_.text-sm]:text-menu">
-                  <QuestionMarkdown>{body}</QuestionMarkdown>
+                  <QuestionMarkdown>{prompt}</QuestionMarkdown>
                 </div>
               ) : undefined
             }
@@ -123,11 +135,6 @@ export function QuestionCard({
           ) : (
             <QuestionPromptText>{prompt}</QuestionPromptText>
           )}
-        </AskSection>
-      ) : null}
-      {site ? (
-        <AskSection className="mt-1 text-meta text-muted-foreground" data-slot="question-site">
-          {t`Site: ${ph({ site })}`}
         </AskSection>
       ) : null}
       {tail ? (

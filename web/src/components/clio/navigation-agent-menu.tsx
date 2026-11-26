@@ -120,15 +120,18 @@ export function NavigationAgentMenu({
               )}
               data-truncation-scope=""
             >
-              <StatusIndicator
-                className="-ml-1 size-3"
-                display="column"
-                hoverName={
-                  line.parts?.[0] === line.label ? shown : t`${ph({ label: line.label })} ${shown}`
-                }
-                label={line.label}
-                tone={line.tone}
-              />
+              {/* A state its words already say (Update ready, a live agent) has no mark; a
+                  connection problem keeps its sign. Never a dot. */}
+              {line.tone === 'success' || line.parts?.[0] === line.label ? null : (
+                <StatusIndicator
+                  className="-ml-1 size-3"
+                  display="column"
+                  hoverName={t`${ph({ label: line.label })} ${shown}`}
+                  label={line.label}
+                  mark="glyph"
+                  tone={line.tone}
+                />
+              )}
               {line.parts ? (
                 <span
                   className={cn(
@@ -212,8 +215,7 @@ function statusLine(
   }
   if (updateReady) {
     // The state leads in amber and the agent follows muted, so a long agent
-    // name truncates before the state does. The text takes the dot's amber,
-    // as the StatusIndicator's own warning word does.
+    // name truncates before the state does, as the StatusIndicator's own warning word does.
     return {
       text: t`Update ready, ${name}`,
       parts: [t`Update ready`, name],

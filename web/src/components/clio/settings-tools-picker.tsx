@@ -63,9 +63,10 @@ export function ValueMark({
   );
   if (beside)
     return (
-      <span aria-hidden="true" className="inline-flex shrink-0 items-end gap-px">
+      // Clear of the glyph's widest part (a bell's rim, a lock's body), never touching it.
+      <span aria-hidden="true" className="inline-flex shrink-0 items-end gap-[3px]">
         {glyph}
-        <b className={cn(DEFAULT_TAG, 'translate-y-[0.3125rem]', !isDefault && 'invisible')}>D</b>
+        <b className={cn(DEFAULT_TAG, 'translate-y-[0.1875rem]', !isDefault && 'invisible')}>D</b>
       </span>
     );
   return (

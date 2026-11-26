@@ -49,16 +49,30 @@ export function permissionTitle(
       : ({} as Record<string, unknown>);
   const named = legacyToolCallName(interaction.title);
   if (named !== undefined)
-    return permissionOperationTitle(named, named === toolName ? fields : {}) ?? named;
+    return permissionOperationTitle(named, named === toolName ? fields : {}) ?? toolAction(named);
   // A tool's description ("List, read, write, delete and stage files on a site") is not
-  // what this call does: the operation is named from the tool and its arguments instead.
+  // what this call does, and the agent's stock "Permission required" says nothing: the
+  // operation is named from the tool and its arguments instead.
   const title = interaction.title?.trim() ?? '';
-  if (!toolName || (title && !readsAsDescription(title))) return interaction.title;
+  const generic = /^permission required$/iu.test(title);
+  if (!toolName || (title && !generic && !readsAsDescription(title))) return interaction.title;
   return (
     permissionOperationTitle(toolName, fields) ??
     operationFromArguments(toolName, fields) ??
-    toolName
+    toolAction(toolName)
   );
+}
+
+/**
+ * The action an unknown tool takes, in words rather than its id: relay_run reads
+ * "Use relay run". A title is never a bare tool id.
+ */
+function toolAction(toolName: string): string {
+  const words = toolName
+    .replace(/^mcp__/u, '')
+    .replace(/[_.:-]+|__/gu, ' ')
+    .trim();
+  return t`Use ${ph({ tool: words || toolName })}`;
 }
 
 const OPERATION_ARGUMENT = ['op', 'operation', 'action'] as const;

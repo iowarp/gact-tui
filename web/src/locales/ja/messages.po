@@ -4812,6 +4812,10 @@ msgstr "Mixture of Experts: 全体で{sizes}。"
 msgid "A new subagent"
 msgstr "新しいサブエージェント"
 
+#: src/components/clio/approval-decision.tsx
+msgid "A note for the agent. Declining sends it as the reason."
+msgstr "エージェントへのメモ。拒否すると理由として送信されます。"
+
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "A one-time run uses the time zone of this device."
 msgstr "1回限りの実行では、このデバイスのタイムゾーンが使用されます。"
@@ -5496,6 +5500,7 @@ msgstr "{name}をこの会話に追加しますか？"
 msgid "Add {name} to this workspace"
 msgstr "{name}をこのワークスペースに追加"
 
+#: src/components/clio/approval-decision.tsx
 #: src/components/clio/comments/comment-controls.tsx
 msgid "Add a comment"
 msgstr "コメントを追加"
@@ -6396,18 +6401,6 @@ msgstr "{workspace}で許可"
 msgid "Allow for session"
 msgstr "セッションで許可"
 
-#: src/components/clio/permission-response.tsx
-msgid "Allow for the rest of this script"
-msgstr "このスクリプトの残りの間は許可"
-
-#: src/components/clio/permission-response.tsx
-msgid "Allow for this session"
-msgstr "このセッションで許可"
-
-#: src/components/clio/permission-response.tsx
-msgid "Allow for this workspace"
-msgstr "このワークスペースで許可"
-
 #: src/components/clio/settings-notifications.tsx
 msgid "Allow notifications for this app in System Settings › Notifications."
 msgstr "「システム設定」›「通知」で、このアプリの通知を許可してください。"
@@ -6415,14 +6408,6 @@ msgstr "「システム設定」›「通知」で、このアプリの通知を
 #: src/components/clio/settings-notifications.tsx
 msgid "Allow notifications for this site in your browser settings."
 msgstr "ブラウザーの設定で、このサイトの通知を許可してください。"
-
-#: src/components/clio/permission-response.tsx
-msgid "Allow on this page"
-msgstr "このページで許可"
-
-#: src/components/clio/permission-response.tsx
-msgid "Allow once"
-msgstr "1回だけ許可"
 
 #: src/components/clio/sandbox-boundary-notice.tsx
 #: src/components/clio/settings-folders-dialogs.tsx
@@ -7050,6 +7035,27 @@ msgstr "承認"
 msgctxt "answer to an ask"
 msgid "Approve"
 msgstr "承認"
+
+#: src/components/clio/permission-response.tsx
+msgid "Approve for the rest of this script"
+msgstr "このスクリプトの残りで承認"
+
+#: src/components/clio/permission-response.tsx
+msgid "Approve for this session"
+msgstr "このセッションで承認"
+
+#: src/components/clio/permission-response.tsx
+msgid "Approve for this workspace"
+msgstr "このワークスペースで承認"
+
+#: src/components/clio/permission-response.tsx
+msgid "Approve on this page"
+msgstr "このページで承認"
+
+#: src/components/clio/permission-response.tsx
+#: src/components/clio/question-interaction-forms.tsx
+msgid "Approve once"
+msgstr "今回のみ承認"
 
 #: src/components/clio/workbench-activity-model.ts
 msgctxt "request state"
@@ -10543,6 +10549,7 @@ msgid "Commands may create, change and delete files in these folders too. Removi
 msgstr "コマンドはこれらのフォルダー内のファイルも作成、変更、削除できます。フォルダーを削除するとアクセスが取り消されますが、何も削除されません。"
 
 #: src/components/clio/agent-answer-activity.tsx
+#: src/components/clio/approval-decision.tsx
 #: src/components/clio/comments/comment-capture.tsx
 #: src/components/clio/comments/file-comments.tsx
 #: src/components/clio/response-feedback-comment.tsx
@@ -13256,10 +13263,15 @@ msgstr "構造化された値として宣言されています。"
 msgid "Decline"
 msgstr "辞退"
 
+#: src/components/clio/approval-decision.tsx
 #: src/lib/binary-answers.ts
 msgctxt "answer to an ask"
 msgid "Decline"
 msgstr "辞退"
+
+#: src/components/clio/approval-decision.tsx
+msgid "Decline with comment"
+msgstr "コメント付きで拒否"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Declined by you"
@@ -13576,7 +13588,6 @@ msgid "Denied a permission request"
 msgstr "権限リクエストを拒否しました"
 
 #: src/components/clio/attention-center.tsx
-#: src/components/clio/permission-response.tsx
 msgid "Deny"
 msgstr "拒否"
 
@@ -15422,6 +15433,11 @@ msgstr "平日毎日"
 #: src/components/clio/workspace-resource-view.tsx
 msgid "Evidence"
 msgstr "エビデンス"
+
+#. placeholder {0}: context.evidence.length
+#: src/components/clio/question-choice-context.tsx
+msgid "Evidence ({0})"
+msgstr "根拠 ({0})"
 
 #: src/lib/session-export/archive-evidence.tsx
 #: src/offline-review.tsx
@@ -19517,6 +19533,7 @@ msgstr "ビューは表示されませんでした。{reason}"
 msgid "JARVIS notes"
 msgstr "JARVIS のメモ"
 
+#: src/components/clio/interaction-frame-header.tsx
 #: src/components/clio/job-card.tsx
 #: src/components/clio/run-record.tsx
 msgid "Job"
@@ -22408,6 +22425,10 @@ msgstr "その他の値は技術的な詳細にあります。"
 #: src/components/clio/managed-services.tsx
 msgid "More ways to add a service"
 msgstr "サービスを追加するその他の方法"
+
+#: src/components/clio/approval-decision.tsx
+msgid "More ways to approve"
+msgstr "その他の承認方法"
 
 #: src/components/clio/settings-connection-dialogs.tsx
 msgid "More ways to connect…"
@@ -30630,10 +30651,6 @@ msgstr "応答の設定<0>{0}</0>"
 msgid "Response unavailable"
 msgstr "応答を利用できません"
 
-#: src/components/clio/permission-response.tsx
-msgid "Rest of this script"
-msgstr "このスクリプトの残り"
-
 #: src/components/clio/a2ui-steps.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/work-record-controls.tsx
@@ -34662,10 +34679,6 @@ msgstr "サイト提供"
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "Site: {host}"
 msgstr "サイト: {host}"
-
-#: src/components/clio/interaction-frame-header.tsx
-msgid "Site: {site}"
-msgstr "サイト: {site}"
 
 #: src/widget-gallery.tsx
 msgid "Sites"
@@ -39413,10 +39426,6 @@ msgstr "このノートブックにはセルがありません"
 msgid "This offer can’t be read by this version."
 msgstr "このバージョンではこの提案を読み取れません。"
 
-#: src/components/clio/permission-response.tsx
-msgid "This page"
-msgstr "このページ"
-
 #: src/components/clio/browser-live-socket.ts
 msgid "This page is closed."
 msgstr "このページは閉じられています。"
@@ -39660,7 +39669,6 @@ msgid "This service’s prompts are commands. In a conversation that uses it, ty
 msgstr "このサービスのプロンプトはコマンドです。このサービスを使用する会話で / を入力してプロンプトの下を確認するか、プロンプトの設定ページで確認してください。"
 
 #: src/components/clio/infrastructure-tools.tsx
-#: src/components/clio/permission-response.tsx
 msgid "This session"
 msgstr "このセッション"
 
@@ -39834,7 +39842,6 @@ msgid "This window may not open the live view of this page."
 msgstr "このウィンドウではこのページのライブビューを開けない可能性があります。"
 
 #: src/components/clio/browser-certificate-notice.tsx
-#: src/components/clio/permission-response.tsx
 #: src/hooks/use-settings-workspace-name.ts
 msgid "This workspace"
 msgstr "このワークスペース"
@@ -41616,6 +41623,10 @@ msgstr "{label}を使用"
 #: src/components/clio/search-source-row.tsx
 msgid "Use {source}"
 msgstr "{source}を使う"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Use {tool}"
+msgstr "{tool} を使用"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Use * as a wildcard. Add :port to match one port, like github.com:22 or [::1]:8080; without a port, every port matches."

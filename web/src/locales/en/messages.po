@@ -4811,6 +4811,10 @@ msgstr "A mixture of experts: {sizes} in all."
 msgid "A new subagent"
 msgstr "A new subagent"
 
+#: src/components/clio/approval-decision.tsx
+msgid "A note for the agent. Declining sends it as the reason."
+msgstr "A note for the agent. Declining sends it as the reason."
+
 #: src/components/clio/settings-schedule-dialog.tsx
 msgid "A one-time run uses the time zone of this device."
 msgstr "A one-time run uses the time zone of this device."
@@ -5495,6 +5499,7 @@ msgstr "Add {name} to this conversation?"
 msgid "Add {name} to this workspace"
 msgstr "Add {name} to this workspace"
 
+#: src/components/clio/approval-decision.tsx
 #: src/components/clio/comments/comment-controls.tsx
 msgid "Add a comment"
 msgstr "Add a comment"
@@ -6395,18 +6400,6 @@ msgstr "Allow for {workspace}"
 msgid "Allow for session"
 msgstr "Allow for session"
 
-#: src/components/clio/permission-response.tsx
-msgid "Allow for the rest of this script"
-msgstr "Allow for the rest of this script"
-
-#: src/components/clio/permission-response.tsx
-msgid "Allow for this session"
-msgstr "Allow for this session"
-
-#: src/components/clio/permission-response.tsx
-msgid "Allow for this workspace"
-msgstr "Allow for this workspace"
-
 #: src/components/clio/settings-notifications.tsx
 msgid "Allow notifications for this app in System Settings › Notifications."
 msgstr "Allow notifications for this app in System Settings › Notifications."
@@ -6414,14 +6407,6 @@ msgstr "Allow notifications for this app in System Settings › Notifications."
 #: src/components/clio/settings-notifications.tsx
 msgid "Allow notifications for this site in your browser settings."
 msgstr "Allow notifications for this site in your browser settings."
-
-#: src/components/clio/permission-response.tsx
-msgid "Allow on this page"
-msgstr "Allow on this page"
-
-#: src/components/clio/permission-response.tsx
-msgid "Allow once"
-msgstr "Allow once"
 
 #: src/components/clio/sandbox-boundary-notice.tsx
 #: src/components/clio/settings-folders-dialogs.tsx
@@ -7049,6 +7034,27 @@ msgstr "Approve"
 msgctxt "answer to an ask"
 msgid "Approve"
 msgstr "Approve"
+
+#: src/components/clio/permission-response.tsx
+msgid "Approve for the rest of this script"
+msgstr "Approve for the rest of this script"
+
+#: src/components/clio/permission-response.tsx
+msgid "Approve for this session"
+msgstr "Approve for this session"
+
+#: src/components/clio/permission-response.tsx
+msgid "Approve for this workspace"
+msgstr "Approve for this workspace"
+
+#: src/components/clio/permission-response.tsx
+msgid "Approve on this page"
+msgstr "Approve on this page"
+
+#: src/components/clio/permission-response.tsx
+#: src/components/clio/question-interaction-forms.tsx
+msgid "Approve once"
+msgstr "Approve once"
 
 #: src/components/clio/workbench-activity-model.ts
 msgctxt "request state"
@@ -10542,6 +10548,7 @@ msgid "Commands may create, change and delete files in these folders too. Removi
 msgstr "Commands may create, change and delete files in these folders too. Removing one revokes access and deletes nothing."
 
 #: src/components/clio/agent-answer-activity.tsx
+#: src/components/clio/approval-decision.tsx
 #: src/components/clio/comments/comment-capture.tsx
 #: src/components/clio/comments/file-comments.tsx
 #: src/components/clio/response-feedback-comment.tsx
@@ -13255,10 +13262,15 @@ msgstr "Declared as a structured value."
 msgid "Decline"
 msgstr "Decline"
 
+#: src/components/clio/approval-decision.tsx
 #: src/lib/binary-answers.ts
 msgctxt "answer to an ask"
 msgid "Decline"
 msgstr "Decline"
+
+#: src/components/clio/approval-decision.tsx
+msgid "Decline with comment"
+msgstr "Decline with comment"
 
 #: src/components/clio/agent-answer-activity.tsx
 msgid "Declined by you"
@@ -13575,7 +13587,6 @@ msgid "Denied a permission request"
 msgstr "Denied a permission request"
 
 #: src/components/clio/attention-center.tsx
-#: src/components/clio/permission-response.tsx
 msgid "Deny"
 msgstr "Deny"
 
@@ -15421,6 +15432,11 @@ msgstr "Every weekday"
 #: src/components/clio/workspace-resource-view.tsx
 msgid "Evidence"
 msgstr "Evidence"
+
+#. placeholder {0}: context.evidence.length
+#: src/components/clio/question-choice-context.tsx
+msgid "Evidence ({0})"
+msgstr "Evidence ({0})"
 
 #: src/lib/session-export/archive-evidence.tsx
 #: src/offline-review.tsx
@@ -19516,6 +19532,7 @@ msgstr "Its view was not shown. {reason}"
 msgid "JARVIS notes"
 msgstr "JARVIS notes"
 
+#: src/components/clio/interaction-frame-header.tsx
 #: src/components/clio/job-card.tsx
 #: src/components/clio/run-record.tsx
 msgid "Job"
@@ -22407,6 +22424,10 @@ msgstr "More values are in Technical details."
 #: src/components/clio/managed-services.tsx
 msgid "More ways to add a service"
 msgstr "More ways to add a service"
+
+#: src/components/clio/approval-decision.tsx
+msgid "More ways to approve"
+msgstr "More ways to approve"
 
 #: src/components/clio/settings-connection-dialogs.tsx
 msgid "More ways to connect…"
@@ -30629,10 +30650,6 @@ msgstr "Response settings<0>{0}</0>"
 msgid "Response unavailable"
 msgstr "Response unavailable"
 
-#: src/components/clio/permission-response.tsx
-msgid "Rest of this script"
-msgstr "Rest of this script"
-
 #: src/components/clio/a2ui-steps.tsx
 #: src/components/clio/session-work.tsx
 #: src/components/clio/work-record-controls.tsx
@@ -34661,10 +34678,6 @@ msgstr "Site-provided"
 #: src/components/clio/browser-certificate-notice.tsx
 msgid "Site: {host}"
 msgstr "Site: {host}"
-
-#: src/components/clio/interaction-frame-header.tsx
-msgid "Site: {site}"
-msgstr "Site: {site}"
 
 #: src/widget-gallery.tsx
 msgid "Sites"
@@ -39412,10 +39425,6 @@ msgstr "This notebook has no cells"
 msgid "This offer can’t be read by this version."
 msgstr "This offer can’t be read by this version."
 
-#: src/components/clio/permission-response.tsx
-msgid "This page"
-msgstr "This page"
-
 #: src/components/clio/browser-live-socket.ts
 msgid "This page is closed."
 msgstr "This page is closed."
@@ -39659,7 +39668,6 @@ msgid "This service’s prompts are commands. In a conversation that uses it, ty
 msgstr "This service’s prompts are commands. In a conversation that uses it, type / and look under its prompts, or see them on the Prompts settings page."
 
 #: src/components/clio/infrastructure-tools.tsx
-#: src/components/clio/permission-response.tsx
 msgid "This session"
 msgstr "This session"
 
@@ -39833,7 +39841,6 @@ msgid "This window may not open the live view of this page."
 msgstr "This window may not open the live view of this page."
 
 #: src/components/clio/browser-certificate-notice.tsx
-#: src/components/clio/permission-response.tsx
 #: src/hooks/use-settings-workspace-name.ts
 msgid "This workspace"
 msgstr "This workspace"
@@ -41615,6 +41622,10 @@ msgstr "Use {label}"
 #: src/components/clio/search-source-row.tsx
 msgid "Use {source}"
 msgstr "Use {source}"
+
+#: src/components/clio/permission-operation-labels.ts
+msgid "Use {tool}"
+msgstr "Use {tool}"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Use * as a wildcard. Add :port to match one port, like github.com:22 or [::1]:8080; without a port, every port matches."

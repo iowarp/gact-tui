@@ -84,9 +84,6 @@ export const SaveBar = memo(function SaveBar({
       ref={barRef}
       role="region"
     >
-      {active ? (
-        <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-primary" />
-      ) : null}
       <span className="min-w-0 truncate" role="status">
         {saving
           ? t`Saving…`

@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils';
 import { answerWord, binaryPair, type BinaryOption, type BinaryPair } from '@/lib/binary-answers';
 import { AskBody, AskButton, AskError, AskFacts, AskOptions, AskSection } from './ask-card';
 import { BinaryAsk } from './ask-binary';
+import { ApprovalDecision } from './approval-decision';
 import {
   declaredAskContext,
   declaredChoiceContext,
@@ -67,7 +68,8 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
   const errors = { ...serverErrors, ...fieldErrors };
   const loneBoolean = loneBooleanField(fields);
   const answerChoice = loneBoolean ? undefined : answerChoiceField(fields);
-  const answerPair = answerChoice ? fieldPair(answerChoice) : undefined;
+  const answerApproval = answerChoice ? approvalPair(answerChoice) : undefined;
+  const answerPair = answerChoice && !answerApproval ? fieldPair(answerChoice) : undefined;
   const askContext = declaredAskContext(interaction);
   // After a failed Send the first field to fix takes focus and comes into view, even when the
   // capped card or a narrow window holds it out of sight.
@@ -86,7 +88,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     control?.focus({ preventScroll: true });
   }, [fieldErrors]);
 
-  const submit = async (override?: Record<string, unknown>) => {
+  const submit = async (override?: Record<string, unknown>, comment?: string) => {
     const current = override ? { ...values, ...override } : values;
     const validation = validateFields(fields, current);
     revealInvalid.current = true;
@@ -102,6 +104,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             .map((field) => [field.name, submissionValues[field.name]] as const)
             .filter((entry) => entry[1] !== undefined),
         ),
+        ...(comment ? { answer: comment } : {}),
       });
     } catch (thrown) {
       const message = thrown instanceof Error ? thrown.message : String(thrown);
@@ -146,12 +149,13 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
     // One choice is answered by pressing its option. As with yes/no, a pair's Enter picks
     // neither, so no keypress can give a consent the person did not choose.
     const busy = props.disabled || sending;
-    const answer = async (value: unknown) => {
+    const answer = async (value: unknown, comment?: string) => {
       setSending(true);
       try {
         await props.onResponse(interaction, {
           action: 'answer',
           metadata: { [choice.name]: value },
+          ...(comment ? { answer: comment } : {}),
         });
       } catch (thrown) {
         const message = thrown instanceof Error ? thrown.message : String(thrown);
@@ -160,13 +164,14 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
         setSending(false);
       }
     };
-    const pair = fieldPair(choice);
+    const approval = approvalPair(choice);
+    const pair = approval ? undefined : fieldPair(choice);
     const choiceContext = declaredChoiceContext(interaction, choice.name);
     // Relay's note is also the field's description: it is said once, beside the answers.
     const choiceDescription =
       choice.description?.trim() === choiceContext.note ? undefined : choice.description;
     return (
-      <QuestionFrame {...props} escapeAnswers={Boolean(pair)}>
+      <QuestionFrame {...props} escapeAnswers={Boolean(pair || approval)}>
         <AskError error={props.responseError} />
         {choiceDescription ? (
           <AskBody>
@@ -178,8 +183,28 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             {errors[choice.name]}
           </AskSection>
         ) : null}
-        <ChoiceNote context={choiceContext} />
-        {pair ? (
+        {approval ? null : <ChoiceNote context={choiceContext} />}
+        {approval ? (
+          <ApprovalDecision
+            context={
+              <>
+                <ChoiceNote boxed context={choiceContext} />
+                <ChoiceEvidence context={choiceContext} />
+              </>
+            }
+            cost={approval.cost}
+            declineLabel={approval.decline.label}
+            disabled={busy}
+            label={fieldTitle(choice)}
+            onDecline={(comment) => answer(approval.decline.value, comment)}
+            scopes={[
+              {
+                label: approval.accept.label,
+                onApprove: (comment) => answer(approval.accept.value, comment),
+              },
+            ]}
+          />
+        ) : pair ? (
           <BinaryAsk
             accept={{ label: pair.accept.label, onChoose: () => answer(pair.accept.value) }}
             decline={{ label: pair.decline.label, onChoose: () => answer(pair.decline.value) }}
@@ -196,7 +221,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             onChoose={(index) => void answer(choice.enum?.[Number(index)])}
           />
         )}
-        <ChoiceEvidence context={choiceContext} />
+        {approval ? null : <ChoiceEvidence context={choiceContext} />}
       </QuestionFrame>
     );
   }
@@ -233,7 +258,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
         ? undefined
         : answerChoice.description;
     return (
-      <QuestionFrame {...props} escapeAnswers={Boolean(answerPair)}>
+      <QuestionFrame {...props} escapeAnswers={Boolean(answerPair || answerApproval)}>
         <AskError error={props.responseError} />
         {answerDescription || others.length ? (
           <AskBody>
@@ -256,8 +281,31 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             {errors[answerChoice.name]}
           </AskSection>
         ) : null}
-        <ChoiceNote context={answerContext} />
-        {answerPair ? (
+        {answerApproval ? null : <ChoiceNote context={answerContext} />}
+        {answerApproval ? (
+          <ApprovalDecision
+            context={
+              <>
+                <ChoiceNote boxed context={answerContext} />
+                <ChoiceEvidence context={answerContext} />
+              </>
+            }
+            cost={answerApproval.cost}
+            declineLabel={answerApproval.decline.label}
+            disabled={props.disabled || sending}
+            label={fieldTitle(answerChoice)}
+            onDecline={(comment) =>
+              submit({ [answerChoice.name]: answerApproval.decline.value }, comment)
+            }
+            scopes={[
+              {
+                label: answerApproval.accept.label,
+                onApprove: (comment) =>
+                  submit({ [answerChoice.name]: answerApproval.accept.value }, comment),
+              },
+            ]}
+          />
+        ) : answerPair ? (
           <BinaryAsk
             accept={{
               label: answerPair.accept.label,
@@ -280,7 +328,7 @@ export function StructuredQuestionResponse(props: QuestionSurfaceProps) {
             onChoose={(index) => void submit({ [answerChoice.name]: options[Number(index)] })}
           />
         )}
-        <ChoiceEvidence context={answerContext} />
+        {answerApproval ? null : <ChoiceEvidence context={answerContext} />}
       </QuestionFrame>
     );
   }
@@ -334,6 +382,39 @@ function urlOriginTrust(payload: PendingInteraction['payload']): string | undefi
     default:
       return undefined;
   }
+}
+
+const APPROVES = /^(approve[ds]?|allow(ed)?)\b/iu;
+
+/**
+ * A choice that approves or declines an action (relay's run approval): answered on the spec's
+ * decision bar, [Decline] [Approve once], with what approving spends as the cost line in place
+ * of the option's own description. Nothing is preselected and Enter approves nothing.
+ */
+function approvalPair(field: PendingInteractionField):
+  | {
+      accept: { value: unknown; label: string };
+      decline: { value: unknown; label: string };
+      cost?: string;
+    }
+  | undefined {
+  const values = field.enum ?? [];
+  const pair = binaryPair(
+    values.map((value, index) => ({ value, index, label: optionLabel(field, value, index) })),
+  );
+  if (!pair) return undefined;
+  if (!APPROVES.test(String(pair.accept.value).trim()) && !APPROVES.test(pair.accept.label.trim()))
+    return undefined;
+  const cost = field.enum_descriptions?.[pair.accept.index]?.trim();
+  const once = /^approve$/iu.test(pair.accept.label.trim());
+  return {
+    accept: {
+      value: pair.accept.value,
+      label: once ? t`Approve once` : answerWord(pair.accept.label),
+    },
+    decline: { value: pair.decline.value, label: answerWord(pair.decline.label) },
+    cost: cost || undefined,
+  };
 }
 
 /**

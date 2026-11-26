@@ -132,9 +132,21 @@ interface TableContext {
 
 /** A pick shows at once and stays until the server sends the table again, or this long. */
 const PICK_HOLD_MS = 10_000;
-/** Each choice cell's width, and the room the name needs beside them, in rem. */
+/** A choice cell's narrowest and widest width, and the room the name needs beside them, in rem. */
 const CELL_REM = 9.5;
+const CELL_MAX_REM = 14;
 const NAME_REM = 12;
+
+/**
+ * A column wide enough for its longest option, so "Ask every time" reads whole at
+ * 1440: the glyph, its D, the chevron and the padding take about 4 rem, a
+ * character about half a rem. A longer word (Greek) stops at the cap and truncates
+ * with its full text on hover.
+ */
+function cellRem(column: Column): number {
+  const longest = Math.max(0, ...column.options.map((option) => option.label.length));
+  return Math.min(CELL_MAX_REM, Math.max(CELL_REM, 4 + longest * 0.5));
+}
 
 const TONE: Record<Tone, StatusTone> = {
   neutral: 'idle',
@@ -613,9 +625,11 @@ export function ClioChoiceTable({ props, context }: { props: Props; context: Tab
       : parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
   const columns = props.columns;
   // The columns need their cells, the name and the two narrow slots; narrower, rows fold.
-  const wide = width === undefined || width >= (NAME_REM + columns.length * CELL_REM + 4) * rem;
+  const cells = columns.map(cellRem);
+  const cellsRem = cells.reduce((total, cell) => total + cell, 0);
+  const wide = width === undefined || width >= (NAME_REM + cellsRem + 4) * rem;
   const template = wide
-    ? `20px minmax(0,1fr) repeat(${columns.length}, ${CELL_REM}rem) 24px`
+    ? `20px minmax(0,1fr) ${cells.map((cell) => `${cell}rem`).join(' ')} 24px`
     : '20px minmax(0,1fr) 24px';
 
   const menuFor = (entry: Row, index: number): MenuEntry[] => {
