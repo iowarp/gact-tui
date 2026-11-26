@@ -11,10 +11,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/JaimeCernuda/gact-tui/adapters/crush"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 func main() {
@@ -24,18 +26,27 @@ func main() {
 	defaultWs := flag.String("default-workspace", "",
 		"workspace ID to use when GACT requests omit one (single-workspace deployments)")
 	port := flag.Int("port", 7779, "TCP port to listen on for GACT clients")
+	host := flag.String("host", "127.0.0.1", "bind interface (use 0.0.0.0 to serve other machines)")
+	token := flag.String("token", "",
+		"bearer token clients must send (default $"+gact.TokenEnv+", else a new one printed at startup)")
+	allowedHosts := flag.String("allowed-hosts", "",
+		"comma-separated Host names to answer besides loopback (for access by name)")
 	flag.Parse()
+	bearer, generated := gact.AdapterToken(*token)
 
 	srv := crush.New(*upstream, *defaultWs, nil)
 	httpServer := &http.Server{
-		Addr:              fmt.Sprintf(":%d", *port),
-		Handler:           srv.Handler(),
+		Addr:              fmt.Sprintf("%s:%d", *host, *port),
+		Handler:           gact.Guard(srv.Handler(), bearer, strings.Split(*allowedHosts, ",")),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	if generated {
+		log.Printf("clients connect with bearer token %s (set -token or $%s to choose one)", bearer, gact.TokenEnv)
+	}
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("crush adapter on :%d → %s (default ws=%q)", *port, *upstream, *defaultWs)
+		log.Printf("crush adapter on %s:%d → %s (default ws=%q)", *host, *port, *upstream, *defaultWs)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}

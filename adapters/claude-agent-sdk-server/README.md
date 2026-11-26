@@ -50,10 +50,22 @@ Run multiple sidecars on different ports to drive multiple repos.
 | `--cli-path PATH` | SDK auto-detect | Override `claude` binary location (PATH lookup + bundled fallback otherwise). |
 | `--host HOST` | `127.0.0.1` | Bind interface — use `0.0.0.0` to expose on the LAN. |
 | `--port PORT` | `7780` | TCP port. |
+| `--token TOKEN` | `$GACT_ADAPTER_TOKEN`, else generated | Bearer token every request except `GET /v1/health` must send; a generated one is printed at startup. |
+| `--allowed-hosts NAMES` | _(none)_ | Comma-separated `Host` names answered besides loopback. |
 | `--log-level LVL` | `info` | uvicorn log level. |
 
 Env-var equivalents: `GACT_CLAUDE_CWD`, `GACT_CLAUDE_CLI`. CLI flags
 win on conflict.
+
+### Access
+
+The adapter listens on `127.0.0.1`, and every request except `GET /v1/health`
+must send `Authorization: Bearer <token>`. The token comes from `--token` or
+`$GACT_ADAPTER_TOKEN`; if neither is set, the adapter prints a new one when it
+starts. Connect to the adapter by address with that token. To serve other
+machines, pass `--host 0.0.0.0` and list the host names clients use with
+`--allowed-hosts`.
+
 
 ## What's wired
 
