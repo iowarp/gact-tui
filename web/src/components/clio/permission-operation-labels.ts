@@ -19,6 +19,7 @@ const OPERATIONS: Record<string, string> = {
   web_search: t`Search the web`,
   browser_host: t`Open a website in the shared browser`,
   browser_evaluate: t`Run a script in a web page`,
+  relay_cancel: t`Cancel a job or stop a service`,
 };
 
 /** Name a known operation without changing an unknown tool's supplied title. */
@@ -93,9 +94,10 @@ function operationFromArguments(
   toolName: string,
   fields: Record<string, unknown>,
 ): string | undefined {
+  // A verb is a short word; an operation id (op_ee9caa80…) is never one.
   const key = OPERATION_ARGUMENT.find(
     (name) =>
-      typeof fields[name] === 'string' && /^[\p{L}][\p{L}\d_-]*$/u.test(String(fields[name])),
+      typeof fields[name] === 'string' && /^[\p{L}][\p{L}_-]{0,23}$/u.test(String(fields[name])),
   );
   if (!key) return undefined;
   const verb = String(fields[key]).replace(/[_-]+/gu, ' ').trim();

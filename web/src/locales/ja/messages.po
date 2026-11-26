@@ -8646,6 +8646,10 @@ msgstr "{step}をキャンセル"
 msgid "Cancel {title}"
 msgstr "{title}をキャンセル"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Cancel a job or stop a service"
+msgstr "ジョブのキャンセルまたはサービスの停止"
+
 #: src/components/clio/work-record-controls.tsx
 msgid "Cancel and delete"
 msgstr "キャンセルして削除"

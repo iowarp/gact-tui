@@ -8637,6 +8637,10 @@ msgstr ""
 msgid "Cancel {title}"
 msgstr ""
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Cancel a job or stop a service"
+msgstr ""
+
 #: src/components/clio/work-record-controls.tsx
 msgid "Cancel and delete"
 msgstr ""
