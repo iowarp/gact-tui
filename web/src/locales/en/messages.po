@@ -9582,6 +9582,10 @@ msgstr "Choose {setting} preset"
 msgid "Choose {title} judge"
 msgstr "Choose {title} judge"
 
+#: src/components/clio/settings-access-rule-dialog.tsx
+msgid "Choose a {workspace}, or every {workspace}, for this rule to take effect."
+msgstr "Choose a {workspace}, or every {workspace}, for this rule to take effect."
+
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Choose a cataloged stream"
 msgstr "Choose a cataloged stream"
@@ -14143,16 +14147,12 @@ msgid "Domain"
 msgstr "Domain"
 
 #: src/components/clio/settings-access-rule-model.ts
-msgid "Domain or pattern, like *.earthscope.org"
-msgstr "Domain or pattern, like *.earthscope.org"
+msgid "Domain or pattern, like *.earthscope.org or github.com:22"
+msgstr "Domain or pattern, like *.earthscope.org or github.com:22"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Domain rules apply per {workspace}."
 msgstr "Domain rules apply per {workspace}."
-
-#: src/components/clio/settings-access-rule-dialog.tsx
-msgid "Domain rules take effect once a specific {workspace} is chosen."
-msgstr "Domain rules take effect once a specific {workspace} is chosen."
 
 #: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
@@ -15328,6 +15328,11 @@ msgstr "Events reviewed"
 #: src/components/clio/tool-operation.ts
 msgid "every {interval}"
 msgstr "every {interval}"
+
+#: src/components/clio/settings-access-rule-dialog.tsx
+#: src/components/clio/settings-access-rule-model.ts
+msgid "Every {workspace}"
+msgstr "Every {workspace}"
 
 #: src/lib/plugin-presentation.ts
 msgid "Every agent carries the core plugin. It cannot be removed."
@@ -23089,6 +23094,11 @@ msgstr "No {facet} in the listed models"
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "No {facet} match \"{nameFilter}\""
 msgstr "No {facet} match \"{nameFilter}\""
+
+#: src/components/clio/settings-access-rule-dialog.tsx
+#: src/components/clio/settings-access-rule-model.ts
+msgid "No {workspace} chosen"
+msgstr "No {workspace} chosen"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "No access rules. Protected actions follow the service defaults."
@@ -33856,6 +33866,11 @@ msgstr "Shell script"
 msgid "Shipped"
 msgstr "Shipped"
 
+#: src/components/clio/settings-access-rule-dialog.tsx
+#: src/components/clio/settings-access-rule-model.ts
+msgid "Shipped with {agent}"
+msgstr "Shipped with {agent}"
+
 #: src/components/clio/settings-plugins.tsx
 msgid "Shipped with the service"
 msgstr "Shipped with the service"
@@ -41601,6 +41616,10 @@ msgstr "Use {label}"
 msgid "Use {source}"
 msgstr "Use {source}"
 
+#: src/components/clio/settings-access-rule-dialog.tsx
+msgid "Use * as a wildcard. Add :port to match one port, like github.com:22 or [::1]:8080; without a port, every port matches."
+msgstr "Use * as a wildcard. Add :port to match one port, like github.com:22 or [::1]:8080; without a port, every port matches."
+
 #: src/components/clio/settings-appearance.tsx
 msgid "Use a focused reading column or give tables and diagrams more room."
 msgstr "Use a focused reading column or give tables and diagrams more room."
@@ -41612,6 +41631,10 @@ msgstr "Use a folder on {agent}'s computer"
 #: src/components/clio/connected-source-picker.tsx
 msgid "Use a folder on this computer"
 msgstr "Use a folder on this computer"
+
+#: src/components/clio/settings-access-rule-model.ts
+msgid "Use a port from 1 to 65535, like github.com:22."
+msgstr "Use a port from 1 to 65535, like github.com:22."
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "Use a whole number."

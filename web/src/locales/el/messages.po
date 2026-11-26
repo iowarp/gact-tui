@@ -9583,6 +9583,10 @@ msgstr "Επιλογή προκαθορισμένης τιμής για {setting
 msgid "Choose {title} judge"
 msgstr "Επιλογή κριτή για {title}"
 
+#: src/components/clio/settings-access-rule-dialog.tsx
+msgid "Choose a {workspace}, or every {workspace}, for this rule to take effect."
+msgstr "Επιλέξτε ένα {workspace}, ή όλα, για να ισχύσει αυτός ο κανόνας."
+
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Choose a cataloged stream"
 msgstr "Επιλέξτε μια καταχωρισμένη ροή δεδομένων"
@@ -14144,16 +14148,12 @@ msgid "Domain"
 msgstr "Τομέας"
 
 #: src/components/clio/settings-access-rule-model.ts
-msgid "Domain or pattern, like *.earthscope.org"
-msgstr "Τομέας ή μοτίβο, όπως *.earthscope.org"
+msgid "Domain or pattern, like *.earthscope.org or github.com:22"
+msgstr "Τομέας ή μοτίβο, όπως *.earthscope.org ή github.com:22"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Domain rules apply per {workspace}."
 msgstr "Οι κανόνες τομέα ισχύουν ανά {workspace}."
-
-#: src/components/clio/settings-access-rule-dialog.tsx
-msgid "Domain rules take effect once a specific {workspace} is chosen."
-msgstr "Οι κανόνες τομέα τίθενται σε ισχύ μόλις γίνει επιλογή συγκεκριμένου {workspace}."
 
 #: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
@@ -15329,6 +15329,11 @@ msgstr "Συμβάντα που ελέγχθηκαν"
 #: src/components/clio/tool-operation.ts
 msgid "every {interval}"
 msgstr "κάθε {interval}"
+
+#: src/components/clio/settings-access-rule-dialog.tsx
+#: src/components/clio/settings-access-rule-model.ts
+msgid "Every {workspace}"
+msgstr "Όλα τα {workspace}"
 
 #: src/lib/plugin-presentation.ts
 msgid "Every agent carries the core plugin. It cannot be removed."
@@ -23090,6 +23095,11 @@ msgstr "Δεν υπάρχει {facet} στα μοντέλα της λίστας"
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "No {facet} match \"{nameFilter}\""
 msgstr "Κανένα {facet} δεν ταιριάζει με «{nameFilter}»"
+
+#: src/components/clio/settings-access-rule-dialog.tsx
+#: src/components/clio/settings-access-rule-model.ts
+msgid "No {workspace} chosen"
+msgstr "Δεν επιλέχθηκε {workspace}"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "No access rules. Protected actions follow the service defaults."
@@ -33857,6 +33867,11 @@ msgstr "Σενάριο φλοιού"
 msgid "Shipped"
 msgstr "Ενσωματωμένο"
 
+#: src/components/clio/settings-access-rule-dialog.tsx
+#: src/components/clio/settings-access-rule-model.ts
+msgid "Shipped with {agent}"
+msgstr "Παρέχεται με το {agent}"
+
 #: src/components/clio/settings-plugins.tsx
 msgid "Shipped with the service"
 msgstr "Παρέχεται με την υπηρεσία"
@@ -41602,6 +41617,10 @@ msgstr "Χρήση {label}"
 msgid "Use {source}"
 msgstr "Χρήση του {source}"
 
+#: src/components/clio/settings-access-rule-dialog.tsx
+msgid "Use * as a wildcard. Add :port to match one port, like github.com:22 or [::1]:8080; without a port, every port matches."
+msgstr "Χρησιμοποιήστε το * ως μπαλαντέρ. Προσθέστε :θύρα για να ταιριάζει μία θύρα, όπως github.com:22 ή [::1]:8080· χωρίς θύρα, ταιριάζουν όλες οι θύρες."
+
 #: src/components/clio/settings-appearance.tsx
 msgid "Use a focused reading column or give tables and diagrams more room."
 msgstr "Χρησιμοποιήστε μια εστιασμένη στήλη ανάγνωσης ή δώστε περισσότερο χώρο σε πίνακες και διαγράμματα."
@@ -41613,6 +41632,10 @@ msgstr "Χρήση φακέλου στον υπολογιστή του {agent}"
 #: src/components/clio/connected-source-picker.tsx
 msgid "Use a folder on this computer"
 msgstr "Χρήση φακέλου σε αυτόν τον υπολογιστή"
+
+#: src/components/clio/settings-access-rule-model.ts
+msgid "Use a port from 1 to 65535, like github.com:22."
+msgstr "Χρησιμοποιήστε θύρα από 1 έως 65535, όπως github.com:22."
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "Use a whole number."

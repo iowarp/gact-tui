@@ -9583,6 +9583,10 @@ msgstr "{setting}のプリセットを選択"
 msgid "Choose {title} judge"
 msgstr "{title}の判定モデルを選択"
 
+#: src/components/clio/settings-access-rule-dialog.tsx
+msgid "Choose a {workspace}, or every {workspace}, for this rule to take effect."
+msgstr "このルールを有効にするには、{workspace}を1つ選ぶか、すべての{workspace}を選んでください。"
+
 #: src/components/clio/ndp-workflow-form.tsx
 msgid "Choose a cataloged stream"
 msgstr "カタログ登録済みのストリームを選択"
@@ -14144,16 +14148,12 @@ msgid "Domain"
 msgstr "ドメイン"
 
 #: src/components/clio/settings-access-rule-model.ts
-msgid "Domain or pattern, like *.earthscope.org"
-msgstr "ドメインまたはパターン(例: *.earthscope.org)"
+msgid "Domain or pattern, like *.earthscope.org or github.com:22"
+msgstr "ドメインまたはパターン(例: *.earthscope.org、github.com:22)"
 
 #: src/components/clio/settings-access-rule-dialog.tsx
 msgid "Domain rules apply per {workspace}."
 msgstr "ドメインルールは{workspace}ごとに適用されます。"
-
-#: src/components/clio/settings-access-rule-dialog.tsx
-msgid "Domain rules take effect once a specific {workspace} is chosen."
-msgstr "ドメインルールは特定の{workspace}を選択すると有効になります。"
 
 #: src/components/clio/run-list-row.tsx
 #: src/components/clio/workbench-activity-model.ts
@@ -15329,6 +15329,11 @@ msgstr "確認済みのイベント"
 #: src/components/clio/tool-operation.ts
 msgid "every {interval}"
 msgstr "{interval}ごと"
+
+#: src/components/clio/settings-access-rule-dialog.tsx
+#: src/components/clio/settings-access-rule-model.ts
+msgid "Every {workspace}"
+msgstr "すべての{workspace}"
 
 #: src/lib/plugin-presentation.ts
 msgid "Every agent carries the core plugin. It cannot be removed."
@@ -23090,6 +23095,11 @@ msgstr "一覧のモデルに{facet}はありません"
 #: src/components/clio/model-picker-facet-panel.tsx
 msgid "No {facet} match \"{nameFilter}\""
 msgstr "「{nameFilter}」に一致する{facet}はありません"
+
+#: src/components/clio/settings-access-rule-dialog.tsx
+#: src/components/clio/settings-access-rule-model.ts
+msgid "No {workspace} chosen"
+msgstr "{workspace}が未選択"
 
 #: src/components/clio/settings-permissions.tsx
 msgid "No access rules. Protected actions follow the service defaults."
@@ -33857,6 +33867,11 @@ msgstr "シェルスクリプト"
 msgid "Shipped"
 msgstr "同梱"
 
+#: src/components/clio/settings-access-rule-dialog.tsx
+#: src/components/clio/settings-access-rule-model.ts
+msgid "Shipped with {agent}"
+msgstr "{agent}に同梱"
+
 #: src/components/clio/settings-plugins.tsx
 msgid "Shipped with the service"
 msgstr "サービスに同梱"
@@ -41602,6 +41617,10 @@ msgstr "{label}を使用"
 msgid "Use {source}"
 msgstr "{source}を使う"
 
+#: src/components/clio/settings-access-rule-dialog.tsx
+msgid "Use * as a wildcard. Add :port to match one port, like github.com:22 or [::1]:8080; without a port, every port matches."
+msgstr "* はワイルドカードとして使えます。1つのポートだけに一致させるには、github.com:22 や [::1]:8080 のように :ポート を付けます。ポートを省くと、すべてのポートに一致します。"
+
 #: src/components/clio/settings-appearance.tsx
 msgid "Use a focused reading column or give tables and diagrams more room."
 msgstr "読みやすい列幅にするか、表や図により広いスペースを使います。"
@@ -41613,6 +41632,10 @@ msgstr "{agent}のコンピューターのフォルダーを使用"
 #: src/components/clio/connected-source-picker.tsx
 msgid "Use a folder on this computer"
 msgstr "このコンピューターのフォルダーを使用"
+
+#: src/components/clio/settings-access-rule-model.ts
+msgid "Use a port from 1 to 65535, like github.com:22."
+msgstr "1〜65535のポートを指定してください(例: github.com:22)。"
 
 #: src/components/clio/settings-access-rule-model.ts
 msgid "Use a whole number."

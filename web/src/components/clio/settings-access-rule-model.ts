@@ -91,6 +91,9 @@ export function ruleTarget(policy: PermissionPolicy): string {
   return policy.tool_name_pattern || '*';
 }
 
+/** A workspace rule's `scope_id` for every workspace. A domain rule needs it or one workspace. */
+export const EVERY_WORKSPACE = '*';
+
 export interface RuleScope {
   label: string;
   /** The identifier of a workspace this connection no longer knows. */
@@ -100,6 +103,13 @@ export interface RuleScope {
 export function ruleScope(policy: PermissionPolicy, workspaces?: readonly Workspace[]): RuleScope {
   if (policy.scope === 'session') {
     return { label: policy.scope_id ? t`One conversation` : t`Any conversation` };
+  }
+  if (policy.scope_id === EVERY_WORKSPACE) {
+    return { label: t`Every ${ph({ workspace: vocab.workspace })}` };
+  }
+  // The service never applies a domain rule without a workspace.
+  if (!policy.scope_id && inferredKind(policy) === 'domain') {
+    return { label: t`No ${ph({ workspace: vocab.workspace })} chosen` };
   }
   if (!policy.scope_id) return { label: t`Any ${ph({ scope: policy.scope || vocab.workspace })}` };
   const workspace = workspaces?.find((entry) => entry.id === policy.scope_id);
@@ -139,6 +149,33 @@ export function ruleDetails(policy: PermissionPolicy): RuleDetail[] {
   return details;
 }
 
+/** What the service says about a rule it ships: the traffic and why. */
+export interface ShippedRule {
+  protocol?: string;
+  reason?: string;
+}
+
+const text = (value: unknown) =>
+  typeof value === 'string' && value.trim() ? value.trim() : undefined;
+
+/** A rule CLIO seeded (`metadata.source` `clio_default`), which the person may edit or remove. */
+export function shippedRule(policy: PermissionPolicy): ShippedRule | undefined {
+  const metadata = policy.metadata ?? {};
+  if (metadata.source !== 'clio_default') return undefined;
+  return { protocol: text(metadata.protocol)?.toUpperCase(), reason: text(metadata.reason) };
+}
+
+/** The shipped-rule facts on the meta line: the source, the traffic, then the reason (long). */
+export function shippedDetails(policy: PermissionPolicy): RuleDetail[] {
+  const shipped = shippedRule(policy);
+  if (!shipped) return [];
+  return [
+    { text: t`Shipped with ${ph({ agent: vocab.agent })}`, long: false },
+    ...(shipped.protocol ? [{ text: shipped.protocol, long: false }] : []),
+    ...(shipped.reason ? [{ text: shipped.reason, long: true }] : []),
+  ];
+}
+
 export function draftForPolicy(policy: PermissionPolicy): PolicyDraft {
   const kind = inferredKind(policy);
   return {
@@ -168,7 +205,8 @@ function splitList(value: string): string[] | undefined {
   return values.length ? values : undefined;
 }
 
-export function policyFromDraft(draft: PolicyDraft): PermissionPolicy {
+/** `base` is the rule being edited: its metadata (a shipped rule's source and reason) stays. */
+export function policyFromDraft(draft: PolicyDraft, base?: PermissionPolicy): PermissionPolicy {
   const policy: PermissionPolicy = {
     kind: draft.kind,
     scope: draft.kind === 'domain' ? 'workspace' : draft.scope,
@@ -177,7 +215,7 @@ export function policyFromDraft(draft: PolicyDraft): PermissionPolicy {
     priority: draft.priority ? Number.parseInt(draft.priority, 10) : undefined,
     modes: splitList(draft.modes),
     on: splitList(draft.events),
-    metadata: {},
+    metadata: { ...base?.metadata },
   };
   if (draft.kind === 'domain') policy.host_pattern = draft.subject.trim();
   else if (draft.kind === 'fs_root') policy.path_pattern = draft.subject.trim();
@@ -199,7 +237,7 @@ export const subjectField: Record<
   },
   domain: {
     label: t`Domain`,
-    placeholder: t`Domain or pattern, like *.earthscope.org`,
+    placeholder: t`Domain or pattern, like *.earthscope.org or github.com:22`,
     error: t`Enter a domain or pattern.`,
   },
   fs_root: {
@@ -211,6 +249,21 @@ export const subjectField: Record<
 
 export function subjectFor(kind: PolicyKind) {
   return kind === 'domain' || kind === 'fs_root' ? subjectField[kind] : subjectField.tool;
+}
+
+/** A domain's `host:port` (`[::1]:8080` for IPv6) must name a port the service accepts. */
+export function hostPortError(kind: PolicyKind, subject: string): string | undefined {
+  if (kind !== 'domain') return undefined;
+  const value = subject.trim();
+  const at = value.lastIndexOf(':');
+  if (at < 0) return undefined;
+  const head = value.slice(0, at);
+  // A bare IPv6 address has colons of its own and names no port.
+  if (head.includes(':') && !(head.startsWith('[') && head.endsWith(']'))) return undefined;
+  const port = /^\d+$/.test(value.slice(at + 1)) ? Number(value.slice(at + 1)) : Number.NaN;
+  return port >= 1 && port <= 65535
+    ? undefined
+    : t`Use a port from 1 to 65535, like github.com:22.`;
 }
 
 export function priorityError(priority: string): string | undefined {

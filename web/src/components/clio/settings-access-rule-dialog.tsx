@@ -23,11 +23,14 @@ import { SettingsRow } from './settings-row';
 import {
   actionLabels,
   editableKinds,
+  EVERY_WORKSPACE,
+  hostPortError,
   kindLabels,
   subjectFor,
   type PolicyDraft,
   type PriorityChoice,
   type PolicyKind,
+  type ShippedRule,
 } from './settings-access-rule-model';
 import { t, ph } from '@lingui/core/macro';
 
@@ -99,8 +102,7 @@ function RuleSelect({
 /** Radix Select reserves '' for no value, so leaving placement to the agent needs a token. */
 const AFTER = 'after';
 
-const fieldClass =
-  'h-[1.875rem] w-full min-w-0 text-menu placeholder:font-sans md:text-menu';
+const fieldClass = 'h-[1.875rem] w-full min-w-0 text-menu placeholder:font-sans md:text-menu';
 
 /**
  * New / Edit access rule (F): Setting rows in the dialog frame. Saving a rule
@@ -114,6 +116,7 @@ export function AccessRuleDialog({
   onDraftChange,
   workspaces,
   priorities,
+  shipped,
   onConfirm,
 }: {
   open: boolean;
@@ -124,13 +127,37 @@ export function AccessRuleDialog({
   workspaces?: readonly Workspace[];
   /** Where the rule can rank, in the rows' terms (see `priorityChoices`). */
   priorities: readonly PriorityChoice[];
+  /** The edited rule shipped with the agent (`shippedRule`). */
+  shipped?: ShippedRule;
   onConfirm: () => void;
 }) {
   const [touched, setTouched] = useState(false);
   const set = (patch: Partial<PolicyDraft>) => onDraftChange({ ...draft, ...patch });
   const subject = subjectFor(draft.kind);
   const subjectMissing = !draft.subject.trim();
+  const portError = hostPortError(draft.kind, draft.subject);
+  const subjectError = subjectMissing ? subject.error : portError;
   const domain = draft.kind === 'domain';
+  const anyWorkspace = t`Any ${ph({ workspace: vocab.workspace })}`;
+  const everyWorkspace = t`Every ${ph({ workspace: vocab.workspace })}`;
+  const workspaceOptions = [
+    // A domain rule needs a workspace or every workspace; elsewhere no workspace means any.
+    ...(domain || draft.scopeId === EVERY_WORKSPACE
+      ? [{ value: EVERY_WORKSPACE, label: everyWorkspace }]
+      : []),
+    ...(!domain || !draft.scopeId
+      ? [
+          {
+            value: 'any',
+            label: domain ? t`No ${ph({ workspace: vocab.workspace })} chosen` : anyWorkspace,
+          },
+        ]
+      : []),
+    ...(workspaces ?? []).map((workspace) => ({
+      value: workspace.id,
+      label: workspaceName(workspace),
+    })),
+  ];
   const scope = domain ? 'workspace' : draft.scope;
   const changeOpen = (next: boolean) => {
     if (!next) setTouched(false);
@@ -144,7 +171,7 @@ export function AccessRuleDialog({
           setTouched(false);
           onConfirm();
         },
-        disabled: subjectMissing,
+        disabled: Boolean(subjectError),
       }}
       icon={<ShieldIcon className="size-4" />}
       onOpenChange={changeOpen}
@@ -160,6 +187,10 @@ export function AccessRuleDialog({
               set({
                 kind: value as PolicyKind,
                 scope: value === 'domain' ? 'workspace' : draft.scope,
+                scopeId:
+                  value === 'domain' && (draft.scope === 'session' || !draft.scopeId)
+                    ? EVERY_WORKSPACE
+                    : draft.scopeId,
               })
             }
             options={editableKinds.map((kind) => ({
@@ -179,13 +210,26 @@ export function AccessRuleDialog({
           />
         </SettingsRow>
         <SettingsRow
-          info={t`Patterns use the service's exact matching rules.`}
-          error={touched && subjectMissing ? subject.error : undefined}
+          info={
+            domain
+              ? t`Use * as a wildcard. Add :port to match one port, like github.com:22 or [::1]:8080; without a port, every port matches.`
+              : t`Patterns use the service's exact matching rules.`
+          }
+          error={(touched && subjectMissing) || portError ? subjectError : undefined}
+          note={
+            shipped ? (
+              <>
+                {t`Shipped with ${ph({ agent: vocab.agent })}`}
+                {shipped.protocol ? <span className="ml-2.5">{shipped.protocol}</span> : null}
+                {shipped.reason ? <span className="block">{shipped.reason}</span> : null}
+              </>
+            ) : undefined
+          }
           htmlFor="access-rule-subject"
           title={subject.label}
         >
           <Input
-            aria-invalid={touched && subjectMissing ? true : undefined}
+            aria-invalid={(touched && subjectMissing) || portError ? true : undefined}
             className={cn(fieldClass, 'font-mono')}
             id="access-rule-subject"
             onBlur={() => setTouched(true)}
@@ -250,7 +294,7 @@ export function AccessRuleDialog({
           <SettingsRow
             note={
               domain && !draft.scopeId
-                ? t`Domain rules take effect once a specific ${ph({ workspace: vocab.workspace })} is chosen.`
+                ? t`Choose a ${ph({ workspace: vocab.workspace })}, or every ${ph({ workspace: vocab.workspace })}, for this rule to take effect.`
                 : undefined
             }
             htmlFor="access-rule-workspace"
@@ -260,13 +304,7 @@ export function AccessRuleDialog({
               icon={<FolderIcon />}
               id="access-rule-workspace"
               onChange={(value) => set({ scopeId: value === 'any' ? '' : value })}
-              options={[
-                { value: 'any', label: t`Any ${ph({ workspace: vocab.workspace })}` },
-                ...(workspaces ?? []).map((workspace) => ({
-                  value: workspace.id,
-                  label: workspaceName(workspace),
-                })),
-              ]}
+              options={workspaceOptions}
               value={draft.scopeId || 'any'}
             />
           </SettingsRow>

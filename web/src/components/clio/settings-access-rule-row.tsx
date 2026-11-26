@@ -23,6 +23,7 @@ import {
   ruleScope,
   ruleStatus,
   ruleTarget,
+  shippedDetails,
 } from './settings-access-rule-model';
 import { t, ph } from '@lingui/core/macro';
 
@@ -104,6 +105,7 @@ export function AccessRuleRow({
   const scope = ruleScope(policy, workspaces);
   const status = ruleStatus(policy.action);
   const details = ruleDetails(policy);
+  const shipped = shippedDetails(policy);
   // Planning and hook rules name their modes or events; an unscoped rule need not repeat "Any".
   const showScope = !details.length || policy.scope_id || kind === 'domain' || kind === 'fs_root';
   // A path or key runs long, so it goes last, where truncation leaves the scope and priority readable.
@@ -112,7 +114,8 @@ export function AccessRuleRow({
     ...details.filter((detail) => !detail.long).map((detail) => detail.text),
     ...(showScope ? [scope.label] : []),
     ...(rank === undefined ? [] : [t`Priority ${rank}`]),
-    ...details.filter((detail) => detail.long).map((detail) => detail.text),
+    ...shipped.filter((detail) => !detail.long).map((detail) => detail.text),
+    ...[...details, ...shipped].filter((detail) => detail.long).map((detail) => detail.text),
   ];
   const editable = !BROWSER_KINDS.has(kind);
   const meta = (

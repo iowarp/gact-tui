@@ -221,7 +221,16 @@ describe('ClioRepository interaction contracts', () => {
 
   it('decodes service-owned administrative catalogs and diagnostics', async () => {
     const transport = new RecordingTransport([
-      { policies: [{ scope: 'workspace', action: 'allow', tool_name_pattern: '*' }] },
+      {
+        policies: [
+          {
+            scope: 'workspace',
+            action: 'allow',
+            tool_name_pattern: '*',
+            metadata: { source: 'clio_default' },
+          },
+        ],
+      },
       { policies: [{ scope: 'workspace', action: 'ask', tool_name_pattern: 'shell_*' }] },
       { backend: 'declarative', enabled: true, hooks: [], recent_invocations: [] },
       {
@@ -248,14 +257,12 @@ describe('ClioRepository interaction contracts', () => {
     ]);
     const repository = new ClioRepository(transport);
 
-    expect((await repository.policies())[0]?.action).toBe('allow');
+    const [shipped] = await repository.policies();
+    expect(shipped?.action).toBe('allow');
+    expect(shipped?.metadata).toEqual({ source: 'clio_default' });
     await repository.updatePolicies([
-      {
-        scope: 'workspace',
-        action: 'ask',
-        tool_name_pattern: 'shell_*',
-        metadata: { ignored: true },
-      },
+      { scope: 'workspace', action: 'ask', tool_name_pattern: 'shell_*', metadata: {} },
+      { ...shipped!, action: 'deny' },
     ]);
     expect((await repository.hooks()).backend).toBe('declarative');
     expect((await repository.memoryStatistics()).cache.hits).toBe(2);
@@ -275,7 +282,15 @@ describe('ClioRepository interaction contracts', () => {
       { method: 'GET', path: '/v1/metrics' },
     ]);
     expect(transport.requests[1]?.body).toEqual({
-      policies: [{ scope: 'workspace', action: 'ask', tool_name_pattern: 'shell_*' }],
+      policies: [
+        { scope: 'workspace', action: 'ask', tool_name_pattern: 'shell_*' },
+        {
+          scope: 'workspace',
+          action: 'deny',
+          tool_name_pattern: '*',
+          metadata: { source: 'clio_default' },
+        },
+      ],
     });
   });
 

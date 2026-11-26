@@ -18,6 +18,7 @@ import {
   policyFromDraft,
   priorityChoices,
   priorityRanks,
+  shippedRule,
   type PolicyDraft,
 } from './settings-access-rule-model';
 import { AccessRuleRow } from './settings-access-rule-row';
@@ -97,7 +98,8 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
     setEditor({ open: true, editingId: rule && !asCopy ? rule.id : undefined });
   };
   const confirmEditor = () => {
-    const policy = policyFromDraft(draft);
+    const base = rules.find((rule) => rule.id === editor.editingId)?.policy;
+    const policy = policyFromDraft(draft, base);
     stage(
       editor.editingId === undefined
         ? [...rules, { id: `new-${nextRuleId++}`, policy }]
@@ -183,6 +185,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
           rules.map((rule) => rule.policy),
           editorIndex === -1 ? undefined : editorIndex,
         )}
+        shipped={editorIndex === -1 ? undefined : shippedRule(rules[editorIndex]!.policy)}
         workspaces={workspaces.data}
       />
     </section>

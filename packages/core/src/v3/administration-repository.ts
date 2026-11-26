@@ -46,9 +46,10 @@ const policySchema = z
     fingerprint: z.string().optional(),
     modes: z.array(z.string()).optional(),
     on: z.array(z.string()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional().catch(undefined),
   })
   .passthrough()
-  .transform((policy) => ({ ...policy, metadata: policy as Record<string, unknown> }));
+  .transform((policy) => ({ ...policy, metadata: policy.metadata ?? {} }));
 const hookInspectionSchema = z.object({
   backend: z.string().default('unknown'),
   enabled: z.boolean().default(false),
@@ -278,7 +279,12 @@ export class AdministrationRepository extends AttentionRepository {
     return this.transport.request({
       method: 'PUT',
       path: '/v1/policies',
-      body: { policies: policies.map(({ metadata: _metadata, ...policy }) => policy) },
+      // The service keeps a rule's metadata (its source and reason), so it goes back unchanged.
+      body: {
+        policies: policies.map(({ metadata, ...policy }) =>
+          Object.keys(metadata).length ? { ...policy, metadata } : policy,
+        ),
+      },
       decode: (input) =>
         z.object({ policies: z.array(policySchema) }).parse(input).policies as PermissionPolicy[],
       signal,
