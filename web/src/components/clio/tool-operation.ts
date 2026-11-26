@@ -54,19 +54,27 @@ function countSummary(summary: string): string {
   );
 }
 
-/** A wait receipt's counts as row metadata: "2 returned, 1 running". */
+/** A wait receipt's counts as row metadata: "2 returned, 1 running, 1 queued". */
 function receiptMetadata(counts: {
   returned: number;
   running?: number;
+  queued?: number;
+  waiting?: number;
+  paused?: number;
   failed?: number;
   attention?: number;
   unavailable?: number;
 }): string {
-  const { returned, running, failed, attention, unavailable } = counts;
+  const { returned, running, queued, waiting, paused, failed, attention, unavailable } = counts;
   return formatList(
     [
       plural(returned, { one: '# returned', other: '# returned' }),
       running ? plural(running, { one: '# running', other: '# running' }) : '',
+      queued ? plural(queued, { one: '# queued', other: '# queued' }) : '',
+      waiting
+        ? plural(waiting, { one: '# waiting for input', other: '# waiting for input' })
+        : '',
+      paused ? plural(paused, { one: '# paused', other: '# paused' }) : '',
       failed ? plural(failed, { one: '# unsuccessful', other: '# unsuccessful' }) : '',
       attention ? plural(attention, { one: '# needs attention', other: '# need attention' }) : '',
       unavailable ? plural(unavailable, { one: '# unavailable', other: '# unavailable' }) : '',
@@ -379,6 +387,9 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
     operation.metadata = receiptMetadata({
       returned: batchWait.tasks.length - batchWait.unavailable,
       running: batchWait.running,
+      queued: batchWait.queued,
+      waiting: batchWait.waiting,
+      paused: batchWait.paused,
       failed: batchWait.failed,
     });
   } else if (definition.family === 'assignment') {
@@ -409,6 +420,9 @@ export function toolOperation(tool: ToolInvocation, context: OperationContext = 
       operation.metadata = receiptMetadata({
         returned: tasks.length - receipt.unavailable,
         running: receipt.running,
+        queued: receipt.queued,
+        waiting: receipt.waiting,
+        paused: receipt.paused,
         failed: receipt.failed,
         attention: receipt.attention,
         unavailable: receipt.unavailable,

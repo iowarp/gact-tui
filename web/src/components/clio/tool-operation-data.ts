@@ -73,6 +73,19 @@ export function operationAnswer(value: unknown, depth = 0): unknown {
   return value;
 }
 
+/** Tasks a wait returned before they finished, with the state each task recorded then. */
+function waitUnfinished(result: Record<string, unknown>): { handle: string; status?: string }[] {
+  if (Array.isArray(result.unfinished))
+    return result.unfinished.flatMap((value) => {
+      const row = asRecord(value);
+      if (typeof row?.handle !== 'string') return [];
+      const status = typeof row.status === 'string' ? row.status : undefined;
+      return [{ handle: row.handle, status }];
+    });
+  // Receipts recorded before the rename listed handles alone, with no recorded state.
+  return operationStrings(result.pending).map((handle) => ({ handle }));
+}
+
 /** Retained wait receipts describe the result at that call, not the child's current work. */
 export function operationWaitTasks(
   tool: ToolInvocation,
@@ -82,6 +95,9 @@ export function operationWaitTasks(
       tasks: OperationTask[];
       pending: string[];
       running: number;
+      queued: number;
+      waiting: number;
+      paused: number;
       attention: number;
       failed: number;
       unavailable: number;
@@ -95,13 +111,19 @@ export function operationWaitTasks(
       ? result.results
       : undefined;
   if (!values) return undefined;
-  const pending = operationStrings(result.pending);
   const records = values.map(asRecord).filter((row) => row !== undefined);
   const attention = records.filter((row) => row.status === 'task_state_uncertain').length;
-  const running = pending.filter(
-    (handle) =>
+  const unfinished = waitUnfinished(result).filter(
+    ({ handle }) =>
       !records.some((row) => row.handle === handle && row.status === 'task_state_uncertain'),
-  ).length;
+  );
+  const pending = waitUnfinished(result).map(({ handle }) => handle);
+  const counted = (states: string[]) =>
+    unfinished.filter(({ status }) => status !== undefined && states.includes(status)).length;
+  const queued = counted(['accepted', 'queued']);
+  const waiting = counted(['input_required']);
+  const paused = counted(['paused']);
+  const running = unfinished.length - queued - waiting - paused;
   const failed = records.filter((row) =>
     ['failed', 'error', 'denied', 'cancelled', 'interrupted'].includes(String(row.status)),
   ).length;
@@ -189,7 +211,7 @@ export function operationWaitTasks(
       page,
     });
   }
-  return { tasks, pending, running, attention, failed, unavailable };
+  return { tasks, pending, running, queued, waiting, paused, attention, failed, unavailable };
 }
 
 /** Complete results only; capped previews remain represented by their declared content reference. */

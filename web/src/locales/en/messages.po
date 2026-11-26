@@ -3464,6 +3464,18 @@ msgstr "{rule} for {path}"
 msgid "{running, plural, one {# running} other {# running}}"
 msgstr "{running, plural, one {# running} other {# running}}"
 
+#: src/components/clio/tool-operation.ts
+msgid "{queued, plural, one {# queued} other {# queued}}"
+msgstr "{queued, plural, one {# queued} other {# queued}}"
+
+#: src/components/clio/tool-operation.ts
+msgid "{waiting, plural, one {# waiting for input} other {# waiting for input}}"
+msgstr "{waiting, plural, one {# waiting for input} other {# waiting for input}}"
+
+#: src/components/clio/tool-operation.ts
+msgid "{paused, plural, one {# paused} other {# paused}}"
+msgstr "{paused, plural, one {# paused} other {# paused}}"
+
 #: src/lib/variant-runs.ts
 msgid "{running} of {total} running"
 msgstr "{running} of {total} running"

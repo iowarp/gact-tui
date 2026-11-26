@@ -19,7 +19,8 @@ function waitResult(output: unknown): Record<string, unknown> | undefined {
   }
   const outer = record(output);
   const result = record(outer?.structuredContent) ?? record(outer?.structured_content) ?? outer;
-  return Array.isArray(result?.pending) &&
+  return result &&
+    (Array.isArray(result.unfinished) || Array.isArray(result.pending)) &&
     (Array.isArray(result.outcomes) || Array.isArray(result.results))
     ? result
     : undefined;

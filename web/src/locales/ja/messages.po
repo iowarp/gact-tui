@@ -3465,6 +3465,18 @@ msgstr "{path}に対して{rule}"
 msgid "{running, plural, one {# running} other {# running}}"
 msgstr "{running, plural, one {#件実行中} other {#件実行中}}"
 
+#: src/components/clio/tool-operation.ts
+msgid "{queued, plural, one {# queued} other {# queued}}"
+msgstr "{queued, plural, one {#????} other {#????}}"
+
+#: src/components/clio/tool-operation.ts
+msgid "{waiting, plural, one {# waiting for input} other {# waiting for input}}"
+msgstr "{waiting, plural, one {#?????} other {#?????}}"
+
+#: src/components/clio/tool-operation.ts
+msgid "{paused, plural, one {# paused} other {# paused}}"
+msgstr "{paused, plural, one {#?????} other {#?????}}"
+
 #: src/lib/variant-runs.ts
 msgid "{running} of {total} running"
 msgstr "{total}件中{running}件実行中"
