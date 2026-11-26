@@ -21,7 +21,7 @@ import { TechnicalDetails } from './technical-details';
 
 /** Nodes a stack draws one by one; a larger component draws three, a gap and its front node. */
 const DRAWN_NODES = 3;
-/** Depth the dots between a large component's front node and the three behind it take up. */
+/** Depth of the plain gap between a large component's front node and the three behind it. */
 const GAP_SLOTS = 2;
 
 type RunState = RunRow['state'];
@@ -223,8 +223,6 @@ interface StackGeometry {
   height: number;
   stepX: number;
   stepY: number;
-  /** How far the gap's dots rise to clear the front node's top-left corner. */
-  dotLift: number;
   box: string;
 }
 
@@ -233,7 +231,6 @@ const NODE_GEOMETRY: StackGeometry = {
   height: 48,
   stepX: 10,
   stepY: 8,
-  dotLift: 0,
   box: 'rounded-sm',
 };
 
@@ -242,13 +239,12 @@ const SERVICE_GEOMETRY: StackGeometry = {
   height: 60,
   stepX: 13,
   stepY: 3,
-  dotLift: 7,
   box: 'rounded-md origin-bottom-left [transform:rotateY(-28deg)_skewY(-4deg)]',
 };
 
 /**
  * A component's nodes as a parallax stack, one outline per node: up to three
- * drawn one by one, a larger component as three, a gap of dots and its front
+ * drawn one by one, a larger component as three, a plain gap and its front
  * node, the name's count saying how many there are.
  */
 function NodeStack({
@@ -263,7 +259,7 @@ function NodeStack({
   const looks = drawnNodes(component, phase);
   const gap = looks.length > DRAWN_NODES;
   const geometry = shape === 'service' ? SERVICE_GEOMETRY : NODE_GEOMETRY;
-  // Depth slots from the front: the front node, then room for the dots when there is a gap.
+  // Depth slots from the front: the front node, then a plain gap when there is one.
   const slots = looks.map((_, index) => (gap && index > 0 ? index + GAP_SLOTS : index));
   const depth = slots[slots.length - 1] ?? 0;
   const width = geometry.width + depth * geometry.stepX;
@@ -301,22 +297,6 @@ function NodeStack({
             ) : null}
           </span>
         ))}
-      {gap
-        ? // Along the boxes' top-left corners, where the gap leaves open space.
-          [0.25, 0.5, 0.75]
-            .map((share) => share * GAP_SLOTS)
-            .map((along) => (
-              <span
-                className="absolute size-[3px] rounded-full bg-foreground/70"
-                data-slot="job-node-gap"
-                key={along}
-                style={{
-                  left: along * geometry.stepX - 1.5,
-                  top: (depth - along) * geometry.stepY - 1.5 - geometry.dotLift,
-                }}
-              />
-            ))
-        : null}
     </span>
   );
 }
