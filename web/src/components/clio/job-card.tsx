@@ -1,5 +1,5 @@
-import { t, ph, plural } from '@lingui/core/macro';
-import { MonitorIcon, PackageIcon, ServerIcon } from 'lucide-react';
+import { t } from '@lingui/core/macro';
+import { MonitorIcon, PackageIcon } from 'lucide-react';
 import { InfoIcon } from '@/lib/icon-vocabulary';
 import { Fragment, type ReactNode } from 'react';
 import { formatDuration } from '@/lib/format';
@@ -359,40 +359,6 @@ function ComponentBlock({
   );
 }
 
-/**
- * A job with one component and nothing flowing in or out: there is no graph to
- * draw, so it reads as one line, its name, how many nodes and its state.
- */
-function SingleComponent({ component }: { component: JobComponent }) {
-  const nodes = component.nodes ?? null;
-  const shape = componentShape(component);
-  const Icon = shape === 'service' ? MonitorIcon : shape === 'install' ? PackageIcon : ServerIcon;
-  const hosts = component.hosts?.length ? component.hosts.join(', ') : undefined;
-  const name = componentName(component);
-  return (
-    <div
-      // One line inside the card that holds it, never a box inside that box (#66).
-      className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5"
-      data-component-id={component.id}
-      data-component-state={component.state ?? undefined}
-      data-slot="job-pipeline"
-      data-single=""
-      title={hosts}
-    >
-      <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 truncate font-medium text-foreground">
-        {nodes != null
-          ? plural(nodes, {
-              one: `${ph({ name })} (# node)`,
-              other: `${ph({ name })} (# nodes)`,
-            })
-          : name}
-      </span>
-      <ComponentState component={component} />
-    </div>
-  );
-}
-
 /** JARVIS's host slice (`start:end`, end exclusive) as the nodes it names, counted from 1. */
 function hostSlice(slice: string): string {
   const range = /^(\d+):(\d+)$/.exec(slice.trim());
@@ -682,7 +648,11 @@ export function JobCard({ job: reported, fallback, className, onOpen, actions }:
         ) : null}
       </div>
       {job.components.length === 1 && !job.couplings.length && job.components[0] ? (
-        <SingleComponent component={job.components[0]} />
+        // Its nodes drawn straight in the card: no data flow to frame, and never a
+        // box inside the card's box (#66).
+        <div className="flex min-w-0 justify-center py-1" data-slot="job-pipeline" data-single="">
+          <ComponentBlock component={job.components[0]} phase={job.phase} placed={false} />
+        </div>
       ) : job.components.length ? (
         <div
           className="flex min-w-0 flex-wrap items-start justify-center gap-3 rounded-lg border border-dashed border-foreground/35 px-3 py-3 @max-[420px]/job:flex-col @max-[420px]/job:items-center"

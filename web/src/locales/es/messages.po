@@ -3248,10 +3248,6 @@ msgstr "Activado: {names}"
 msgid "{names}. Values are hidden."
 msgstr "{names}. Los valores están ocultos."
 
-#: src/components/clio/job-card.tsx
-msgid "{nodes, plural, one {{name} (# node)} other {{name} (# nodes)}}"
-msgstr "{nodes, plural, one {{name} (# nodo)} other {{name} (# nodos)}}"
-
 #: src/components/clio/document-workspace.tsx
 msgid "{opened} Opened a desktop copy; edits are local to this copy."
 msgstr "{opened} Se abrió una copia local; las ediciones solo afectan a esta copia."
