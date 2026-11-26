@@ -508,7 +508,10 @@ function DefaultsRow({
         <AdjustIcon className="size-4" />
       </span>
       <span className="grid min-w-0 gap-0.5">
-        <span className="truncate text-ui font-semibold text-foreground" title={title}>
+        <span
+          className="line-clamp-2 text-ui leading-snug font-semibold break-words text-foreground"
+          title={title}
+        >
           {title}
         </span>
         {wide ? null : (

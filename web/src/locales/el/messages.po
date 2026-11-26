@@ -20009,6 +20009,10 @@ msgstr "Επιτρέπει στη μνήμη παρασκηνίου να κρα�
 msgid "Let running conversations finish"
 msgstr "Αφήστε τις συνομιλίες που εκτελούνται να ολοκληρωθούν"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Let the browser load {host}"
+msgstr "Φόρτωση του {host} στο πρόγραμμα περιήγησης"
+
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Levels"
 msgstr "Επίπεδα"
@@ -25972,6 +25976,10 @@ msgstr "Άνοιγμα διάρθρωσης πρακτικών με προσοχ
 #: src/components/clio/infrastructure-overview.tsx
 msgid "Open web search settings"
 msgstr "Άνοιγμα ρυθμίσεων αναζήτησης ιστού"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Open website"
+msgstr "Άνοιγμα ιστότοπου"
 
 #: src/components/clio/goal-notice.tsx
 msgid "Open Work"

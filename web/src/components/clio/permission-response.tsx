@@ -252,6 +252,7 @@ export function PermissionResponse({
       spokenDetail={flowTrust ? undefined : spokenToolCall(toolName, args, script?.code)}
       title={title}
       titleText={title}
+      wrapTitle
     >
       <AskBody>
         {flowTrust ? (

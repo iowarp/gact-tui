@@ -19991,6 +19991,10 @@ msgstr ""
 msgid "Let running conversations finish"
 msgstr ""
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Let the browser load {host}"
+msgstr ""
+
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Levels"
 msgstr ""
@@ -25953,6 +25957,10 @@ msgstr ""
 
 #: src/components/clio/infrastructure-overview.tsx
 msgid "Open web search settings"
+msgstr ""
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Open website"
 msgstr ""
 
 #: src/components/clio/goal-notice.tsx

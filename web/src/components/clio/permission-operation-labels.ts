@@ -27,6 +27,8 @@ export function permissionOperationLabel(
   input: Record<string, unknown> = {},
 ): string | undefined {
   if (name === 'web_fetch' && input.to_file === true) return t`Save web source`;
+  if (name === 'browser_host' && typeof input.host === 'string' && input.host.trim())
+    return t`Let the browser load ${ph({ host: input.host.trim() })}`;
   return OPERATIONS[name];
 }
 
@@ -50,6 +52,10 @@ export function permissionTitle(
   const named = legacyToolCallName(interaction.title);
   if (named !== undefined)
     return permissionOperationTitle(named, named === toolName ? fields : {}) ?? toolAction(named);
+  // The agent's curated title for an operation named here ("Write file") is the same
+  // action in English only; the translated name reads in the person's language.
+  const curated = toolName ? permissionOperationLabel(toolName, fields) : undefined;
+  if (curated) return curated;
   // A tool's description ("List, read, write, delete and stage files on a site") is not
   // what this call does, and the agent's stock "Permission required" says nothing: the
   // operation is named from the tool and its arguments instead.

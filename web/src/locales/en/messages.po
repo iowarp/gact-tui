@@ -20008,6 +20008,10 @@ msgstr "Let background memory keep facts about health, finances, beliefs and sim
 msgid "Let running conversations finish"
 msgstr "Let running conversations finish"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Let the browser load {host}"
+msgstr "Let the browser load {host}"
+
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Levels"
 msgstr "Levels"
@@ -25971,6 +25975,10 @@ msgstr "Open transcript outline with attention"
 #: src/components/clio/infrastructure-overview.tsx
 msgid "Open web search settings"
 msgstr "Open web search settings"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Open website"
+msgstr "Open website"
 
 #: src/components/clio/goal-notice.tsx
 msgid "Open Work"

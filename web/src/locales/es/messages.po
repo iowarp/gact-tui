@@ -20009,6 +20009,10 @@ msgstr "Permite que la memoria en segundo plano guarde datos sobre salud, finanz
 msgid "Let running conversations finish"
 msgstr "Dejar que terminen las conversaciones en curso"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Let the browser load {host}"
+msgstr "Cargar {host} en el navegador"
+
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Levels"
 msgstr "Niveles"
@@ -25972,6 +25976,10 @@ msgstr "Abrir el esquema de la transcripción con atención"
 #: src/components/clio/infrastructure-overview.tsx
 msgid "Open web search settings"
 msgstr "Abrir la configuración de búsqueda web"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Open website"
+msgstr "Abrir sitio web"
 
 #: src/components/clio/goal-notice.tsx
 msgid "Open Work"

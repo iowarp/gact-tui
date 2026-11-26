@@ -224,4 +224,6 @@ export const TOOL_OPERATIONS: Readonly<Record<string, OperationDefinition>> = {
   ),
   literature_search: search(t`Search literature`),
   literature_lookup: define(t`Look up`, 'declared', 'id'),
+  // The shared browser's site permission, held as the script's own row while it waits.
+  browser_host: define(t`Open website`, 'declared', 'host'),
 };

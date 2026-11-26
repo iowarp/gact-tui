@@ -20009,6 +20009,10 @@ msgstr "健康、お金、信条などに関する事実をバックグラウン
 msgid "Let running conversations finish"
 msgstr "実行中の会話を完了させる"
 
+#: src/components/clio/permission-operation-labels.ts
+msgid "Let the browser load {host}"
+msgstr "ブラウザーで {host} を読み込む"
+
 #: src/components/reui/cascader/cascader-i18n.tsx
 msgid "Levels"
 msgstr "レベル"
@@ -25972,6 +25976,10 @@ msgstr "アテンション付きでトランスクリプトのアウトライン
 #: src/components/clio/infrastructure-overview.tsx
 msgid "Open web search settings"
 msgstr "ウェブ検索の設定を開く"
+
+#: src/components/clio/tool-operation-contract.ts
+msgid "Open website"
+msgstr "Web サイトを開く"
 
 #: src/components/clio/goal-notice.tsx
 msgid "Open Work"

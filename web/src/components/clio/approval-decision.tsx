@@ -10,6 +10,12 @@ import { MenuRow } from './primitives/menu-row';
 import { SplitButton } from './primitives/split-button';
 import { t } from '@lingui/core/macro';
 
+/** Approve's filled amber face (spec rev 4): the permission tone, not the brand primary. */
+const APPROVE_TONE =
+  'border-transparent bg-warning text-background hover:bg-warning/90 focus-visible:[box-shadow:inset_0_0_0_1px_var(--background)]';
+const APPROVE_CHEVRON =
+  '[&>[data-slot=split-chevron]]:border-background/30 [&>[data-slot=split-chevron]]:bg-warning [&>[data-slot=split-chevron]]:text-background/85 [&>[data-slot=split-chevron]]:hover:bg-warning/90 [&>[data-slot=split-chevron]]:hover:text-background';
+
 export interface ApprovalScope {
   /** What the face reads ("Approve once"); the first scope is the face. */
   label: string;
@@ -129,11 +135,17 @@ export function ApprovalDecision({
         {face ? (
           menu ? (
             <SplitButton
-              className="@max-[420px]/ask:w-full [&>[data-slot=split-chevron]]:h-7"
+              className={cn(
+                '@max-[420px]/ask:w-full [&>[data-slot=split-chevron]]:h-7',
+                APPROVE_CHEVRON,
+              )}
               disabled={disabled}
               faceProps={{
                 'aria-label': face.name ?? face.label,
-                className: 'h-7 px-2.5 text-menu font-medium @max-[420px]/ask:flex-1',
+                className: cn(
+                  'h-7 px-2.5 text-menu font-medium @max-[420px]/ask:flex-1',
+                  APPROVE_TONE,
+                ),
               }}
               label={face.label}
               menuClassName="min-w-56"
@@ -155,6 +167,7 @@ export function ApprovalDecision({
           ) : (
             <AskButton
               aria-label={face.name ?? face.label}
+              className={APPROVE_TONE}
               disabled={disabled}
               onClick={() => approve(face)}
               primary
