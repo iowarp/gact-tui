@@ -163,6 +163,24 @@ function timeoutOf(bridge: FakeBridge): number | undefined {
 }
 
 describe('TauriClioTransport', () => {
+  it('refuses a path that resolves to another origin, before calling the bridge', async () => {
+    const bridge = new FakeBridge();
+    const transport = new TauriClioTransport({
+      endpoint: 'http://127.0.0.1:17800',
+      token: 'secret',
+      bridge,
+    });
+
+    await expect(
+      transport.request({
+        method: 'GET',
+        path: 'https://attacker.example/steal',
+        decode: (value) => value,
+      }),
+    ).rejects.toMatchObject({ code: 'path_outside_endpoint' });
+    expect(bridge.calls.filter((call) => call.command === 'gact_http')).toEqual([]);
+  });
+
   it('routes negotiated REST through the Rust bridge', async () => {
     const bridge = new FakeBridge();
     const transport = new TauriClioTransport({
