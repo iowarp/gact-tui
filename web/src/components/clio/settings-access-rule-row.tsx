@@ -114,30 +114,50 @@ export function AccessRuleRow({
     ...details.filter((detail) => !detail.long).map((detail) => detail.text),
     ...(showScope ? [scope.label] : []),
     ...(rank === undefined ? [] : [t`Priority ${rank}`]),
-    ...shipped.filter((detail) => !detail.long).map((detail) => detail.text),
-    ...[...details, ...shipped].filter((detail) => detail.long).map((detail) => detail.text),
+    ...details.filter((detail) => detail.long).map((detail) => detail.text),
   ];
+  // A shipped rule's source, traffic and reason get a line of their own, so no width hides them.
+  const shippedParts = shipped.map((detail) => detail.text);
   const editable = !BROWSER_KINDS.has(kind);
+  const line = (items: string[]) =>
+    items.map((part, index) => (
+      <span
+        aria-label={
+          part === scope.label && scope.missingId
+            ? t`${ph({ label: scope.label })}. Identifier ${ph({ missingId: scope.missingId })}`
+            : undefined
+        }
+        className={index ? 'ml-2.5' : undefined}
+        key={`${index}:${part}`}
+      >
+        {part}
+      </span>
+    ));
+  const notSaved = dirty ? <span className="ml-2.5 text-primary">{t`Not saved`}</span> : null;
   const meta = (
     <span
-      title={[...parts, scope.missingId ? t`Identifier ${ph({ missingId: scope.missingId })}` : '']
+      title={[
+        ...parts,
+        ...shippedParts,
+        scope.missingId ? t`Identifier ${ph({ missingId: scope.missingId })}` : '',
+      ]
         .filter(Boolean)
         .join(', ')}
     >
-      {parts.map((part, index) => (
-        <span
-          aria-label={
-            part === scope.label && scope.missingId
-              ? t`${ph({ label: scope.label })}. Identifier ${ph({ missingId: scope.missingId })}`
-              : undefined
-          }
-          className={index ? 'ml-2.5' : undefined}
-          key={`${index}:${part}`}
-        >
-          {part}
-        </span>
-      ))}
-      {dirty ? <span className="ml-2.5 text-primary">{t`Not saved`}</span> : null}
+      {shippedParts.length ? (
+        <>
+          <span className="block truncate">{line(parts)}</span>
+          <span className="block truncate">
+            {dirty ? <span className="mr-2.5 text-primary">{t`Not saved`}</span> : null}
+            {line(shippedParts)}
+          </span>
+        </>
+      ) : (
+        <>
+          {line(parts)}
+          {notSaved}
+        </>
+      )}
     </span>
   );
   const title = (
@@ -186,6 +206,7 @@ export function AccessRuleRow({
       onDoubleClick={editable && !confirming ? onEdit : undefined}
       status={<StatusIndicator label={status.label} tone={status.tone} />}
       title={title}
+      wrapMeta={shipped.length > 0}
     />
   );
 }
