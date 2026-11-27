@@ -1,7 +1,12 @@
 import { useContext, useEffect, useRef, type RefObject } from 'react';
 import type { SurfaceModel } from '@a2ui/web_core/v0_9';
 import type { ReactComponentImplementation } from '@a2ui/react/v0_9';
-import type { A2uiCaptureRequest, A2uiViewerReport, A2UISurface } from '@clio/core/v3';
+import type {
+  A2uiCaptureRequest,
+  A2uiViewerReadiness,
+  A2uiViewerReport,
+  A2UISurface,
+} from '@clio/core/v3';
 import type { View } from 'vega';
 import type { MapLibreMap } from 'maplibre-gl';
 import { useRepository } from '@/hooks/use-repository';
@@ -182,9 +187,30 @@ export function visualViewState(root: HTMLElement): Record<string, unknown> {
 }
 
 /**
+ * A view that cannot become ready as it is: a renderer declared its own failure. Its
+ * message is that renderer's text. Anything else that is not ready may still be.
+ */
+class A2uiViewFailure extends Error {}
+
+/** The readiness a viewer reports (`state.readiness`), from `assertReady`. */
+export function viewReadiness(target: HTMLElement, capture = false): A2uiViewerReadiness {
+  try {
+    assertReady(target, capture);
+    return { ready: true, state: 'ready', detail: '' };
+  } catch (failure) {
+    return {
+      ready: false,
+      state: failure instanceof A2uiViewFailure ? 'failed' : 'loading',
+      detail: failure instanceof Error ? failure.message : String(failure),
+    };
+  }
+}
+
+/**
  * Whether `target` can be captured now. The view a person sees (`capture` false, the
  * viewer's report) leaves out off-screen gated viewers, which a capture mounts itself;
- * a capture (`capture` true) also waits for those it mounted.
+ * a capture (`capture` true) also waits for those it mounted. A renderer's declared
+ * failure throws `A2uiViewFailure`; every other refusal is a view still coming up.
  */
 function assertReady(target: HTMLElement, capture = false): void {
   const counts = capture ? displayed : shown;
@@ -205,7 +231,11 @@ function assertReady(target: HTMLElement, capture = false): void {
       '[role="alert"]:not([data-a2ui-callout]), [data-visual-state="failed"]',
     ),
   ].find(counts);
-  if (failed) throw new Error(failed.textContent || 'A required view failed to render.');
+  if (failed)
+    throw new A2uiViewFailure(
+      // i18n-ignore: returned to the agent, kept in English like other text sent to the agent
+      failed.textContent || 'A required view failed to render.',
+    );
   if (
     [
       ...(target.matches('[aria-busy="true"], [data-visual-state="loading"]') ? [target] : []),
@@ -222,7 +252,7 @@ function assertReady(target: HTMLElement, capture = false): void {
     throw new Error('A view is still mounting for the capture.');
   for (const node of target.querySelectorAll<VisualNode>('[data-slot="a2ui-map-surface"]')) {
     if (!counts(node)) continue;
-    if (node.__clioMapFailure) throw new Error(node.__clioMapFailure);
+    if (node.__clioMapFailure) throw new A2uiViewFailure(node.__clioMapFailure);
     if (!node.__clioMap?.loaded() || !node.__clioMap.areTilesLoaded() || node.__clioMap.isMoving())
       throw new Error('Map data, tiles or camera are not ready.');
   }
@@ -236,8 +266,12 @@ function assertReady(target: HTMLElement, capture = false): void {
       throw new Error('The mesh graphics frame is unavailable.');
   }
   for (const image of target.querySelectorAll('img')) {
-    if (counts(image) && (!image.complete || !image.naturalWidth))
-      throw new Error('A required image is unavailable.');
+    if (!counts(image)) continue;
+    if (!image.complete) throw new Error('A required image is still loading.');
+    // A complete image without pixels failed to load; the browser does not retry it.
+    if (!image.naturalWidth)
+      // i18n-ignore: returned to the agent, kept in English like other text sent to the agent
+      throw new A2uiViewFailure('A required image is unavailable.');
   }
 }
 
@@ -278,7 +312,9 @@ async function captureMounted(target: HTMLElement, matches: () => boolean): Prom
       assertReady(target, true);
       break;
     } catch (error) {
-      if (!displayed(target) || attempt >= 70 || !matches()) throw error;
+      // A renderer's declared failure will not clear by waiting; return its reason now.
+      if (error instanceof A2uiViewFailure || !displayed(target) || attempt >= 70 || !matches())
+        throw error;
       await new Promise((resolve) => window.setTimeout(resolve, 100));
     }
   }
@@ -397,17 +433,10 @@ export function useA2uiVisualViewer(
         view.viewport = settledViewport;
       else settledViewport = view.viewport;
       const state = { ...view, ...boundControls(surface, model) };
-      let ready = true;
-      let detail = '';
-      try {
-        assertReady(node);
-      } catch (failure) {
-        ready = false;
-        detail = failure instanceof Error ? failure.message : String(failure);
-      }
+      const readiness = viewReadiness(node);
       const observed = {
         ...(compactVisualState(state) as Record<string, unknown>),
-        readiness: { ready, detail },
+        readiness,
       };
       const next = JSON.stringify(observed);
       if (fingerprint && next !== fingerprint) lease.advance();
@@ -420,7 +449,7 @@ export function useA2uiVisualViewer(
         artifact_id: artifactId,
         state: observed,
         visible: displayed(node) && document.visibilityState === 'visible',
-        ready,
+        ready: readiness.ready,
       };
     };
     // Every report can claim requests, including renewals while a capture runs (a
