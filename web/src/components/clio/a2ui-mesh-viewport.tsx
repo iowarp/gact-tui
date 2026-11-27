@@ -33,7 +33,7 @@ import { composeSnapshot } from './mesh-viewport-snapshot';
 import { parsedMeshCache } from './mesh-viewport-cache';
 import { partOpacityByName, type MeshField } from './mesh-viewport-mesh';
 import { parseMeshArtifact, type MeshFormat } from './mesh-viewport-formats';
-import { MeshViewportScene, type MeshUpAxis } from './mesh-viewport-scene';
+import { meshPartCenters, MeshViewportScene, type MeshUpAxis } from './mesh-viewport-scene';
 import {
   joinMeshSyncGroup,
   meshGroupBounds,
@@ -248,6 +248,7 @@ export function ClioMeshViewport({
       __clioMeshCapture?: () => HTMLCanvasElement;
       __clioMeshState?: () => unknown;
       __clioMeshInspect?: (box: { left: number; top: number; right: number; bottom: number }) => {
+        parts?: string[];
         count: number;
         nodeIds: number[];
         nodesTruncated: boolean;
@@ -263,6 +264,11 @@ export function ClioMeshViewport({
       };
       return {
         camera: scene.cameraState(),
+        // The camera's frame: Y up, the model's units. A CAD model exported Z-up is turned
+        // to glTF's Y-up, so the file's (x, y, z) shows at (x, z, -y); aim from these.
+        axes: 'y-up',
+        bounds: parsed.bounds,
+        parts: meshPartCenters(parsed),
         meshUri,
         frame: current.frame,
         color: fieldMetadata(current.color),
@@ -276,7 +282,10 @@ export function ClioMeshViewport({
     };
     captureNode.__clioMeshInspect = (box) => {
       const nodeIds = scene.nodesInScreenBox(box);
+      // The named parts first (a CAD scene's ``cutout_J1``, ``lid``): what a mark is about.
+      const parts = scene.partsInScreenBox(box).slice(0, 20);
       return {
+        ...(parts.length ? { parts } : {}),
         count: nodeIds.length,
         nodeIds: nodeIds.slice(0, 100),
         nodesTruncated: nodeIds.length > 100,

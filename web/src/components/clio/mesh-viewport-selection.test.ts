@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { projectedMeshNodeIds } from './mesh-viewport-scene';
+import { meshPartCenters, meshPartLabel, projectedMeshNodeIds, projectedMeshParts } from './mesh-viewport-scene';
 
 describe('mesh viewport box selection', () => {
   const camera = new THREE.PerspectiveCamera(90, 1, 0.1, 100);
@@ -28,5 +28,49 @@ describe('mesh viewport box selection', () => {
     expect(projectedMeshNodeIds(data, visibleTriangles, camera, { width: 0, height: 100 }, {
       left: 0, top: 0, right: 100, bottom: 100,
     })).toEqual([]);
+  });
+
+  it('names the parts under the rectangle, the most covered first (a mark over a case names cutout_J1)', () => {
+    // Three parts in front of the camera: lid (2 vertices), cutout_J1 (2), J1 (1, held by "board").
+    const scene = {
+      positions: Float32Array.from([
+        -0.2, 0, -5, 0.2, 0, -5, // lid, centre
+        -0.1, 0.1, -5, 0.1, 0.1, -5, // cutout_J1, centre
+        0, -0.1, -5, // J1, centre
+        3, 3, -5, // lid, far corner (outside the box)
+      ]),
+      parts: [
+        { name: 'cutout_J1', triangleStart: 0, triangleCount: 0, vertexStart: 2, vertexCount: 2 },
+        { name: 'lid', triangleStart: 0, triangleCount: 0, vertexStart: 0, vertexCount: 2 },
+        { name: 'J1', ancestors: ['board'], triangleStart: 0, triangleCount: 0, vertexStart: 4, vertexCount: 1 },
+        { name: '', triangleStart: 0, triangleCount: 0, vertexStart: 5, vertexCount: 1 },
+      ].sort((a, b) => a.vertexStart - b.vertexStart),
+    };
+    const visible = Uint32Array.from([0, 1, 2, 3, 4, 5]);
+    expect(projectedMeshParts(scene, visible, camera, { width: 100, height: 100 }, {
+      left: 40, top: 40, right: 60, bottom: 60,
+    })).toEqual(['cutout_J1', 'lid', 'J1 in board']);
+    expect(projectedMeshParts({ positions: scene.positions }, visible, camera, { width: 100, height: 100 }, {
+      left: 0, top: 0, right: 100, bottom: 100,
+    })).toEqual([]);
+  });
+
+  it('reads a CAD sub-mesh named after its node as that node (lid_65 under lid is the lid)', () => {
+    expect(meshPartLabel({ name: 'lid_65', ancestors: ['lid', 'enclosure'] })).toBe('lid in enclosure');
+    expect(meshPartLabel({ name: 'cutout_J1_3', ancestors: ['cutout_J1', 'enclosure'] })).toBe('cutout_J1 in enclosure');
+    expect(meshPartLabel({ name: 'cutout_J1_lid', ancestors: ['cutout_J1', 'enclosure'] })).toBe('cutout_J1_lid in cutout_J1 in enclosure');
+    expect(meshPartLabel({ name: 'J1', ancestors: ['board'] })).toBe('J1 in board');
+  });
+
+  it('says where each named part is in the view\'s frame, so a camera can be aimed at it', () => {
+    const data = {
+      positions: Float32Array.from([0, 0, 0, 2, 4, 6, 10, 10, 10, 12, 10, 10, 20, 20, 20]),
+      parts: [
+        { name: 'cutout_J1_1', ancestors: ['cutout_J1', 'enclosure'], triangleStart: 0, triangleCount: 0, vertexStart: 0, vertexCount: 2 },
+        { name: 'cutout_J1_2', ancestors: ['cutout_J1', 'enclosure'], triangleStart: 0, triangleCount: 0, vertexStart: 2, vertexCount: 2 },
+        { name: '', triangleStart: 0, triangleCount: 0, vertexStart: 4, vertexCount: 1 },
+      ],
+    };
+    expect(meshPartCenters(data)).toEqual({ 'cutout_J1 in enclosure': [6, 5, 5] });
   });
 });

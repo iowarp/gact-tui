@@ -12,6 +12,19 @@ const LazyMeshViewport = lazy(() =>
   import('./a2ui-mesh-viewport').then((module) => ({ default: module.ClioMeshViewport })),
 );
 
+const vector3 = z.tuple([z.number().finite(), z.number().finite(), z.number().finite()]);
+
+/** Where the view looks from, set by the producer (an agent aiming the view at a part). */
+export const meshCameraSchema = z
+  .object({
+    position: vector3,
+    target: vector3,
+    up: vector3.optional(),
+    fov: z.number().gt(1).lt(179).optional(),
+    zoom: z.number().positive().optional(),
+  })
+  .strict();
+
 export const meshViewportSchema = z
   .object({
     // Literal or bound (a list's selection can drive one viewer); the resolved value
@@ -28,7 +41,8 @@ export const meshViewportSchema = z
     thresholdField: z.string().optional(),
     thresholdMin: CommonSchemas.DynamicNumber.optional(),
     thresholdMax: CommonSchemas.DynamicNumber.optional(),
-    camera: CommonSchemas.DynamicValue.optional(),
+    // A literal camera aims the view; a binding keeps it shared with the data model.
+    camera: z.union([meshCameraSchema, z.object({ path: z.string().min(1) }).strict()]).optional(),
     syncGroup: z
       .string()
       .regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/u)

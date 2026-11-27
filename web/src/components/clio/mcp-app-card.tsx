@@ -7,6 +7,7 @@ import {
   adoptMcpAppTab,
   focusMcpAppTab,
   markMcpAppEnded,
+  mcpAppKeptInline,
   noteMcpApp,
   openMcpAppInTab,
   useMcpAppPresence,
@@ -69,6 +70,9 @@ export function McpAppCard({
       height={block.height}
       label={target.label}
       onBrowserPage={hooks.onBrowserPage}
+      declinesDisplayMode={(mode) =>
+        mode === 'fullscreen' && mcpAppKeptInline(target.appInstanceId)
+      }
       onDisplayModeChange={(mode) => {
         if (mode === 'fullscreen') openMcpAppInTab(target, repository);
       }}

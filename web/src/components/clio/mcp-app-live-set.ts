@@ -23,6 +23,12 @@ export interface McpAppLiveEntry extends McpAppTabTarget {
   /** The server no longer has the record (404); its tab stays to say so. */
   gone?: boolean;
   /**
+   * The person put the App back in the conversation (closed its tab, Return to
+   * conversation): a view's own request for its tab is declined until the person
+   * opens the tab again.
+   */
+  keptInline?: boolean;
+  /**
    * The transcript card this App was reopened from (MA19). A reopened view stands in
    * for its card: when that card is the conversation's latest, so is the view.
    */
@@ -124,7 +130,7 @@ function requestTab(entry: McpAppTabTarget): void {
 export function openMcpAppInTab(target: McpAppTabTarget, repository?: LiveSetRepository): void {
   const entry = noteMcpApp(target, repository);
   if (entry.placement === 'ended') return;
-  update(target.appInstanceId, { placement: 'tab' });
+  update(target.appInstanceId, { placement: 'tab', keptInline: false });
   void (entry.repository ?? repository)
     ?.setMcpAppDisplayMode(mcpAppIdentity(entry), 'fullscreen')
     .catch(() => undefined);
@@ -141,17 +147,30 @@ export function focusMcpAppTab(target: McpAppTabTarget): void {
  * `inline`). The latest App in its conversation goes back to its card; an older
  * one has no live card to return to, so it is closed (MA7).
  */
-export function returnMcpAppToConversation(appInstanceId: string): void {
+export function returnMcpAppToConversation(
+  appInstanceId: string,
+  { byPerson = false }: { byPerson?: boolean } = {},
+): void {
   const entry = useMcpAppLiveSetStore.getState().apps[appInstanceId];
   if (!entry || entry.placement !== 'tab') return;
   if (!isLatest(entry)) {
     closeOnServer(entry);
     return;
   }
-  update(appInstanceId, { placement: 'inline' });
+  update(appInstanceId, { placement: 'inline', keptInline: byPerson });
   void entry.repository
     ?.setMcpAppDisplayMode(mcpAppIdentity(entry), 'inline')
     .catch(() => undefined);
+}
+
+/**
+ * Whether a view's request to leave its card for a tab is declined: the person put the
+ * App back in the conversation, and a view that asks for its tab whenever it starts
+ * (its card mounts it again) would otherwise reopen the tab the person just closed.
+ */
+export function mcpAppKeptInline(appInstanceId: string): boolean {
+  const entry = useMcpAppLiveSetStore.getState().apps[appInstanceId];
+  return Boolean(entry?.keptInline && entry.placement === 'inline');
 }
 
 /** Whether "Return to conversation" puts the App back in a card (it is the latest). */

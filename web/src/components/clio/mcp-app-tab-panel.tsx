@@ -45,7 +45,7 @@ export function McpAppTabPanel({ target }: { target: McpAppTabTarget }) {
         actions={
           latest ? (
             <Button
-              onClick={() => returnMcpAppToConversation(target.appInstanceId)}
+              onClick={() => returnMcpAppToConversation(target.appInstanceId, { byPerson: true })}
               size="sm"
               type="button"
               variant="ghost"

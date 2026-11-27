@@ -84,6 +84,8 @@ export interface McpAppSurfaceProps extends BridgeHooks {
   actions?: ReactNode;
   /** The view asked for another mode and the host granted it (MA2). */
   onDisplayModeChange?: (mode: McpAppViewDisplayMode) => void;
+  /** True when the host keeps the current mode against the view's request (the person's placement wins). */
+  declinesDisplayMode?: (mode: McpAppViewDisplayMode) => boolean;
   /**
    * The descriptor reports a mode this placement does not hold (a reload, another
    * window). Return true when the frame belongs elsewhere and must not mount here.
@@ -429,7 +431,10 @@ const McpAppSurfaceInstance = forwardRef<
         return;
       }
       if (message.method === 'ui/request-display-mode') {
-        const mode = resolveDisplayMode(message.params?.mode, placement, appCapabilities);
+        let mode = resolveDisplayMode(message.params?.mode, placement, appCapabilities);
+        if (mode !== displayModeFor(placement) && latest.current.declinesDisplayMode?.(mode)) {
+          mode = displayModeFor(placement);
+        }
         post({ jsonrpc: '2.0', id: message.id, result: { mode } });
         // The answer reaches this frame before the move unmounts it.
         if (mode !== displayModeFor(placement)) {
