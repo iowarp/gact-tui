@@ -12,24 +12,40 @@ if (!Range.prototype.getClientRects) {
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
 }
 
-if (!URL.createObjectURL) {
-  Object.defineProperty(URL, 'createObjectURL', {
-    configurable: true,
-    value: (blob: Blob): string =>
-      `blob:test-${'name' in blob && typeof blob.name === 'string' ? blob.name : blob.size}`,
-    writable: true,
-  });
-}
+// Always replace the object-URL functions: the test URL global is Node's, whose
+// native createObjectURL cannot read jsdom Blobs and returns random names.
+Object.defineProperty(URL, 'createObjectURL', {
+  configurable: true,
+  value: (blob: Blob): string =>
+    `blob:test-${'name' in blob && typeof blob.name === 'string' ? blob.name : blob.size}`,
+  writable: true,
+});
 
-if (!URL.revokeObjectURL) {
-  Object.defineProperty(URL, 'revokeObjectURL', {
-    configurable: true,
-    value: () => undefined,
-    writable: true,
-  });
-}
+Object.defineProperty(URL, 'revokeObjectURL', {
+  configurable: true,
+  value: () => undefined,
+  writable: true,
+});
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+
+// jsdom's Blob has no stream(); browsers do, and Shiki decompresses its inlined
+// Oniguruma WASM through Blob.stream().pipeThrough(DecompressionStream).
+if (typeof Blob !== 'undefined' && !Blob.prototype.stream) {
+  Object.defineProperty(Blob.prototype, 'stream', {
+    configurable: true,
+    writable: true,
+    value(this: Blob): ReadableStream<Uint8Array> {
+      const blob = this;
+      return new ReadableStream<Uint8Array>({
+        async start(controller) {
+          controller.enqueue(new Uint8Array(await blob.arrayBuffer()));
+          controller.close();
+        },
+      });
+    },
+  });
+}
 
 if (!globalThis.ResizeObserver) {
   globalThis.ResizeObserver = class ResizeObserver {

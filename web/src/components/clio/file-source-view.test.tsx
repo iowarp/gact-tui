@@ -28,7 +28,9 @@ it('numbers a data file’s lines like code, small or windowed, so rows keep the
   const rows = Array.from({ length: 6000 }, (_, index) => `${index},${index * 2}`).join('\n');
   // jsdom lays nothing out; give the windowed list a viewport so it mounts its first rows.
   const size = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(400);
+  const clientSize = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(400);
   const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(600);
+  const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(600);
   const rect = vi
     .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
     .mockReturnValue(DOMRect.fromRect({ width: 600, height: 400 }));
@@ -37,7 +39,9 @@ it('numbers a data file’s lines like code, small or windowed, so rows keep the
   expect(large).toHaveTextContent('id,value');
   expect(large.querySelector('[aria-hidden="true"]')).toHaveTextContent('1');
   size.mockRestore();
+  clientSize.mockRestore();
   width.mockRestore();
+  clientWidth.mockRestore();
   rect.mockRestore();
 });
 
@@ -76,7 +80,9 @@ it('colours a large code file in chunks while its rows stay windowed, and leaves
     (_, index) => `def step_${index}():\n    return ${index}`,
   );
   const size = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(400);
+  const clientSize = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(400);
   const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(600);
+  const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(600);
   const rect = vi
     .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
     .mockReturnValue(DOMRect.fromRect({ width: 600, height: 400 }));
@@ -101,7 +107,9 @@ it('colours a large code file in chunks while its rows stay windowed, and leaves
     expect(csv.querySelector('span[style*="--syntax-"]')).toBeNull();
   } finally {
     size.mockRestore();
+    clientSize.mockRestore();
     width.mockRestore();
+    clientWidth.mockRestore();
     rect.mockRestore();
   }
 }, 30_000);

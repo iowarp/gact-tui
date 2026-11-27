@@ -345,7 +345,7 @@ mod tests {
         let mut hash = Sha256::new();
         hash.update(payload.as_bytes());
         hash.update(argument.as_bytes());
-        let expected = format!("{:x}", hash.finalize());
+        let expected = hex::encode(hash.finalize());
         let command = TransportCommand {
             program: "python3".into(),
             args: vec!["-c".into(), "import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()+sys.argv[1].encode()).hexdigest())".into(), argument],

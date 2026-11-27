@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, expect, it, vi } from 'vitest';
 import type {
   ResourceUploadProgress,
   UploadableFilePart,
@@ -14,6 +14,9 @@ import { ClioComposerAttachments } from './composer-attachments';
 
 vi.mock('./document-pdf-viewer', () => ({ ClioDocumentPdfViewer: () => null }));
 afterEach(cleanup);
+// Unmounting an attachment hover card can schedule its 300 ms close timer after
+// its own cleanup ran; let that timer fire before jsdom is torn down.
+afterAll(() => new Promise((resolve) => setTimeout(resolve, 400)));
 
 interface Attempt {
   files: readonly UploadableFilePart[];

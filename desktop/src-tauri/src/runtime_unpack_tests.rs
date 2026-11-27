@@ -2,7 +2,7 @@ use super::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    hex::encode(Sha256::digest(bytes))
 }
 
 struct Case(PathBuf);

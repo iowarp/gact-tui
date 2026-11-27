@@ -1,8 +1,11 @@
 import type { A2UISurface, PendingInteraction } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { vi } from 'vitest';
 import { ClioPendingInteractions } from './pending-interactions';
+
+type PendingInteractionsProps = ComponentProps<typeof ClioPendingInteractions>;
 
 export function pending(
   kind: PendingInteraction['kind'],
@@ -26,8 +29,10 @@ export function renderPending(
   options: {
     disabled?: boolean;
     error?: Error;
-    onRefetchSurfaces?: ReturnType<typeof vi.fn>;
-    onResponse?: ReturnType<typeof vi.fn>;
+    onRefetchSurfaces?: ReturnType<
+      typeof vi.fn<NonNullable<PendingInteractionsProps['onRefetchSurfaces']>>
+    >;
+    onResponse?: ReturnType<typeof vi.fn<PendingInteractionsProps['onResponse']>>;
     ownerLabels?: Record<string, string>;
     surfaces?: Record<string, A2UISurface>;
     viewedSessionId?: string;
@@ -51,4 +56,3 @@ export function renderPending(
   );
   return onResponse;
 }
-

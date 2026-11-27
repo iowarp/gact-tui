@@ -16,12 +16,12 @@
     "test": "vitest run src/v3"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1",
-    "@typescript-eslint/eslint-plugin": "8.16.0",
-    "@typescript-eslint/parser": "8.16.0",
-    "eslint": "9.16.0",
-    "typescript": "5.6.3",
-    "vitest": "2.1.8"
+    "@types/node": "^26.6.6",
+    "@typescript-eslint/eslint-plugin": "8.73.0",
+    "@typescript-eslint/parser": "8.73.0",
+    "eslint": "10.15.0",
+    "typescript": "6.0.3",
+    "vitest": "5.1.1"
   },
   "dependencies": {
     "@a2ui/web_core": "0.11.0",

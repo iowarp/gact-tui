@@ -56,9 +56,9 @@ describe('playAttentionSound', () => {
   it('resolves false and closes the context when resume() never settles under an autoplay policy', async () => {
     vi.useFakeTimers();
     const fakeContext = new FakeAudioContext();
-    (window as { AudioContext?: unknown }).AudioContext = vi.fn(
-      () => fakeContext,
-    ) as unknown as typeof AudioContext;
+    (window as { AudioContext?: unknown }).AudioContext = vi.fn(function () {
+      return fakeContext;
+    }) as unknown as typeof AudioContext;
 
     const resultPromise = playAttentionSound();
     await vi.advanceTimersByTimeAsync(2_000);
@@ -74,9 +74,9 @@ describe('playAttentionSound', () => {
       fakeContext.resumeCalls += 1;
       fakeContext.state = 'running';
     };
-    (window as { AudioContext?: unknown }).AudioContext = vi.fn(
-      () => fakeContext,
-    ) as unknown as typeof AudioContext;
+    (window as { AudioContext?: unknown }).AudioContext = vi.fn(function () {
+      return fakeContext;
+    }) as unknown as typeof AudioContext;
 
     const result = await playAttentionSound();
 

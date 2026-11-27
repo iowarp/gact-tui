@@ -124,6 +124,9 @@ function useMermaid({
           theme: resolvedMermaidTheme,
           themeVariables: parsedConfig.themeVariables,
           look: parsedConfig.look === 'handdrawn' ? 'handDrawn' : 'classic',
+          // Mermaid 12 lays out flowchart, state, class and ER diagrams with ELK by
+          // default; keep the Dagre layout the diagram regions and exports expect.
+          layout: 'dagre',
           // Mermaid 11 gives this root-level setting precedence over the
           // deprecated flowchart option. SVG text labels also rasterize
           // reliably in the shared zoom/pan canvas.
