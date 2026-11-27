@@ -1,5 +1,17 @@
 import { z } from 'zod';
 
+/**
+ * Whether a viewer can be captured, reported as `state.readiness`. `loading` may still
+ * become `ready`; `failed` is terminal for the view as reported, and `detail` carries
+ * the renderer's own failure text (a chart's error, a map's tile failure).
+ */
+export type A2uiViewerReadinessState = 'ready' | 'loading' | 'failed';
+export interface A2uiViewerReadiness {
+  ready: boolean;
+  state: A2uiViewerReadinessState;
+  detail: string;
+}
+
 /** Renderer-local state is separate from the persistent definition revision. */
 export interface A2uiViewerReport {
   viewer_id: string;

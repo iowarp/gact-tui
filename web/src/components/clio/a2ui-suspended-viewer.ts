@@ -1,5 +1,10 @@
 import { useEffect, type RefObject } from 'react';
-import type { A2uiCaptureRequest, A2uiViewerReport, A2UISurface } from '@clio/core/v3';
+import type {
+  A2uiCaptureRequest,
+  A2uiViewerReadiness,
+  A2uiViewerReport,
+  A2UISurface,
+} from '@clio/core/v3';
 import { useRepository } from '@/hooks/use-repository';
 import { captureVisualRequest, displayed, runCaptureBudget } from './a2ui-visual-viewer';
 import type { A2uiViewerLease } from './a2ui-viewer-lease';
@@ -10,10 +15,8 @@ import type { A2uiViewerLease } from './a2ui-viewer-lease';
  * surface, it is ready for a capture, which mounts it out of sight and waits for its
  * maps, charts and meshes before taking pixels.
  */
-export const SUSPENDED_VIEW_STATE = {
-  suspended: true,
-  readiness: { ready: true, detail: '' },
-} as const;
+const SUSPENDED_READINESS: A2uiViewerReadiness = { ready: true, state: 'ready', detail: '' };
+export const SUSPENDED_VIEW_STATE = { suspended: true, readiness: SUSPENDED_READINESS } as const;
 
 const SURFACE_ROOT = '[data-slot="a2ui-surface-root"]';
 const SUSPENDED_CONTROL_REFUSAL =

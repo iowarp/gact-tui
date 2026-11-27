@@ -5,6 +5,7 @@ import {
   visualViewState,
   visualCapturePixelRatio,
   visualMutationsChanged,
+  viewReadiness,
 } from './a2ui-visual-viewer';
 
 afterEach(() => {
@@ -117,6 +118,29 @@ describe('real renderer readiness inspection', () => {
       ).rejects.toThrow(reason);
     },
   );
+  it('reports a declared renderer failure as terminal, apart from a view still loading', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      width: 100,
+      height: 100,
+    } as DOMRect);
+    const root = document.createElement('div');
+    root.dataset.slot = 'a2ui-surface-root';
+    document.body.append(root);
+    root.innerHTML =
+      '<section data-a2ui-component-id="chart" data-visual-state="loading"></section>';
+    expect(viewReadiness(root)).toEqual({
+      ready: false,
+      state: 'loading',
+      detail: 'Required data or rendering is still loading.',
+    });
+    root.innerHTML =
+      '<section data-a2ui-component-id="chart" data-visual-state="failed">Field "flux" is not in the dataset</section>';
+    expect(viewReadiness(root)).toEqual({
+      ready: false,
+      state: 'failed',
+      detail: 'Field "flux" is not in the dataset',
+    });
+  });
   it('bounds large dataset evidence without losing camera or reference identity', () => {
     const result = compactVisualState({
       camera: { position: [1, 2, 3] },
