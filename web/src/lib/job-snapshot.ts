@@ -168,12 +168,39 @@ export function jobFromInteraction(payload: unknown): JobSnapshot | null {
 }
 
 /**
- * The job an ask draws, always with its nodes: one that names no components runs as one
- * step on one node, so even a bare planned command shows the node it will take.
+ * The job a card draws, always with its nodes: one that names no components runs as one
+ * step on one node, so even a bare planned command shows the node it will take. An
+ * install that has no plan yet (relay names no components before JARVIS plans it) is
+ * the package on its node, in the job's own state.
  */
 export function withPlannedNode(job: JobSnapshot, label: string): JobSnapshot {
   if (job.components.length) return job;
-  return { ...job, components: [{ id: job.operation_id || 'job', label, nodes: 1 }] };
+  const node: JobComponent = {
+    id: job.operation_id || 'job',
+    label,
+    nodes: 1,
+    role: job.kind === 'install' ? 'install' : null,
+    ...standInState(job),
+  };
+  return { ...job, components: [node] };
+}
+
+/** The state of a job's one stand-in node, from the job's phase and outcome. */
+function standInState(job: JobSnapshot): Partial<JobComponent> {
+  switch (job.phase) {
+    case 'submitted':
+    case 'queued':
+      return { state: 'waiting' };
+    case 'running':
+    case 'ending':
+      return { state: 'running', nodes_allocated: 1, nodes_running: 1 };
+    case 'ended':
+      if (job.outcome === 'succeeded') return { state: 'done' };
+      if (job.outcome === 'failed' || job.outcome === 'timed_out') return { state: 'failed' };
+      return job.outcome === 'cancelled' ? { state: 'cancelled' } : {};
+    default:
+      return {};
+  }
 }
 
 /** Jobs a tool result carries: `structuredContent.job` or `structuredContent.jobs[]`. */

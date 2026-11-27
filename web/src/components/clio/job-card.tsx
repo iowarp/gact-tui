@@ -9,6 +9,7 @@ import {
   type JobComponent,
   type JobCoupling,
   type JobSnapshot,
+  withPlannedNode,
 } from '@/lib/job-snapshot';
 import { formatList } from '@/lib/locale-format';
 import { Button } from '@/components/ui/button';
@@ -305,11 +306,14 @@ function ComponentBlock({
   component,
   phase,
   placed,
+  named = true,
 }: {
   component: JobComponent;
   phase: string;
   /** Whether the job has several components, so where each runs tells them apart. */
   placed: boolean;
+  /** Whether the node says its name and state; the card's head already does for a stand-in. */
+  named?: boolean;
 }) {
   const nodes = component.nodes ?? null;
   const hosts = component.hosts?.length ? component.hosts.join(', ') : undefined;
@@ -326,10 +330,14 @@ function ComponentBlock({
       title={hosts}
     >
       <NodeStack component={component} phase={phase} shape={shape} />
-      <span className="line-clamp-2 max-w-44 font-medium break-words text-foreground">
-        {counted ? t`${name} ×${nodes}` : name}
-      </span>
-      <ComponentState component={component} />
+      {named ? (
+        <>
+          <span className="line-clamp-2 max-w-44 font-medium break-words text-foreground">
+            {counted ? t`${name} ×${nodes}` : name}
+          </span>
+          <ComponentState component={component} />
+        </>
+      ) : null}
       {placed && component.host_slice ? (
         <span className="max-w-40 truncate text-meta text-muted-foreground">
           {hostSlice(component.host_slice)}
@@ -560,6 +568,7 @@ export function JobCard({ job: reported, fallback, className, onOpen, actions }:
   const site = job.site?.label || job.site?.id;
   const run = jobRunState(job);
   const name = jobTitle(job);
+  const standIn = job.components.length ? undefined : withPlannedNode(job, name).components[0];
   const progress = stepPercent(job);
   return (
     <section
@@ -649,24 +658,40 @@ export function JobCard({ job: reported, fallback, className, onOpen, actions }:
             </Fragment>
           ))}
         </div>
-      ) : job.step ? (
-        <div className="flex min-w-0 flex-col gap-1.5" data-slot="job-step">
-          <p className="min-w-0 wrap-anywhere text-foreground">
-            <span className="mr-1.5 text-meta text-muted-foreground">{t`Current step`}</span>
-            {job.step}
-          </p>
-          {progress ? (
-            <span className="flex min-w-0 items-center gap-2">
-              <RunProgressBar className="flex-1" percent={progress.percent} />
-              {progress.counted ? (
-                <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
-                  {progress.counted}
+      ) : (
+        // A job that names no components yet still draws the node it takes (an install, the
+        // package on its node); the head names it, and its current step follows.
+        <>
+          {standIn ? (
+            <div
+              className="flex min-w-0 justify-center py-1"
+              data-slot="job-pipeline"
+              data-single=""
+              data-stand-in=""
+            >
+              <ComponentBlock component={standIn} named={!run} phase={job.phase} placed={false} />
+            </div>
+          ) : null}
+          {job.step ? (
+            <div className="flex min-w-0 flex-col gap-1.5" data-slot="job-step">
+              <p className="min-w-0 wrap-anywhere text-foreground">
+                <span className="mr-1.5 text-meta text-muted-foreground">{t`Current step`}</span>
+                {job.step}
+              </p>
+              {progress ? (
+                <span className="flex min-w-0 items-center gap-2">
+                  <RunProgressBar className="flex-1" percent={progress.percent} />
+                  {progress.counted ? (
+                    <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
+                      {progress.counted}
+                    </span>
+                  ) : null}
                 </span>
               ) : null}
-            </span>
+            </div>
           ) : null}
-        </div>
-      ) : null}
+        </>
+      )}
       {site || job.job_id != null || onOpen ? (
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-meta">
           {site ? <Fact label={t`Site`} value={site} /> : null}
