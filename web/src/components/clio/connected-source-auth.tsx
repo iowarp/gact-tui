@@ -50,10 +50,13 @@ export function ConnectedAccountSignIn({
   provider,
   appUrl,
   onComplete,
+  purpose,
 }: {
   provider: string;
   appUrl?: string;
   onComplete: () => void;
+  /** Passed to GitHub's sign-in: ``publish`` explains writing to chosen repositories. */
+  purpose?: 'read' | 'publish';
 }) {
   const repository = useRepository();
   return (
@@ -61,6 +64,7 @@ export function ConnectedAccountSignIn({
       provider={provider}
       appUrl={appUrl}
       onComplete={onComplete}
+      purpose={purpose}
       repository={{
         cancelSourceSignIn: (_workspace, _source, flow) =>
           repository.cancelStorageAccountSignIn(provider, flow),
@@ -83,9 +87,11 @@ function BrowserStorageAuth({
   appUrl,
   onComplete,
   collectionConsent = false,
+  purpose,
 }: {
   repository: Pick<ClioRepository, 'startSourceSignIn' | 'completeSourceSignIn'> &
     Partial<Pick<ClioRepository, 'cancelSourceSignIn'>>;
+  purpose?: 'read' | 'publish';
   workspaceId?: string;
   sourceId?: string;
   provider: string;
@@ -158,6 +164,7 @@ function BrowserStorageAuth({
         workspaceId={workspaceId}
         sourceId={sourceId}
         onComplete={onComplete}
+        purpose={purpose}
       />
     );
   return (

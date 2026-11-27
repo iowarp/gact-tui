@@ -312,6 +312,11 @@ msgstr ""
 msgid "{0, plural, one {# field} other {# fields}}"
 msgstr ""
 
+#. placeholder {0}: request.changed.length
+#: src/components/clio/flow-trust-details.tsx
+msgid "{0, plural, one {# file changed since you trusted it} other {# files changed since you trusted it}}"
+msgstr ""
+
 #. placeholder {0}: files.length
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "{0, plural, one {# file, {sizeMb} MB, copied to {hostLabel}} other {# files, {sizeMb} MB, copied to {hostLabel}}}"
@@ -1512,6 +1517,10 @@ msgstr ""
 
 #: src/components/clio/new-conversation-chips.tsx
 msgid "{changes, plural, one {# change} other {# changes}}"
+msgstr ""
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "{changes, plural, one {Published # change to {repository}.} other {Published # changes to {repository}.}}"
 msgstr ""
 
 #: src/components/clio/attention-center.tsx
@@ -3544,6 +3553,10 @@ msgstr ""
 msgid "{repeatCaption} at {time}"
 msgstr ""
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "{repository} already matches this host."
+msgstr ""
+
 #: src/components/clio/attention-center.tsx
 msgid "{responseCount, plural, one {{firstTitle} needs your response; # response pending} other {{firstTitle} needs your response; # responses pending}}"
 msgstr ""
@@ -4522,6 +4535,10 @@ msgstr ""
 
 #: src/components/clio/search-contact-email.tsx
 msgid "<0>Add an email in Profile</0> to use it here."
+msgstr ""
+
+#: src/components/clio/github-source-auth.tsx
+msgid "<0>Choose the repositories to publish to on GitHub</0> and return here to sign in."
 msgstr ""
 
 #. placeholder {0}: setting.effect
@@ -6578,6 +6595,10 @@ msgstr ""
 
 #: src/components/clio/obsidian-source-form.tsx
 msgid "An empty knowledge vault managed by {agent}"
+msgstr ""
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "An existing repository, ideally private. Its other files are left as they are."
 msgstr ""
 
 #: src/components/clio/memory-import-dialog.tsx
@@ -9072,6 +9093,7 @@ msgid "Change URL"
 msgstr ""
 
 #: src/components/clio/diff-canvas-view.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/source-review-panel.tsx
 msgid "Changed"
 msgstr ""
@@ -9113,8 +9135,16 @@ msgstr ""
 msgid "Changed since the agent viewed it"
 msgstr ""
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Changed since you last published to {repository}."
+msgstr ""
+
 #: src/components/clio/document-working-copy.tsx
 msgid "Changed since you opened it"
+msgstr ""
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Changed since you trusted it"
 msgstr ""
 
 #: src/components/clio/file-text-view.tsx
@@ -9467,6 +9497,10 @@ msgstr ""
 
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Checking what depends on {named}…"
+msgstr ""
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Checking your GitHub sign-in…"
 msgstr ""
 
 #: src/components/clio/provider-action-flows.ts
@@ -12808,10 +12842,6 @@ msgstr ""
 msgid "Create a new vault"
 msgstr ""
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "Create a private GitHub repository and upload the unpacked files, preserving the folders."
-msgstr ""
-
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library-toolbar.tsx
 msgid "Create a skill"
@@ -12833,7 +12863,7 @@ msgstr ""
 msgid "Create dataset"
 msgstr ""
 
-#: src/components/clio/extension-library-panes.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 msgid "Create GitHub repository"
 msgstr ""
 
@@ -14354,10 +14384,6 @@ msgstr ""
 msgid "Download source"
 msgstr ""
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "Download the marketplace ZIP and unpack it."
-msgstr ""
-
 #: src/components/clio/model-acquisition.tsx
 msgid "Download the repository's files into a dedicated folder on this host. {agent} resolves an immutable revision, checks free space, and verifies the files. This does not load model code or start inference."
 msgstr ""
@@ -15779,10 +15805,6 @@ msgstr ""
 msgid "Export to {label}"
 msgstr ""
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "Export your saved agents, skills and plugins to a repository you control."
-msgstr ""
-
 #: src/offline-review.tsx
 msgid "Exported {exportedAt}"
 msgstr ""
@@ -16768,6 +16790,7 @@ msgstr ""
 msgid "Font substitution"
 msgstr ""
 
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "For"
 msgstr ""
@@ -16791,6 +16814,10 @@ msgstr ""
 
 #: src/components/clio/github-source-auth.tsx
 msgid "For private repositories or saving changes, <0>choose repositories on GitHub</0> and return here to sign in."
+msgstr ""
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "for tools matching {tools}"
 msgstr ""
 
 #: src/lib/model-capability-tags.ts
@@ -17320,6 +17347,10 @@ msgstr ""
 msgid "Give {name} {asked}?"
 msgstr ""
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Give the {agent} GitHub app access to the repository"
+msgstr ""
+
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
 msgstr ""
@@ -17513,6 +17544,10 @@ msgstr ""
 
 #: src/components/clio/map-legend.tsx
 msgid "Grey: no value"
+msgstr ""
+
+#: src/components/clio/settings-fleet.tsx
+msgid "Guide"
 msgstr ""
 
 #: src/components/reui/date-selector.tsx
@@ -17844,6 +17879,7 @@ msgid "Homelab"
 msgstr ""
 
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Hook"
 msgstr ""
@@ -19430,6 +19466,10 @@ msgstr ""
 msgid "Its own web index; filters by date, site and kind (papers, news, PDF)."
 msgstr ""
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Its parts"
+msgstr ""
+
 #: src/lib/a2ui/server-surface.ts
 msgid "Its plugin does not declare the component catalog it uses."
 msgstr ""
@@ -20758,6 +20798,10 @@ msgstr ""
 
 #: src/components/clio/document-workspace.tsx
 msgid "Loading PDF preview…"
+msgstr ""
+
+#: src/components/clio/plugin-asset-markdown-image.tsx
+msgid "Loading picture…"
 msgstr ""
 
 #: src/components/clio/settings-tool-permissions.tsx
@@ -26138,6 +26182,10 @@ msgstr ""
 msgid "Operating guidelines"
 msgstr ""
 
+#: src/components/clio/settings-fleet.tsx
+msgid "Optimize"
+msgstr ""
+
 #: src/components/clio/connect-frame.tsx
 #: src/components/clio/ssh-host-dialog.tsx
 #: src/components/clio/tool-schema-section.tsx
@@ -26196,6 +26244,10 @@ msgstr ""
 #: src/components/clio/primitives/key-chip.tsx
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "or"
+msgstr ""
+
+#: src/components/clio/extension-library-panes.tsx
+msgid "Or download the marketplace ZIP and upload it yourself. Saved MCP credentials are never included; configure those connections on each host."
 msgstr ""
 
 #: src/components/clio/pending-interaction-question-response.tsx
@@ -26949,6 +27001,10 @@ msgstr ""
 msgid "Picked profile"
 msgstr ""
 
+#: src/components/clio/plugin-asset-markdown-image.tsx
+msgid "Picture unavailable: {alt}"
+msgstr ""
+
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx
 #: src/components/clio/workspace-actions-menu.tsx
@@ -27170,6 +27226,7 @@ msgstr ""
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
@@ -28130,6 +28187,7 @@ msgstr ""
 msgid "Publication {state}. {count, plural, one {# file was published.} other {# files were published.}} {error}"
 msgstr ""
 
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/widget-gallery-demos.ts
 msgid "Publish"
 msgstr ""
@@ -28143,12 +28201,32 @@ msgstr ""
 msgid "Publish the report?"
 msgstr ""
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publish to GitHub"
+msgstr ""
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publish to the public repository"
+msgstr ""
+
+#: src/components/clio/extension-library-panes.tsx
+msgid "Publish your saved agents, skills and plugins to a GitHub repository you control."
+msgstr ""
+
 #: src/components/clio/mcp-sign-in.tsx
 msgid "Published client metadata URL"
 msgstr ""
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publishing isn’t available from this host."
+msgstr ""
+
 #: src/components/clio/source-review-panel.tsx
 msgid "Publishing selected edits…"
+msgstr ""
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publishing…"
 msgstr ""
 
 #: src/components/clio/cad-tool-panels.tsx
@@ -28823,6 +28901,10 @@ msgid "Reads before the suggestion"
 msgstr ""
 
 #: src/components/clio/settings-fleet.tsx
+msgid "Reads each conversation when /optimize looks across your recent work."
+msgstr ""
+
+#: src/components/clio/settings-fleet.tsx
 msgid "Reads finished conversations for facts worth keeping."
 msgstr ""
 
@@ -28832,6 +28914,10 @@ msgstr ""
 
 #: src/lib/model-capability-tags.ts
 msgid "Reads text."
+msgstr ""
+
+#: src/components/clio/settings-fleet.tsx
+msgid "Reads the documentation to answer broad questions about using the app."
 msgstr ""
 
 #: src/lib/model-capability-tags.ts
@@ -30283,6 +30369,7 @@ msgstr ""
 msgid "Reports"
 msgstr ""
 
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/model-acquisition.tsx
 msgid "Repository"
 msgstr ""
@@ -30942,6 +31029,7 @@ msgstr ""
 #: src/components/clio/knowledge-vault-files.tsx
 #: src/components/clio/latex-workspace.tsx
 #: src/components/clio/loading-feedback.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/mcp-app-reopen.tsx
 #: src/components/clio/memory-error-line.tsx
 #: src/components/clio/memory-scope-picker.tsx
@@ -31645,6 +31733,10 @@ msgstr ""
 
 #: src/components/clio/permission-operation-details.tsx
 msgid "Runs on"
+msgstr ""
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Runs on {event}"
 msgstr ""
 
 #: src/components/clio/subagent-model.tsx
@@ -32370,6 +32462,10 @@ msgstr ""
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Script asks you"
+msgstr ""
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Script binding"
 msgstr ""
 
 #: src/components/clio/plugin-tool-settings-text.ts
@@ -34491,6 +34587,10 @@ msgstr ""
 msgid "Sign in to data source"
 msgstr ""
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Sign in to GitHub to publish your plugins and agents to a repository with one click."
+msgstr ""
+
 #: src/components/clio/connected-source-form.tsx
 msgid "Sign in to Globus to reach your collections."
 msgstr ""
@@ -34530,6 +34630,10 @@ msgstr ""
 
 #: src/components/clio/github-source-auth.tsx
 msgid "Sign in with your GitHub account"
+msgstr ""
+
+#: src/components/clio/github-source-auth.tsx
+msgid "Sign in with your own account. Commits are made as you, only to repositories you give the app."
 msgstr ""
 
 #: src/components/clio/github-source-auth.tsx
@@ -34630,6 +34734,14 @@ msgstr ""
 
 #: src/components/clio/provider-connect-state.tsx
 msgid "Signed in to {name}."
+msgstr ""
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Signed in to GitHub as {account}."
+msgstr ""
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Signed in to GitHub."
 msgstr ""
 
 #: src/components/clio/obsidian-account-settings.tsx
@@ -36114,6 +36226,7 @@ msgstr ""
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-relationships.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 msgid "Subagent"
@@ -39363,10 +39476,6 @@ msgstr ""
 msgid "This is a classic NetCDF file; the array viewer reads NetCDF-4, which is HDF5."
 msgstr ""
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "This is a manual backup. Future edits remain local until you upload them again. Saved MCP credentials are not included; configure those connections on each host."
-msgstr ""
-
 #: src/components/clio/settings-folders-model.ts
 msgid "This is the primary folder."
 msgstr ""
@@ -39970,8 +40079,8 @@ msgstr ""
 msgid "To date for {label}"
 msgstr ""
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "To use the backup on another host, add its repository URL from Marketplaces. That host needs access to your private repository."
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "To use these on another host, add {url} from Marketplaces there."
 msgstr ""
 
 #: src/components/clio/data-filter-popover.tsx
@@ -40080,6 +40189,7 @@ msgstr ""
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
@@ -40216,6 +40326,10 @@ msgstr ""
 msgid "Tool scope"
 msgstr ""
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool server"
+msgstr ""
+
 #: src/components/clio/plugin-explorer.tsx
 msgid "Tool settings are available once this plugin is installed and trusted."
 msgstr ""
@@ -40232,6 +40346,10 @@ msgstr ""
 
 #: src/components/clio/injection-presentation.ts
 msgid "Tool task"
+msgstr ""
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool, reads only"
 msgstr ""
 
 #: src/lib/composer-reference-domain.ts
@@ -40478,6 +40596,10 @@ msgstr ""
 msgid "Trust and run"
 msgstr ""
 
+#: src/components/clio/permission-response.tsx
+msgid "Trust and use"
+msgstr ""
+
 #: src/components/clio/marketplace-manager.tsx
 msgid "Trust marketplace"
 msgstr ""
@@ -40556,6 +40678,7 @@ msgstr ""
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/managed-services.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/workbench-tab-error-boundary.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
@@ -41204,6 +41327,10 @@ msgstr ""
 msgid "Up to date"
 msgstr ""
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Up to date with {repository}."
+msgstr ""
+
 #: src/components/clio/settings-schedules.tsx
 msgid "Upcoming"
 msgstr ""
@@ -41654,6 +41781,10 @@ msgstr ""
 msgid "Use account memory"
 msgstr ""
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Use another account"
+msgstr ""
+
 #: src/components/clio/settings-schema-copy.ts
 msgid "Use conversation history"
 msgstr ""
@@ -41905,6 +42036,10 @@ msgstr ""
 
 #: src/components/clio/pending-interaction-notices.tsx
 msgid "Using compatibility response routes"
+msgstr ""
+
+#: src/components/clio/permission-response.tsx
+msgid "Using plugin {plugin}"
 msgstr ""
 
 #: src/components/clio/transcript-activity-summary.ts
@@ -42303,6 +42438,10 @@ msgstr ""
 
 #: src/components/clio/subagent-card.tsx
 msgid "View the agent, model, assignment, and timing"
+msgstr ""
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "View the commit on GitHub"
 msgstr ""
 
 #: src/components/clio/conversation-harness-injection.tsx

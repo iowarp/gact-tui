@@ -23,6 +23,10 @@ export const fleetSettingsSchema = z.object({
       .nullable()
       .optional(),
     explore: z.object({ provider_id: z.string(), model_id: z.string() }).nullable().optional(),
+    /** The guide plugin's clio-guide reader. */
+    guide: z.object({ provider_id: z.string(), model_id: z.string() }).nullable().optional(),
+    /** The builder's /optimize scan, one child per session. */
+    optimize: z.object({ provider_id: z.string(), model_id: z.string() }).nullable().optional(),
   }),
   /** The explore note: a reminder after a run of reading calls, never a spawn. */
   explore_nudge: z.object({ enabled: z.boolean(), after: z.number().int().min(0) }).optional(),

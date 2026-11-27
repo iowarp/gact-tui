@@ -265,3 +265,30 @@ it('lists every account under Delegation with its switch', async () => {
     expect(repository.setDelegationAllowed).toHaveBeenCalledWith('openrouter', true),
   );
 });
+
+it('lists the guide and optimize helpers when the server offers them', async () => {
+  repository.fleetSettings.mockResolvedValue({
+    revision: 'r1',
+    fast: null,
+    judges: {
+      goals: null,
+      variants: null,
+      permissions: null,
+      explore: null,
+      guide: null,
+      optimize: { provider_id: 'claude_code', model_id: 'haiku' },
+    },
+    search: null,
+  });
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <TooltipProvider>
+        <FleetSettingsPanel />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByRole('button', { name: 'Choose Guide judge' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Choose Optimize judge' })).toBeVisible();
+});

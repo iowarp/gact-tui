@@ -16,6 +16,12 @@ const repository = vi.hoisted(() => ({
   inspectPlugin: vi.fn(),
   localLibrary: vi.fn(),
   exportLocalMarketplace: vi.fn(),
+  localPublishStatus: vi.fn(async () => ({
+    github: { signed_in: false, account_name: '', account_url: '' },
+    last: null,
+    empty: false,
+    changed_since: false,
+  })),
   reconnectMcpServer: vi.fn(),
   installPluginMarketplace: vi.fn(),
   trustPluginMarketplace: vi.fn(),

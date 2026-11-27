@@ -4,12 +4,19 @@ import { t } from '@lingui/core/macro';
 
 /** The tool whose permission asks to trust a flow's plugin before running it. */
 export const RUN_FLOW_TOOL = 'run_flow';
+/**
+ * A permission input marked with this asks to trust a plugin the agent wrote before
+ * it first reaches the conversation or a child (`offer_plugin`, `spawn_agent_task`).
+ */
+export const ADD_PLUGIN_TRUST = 'add_plugin';
 
 /**
  * A permission to run a flow from a plugin that is not trusted yet: what the
  * card names (the flow, who wrote it, its file) and where its review is read.
  */
 export interface FlowTrustRequest {
+  /** `flow`: running one of its flows; `plugin`: using the plugin itself. */
+  kind: 'flow' | 'plugin';
   flow: string;
   plugin: string;
   version: string;
@@ -20,21 +27,37 @@ export interface FlowTrustRequest {
   file: string;
   /** `GET` address of the plugin's review; empty when the server named none. */
   reviewUrl: string;
+  /** Where the plugin is used (`this conversation`, `a child`); empty for a flow run. */
+  where: string;
+  /** Executable files changed since a version the person trusted; null: never trusted. */
+  changed: string[] | null;
 }
 
 /** The flow-trust request a permission carries, or `undefined` for any other permission. */
 export function flowTrustRequest(interaction: PendingInteraction): FlowTrustRequest | undefined {
   if (interaction.kind !== 'permission') return undefined;
   const call = interaction.payload?.tool_call;
-  if ((call?.tool_name ?? interaction.source.tool_name) !== RUN_FLOW_TOOL) return undefined;
   const input =
     call?.input && typeof call.input === 'object' && !Array.isArray(call.input)
       ? (call.input as Record<string, unknown>)
       : {};
+  const kind =
+    input['trust_kind'] === ADD_PLUGIN_TRUST
+      ? 'plugin'
+      : (call?.tool_name ?? interaction.source.tool_name) === RUN_FLOW_TOOL
+        ? 'flow'
+        : undefined;
+  if (!kind) return undefined;
   const text = (key: string) => (typeof input[key] === 'string' ? (input[key] as string) : '');
   const plugin = text('plugin').trim();
   if (!plugin) return undefined;
+  const changed = Array.isArray(input['changed_since_trusted'])
+    ? (input['changed_since_trusted'] as unknown[]).filter(
+        (path): path is string => typeof path === 'string',
+      )
+    : null;
   return {
+    kind,
     flow: text('flow').trim() || plugin,
     plugin,
     version: text('version'),
@@ -42,6 +65,8 @@ export function flowTrustRequest(interaction: PendingInteraction): FlowTrustRequ
     authoredByAgent: input['authored_by_clio'] === true,
     file: text('file').trim(),
     reviewUrl: text('review_url').trim(),
+    where: text('where').trim(),
+    changed,
   };
 }
 

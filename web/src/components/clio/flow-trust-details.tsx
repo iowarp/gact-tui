@@ -1,9 +1,9 @@
-import { FileCodeIcon, ShieldAlertIcon } from 'lucide-react';
+import { FileCodeIcon, FileDiffIcon, ShieldAlertIcon } from 'lucide-react';
 import { useState } from 'react';
 import { fileName, flowTrustAuthor, type FlowTrustRequest } from '@/lib/plugin-review';
 import { KeyValueGrid, type KeyValueItem } from './primitives/key-value-grid';
 import { PluginReviewDialog } from './plugin-review-dialog';
-import { t, ph } from '@lingui/core/macro';
+import { t, ph, plural } from '@lingui/core/macro';
 
 /**
  * The compact facts of a flow-trust permission, under its "Running flow …"
@@ -12,7 +12,8 @@ import { t, ph } from '@lingui/core/macro';
  */
 export function FlowTrustDetails({ request }: { request: FlowTrustRequest }) {
   const [open, setOpen] = useState(false);
-  const file = fileName(request.file);
+  const file = request.kind === 'plugin' ? '' : fileName(request.file);
+  const subject = request.kind === 'plugin' ? t`Plugin` : t`Flow`;
   const items: KeyValueItem[] = [
     {
       label: t`Trust`,
@@ -22,7 +23,7 @@ export function FlowTrustDetails({ request }: { request: FlowTrustRequest }) {
   ];
   if (request.reviewUrl) {
     items.push({
-      label: t`Flow`,
+      label: subject,
       icon: <FileCodeIcon />,
       mono: true,
       title: request.file
@@ -41,7 +42,7 @@ export function FlowTrustDetails({ request }: { request: FlowTrustRequest }) {
     });
   } else if (file) {
     items.push({
-      label: t`Flow`,
+      label: subject,
       icon: <FileCodeIcon />,
       mono: true,
       title: request.file,
@@ -53,6 +54,21 @@ export function FlowTrustDetails({ request }: { request: FlowTrustRequest }) {
           </span>
         </>
       ),
+    });
+  }
+  if (request.where) {
+    items.push({ label: t`For`, value: request.where });
+  }
+  if (request.changed && request.changed.length > 0) {
+    items.push({
+      label: t`Changed`,
+      icon: <FileDiffIcon />,
+      mono: true,
+      title: request.changed.join('\n'),
+      value: plural(request.changed.length, {
+        one: '# file changed since you trusted it',
+        other: '# files changed since you trusted it',
+      }),
     });
   }
   return (

@@ -38,6 +38,12 @@ const roles = [
     t`Explore`,
     t`Runs the read-only explore helper that searches files and data. A fast model keeps wide surveys quick.`,
   ],
+  ['guide', t`Guide`, t`Reads the documentation to answer broad questions about using the app.`],
+  [
+    'optimize',
+    t`Optimize`,
+    t`Reads each conversation when /optimize looks across your recent work.`,
+  ],
 ] as const;
 
 /**

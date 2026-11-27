@@ -99,6 +99,22 @@ describe('readA2uiReferenceBytes', () => {
       '/v1/workspaces/ws_1/resources/res_abc/content',
     ]);
   });
+  it('reads a plugin asset through the session route the service named', async () => {
+    const transport = new RecordingTransport([new Uint8Array([1, 2, 3, 4])]);
+    await new ClioRepository(transport).readA2uiReferenceBytes(
+      resolution({
+        uri: 'plugin-asset://guide/captures/docs-hooks.webp',
+        kind: 'plugin_asset',
+        workspace_id: '',
+        artifact_id: undefined,
+        media_type: 'image/webp',
+        fetch_path: '/v1/sessions/sess_1/plugin-assets/guide/captures/docs-hooks.webp',
+      }) as never,
+    );
+    expect(transport.requests.map((request) => request.path)).toEqual([
+      '/v1/sessions/sess_1/plugin-assets/guide/captures/docs-hooks.webp',
+    ]);
+  });
 });
 
 describe('reference detection', () => {
@@ -109,6 +125,7 @@ describe('reference detection', () => {
     ['RESOURCE:res_abc', true],
     ['artifact_abc', true],
     ['res_abc', true],
+    ['plugin-asset://guide/captures/docs-hooks.webp', true],
     ['https://example.org/a.png', false],
     ['res_../x', false],
     ['plot.png', false],

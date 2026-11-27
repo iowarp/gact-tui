@@ -313,6 +313,11 @@ msgstr "{0, plural, one {#個の機能} other {#個の機能}}"
 msgid "{0, plural, one {# field} other {# fields}}"
 msgstr "{0, plural, one {#個のフィールド} other {#個のフィールド}}"
 
+#. placeholder {0}: request.changed.length
+#: src/components/clio/flow-trust-details.tsx
+msgid "{0, plural, one {# file changed since you trusted it} other {# files changed since you trusted it}}"
+msgstr "{0, plural, other {信頼してから # 個のファイルが変更されました}}"
+
 #. placeholder {0}: files.length
 #: src/components/clio/desktop-folder-upload.tsx
 msgid "{0, plural, one {# file, {sizeMb} MB, copied to {hostLabel}} other {# files, {sizeMb} MB, copied to {hostLabel}}}"
@@ -1514,6 +1519,10 @@ msgstr "{changed, plural, one {#件のルールを変更} other {#件のルー�
 #: src/components/clio/new-conversation-chips.tsx
 msgid "{changes, plural, one {# change} other {# changes}}"
 msgstr "{changes, plural, one {#件の変更} other {#件の変更}}"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "{changes, plural, one {Published # change to {repository}.} other {Published # changes to {repository}.}}"
+msgstr "{changes, plural, other {{repository} に # 件の変更を公開しました。}}"
 
 #: src/components/clio/attention-center.tsx
 msgid "{code} on {computer}"
@@ -3552,6 +3561,10 @@ msgstr "{repeat} {time}"
 msgid "{repeatCaption} at {time}"
 msgstr "{repeatCaption} {time}"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "{repository} already matches this host."
+msgstr "{repository} はすでにこのホストと一致しています。"
+
 #: src/components/clio/attention-center.tsx
 msgid "{responseCount, plural, one {{firstTitle} needs your response; # response pending} other {{firstTitle} needs your response; # responses pending}}"
 msgstr "{responseCount, plural, one {{firstTitle}が応答を待っています。保留中の応答#件} other {{firstTitle}が応答を待っています。保留中の応答#件}}"
@@ -4532,6 +4545,10 @@ msgstr "<0>{tool}</0>はこれを待ってから続行します。"
 #: src/components/clio/search-contact-email.tsx
 msgid "<0>Add an email in Profile</0> to use it here."
 msgstr "ここで使うには<0>プロフィールでメールアドレスを追加</0>してください。"
+
+#: src/components/clio/github-source-auth.tsx
+msgid "<0>Choose the repositories to publish to on GitHub</0> and return here to sign in."
+msgstr "<0>GitHub で公開先のリポジトリを選び</0>、ここに戻ってサインインしてください。"
 
 #. placeholder {0}: setting.effect
 #: src/components/clio/settings-runtime.tsx
@@ -6588,6 +6605,10 @@ msgstr "添付ファイルにはMarkdownがありません"
 #: src/components/clio/obsidian-source-form.tsx
 msgid "An empty knowledge vault managed by {agent}"
 msgstr "{agent}が管理する空のナレッジ保管庫"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "An existing repository, ideally private. Its other files are left as they are."
+msgstr "既存のリポジトリ（できれば非公開）。リポジトリ内の他のファイルはそのまま残ります。"
 
 #: src/components/clio/memory-import-dialog.tsx
 msgid "An export keeps each memory where it was saved."
@@ -9081,6 +9102,7 @@ msgid "Change URL"
 msgstr "URLを変更"
 
 #: src/components/clio/diff-canvas-view.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/source-review-panel.tsx
 msgid "Changed"
 msgstr "変更済み"
@@ -9122,9 +9144,17 @@ msgstr "変更した設定はティール色で表示されます"
 msgid "Changed since the agent viewed it"
 msgstr "エージェントが表示した後に変更されました"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Changed since you last published to {repository}."
+msgstr "前回 {repository} に公開してから変更があります。"
+
 #: src/components/clio/document-working-copy.tsx
 msgid "Changed since you opened it"
 msgstr "開いた後に変更されました"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Changed since you trusted it"
+msgstr "信頼してからの変更"
 
 #: src/components/clio/file-text-view.tsx
 #: src/components/clio/session-rail-layout.ts
@@ -9477,6 +9507,10 @@ msgstr "バージョンを確認中"
 #: src/components/clio/plugin-removal-cascade.tsx
 msgid "Checking what depends on {named}…"
 msgstr "{named}に依存するものを確認しています…"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Checking your GitHub sign-in…"
+msgstr "GitHub のサインインを確認しています…"
 
 #: src/components/clio/provider-action-flows.ts
 msgid "Checking your key"
@@ -12817,10 +12851,6 @@ msgstr "メモリーを作成"
 msgid "Create a new vault"
 msgstr "新しい保管庫を作成"
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "Create a private GitHub repository and upload the unpacked files, preserving the folders."
-msgstr "非公開のGitHubリポジトリを作成し、フォルダー構成を保ったまま展開済みのファイルをアップロードします。"
-
 #: src/components/clio/extension-add-dialog.tsx
 #: src/components/clio/extension-library-toolbar.tsx
 msgid "Create a skill"
@@ -12842,7 +12872,7 @@ msgstr "別のワークスペースを作成"
 msgid "Create dataset"
 msgstr "データセットを作成"
 
-#: src/components/clio/extension-library-panes.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 msgid "Create GitHub repository"
 msgstr "GitHubリポジトリを作成"
 
@@ -14363,10 +14393,6 @@ msgstr "選択したファイルをダウンロード"
 msgid "Download source"
 msgstr "ソースをダウンロード"
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "Download the marketplace ZIP and unpack it."
-msgstr "マーケットプレイスのZIPをダウンロードして展開します。"
-
 #: src/components/clio/model-acquisition.tsx
 msgid "Download the repository's files into a dedicated folder on this host. {agent} resolves an immutable revision, checks free space, and verifies the files. This does not load model code or start inference."
 msgstr "リポジトリのファイルをこのホスト上の専用フォルダーにダウンロードします。{agent}は不変のリビジョンを解決し、空き容量を確認して、ファイルを検証します。モデルのコードを読み込んだり、推論を開始したりすることはありません。"
@@ -15788,10 +15814,6 @@ msgstr "共有用に保存したレビューが必要なときは、会話をエ
 msgid "Export to {label}"
 msgstr "{label}にエクスポート"
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "Export your saved agents, skills and plugins to a repository you control."
-msgstr "保存済みのエージェント、スキル、プラグインを自分が管理するリポジトリにエクスポートします。"
-
 #: src/offline-review.tsx
 msgid "Exported {exportedAt}"
 msgstr "{exportedAt}にエクスポート"
@@ -16777,6 +16799,7 @@ msgstr "フォントファイル"
 msgid "Font substitution"
 msgstr "フォントの置換"
 
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/sandbox-boundary-notice.tsx
 msgid "For"
 msgstr "期間"
@@ -16801,6 +16824,10 @@ msgstr "例: フィールドセンサー"
 #: src/components/clio/github-source-auth.tsx
 msgid "For private repositories or saving changes, <0>choose repositories on GitHub</0> and return here to sign in."
 msgstr "プライベートリポジトリや変更の保存には、<0>GitHubでリポジトリを選択</0>し、ここに戻ってサインインしてください。"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "for tools matching {tools}"
+msgstr "{tools} に一致するツールに対して"
 
 #: src/lib/model-capability-tags.ts
 msgid "Forecaster"
@@ -17329,6 +17356,10 @@ msgstr "このネットワークからのアップデート確認に対するGit
 msgid "Give {name} {asked}?"
 msgstr "{name} に {asked} を渡しますか？"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Give the {agent} GitHub app access to the repository"
+msgstr "{agent} の GitHub アプリにリポジトリへのアクセスを許可する"
+
 #: src/components/clio/deploy-name.ts
 msgid "Give this service a name."
 msgstr "このサービスに名前を付けてください。"
@@ -17523,6 +17554,10 @@ msgstr "緑"
 #: src/components/clio/map-legend.tsx
 msgid "Grey: no value"
 msgstr "グレー: 値なし"
+
+#: src/components/clio/settings-fleet.tsx
+msgid "Guide"
+msgstr "ガイド"
 
 #: src/components/reui/date-selector.tsx
 msgid "H1"
@@ -17862,6 +17897,7 @@ msgid "Homelab"
 msgstr "Homelab"
 
 #: src/components/clio/agent-package-items.ts
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/settings-health-views.tsx
 msgid "Hook"
 msgstr "フック"
@@ -19448,6 +19484,10 @@ msgstr "独自のウェブインデックス。日付、サイト、除外サイ
 msgid "Its own web index; filters by date, site and kind (papers, news, PDF)."
 msgstr "独自のウェブインデックス。日付、サイト、種類 (論文、ニュース、PDF) で絞り込めます。"
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Its parts"
+msgstr "構成要素"
+
 #: src/lib/a2ui/server-surface.ts
 msgid "Its plugin does not declare the component catalog it uses."
 msgstr "そのプラグインは使用するコンポーネントカタログを宣言していません。"
@@ -20777,6 +20817,10 @@ msgstr "ページを読み込み中"
 #: src/components/clio/document-workspace.tsx
 msgid "Loading PDF preview…"
 msgstr "PDFプレビューを読み込み中…"
+
+#: src/components/clio/plugin-asset-markdown-image.tsx
+msgid "Loading picture…"
+msgstr "画像を読み込んでいます…"
 
 #: src/components/clio/settings-tool-permissions.tsx
 msgid "Loading plugin tools…"
@@ -26156,6 +26200,10 @@ msgstr "OpenSSHが{host}から切断されました。"
 msgid "Operating guidelines"
 msgstr "運用ガイドライン"
 
+#: src/components/clio/settings-fleet.tsx
+msgid "Optimize"
+msgstr "最適化"
+
 #: src/components/clio/connect-frame.tsx
 #: src/components/clio/ssh-host-dialog.tsx
 #: src/components/clio/tool-schema-section.tsx
@@ -26215,6 +26263,10 @@ msgstr "選択肢:"
 #: src/components/clio/primitives/shortcut-sheet.tsx
 msgid "or"
 msgstr "または"
+
+#: src/components/clio/extension-library-panes.tsx
+msgid "Or download the marketplace ZIP and upload it yourself. Saved MCP credentials are never included; configure those connections on each host."
+msgstr "または、マーケットプレイスの ZIP をダウンロードして自分でアップロードします。保存された MCP の認証情報は含まれません。それらの接続は各ホストで設定してください。"
 
 #: src/components/clio/pending-interaction-question-response.tsx
 msgid "Or type your own answer"
@@ -26967,6 +27019,10 @@ msgstr "エントリー{winner}を選択"
 msgid "Picked profile"
 msgstr "選択したプロファイル"
 
+#: src/components/clio/plugin-asset-markdown-image.tsx
+msgid "Picture unavailable: {alt}"
+msgstr "画像を表示できません: {alt}"
+
 #: src/components/clio/session-management-menu.tsx
 #: src/components/clio/workbench-tab-row.tsx
 #: src/components/clio/workspace-actions-menu.tsx
@@ -27188,6 +27244,7 @@ msgstr "プラグイン"
 #: src/components/clio/connector-offer-response.tsx
 #: src/components/clio/connector-plugin-contents.tsx
 #: src/components/clio/extension-discover.tsx
+#: src/components/clio/flow-trust-details.tsx
 #: src/components/clio/offer-list-dialog.tsx
 #: src/components/clio/plugin-explorer.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
@@ -28148,6 +28205,7 @@ msgstr "公開サーバーのメタデータです。閲覧してもサーバー
 msgid "Publication {state}. {count, plural, one {# file was published.} other {# files were published.}} {error}"
 msgstr "公開：{state}。{count, plural, one {#個のファイルが公開されました。} other {#個のファイルが公開されました。}}{error}"
 
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/widget-gallery-demos.ts
 msgid "Publish"
 msgstr "公開"
@@ -28161,13 +28219,33 @@ msgstr "選択した編集を公開"
 msgid "Publish the report?"
 msgstr "レポートを公開しますか？"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publish to GitHub"
+msgstr "GitHub に公開"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publish to the public repository"
+msgstr "公開リポジトリに公開する"
+
+#: src/components/clio/extension-library-panes.tsx
+msgid "Publish your saved agents, skills and plugins to a GitHub repository you control."
+msgstr "保存したエージェント、スキル、プラグインを、自分が管理する GitHub リポジトリに公開します。"
+
 #: src/components/clio/mcp-sign-in.tsx
 msgid "Published client metadata URL"
 msgstr "公開されたクライアントメタデータURL"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publishing isn’t available from this host."
+msgstr "このホストからは公開できません。"
+
 #: src/components/clio/source-review-panel.tsx
 msgid "Publishing selected edits…"
 msgstr "選択した編集を公開中…"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Publishing…"
+msgstr "公開しています…"
 
 #: src/components/clio/cad-tool-panels.tsx
 msgid "Put the parts back together"
@@ -28841,6 +28919,10 @@ msgid "Reads before the suggestion"
 msgstr "提案するまでの読み取り回数"
 
 #: src/components/clio/settings-fleet.tsx
+msgid "Reads each conversation when /optimize looks across your recent work."
+msgstr "/optimize が最近の作業を見渡すときに、各会話を読みます。"
+
+#: src/components/clio/settings-fleet.tsx
 msgid "Reads finished conversations for facts worth keeping."
 msgstr "完了した会話を読み、残しておく価値のある事実を探します。"
 
@@ -28851,6 +28933,10 @@ msgstr "ファイルを直接読み書きします"
 #: src/lib/model-capability-tags.ts
 msgid "Reads text."
 msgstr "テキストを読み取ります。"
+
+#: src/components/clio/settings-fleet.tsx
+msgid "Reads the documentation to answer broad questions about using the app."
+msgstr "ドキュメントを読み、アプリの使い方に関する幅広い質問に答えます。"
 
 #: src/lib/model-capability-tags.ts
 msgid "Reads up to {tokens} tokens at once."
@@ -30301,6 +30387,7 @@ msgstr "報告された状態"
 msgid "Reports"
 msgstr "レポート"
 
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/model-acquisition.tsx
 msgid "Repository"
 msgstr "リポジトリ"
@@ -30960,6 +31047,7 @@ msgstr "検索取得"
 #: src/components/clio/knowledge-vault-files.tsx
 #: src/components/clio/latex-workspace.tsx
 #: src/components/clio/loading-feedback.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/mcp-app-reopen.tsx
 #: src/components/clio/memory-error-line.tsx
 #: src/components/clio/memory-scope-picker.tsx
@@ -31664,6 +31752,10 @@ msgstr "この会話の実行"
 #: src/components/clio/permission-operation-details.tsx
 msgid "Runs on"
 msgstr "実行場所"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Runs on {event}"
+msgstr "{event} で実行"
 
 #: src/components/clio/subagent-model.tsx
 msgid "Runs on {ref}, {effort} effort."
@@ -32389,6 +32481,10 @@ msgstr "スクリプト"
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Script asks you"
 msgstr "スクリプトが確認"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Script binding"
+msgstr "スクリプトバインディング"
 
 #: src/components/clio/plugin-tool-settings-text.ts
 msgid "Script blocked"
@@ -34509,6 +34605,10 @@ msgstr "ALCFのモデルを使うには、サインインしてください。"
 msgid "Sign in to data source"
 msgstr "データソースにサインイン"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Sign in to GitHub to publish your plugins and agents to a repository with one click."
+msgstr "GitHub にサインインすると、プラグインとエージェントをワンクリックでリポジトリに公開できます。"
+
 #: src/components/clio/connected-source-form.tsx
 msgid "Sign in to Globus to reach your collections."
 msgstr "コレクションにアクセスするにはGlobusにサインインしてください。"
@@ -34549,6 +34649,10 @@ msgstr "サービスでサインインしてください。認証情報はこの
 #: src/components/clio/github-source-auth.tsx
 msgid "Sign in with your GitHub account"
 msgstr "GitHubアカウントでサインイン"
+
+#: src/components/clio/github-source-auth.tsx
+msgid "Sign in with your own account. Commits are made as you, only to repositories you give the app."
+msgstr "自分のアカウントでサインインしてください。コミットはあなたとして、アプリに許可したリポジトリにだけ行われます。"
 
 #: src/components/clio/github-source-auth.tsx
 msgid "Sign in with your own account. Public repositories do not need sign-in."
@@ -34649,6 +34753,14 @@ msgstr "{account}としてサインイン済み"
 #: src/components/clio/provider-connect-state.tsx
 msgid "Signed in to {name}."
 msgstr "{name}にサインインしました。"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Signed in to GitHub as {account}."
+msgstr "{account} として GitHub にサインインしています。"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Signed in to GitHub."
+msgstr "GitHub にサインインしています。"
 
 #: src/components/clio/obsidian-account-settings.tsx
 msgid "Signed in to Obsidian, client {version}"
@@ -36133,6 +36245,7 @@ msgstr "サブエージェント"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/conversation-family-label.tsx
 #: src/components/clio/conversation-relationships.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/task-activity-row.tsx
 msgid "Subagent"
@@ -39382,10 +39495,6 @@ msgstr "この呼び出しは別のフローを開始せずに完了しました
 msgid "This is a classic NetCDF file; the array viewer reads NetCDF-4, which is HDF5."
 msgstr "これはクラシックNetCDFファイルです。配列ビューアーが読み取るのはNetCDF-4（HDF5）です。"
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "This is a manual backup. Future edits remain local until you upload them again. Saved MCP credentials are not included; configure those connections on each host."
-msgstr "これは手動バックアップです。今後の編集は、再度アップロードするまでローカルに残ります。保存済みのMCP認証情報は含まれないため、各ホストでそれらの接続を設定してください。"
-
 #: src/components/clio/settings-folders-model.ts
 msgid "This is the primary folder."
 msgstr "これはプライマリフォルダーです。"
@@ -39989,9 +40098,9 @@ msgstr "宛先"
 msgid "To date for {label}"
 msgstr "{label}の終了日"
 
-#: src/components/clio/extension-library-panes.tsx
-msgid "To use the backup on another host, add its repository URL from Marketplaces. That host needs access to your private repository."
-msgstr "別のホストでバックアップを使うには、マーケットプレイスからそのリポジトリのURLを追加してください。そのホストには非公開リポジトリへのアクセス権が必要です。"
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "To use these on another host, add {url} from Marketplaces there."
+msgstr "別のホストで使うには、そのホストの「マーケットプレイス」から {url} を追加してください。"
 
 #: src/components/clio/data-filter-popover.tsx
 msgid "To year"
@@ -40099,6 +40208,7 @@ msgstr "所要時間"
 #: src/components/clio/agent-package-items.ts
 #: src/components/clio/command-menu-work-groups.tsx
 #: src/components/clio/permission-response.tsx
+#: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/run-presentation.ts
 #: src/components/clio/run-record.tsx
 #: src/components/clio/server-surface-refusal-row.tsx
@@ -40235,6 +40345,10 @@ msgstr "キャプチャされた内容の先頭はツール結果です"
 msgid "Tool scope"
 msgstr "ツールの範囲"
 
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool server"
+msgstr "ツールサーバー"
+
 #: src/components/clio/plugin-explorer.tsx
 msgid "Tool settings are available once this plugin is installed and trusted."
 msgstr "ツールの設定は、このプラグインがインストールされて信頼されると利用できます。"
@@ -40252,6 +40366,10 @@ msgstr "ツールのソース"
 #: src/components/clio/injection-presentation.ts
 msgid "Tool task"
 msgstr "ツールタスク"
+
+#: src/components/clio/plugin-review-dialog.tsx
+msgid "Tool, reads only"
+msgstr "ツール (読み取りのみ)"
 
 #: src/lib/composer-reference-domain.ts
 msgid "tools"
@@ -40497,6 +40615,10 @@ msgstr "{name}を信頼…"
 msgid "Trust and run"
 msgstr "信頼して実行"
 
+#: src/components/clio/permission-response.tsx
+msgid "Trust and use"
+msgstr "信頼して使用"
+
 #: src/components/clio/marketplace-manager.tsx
 msgid "Trust marketplace"
 msgstr "マーケットプレイスを信頼"
@@ -40575,6 +40697,7 @@ msgstr "試行{number}を選択済み"
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/github-revision-picker.tsx
 #: src/components/clio/managed-services.tsx
+#: src/components/clio/marketplace-github-publish.tsx
 #: src/components/clio/plugin-review-dialog.tsx
 #: src/components/clio/workbench-tab-error-boundary.tsx
 #: src/routes/infrastructure-sandbox-row.tsx
@@ -41223,6 +41346,10 @@ msgstr "UTF-8ファイル128個まで、非圧縮で2 MiBまで。"
 msgid "Up to date"
 msgstr "最新"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Up to date with {repository}."
+msgstr "{repository} と同期済みです。"
+
 #: src/components/clio/settings-schedules.tsx
 msgid "Upcoming"
 msgstr "今後の予定"
@@ -41673,6 +41800,10 @@ msgstr "2 MiB未満のZIPを使うか、そのリポジトリを追加してく�
 msgid "Use account memory"
 msgstr "アカウントのメモリーを使用"
 
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "Use another account"
+msgstr "別のアカウントを使う"
+
 #: src/components/clio/settings-schema-copy.ts
 msgid "Use conversation history"
 msgstr "会話履歴を使用"
@@ -41925,6 +42056,10 @@ msgstr "バックグラウンドメモリーのモデルを使用し、「メモ
 #: src/components/clio/pending-interaction-notices.tsx
 msgid "Using compatibility response routes"
 msgstr "互換性のある応答ルートを使用しています"
+
+#: src/components/clio/permission-response.tsx
+msgid "Using plugin {plugin}"
+msgstr "プラグイン {plugin} を使用"
 
 #: src/components/clio/transcript-activity-summary.ts
 msgid "using tools"
@@ -42323,6 +42458,10 @@ msgstr "状態を表示"
 #: src/components/clio/subagent-card.tsx
 msgid "View the agent, model, assignment, and timing"
 msgstr "エージェント、モデル、割り当て、タイミングを表示"
+
+#: src/components/clio/marketplace-github-publish.tsx
+msgid "View the commit on GitHub"
+msgstr "GitHub でコミットを見る"
 
 #: src/components/clio/conversation-harness-injection.tsx
 msgid "View the exact text added to the agent's context"

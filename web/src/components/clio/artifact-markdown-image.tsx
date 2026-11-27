@@ -8,6 +8,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
 import { IMMUTABLE_QUERY, INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
 import { PresentationNavigation } from './presentation-navigation';
+import { PluginAssetMarkdownImage } from './plugin-asset-markdown-image';
 import { ARTIFACT_IMAGE_PATH } from '@/lib/remark-artifact-images';
 import { t, ph } from '@lingui/core/macro';
 
@@ -28,6 +29,7 @@ export function ArtifactMarkdownImage({
   } catch {
     return <span>{t`Saved image reference unavailable: ${ph({ alt: alt ?? '' })}`}</span>;
   }
+  if (uri.startsWith('plugin-asset://')) return <PluginAssetMarkdownImage alt={alt} uri={uri} />;
   const artifact = Object.values(navigation?.artifacts ?? {}).find(
     (candidate) => candidate.uri === uri || `artifact://${candidate.id}` === uri,
   );

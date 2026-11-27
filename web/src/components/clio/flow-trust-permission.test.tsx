@@ -47,6 +47,12 @@ function review(overrides: Partial<PluginReview> = {}): PluginReview {
     },
     files_truncated: false,
     authored_by_clio: true,
+    tools: [],
+    hooks: [],
+    subagents: [],
+    bindings: [],
+    servers: [],
+    changed_since_trusted: null,
     ...overrides,
   };
 }
@@ -211,5 +217,90 @@ describe('flow trust permission', () => {
     expect(
       await screen.findByText('Any number of sides argue a question, then a judge decides.'),
     ).toBeInTheDocument();
+  });
+});
+
+function pluginTrust(input: Record<string, unknown> = {}): PendingInteraction {
+  return {
+    id: 'permission:perm_2',
+    kind: 'permission',
+    owner_session_id: 'sess_1',
+    attended_session_id: 'sess_1',
+    status: 'pending',
+    title: 'Use hdf5-units, written by Clio, in a child: not trusted yet',
+    source: { protocol: 'native', tool_name: 'spawn_agent_task' },
+    created_at: '2026-11-16T00:00:00Z',
+    actions: ['allow', 'allow_session', 'allow_workspace', 'deny'],
+    payload: {
+      permission_id: 'perm_2',
+      tool_call: {
+        tool_name: 'spawn_agent_task',
+        input: {
+          trust_kind: 'add_plugin',
+          where: 'a child',
+          plugin: 'hdf5-units',
+          version: '0.2.0',
+          author: 'Clio',
+          authored_by_clio: true,
+          review_url: '/v1/plugins/hdf5-units/review',
+          changed_since_trusted: ['ai.iowarp.clio/tools/units.py'],
+          plugins: { add: ['private-local/hdf5-units'] },
+          ...input,
+        },
+      },
+    },
+  };
+}
+
+describe('plugin trust permission', () => {
+  it('names the plugin, where it is used and what changed, and trusts on "Trust and use"', async () => {
+    const user = userEvent.setup();
+    const onResponse = renderCard(pluginTrust());
+    expect(screen.getByText('Using plugin hdf5-units')).toBeInTheDocument();
+    expect(screen.getByText(`Authored by ${vocab.agent}, not trusted yet`)).toBeInTheDocument();
+    expect(screen.getByText('a child')).toBeInTheDocument();
+    expect(screen.getByText('1 file changed since you trusted it')).toBeInTheDocument();
+    expect(screen.queryByText('spawn_agent_task')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Trust and use' }));
+    expect(onResponse).toHaveBeenCalledWith(expect.objectContaining({ id: 'permission:perm_2' }), {
+      action: 'allow',
+    });
+  });
+
+  it('reviews every part: tools, hooks and what changed since it was trusted', async () => {
+    const user = userEvent.setup();
+    repository.pluginReview.mockResolvedValue(
+      review({
+        name: 'hdf5-units',
+        flows: [],
+        tools: [
+          {
+            name: 'to_kelvin',
+            description: 'Convert Celsius to kelvin.',
+            read_only: true,
+            file: 'ai.iowarp.clio/tools/units.py',
+          },
+        ],
+        hooks: [
+          {
+            id: 'protect_raw',
+            event: 'tool_call',
+            tools: 'fs_write_file',
+            description: 'Never write to raw/.',
+            file: 'ai.iowarp.clio/hooks/raw.py',
+          },
+        ],
+        changed_since_trusted: ['ai.iowarp.clio/tools/units.py'],
+      }),
+    );
+    renderCard(pluginTrust());
+    await user.click(screen.getByRole('button', { name: 'Review the hdf5-units plugin' }));
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByText('Its parts')).toBeInTheDocument());
+    expect(within(dialog).getByText('to_kelvin')).toBeInTheDocument();
+    expect(within(dialog).getByText('Convert Celsius to kelvin.')).toBeInTheDocument();
+    expect(within(dialog).getByText('protect_raw')).toBeInTheDocument();
+    expect(within(dialog).getByText('Changed since you trusted it')).toBeInTheDocument();
+    expect(within(dialog).queryByText('This plugin adds no flows.')).not.toBeInTheDocument();
   });
 });

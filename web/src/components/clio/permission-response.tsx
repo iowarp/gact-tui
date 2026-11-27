@@ -1,6 +1,6 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { BotIcon, FileCode2Icon, ShieldQuestionIcon, UserRoundIcon } from 'lucide-react';
-import { flowTrustRequest } from '@/lib/plugin-review';
+import { flowTrustRequest, type FlowTrustRequest } from '@/lib/plugin-review';
 import { answerWord } from '@/lib/binary-answers';
 import { cn } from '@/lib/utils';
 import { AskBody, AskCard, AskDetails, AskError, AskSection, type AskFact } from './ask-card';
@@ -181,8 +181,9 @@ export function PermissionResponse({
   responseError?: Error;
   showOwner: boolean;
 }) {
-  // Running a flow from a plugin not trusted yet: the decision is trusting its
-  // plugin, which lasts, so it is offered once ("Trust and run") without a duration.
+  // Running a flow from a plugin not trusted yet, or using a plugin the agent wrote: the
+  // decision is trusting the plugin, which lasts, so it is offered once ("Trust and run",
+  // "Trust and use") without a duration.
   const flowTrust = flowTrustRequest(interaction);
   const offered = (action: string) => !interaction.actions || interaction.actions.includes(action);
   const scopes = surfaceScopes(
@@ -198,7 +199,9 @@ export function PermissionResponse({
   // (48 lines): readings = …"), so the title is the spec's plain "Run script".
   const named = permissionTitle(interaction, toolName);
   const title = flowTrust
-    ? t`Running flow ${ph({ flow: flowTrust.flow })}`
+    ? flowTrust.kind === 'plugin'
+      ? t`Using plugin ${ph({ plugin: flowTrust.plugin })}`
+      : t`Running flow ${ph({ flow: flowTrust.flow })}`
     : script && !interaction.payload?.script
       ? t`Run script`
       : named;
@@ -208,7 +211,7 @@ export function PermissionResponse({
     onResponse(interaction, comment ? { action, answer: comment } : { action });
   const approvals = scopes.map(
     (scope, index): ApprovalScope => ({
-      label: flowTrust && index === 0 ? t`Trust and run` : scope.label,
+      label: flowTrust && index === 0 ? trustLabel(flowTrust) : scope.label,
       onApprove: (comment) => respond(scope.action, comment),
     }),
   );
@@ -360,4 +363,9 @@ export function PermissionResponse({
       />
     </AskCard>
   );
+}
+
+/** The one decision a trust ask offers: trusting lasts, so it has no duration. */
+function trustLabel(request: FlowTrustRequest): string {
+  return request.kind === 'plugin' ? t`Trust and use` : t`Trust and run`;
 }

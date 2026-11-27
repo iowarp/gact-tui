@@ -2,7 +2,11 @@ import { z } from 'zod';
 import {
   agentEntrySchema,
   localLibrarySchema,
+  localPublishResultSchema,
+  localPublishStatusSchema,
   type LocalLibrary,
+  type LocalPublishResult,
+  type LocalPublishStatus,
   agentResolutionSchema,
   marketplaceSummarySchema,
   pluginCatalogSchema,
@@ -105,6 +109,27 @@ export class PluginRepository extends SessionObservabilityRepository {
         if (!(value instanceof Uint8Array)) throw new Error('Invalid marketplace archive');
         return value;
       },
+    });
+  }
+  /** Whether this host is signed in to GitHub and what it published last. */
+  public localPublishStatus(signal?: AbortSignal): Promise<LocalPublishStatus> {
+    return this.transport.request({
+      method: 'GET',
+      path: '/v1/plugins/local/publish',
+      signal,
+      decode: (value) => localPublishStatusSchema.parse(value),
+    });
+  }
+  /** Publish the private collection to a GitHub repository in one commit. */
+  public publishLocalMarketplace(
+    repository: string,
+    allowPublic = false,
+  ): Promise<LocalPublishResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: '/v1/plugins/local/publish',
+      body: { repository, allow_public: allowPublic },
+      decode: (value) => localPublishResultSchema.parse(value),
     });
   }
   public uploadExtension(

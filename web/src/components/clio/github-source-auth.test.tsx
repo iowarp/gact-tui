@@ -103,3 +103,23 @@ it('reports denied authorization and allows another sign-in attempt', async () =
   expect(screen.getByRole('button', { name: 'Sign in with GitHub' })).toBeEnabled();
   expect(onComplete).not.toHaveBeenCalled();
 });
+
+it('says a sign-in for publishing writes only to repositories given to the app', () => {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <GitHubSourceAuth
+        appUrl="https://github.com/apps/clio/installations/new"
+        repository={repository}
+        workspaceId=""
+        sourceId=""
+        onComplete={onComplete}
+        purpose="publish"
+      />
+    </QueryClientProvider>,
+  );
+  expect(screen.getByText(/Commits are made as you/u)).toBeVisible();
+  expect(screen.queryByText(/Public repositories do not need sign-in/u)).toBeNull();
+  expect(
+    screen.getByRole('link', { name: 'Choose the repositories to publish to on GitHub' }),
+  ).toHaveAttribute('href', 'https://github.com/apps/clio/installations/new');
+});

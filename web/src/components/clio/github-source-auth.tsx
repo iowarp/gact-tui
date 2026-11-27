@@ -19,12 +19,15 @@ export function GitHubSourceAuth({
   workspaceId,
   sourceId,
   onComplete,
+  purpose = 'read',
 }: {
   repository: Repository;
   appUrl?: string;
   workspaceId: string;
   sourceId: string;
   onComplete: () => void;
+  /** ``publish``: the sign-in is for writing to repositories the person chooses. */
+  purpose?: 'read' | 'publish';
 }) {
   const [flow, setFlow] = useState<Flow>();
   const poll = useStorageSignInPoll({
@@ -55,9 +58,21 @@ export function GitHubSourceAuth({
     <section className="space-y-3 rounded-lg border p-4" aria-label={t`GitHub sign in`}>
       <h4 className="text-sm font-medium">{t`Sign in with your GitHub account`}</h4>
       <p className="text-sm text-muted-foreground">
-        {t`Sign in with your own account. Public repositories do not need sign-in.`}
+        {purpose === 'publish'
+          ? t`Sign in with your own account. Commits are made as you, only to repositories you give the app.`
+          : t`Sign in with your own account. Public repositories do not need sign-in.`}
       </p>
-      {appUrl && (
+      {appUrl && purpose === 'publish' ? (
+        <p className="text-sm text-muted-foreground">
+          <Trans>
+            <ExternalLink href={appUrl} className="underline">
+              Choose the repositories to publish to on GitHub
+            </ExternalLink>{' '}
+            and return here to sign in.
+          </Trans>
+        </p>
+      ) : null}
+      {appUrl && purpose !== 'publish' && (
         <p className="text-sm text-muted-foreground">
           <Trans>
             For private repositories or saving changes,{' '}

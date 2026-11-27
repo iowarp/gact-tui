@@ -94,7 +94,12 @@ export function mergeA2uiClientMetadata(
 }
 
 /** URL schemes the renderer allows for a resolved (post-binding) A2UI URL value. */
-export const A2UI_ALLOWED_URL_SCHEMES = ['https:', 'artifact:', 'resource:'] as const;
+export const A2UI_ALLOWED_URL_SCHEMES = [
+  'https:',
+  'artifact:',
+  'resource:',
+  'plugin-asset:',
+] as const;
 
 export type A2uiUrlCheck = { ok: true } | { ok: false; reason: string };
 
