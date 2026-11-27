@@ -4,7 +4,7 @@ export interface BundleQuestion {
   id: string;
   question: string;
   allow_freeform: boolean;
-  options: { label: string; value: string; description?: string }[];
+  options: { label: string; value: string; description?: string; recommended?: boolean }[];
 }
 const record = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -35,6 +35,7 @@ export function bundleQuestions(interaction: PendingInteraction): BundleQuestion
               value: option['value'],
               description:
                 typeof option['description'] === 'string' ? option['description'] : undefined,
+              recommended: option['recommended'] === true,
             },
           ];
         })
