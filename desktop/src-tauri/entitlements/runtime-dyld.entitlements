@@ -3,10 +3,11 @@
 <!--
   runtime.entitlements plus allow-dyld-environment-variables, for the few
   runtime executables that their parent starts with DYLD_* variables to find
-  their libraries (iowarp-core's clio_run). The hardened runtime strips
+  their libraries (the clio-core daemon). The hardened runtime strips
   DYLD_* variables from every other process. Applied by
   desktop/scripts/macos-sign-runtime.sh to the executables named in
-  MACOS_DYLD_EXECUTABLES (default: clio_run).
+  MACOS_DYLD_EXECUTABLES (default: the first name in
+  desktop/src-tauri/clio-core-daemon-executables.txt).
 -->
 <plist version="1.0">
 <dict>

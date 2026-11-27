@@ -1,0 +1,9 @@
+# Executable names of iowarp-core's clio-core runtime daemon, newest first,
+# without ".exe". The first name is the one the bundled runtime ships; the
+# rest are older names that a runtime installed by an earlier release still
+# runs under, so the installer's upgrade sweep can stop it.
+#
+# Read by src/clio_core_daemon.rs and scripts/macos-sign-runtime.sh. When
+# iowarp-core renames the daemon, add the new name as the first line.
+clio-run
+clio_run

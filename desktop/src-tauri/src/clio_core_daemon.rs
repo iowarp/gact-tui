@@ -1,5 +1,5 @@
 //! Quit-time and startup-time lifecycle for the machine-wide clio-core shared
-//! daemon (`clio_run`), keyed off the host client registry
+//! daemon (see [`bundled_daemon_executable`]), keyed off the host client registry
 //! [`crate::clio_core_registry`] reads (issue #D1).
 //!
 //! There is exactly ONE clio-core daemon per machine (fixed ports, host-global
@@ -8,7 +8,7 @@
 //! client. The daemon is normally released by the Python server's own
 //! `atexit` hook (`clio_agent.arc.storage.release_runtime_client`) on a
 //! graceful shutdown, but `supervisor_shutdown`'s `owned_descendants` sweep
-//! deliberately SPARES `clio_run.exe` from the force-kill tree — so if the
+//! deliberately SPARES the daemon from the force-kill tree — so if the
 //! graceful request stalls past `GRACEFUL_SHUTDOWN_STALL` and this desktop
 //! falls through to `TerminateProcess` on its own backend, that backstop
 //! never runs and the daemon is orphaned. This module is the second line of
@@ -33,7 +33,47 @@ use std::time::Duration;
 
 use crate::clio_core_registry::{self, DaemonPid};
 
-/// How long a clean `<clio_run> stop` gets to finish before falling back to a
+/// Every executable name the daemon has shipped under, newest first. The macOS
+/// runtime signer reads the same file, so a rename is one line there.
+const DAEMON_EXECUTABLES: &str = include_str!("../clio-core-daemon-executables.txt");
+
+fn daemon_executable_stems() -> impl Iterator<Item = &'static str> {
+    DAEMON_EXECUTABLES
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+}
+
+/// The daemon's name in the runtime this build bundles, without `.exe`.
+pub(crate) fn bundled_daemon_executable() -> &'static str {
+    daemon_executable_stems()
+        .next()
+        .expect("clio-core-daemon-executables.txt names the bundled daemon")
+}
+
+fn is_windows_image_of(image_name: &str, stem: &str) -> bool {
+    image_name
+        .get(..stem.len())
+        .is_some_and(|head| head.eq_ignore_ascii_case(stem))
+        && image_name
+            .get(stem.len()..)
+            .is_some_and(|tail| tail.eq_ignore_ascii_case(".exe"))
+}
+
+/// Whether a Windows process image name is the daemon this build's runtime
+/// starts. Anything this app launched runs the bundled runtime.
+pub(crate) fn is_bundled_daemon_image(image_name: &str) -> bool {
+    is_windows_image_of(image_name, bundled_daemon_executable())
+}
+
+/// Whether a Windows process image name is the daemon under any name it has
+/// shipped under. An upgrade replaces a runtime that an earlier release
+/// installed, and that runtime's daemon still runs under its older name.
+pub(crate) fn is_any_daemon_image(image_name: &str) -> bool {
+    daemon_executable_stems().any(|stem| is_windows_image_of(image_name, stem))
+}
+
+/// How long a clean `<daemon> stop` gets to finish before falling back to a
 /// hard kill. Mirrors `installer_runtime_stop::CLEAN_STOP_TIMEOUT` (the same
 /// daemon, the same clean-stop handshake); kept as its own constant here
 /// since that one is private to its module and this is a distinct call site.
@@ -136,9 +176,9 @@ fn stop_daemon(daemon: &DaemonPid) -> DaemonOutcome {
 
 /// Clean-stop-then-kill on Windows, reusing the exact FFI wrappers
 /// `installer_runtime_stop`'s pre-upgrade sweep already uses against this
-/// same `clio_run.exe` binary: resolve its own image path from the PID,
+/// same daemon binary: resolve its own image path from the PID,
 /// spawn `<path> stop`, confirm via a fresh liveness probe (not the helper's
-/// own exit code — `clio_run stop` reporting success and the daemon actually
+/// own exit code — `<daemon> stop` reporting success and the daemon actually
 /// releasing its socket are not perfectly atomic), then `TerminateProcess` +
 /// wait if it is still alive.
 ///
@@ -176,12 +216,12 @@ fn windows_stop_daemon(daemon: &DaemonPid) -> DaemonOutcome {
     DaemonOutcome::StoppedByForce(pid)
 }
 
-/// Clean-stop-then-kill on Unix: no bundled `clio_run` exe-path resolution
+/// Clean-stop-then-kill on Unix: no bundled daemon exe-path resolution
 /// exists on this platform in this crate today (that would need `/proc`
 /// parsing on Linux or a `sysctl`/`proc_pidpath` FFI on macOS — out of scope
 /// for this pass, matching the same platform-scoping precedent
 /// `clio_core_registry::pid_is_alive` documents), so this goes straight to
-/// SIGTERM-then-SIGKILL rather than attempting `clio_run stop` by exe path.
+/// SIGTERM-then-SIGKILL rather than attempting `<daemon> stop` by exe path.
 /// See `windows_stop_daemon`'s doc comment for why every confirmation below
 /// is cross-checked against `daemon.created_at` instead of `None`.
 #[cfg(unix)]
@@ -229,7 +269,7 @@ mod tests {
         dir
     }
 
-    /// A dummy long-running process standing in for `clio_run.exe` — never a
+    /// A dummy long-running process standing in for the daemon — never a
     /// real clio-core daemon. `cmd /C ping ...` on Windows keeps `cmd.exe`
     /// itself alive as the direct child for the duration (it waits on its
     /// own `ping` grandchild), giving a real, resolvable executable path for
@@ -483,5 +523,21 @@ mod tests {
 
         kill_dummy_daemon_tree(&mut daemon);
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn upgrades_find_the_daemon_under_older_names_but_this_app_spares_only_its_own() {
+        let bundled = bundled_daemon_executable();
+        assert!(is_bundled_daemon_image(&format!(
+            "{}.EXE",
+            bundled.to_ascii_uppercase()
+        )));
+        assert!(!is_any_daemon_image(bundled));
+        assert!(!is_any_daemon_image(&format!("{bundled}-child.exe")));
+        assert!(!is_any_daemon_image("python.exe"));
+        for name in daemon_executable_stems().skip(1) {
+            assert!(is_any_daemon_image(&format!("{name}.exe")));
+            assert!(!is_bundled_daemon_image(&format!("{name}.exe")));
+        }
     }
 }

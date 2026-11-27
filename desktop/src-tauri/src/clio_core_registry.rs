@@ -2,7 +2,7 @@
 //! `clio_agent.arc.storage` (the Python GACT server) writes under
 //! `~/.clio/hosts/<host>` (or `CLIO_RUNTIME_STATE_DIR` when overridden).
 //!
-//! There is exactly ONE clio-core daemon (`clio_run`) per machine; every
+//! There is exactly ONE clio-core daemon per machine; every
 //! clio-agent process on it (this desktop's managed backend, a CLI, a dev
 //! server) shares that daemon and registers itself as a client so the "last
 //! one out" release knows when it is safe to stop it. The on-disk shapes
