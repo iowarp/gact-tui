@@ -6,6 +6,8 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.14.0] - 2026-11-19
+
 ### Added
 
 - A conversation a Python script started with `run_flow` (its own work is a flow)
