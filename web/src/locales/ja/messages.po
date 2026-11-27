@@ -2051,6 +2051,10 @@ msgstr "経過時間：{elapsed}。このページを離れてもセットアッ
 msgid "{elapsed} of {limit}"
 msgstr "{limit} 中 {elapsed}"
 
+#: src/components/clio/desktop-title-bar.tsx
+msgid "{endpoints, plural, one {Stops the relay services on your site and this computer. Running jobs keep running.} other {Stops the relay services on your # sites and this computer. Running jobs keep running.}}"
+msgstr "{endpoints, plural, one {サイトとこのコンピューターのリレーサービスを停止します。実行中のジョブはそのまま実行されます。} other {# 件のサイトとこのコンピューターのリレーサービスを停止します。実行中のジョブはそのまま実行されます。}}"
+
 #: src/components/clio/composer.tsx
 msgid "{enteredId} is ambiguous; use {alternatives}"
 msgstr "{enteredId}はあいまいです。{alternatives}を使用してください"
@@ -6514,6 +6518,10 @@ msgstr "別の形式でも利用可能"
 msgid "Also called"
 msgstr "別名"
 
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Also close open relays"
+msgstr "開いているリレーも閉じる"
+
 #: src/components/clio/flow-step-details.tsx
 msgid "Also waits on its forks"
 msgstr "フォークも待機"
@@ -10380,6 +10388,10 @@ msgstr "{when}に終了しました。最後のエントリーを表示してい
 #: src/components/clio/table-query-rows.ts
 msgid "Closed; showing its last entries."
 msgstr "終了しました。最後のエントリーを表示しています。"
+
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Closing relays…"
+msgstr "リレーを閉じています…"
 
 #: src/components/clio/document-open-menu.tsx
 msgid "Closing…"

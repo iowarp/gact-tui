@@ -49,6 +49,8 @@ mod notifications;
 mod package_stamp;
 mod package_version;
 mod plugins;
+mod quit_preferences;
+mod relay_lifecycle;
 mod remote_lifecycle;
 #[cfg_attr(not(windows), allow(dead_code))]
 mod runtime_install_report;
@@ -297,6 +299,7 @@ pub fn run() {
             terminal_pty::terminal_resize,
             terminal_pty::terminal_close,
             quit_clio,
+            quit_preferences::quit_preferences,
             restart_clio,
             close_prompt_shown,
             quit_prompt_shown,
@@ -516,7 +519,8 @@ pub fn run() {
             // claim_quit() makes this a no-op if request_quit already
             // handled it above (the common case).
             if claim_quit() {
-                shutdown_owned_services(app_handle);
+                // A session ending (logoff, shutdown) cannot wait for remote sites.
+                shutdown_owned_services(app_handle, false);
             }
         }
         _ => {}
@@ -650,15 +654,51 @@ pub fn stop_managed_runtime_command(root: &std::path::Path) -> Result<String, St
 /// no-op, which is what makes running it from every entry point (rather than
 /// threading a "did we already quit" flag through each of them) safe.
 pub(crate) fn request_quit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    request_quit_with(app, QuitRelays::Remembered);
+}
+
+/// Whether a quit also closes the person's open relays.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum QuitRelays {
+    /// A quit with no prompt (tray, app menu, nothing running): the saved choice.
+    Remembered,
+    /// The person's answer in the quit prompt, saved for next time. With `true` the
+    /// window stays up, showing "Closing relays…", until the relays are closed.
+    Chosen(bool),
+    /// CLIO relaunches at once (a moved app): relays stay open, the choice unchanged.
+    KeepOpen,
+}
+
+/// [`request_quit`] with the relay choice made explicit.
+pub(crate) fn request_quit_with<R: tauri::Runtime>(app: &tauri::AppHandle<R>, relays: QuitRelays) {
     if !claim_quit() {
         return;
     }
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.hide();
+    let close_relays = match relays {
+        QuitRelays::Remembered => quit_preferences::load(app).close_relays_on_quit,
+        QuitRelays::Chosen(choice) => {
+            quit_preferences::save(
+                app,
+                quit_preferences::QuitPreferences {
+                    close_relays_on_quit: choice,
+                },
+            );
+            choice
+        }
+        QuitRelays::KeepOpen => false,
+    };
+    let keep_window = relays == QuitRelays::Chosen(true);
+    if !close_relays && relays != QuitRelays::KeepOpen {
+        supervisor_boot_log::boot_log_line("relays on quit: left running, as chosen");
+    }
+    if !keep_window {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.hide();
+        }
     }
     let app_handle = app.clone();
     thread::spawn(move || {
-        shutdown_owned_services(&app_handle);
+        shutdown_owned_services(&app_handle, close_relays);
         app_handle.exit(0);
     });
 }
@@ -703,12 +743,28 @@ pub(crate) fn request_user_quit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 /// to kill anyway — cheaper than closing it after. A running managed-package
 /// installer is stopped alongside all of this (see
 /// `execution_install::stop_package_installs`).
-pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+///
+/// With `close_relays`, the person's open relays close first, while the agent that
+/// reaches them still runs (see [`relay_lifecycle::close_relays`], bounded), and the
+/// window hides once they have.
+pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    close_relays: bool,
+) {
     // A managed-package installer is independent of the backend: interrupt it
     // now and let it clean up while the rest stops. Joined before returning, so
     // a relaunched or moved copy (which waits for this process to exit) never
     // overlaps it.
     let package_installs = thread::spawn(execution_install::stop_package_installs);
+    if close_relays {
+        if let Some(state) = app.try_state::<Mutex<Supervisor>>() {
+            let handle = supervisor_state::lock_recover(&state).snapshot();
+            relay_lifecycle::close_relays(&handle.url, &handle.bearer_token);
+        }
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.hide();
+        }
+    }
     if let (Some(state), Some(owner)) = (
         app.try_state::<Mutex<Supervisor>>(),
         app.try_state::<remote_lifecycle::DesktopDeploymentOwner>(),
@@ -787,9 +843,15 @@ fn release_idle_clio_core_daemon() {
 /// this, quitting synchronously ran teardown on the command's own thread, so
 /// a slow shutdown could make the invoke look rejected on a perfectly normal
 /// quit and trip the "could not update the desktop window" toast.
+///
+/// `close_relays` is the quit prompt's "Also close open relays" answer, saved as the
+/// person's choice; without it (a quit with no prompt) the saved choice applies.
 #[tauri::command]
-fn quit_clio(app: tauri::AppHandle) {
-    request_quit(&app);
+fn quit_clio(app: tauri::AppHandle, close_relays: Option<bool>) {
+    request_quit_with(
+        &app,
+        close_relays.map_or(QuitRelays::Remembered, QuitRelays::Chosen),
+    );
 }
 
 /// Whole-app relaunch, invoked from the Infrastructure > Agent "Protected
@@ -819,7 +881,8 @@ fn restart_clio(app: tauri::AppHandle) {
         return;
     }
     thread::spawn(move || {
-        shutdown_owned_services(&app);
+        // A restart comes straight back; the person's relays stay open for it.
+        shutdown_owned_services(&app, false);
         app.restart();
     });
 }

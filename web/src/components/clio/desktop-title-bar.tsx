@@ -36,7 +36,7 @@ import {
   SettingsIcon,
 } from '@/lib/icon-vocabulary';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -90,9 +90,14 @@ import {
 import {
   ackClosePromptShown,
   ackQuitPromptShown,
+  quitDesktop,
+  readQuitPrompt,
   runDesktopWindowAction,
+  type DesktopQuitPrompt,
   type DesktopWindowAction,
 } from '@/tauri/desktop-window';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Spinner } from '@/components/ui/spinner';
 import { t, ph, plural } from '@lingui/core/macro';
 
 // macOS keeps its native traffic lights (top-left); the bar's left section
@@ -217,12 +222,101 @@ function SwitchAgentItems() {
   ));
 }
 
+/**
+ * The quit prompts' "Also close open relays" choice. The host reports the saved
+ * answer and whether the local agent has relay endpoints each time a prompt opens;
+ * with none the box stays hidden and quitting keeps the saved answer. Quitting with
+ * the box ticked keeps the prompt up, showing that the relays are closing, until the
+ * host has closed them (bounded) and hides the window.
+ */
+function useQuitRelays(promptOpen: boolean) {
+  const [prompt, setPrompt] = useState<DesktopQuitPrompt | null>(null);
+  const [closeRelays, setCloseRelays] = useState(true);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    if (!promptOpen) return;
+    let current = true;
+    void readQuitPrompt().then(
+      (next) => {
+        if (!current) return;
+        setPrompt(next);
+        setCloseRelays(next.closeRelaysOnQuit);
+      },
+      (error: unknown) => console.error('Could not read the quit choices', error),
+    );
+    return () => {
+      current = false;
+    };
+  }, [promptOpen]);
+  const endpoints = prompt?.relays?.available ? prompt.relays.endpoints : 0;
+  const quit = () => {
+    if (endpoints === 0) {
+      void runWindowAction('quit');
+      return;
+    }
+    setClosing(closeRelays);
+    void quitDesktop(closeRelays).catch((error: unknown) =>
+      console.error('Desktop window action failed: quit', error),
+    );
+  };
+  return { closeRelays, closing, endpoints, quit, setCloseRelays };
+}
+
+function QuitRelaysOption({
+  checked,
+  disabled,
+  endpoints,
+  onCheckedChange,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  endpoints: number;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="flex min-w-0 items-start gap-2.5 text-left">
+      <Checkbox
+        aria-describedby={`${id}-hint`}
+        checked={checked}
+        className="mt-0.5"
+        disabled={disabled}
+        id={id}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+      />
+      <div className="grid min-w-0 gap-0.5">
+        <label className="text-sm font-medium [overflow-wrap:anywhere]" htmlFor={id}>
+          {t`Also close open relays`}
+        </label>
+        <p className="text-meta text-muted-foreground [overflow-wrap:anywhere]" id={`${id}-hint`}>
+          {plural(endpoints, {
+            one: 'Stops the relay services on your site and this computer. Running jobs keep running.',
+            other:
+              'Stops the relay services on your # sites and this computer. Running jobs keep running.',
+          })}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function QuitButtonLabel({ closing }: { closing: boolean }) {
+  if (!closing) return t`Quit ${ph({ product: vocab.product })}`;
+  return (
+    <>
+      <Spinner aria-hidden="true" role="presentation" />
+      {t`Closing relays…`}
+    </>
+  );
+}
+
 /** Product-owned chrome for the frameless Tauri window. */
 export function DesktopTitleBar() {
   const setWorkspaceToolbarHost = useDesktopWorkspaceToolbar((state) => state.setHost);
   const setWorkspaceNavigationHost = useDesktopWorkspaceToolbar((state) => state.setNavigationHost);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [runningAtQuit, setRunningAtQuit] = useState(0);
+  const quitRelays = useQuitRelays(closePromptOpen || runningAtQuit > 0);
   const { product } = vocab;
   const [menuOpen, setMenuOpen] = useState(false);
   const [macOS] = useState(isMacOS);
@@ -590,14 +684,21 @@ export function DesktopTitleBar() {
           </>
         )}
       </div>
-      <AlertDialog onOpenChange={setClosePromptOpen} open={closePromptOpen}>
+      <AlertDialog
+        onOpenChange={(open) => !quitRelays.closing && setClosePromptOpen(open)}
+        open={closePromptOpen}
+      >
         <AlertDialogContent
-          onBackdropClick={() => setClosePromptOpen(false)}
-          onEscapeKeyDown={() => setClosePromptOpen(false)}
+          onBackdropClick={() => !quitRelays.closing && setClosePromptOpen(false)}
+          onEscapeKeyDown={(event) => {
+            if (quitRelays.closing) event.preventDefault();
+            else setClosePromptOpen(false);
+          }}
         >
           <AlertDialogCancel
             aria-label={t`Dismiss close prompt`}
             className="absolute right-2 top-2 text-muted-foreground"
+            disabled={quitRelays.closing}
             size="icon-sm"
             variant="ghost"
           >
@@ -613,17 +714,39 @@ export function DesktopTitleBar() {
                   : t`Keep ${product} available in the system tray, if your desktop shows one, or quit and stop its local services. Ongoing work can continue only while ${product} is running. Opening ${product} again brings this window back.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => void runWindowAction('hide')}>
+          {quitRelays.endpoints > 0 ? (
+            <QuitRelaysOption
+              checked={quitRelays.closeRelays}
+              disabled={quitRelays.closing}
+              endpoints={quitRelays.endpoints}
+              onCheckedChange={quitRelays.setCloseRelays}
+            />
+          ) : null}
+          <AlertDialogFooter className="sm:flex-wrap">
+            <AlertDialogCancel
+              disabled={quitRelays.closing}
+              onClick={() => void runWindowAction('hide')}
+            >
               {t`Keep running`}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={() => void runWindowAction('quit')} variant="destructive">
-              {t`Quit ${ph({ product: vocab.product })}`}
+            <AlertDialogAction
+              aria-busy={quitRelays.closing || undefined}
+              disabled={quitRelays.closing}
+              onClick={(event) => {
+                if (quitRelays.endpoints > 0 && quitRelays.closeRelays) event.preventDefault();
+                quitRelays.quit();
+              }}
+              variant="destructive"
+            >
+              <QuitButtonLabel closing={quitRelays.closing} />
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AlertDialog onOpenChange={(open) => !open && setRunningAtQuit(0)} open={runningAtQuit > 0}>
+      <AlertDialog
+        onOpenChange={(open) => !open && !quitRelays.closing && setRunningAtQuit(0)}
+        open={runningAtQuit > 0}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t`Quit ${ph({ product: vocab.product })}?`}</AlertDialogTitle>
@@ -634,10 +757,26 @@ export function DesktopTitleBar() {
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t`Cancel`}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void runWindowAction('quit')} variant="destructive">
-              {t`Quit ${ph({ product: vocab.product })}`}
+          {quitRelays.endpoints > 0 ? (
+            <QuitRelaysOption
+              checked={quitRelays.closeRelays}
+              disabled={quitRelays.closing}
+              endpoints={quitRelays.endpoints}
+              onCheckedChange={quitRelays.setCloseRelays}
+            />
+          ) : null}
+          <AlertDialogFooter className="sm:flex-wrap">
+            <AlertDialogCancel disabled={quitRelays.closing}>{t`Cancel`}</AlertDialogCancel>
+            <AlertDialogAction
+              aria-busy={quitRelays.closing || undefined}
+              disabled={quitRelays.closing}
+              onClick={(event) => {
+                if (quitRelays.endpoints > 0 && quitRelays.closeRelays) event.preventDefault();
+                quitRelays.quit();
+              }}
+              variant="destructive"
+            >
+              <QuitButtonLabel closing={quitRelays.closing} />
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

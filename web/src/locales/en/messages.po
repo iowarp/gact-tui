@@ -2050,6 +2050,10 @@ msgstr "{elapsed} elapsed. Setup continues if you leave this page. {agent} will 
 msgid "{elapsed} of {limit}"
 msgstr "{elapsed} of {limit}"
 
+#: src/components/clio/desktop-title-bar.tsx
+msgid "{endpoints, plural, one {Stops the relay services on your site and this computer. Running jobs keep running.} other {Stops the relay services on your # sites and this computer. Running jobs keep running.}}"
+msgstr "{endpoints, plural, one {Stops the relay services on your site and this computer. Running jobs keep running.} other {Stops the relay services on your # sites and this computer. Running jobs keep running.}}"
+
 #: src/components/clio/composer.tsx
 msgid "{enteredId} is ambiguous; use {alternatives}"
 msgstr "{enteredId} is ambiguous; use {alternatives}"
@@ -6513,6 +6517,10 @@ msgstr "Also available as"
 msgid "Also called"
 msgstr "Also called"
 
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Also close open relays"
+msgstr "Also close open relays"
+
 #: src/components/clio/flow-step-details.tsx
 msgid "Also waits on its forks"
 msgstr "Also waits on its forks"
@@ -10379,6 +10387,10 @@ msgstr "Closed at {when}; showing its last entries."
 #: src/components/clio/table-query-rows.ts
 msgid "Closed; showing its last entries."
 msgstr "Closed; showing its last entries."
+
+#: src/components/clio/desktop-title-bar.tsx
+msgid "Closing relays…"
+msgstr "Closing relays…"
 
 #: src/components/clio/document-open-menu.tsx
 msgid "Closing…"
