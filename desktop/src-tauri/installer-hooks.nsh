@@ -534,9 +534,10 @@ FunctionEnd
 ; `--stop-managed-runtime`, treats it as an ordinary launch, and starts the
 ; full application, which nsExec then waits on forever. The helper
 ; (installer_runtime_stop.rs) stops only CLIO-managed processes
-; (clio-desktop.exe, clio-agent.exe, python.exe, clio_run.exe) whose
-; executable lives under $INSTDIR, asks a managed clio_run.exe to stop
-; cleanly, then terminates what remains and waits on each handle within its
+; (clio-desktop.exe, clio-agent.exe, python.exe, and the clio-core daemon under
+; any name in clio-core-daemon-executables.txt, since the runtime being
+; replaced may predate a rename) whose executable lives under $INSTDIR, asks a
+; managed daemon to stop cleanly, then terminates what remains and waits on each handle within its
 ; own bounded budget. nsExec's /TIMEOUT bounds the whole step as well. A
 ; failure is reported with its typed reason and is not fatal: the retrying
 ; directory swap in `runtime_pack.rs` / `installer_dir_swap.rs` is the

@@ -20,8 +20,12 @@
 #   --dyld-entitlements FILE
 #                        entitlements for the executables named in
 #                        $MACOS_DYLD_EXECUTABLES (space-separated basenames,
-#                        default "clio_run"), which are started with DYLD_*
-#                        variables; default runtime-dyld.entitlements
+#                        default: the clio-core daemon, the first name in
+#                        src-tauri/clio-core-daemon-executables.txt), which are
+#                        started with DYLD_* variables; default
+#                        runtime-dyld.entitlements. Every name must match an
+#                        executable in the runtime; set the variable to an empty
+#                        string to name none.
 #   --keychain PATH      keychain holding the identity; default
 #                        $APPLE_KEYCHAIN_PATH
 #   --no-compile         skip precompiling Python bytecode
@@ -45,7 +49,10 @@ RUNTIME="$SCRIPT_DIR/../src-tauri/gact-runtime"
 IDENTITY="${APPLE_SIGNING_IDENTITY:-}"
 ENTITLEMENTS="$SCRIPT_DIR/../src-tauri/entitlements/runtime.entitlements"
 DYLD_ENTITLEMENTS="$SCRIPT_DIR/../src-tauri/entitlements/runtime-dyld.entitlements"
-DYLD_EXECUTABLES="${MACOS_DYLD_EXECUTABLES-clio_run}"
+DAEMON_NAMES="$SCRIPT_DIR/../src-tauri/clio-core-daemon-executables.txt"
+BUNDLED_DAEMON="$(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$DAEMON_NAMES" | head -n 1 | tr -d '[:space:]')"
+[ -n "$BUNDLED_DAEMON" ] || { printf '[macos-sign-runtime] error: no daemon name in %s\n' "$DAEMON_NAMES" >&2; exit 1; }
+DYLD_EXECUTABLES="${MACOS_DYLD_EXECUTABLES-$BUNDLED_DAEMON}"
 KEYCHAIN="${APPLE_KEYCHAIN_PATH:-}"
 COMPILE=1
 VERIFY_ONLY=0
@@ -65,7 +72,7 @@ while [ $# -gt 0 ]; do
     --verify-only) VERIFY_ONLY=1; shift ;;
     --thin) THIN_ARCH="${2:?--thin needs an architecture}"; shift 2 ;;
     --jobs) JOBS="${2:?--jobs needs a number}"; shift 2 ;;
-    -h|--help) sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,41p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) die "unknown option: $1" ;;
     *) RUNTIME="$1"; shift ;;
   esac
@@ -246,6 +253,12 @@ if [ $((LIBS + EXECS)) -eq 0 ] && [ "$BUNDLES" -eq 0 ]; then
   log "no Mach-O files to sign"
   exit 0
 fi
+# A renamed executable would otherwise lose its DYLD_* entitlement silently, and
+# the hardened runtime would strip the variables it is started with.
+for name in $DYLD_EXECUTABLES; do
+  grep -q "/$name$" "$WORK/execs-dyld.txt" \
+    || die "no executable named $name in the runtime; MACOS_DYLD_EXECUTABLES is $DYLD_EXECUTABLES"
+done
 
 if [ "$VERIFY_ONLY" -eq 0 ]; then
   if [ "$IDENTITY" = "-" ]; then

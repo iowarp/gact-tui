@@ -54,7 +54,9 @@ test('entitlements grant only the justified runtime exceptions', () => {
     assert.doesNotMatch(plist, /<key>[^<]*allow-jit<\/key>/);
   }
   const signer = read('desktop/scripts/macos-sign-runtime.sh');
-  assert.match(signer, /DYLD_EXECUTABLES="\$\{MACOS_DYLD_EXECUTABLES-clio_run\}"/);
+  assert.match(signer, /src-tauri\/clio-core-daemon-executables\.txt"/);
+  assert.match(signer, /DYLD_EXECUTABLES="\$\{MACOS_DYLD_EXECUTABLES-\$BUNDLED_DAEMON\}"/);
+  assert.match(signer, /\|\| die "no executable named \$name in the runtime/);
 });
 
 test('signing scripts are executable and use hardened runtime with timestamps', () => {

@@ -324,7 +324,7 @@ mod tests {
 
     /// Integration-style: holds a file inside the source directory open with a
     /// share mode that denies everything (including delete), which reproduces
-    /// the real `ERROR_SHARING_VIOLATION` a straggling `clio_run.exe` handle
+    /// the real `ERROR_SHARING_VIOLATION` a straggling daemon handle
     /// would cause, then releases it partway through the backoff. Asserts the
     /// swap only succeeds AFTER the lock actually clears (never before, which
     /// would mean the retry loop wasn't really gated on the error) and well

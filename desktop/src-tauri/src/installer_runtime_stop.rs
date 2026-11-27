@@ -4,7 +4,7 @@
 //! way and stages a fresh copy in its place. That rename fails with
 //! `ERROR_ACCESS_DENIED` (raw OS error 5) or `ERROR_SHARING_VIOLATION` (32)
 //! whenever anything still has a handle open under the directory — most
-//! notably the shared clio-core runtime daemon (`clio_run.exe`), which
+//! notably the shared clio-core runtime daemon, which
 //! deliberately breaks away from our Job Object (see `supervisor_shutdown`)
 //! so independent CLIO clients can keep using it after this one closes. A
 //! user closing CLIO Desktop right before an update leaves that daemon
@@ -17,7 +17,7 @@
 //! every CLIO-managed process whose executable lives under the install root
 //! (via the same Toolhelp snapshot `supervisor_shutdown` already knows how to
 //! walk, plus `QueryFullProcessImageNameW` for the full path WMI would have
-//! given us), asks a managed `clio_run.exe` to stop cleanly first, then
+//! given us), asks a managed daemon to stop cleanly first, then
 //! terminates whatever remains and **waits on its handle** until it has
 //! actually exited — never a fixed sleep. Callers are the `--prepare-runtime`
 //! path (`runtime_pack.rs`) and the new `--stop-managed-runtime` installer
@@ -25,6 +25,8 @@
 
 use std::path::Path;
 use std::time::{Duration, Instant};
+
+use crate::clio_core_daemon::is_any_daemon_image;
 
 #[cfg(windows)]
 use std::ffi::OsString;
@@ -45,18 +47,14 @@ use windows_sys::Win32::{
 #[cfg(windows)]
 use crate::supervisor_shutdown::{windows_process_snapshot, ProcessEntry, SYNCHRONIZE};
 
-/// Executable names (case-insensitive) that belong to a CLIO-managed install.
-/// Mirrors the process list the deleted PowerShell one-liner matched on —
-/// see `installer-hooks.nsh`'s (now-removed) `CLIO_STOP_MANAGED_RUNTIME`
-/// encoded command for the prior art.
-const MANAGED_PROCESS_NAMES: &[&str] = &[
-    "clio-desktop.exe",
-    "clio-agent.exe",
-    "python.exe",
-    "clio_run.exe",
-];
+/// Executable names (case-insensitive) that belong to a CLIO-managed install,
+/// besides the clio-core daemon ([`is_any_daemon_image`]). Mirrors the process
+/// list the deleted PowerShell one-liner matched on — see
+/// `installer-hooks.nsh`'s (now-removed) `CLIO_STOP_MANAGED_RUNTIME` encoded
+/// command for the prior art.
+const MANAGED_PROCESS_NAMES: &[&str] = &["clio-desktop.exe", "clio-agent.exe", "python.exe"];
 
-/// How long a managed `clio_run.exe` gets to answer `stop` cleanly before this
+/// How long a managed daemon gets to answer `stop` cleanly before this
 /// sweep gives up and falls through to `TerminateProcess`. The daemon's own
 /// clean-stop handshake (`clio_agent.arc.runtime_stop`) normally releases its
 /// port within a few hundred ms; this is generous headroom, not a guess about
@@ -82,11 +80,13 @@ pub(crate) struct StoppedProcess {
     pub exited: bool,
 }
 
-/// Case-insensitive membership in [`MANAGED_PROCESS_NAMES`].
+/// Case-insensitive membership in [`MANAGED_PROCESS_NAMES`], or the daemon under any
+/// name it has shipped under: the runtime an upgrade replaces may predate a rename.
 pub(crate) fn is_managed_process_name(name: &str) -> bool {
-    MANAGED_PROCESS_NAMES
-        .iter()
-        .any(|candidate| candidate.eq_ignore_ascii_case(name))
+    is_any_daemon_image(name)
+        || MANAGED_PROCESS_NAMES
+            .iter()
+            .any(|candidate| candidate.eq_ignore_ascii_case(name))
 }
 
 /// Whether `candidate` (an absolute path) is `root` itself or lives below it.
@@ -131,7 +131,7 @@ pub(crate) fn is_stop_target(
         && image_path.is_some_and(|path| path_is_under_root(path, root))
 }
 
-/// Find every CLIO-managed process under `root`, ask a managed `clio_run.exe`
+/// Find every CLIO-managed process under `root`, ask a managed daemon
 /// to stop cleanly, then terminate and wait out whatever is left.
 ///
 /// Best-effort by design: a process that vanishes mid-sweep, or one whose
@@ -157,12 +157,12 @@ pub(crate) fn stop_processes_under_root(root: &Path) -> Vec<StoppedProcess> {
         })
         .collect();
 
-    // Ask any managed clio_run.exe to release the runtime cleanly before any
+    // Ask any managed daemon to release the runtime cleanly before any
     // TerminateProcess: a clean `stop` lets clio-core close its RPC socket
     // and any open handles into the runtime tree on its own, exactly like an
     // ordinary last-client release (`clio_agent.arc.runtime_stop`).
     for process in &matches {
-        if process.name.eq_ignore_ascii_case("clio_run.exe") {
+        if is_any_daemon_image(&process.name) {
             if let Some(exe_path) = windows_full_image_path(process.pid) {
                 windows_try_clean_stop(Path::new(&exe_path));
             }
@@ -251,7 +251,7 @@ pub(crate) fn windows_full_image_path(pid: u32) -> Option<String> {
 /// required step.
 ///
 /// `pub(crate)`: shared with `clio_core_daemon` (#D1)'s quit-time and
-/// startup-orphan release, which asks the exact same `clio_run.exe` for the
+/// startup-orphan release, which asks the exact same daemon for the
 /// exact same clean `stop` before ever falling back to a hard kill.
 #[cfg(windows)]
 pub(crate) fn windows_try_clean_stop(exe_path: &Path) {
@@ -315,12 +315,12 @@ mod tests {
 
     #[test]
     fn managed_process_names_match_case_insensitively() {
-        assert!(is_managed_process_name("clio_run.exe"));
-        assert!(is_managed_process_name("CLIO_RUN.EXE"));
+        let daemon = crate::clio_core_daemon::bundled_daemon_executable();
+        assert!(is_managed_process_name(&format!("{daemon}.exe")));
         assert!(is_managed_process_name("Clio-Desktop.exe"));
         assert!(is_managed_process_name("python.EXE"));
         assert!(!is_managed_process_name("notepad.exe"));
-        assert!(!is_managed_process_name("clio_run"));
+        assert!(!is_managed_process_name(daemon));
     }
 
     #[test]
@@ -352,7 +352,7 @@ mod tests {
     #[test]
     fn path_under_root_matches_nested_files_case_insensitively() {
         assert!(path_is_under_root(
-            r"c:\clio desktop\data\bundled-runtime\gact-runtime\python\lib\site-packages\iowarp_core\bin\clio_run.exe",
+            r"c:\clio desktop\data\bundled-runtime\gact-runtime\python\lib\site-packages\iowarp_core\bin\clio-core-daemon.exe",
             r"C:\CLIO Desktop"
         ));
     }

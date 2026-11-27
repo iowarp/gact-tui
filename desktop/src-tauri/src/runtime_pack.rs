@@ -304,7 +304,7 @@ fn prepare_windows_runtime(
         let started = Instant::now();
         // Stop every CLIO-managed process under the install root BEFORE touching
         // the installed runtime or its backup. The shared clio-core daemon
-        // (`clio_run.exe`) deliberately survives an ordinary app quit (it breaks
+        // deliberately survives an ordinary app quit (it breaks
         // away from our Job Object so independent CLIO clients can keep using it
         // — see `supervisor_shutdown`), so a user who closed CLIO Desktop right
         // before this runs can still have it sitting on the directory this
@@ -757,7 +757,7 @@ mod tests {
     /// Reproduces the reported failure end to end: an existing installed
     /// runtime (`bundled-runtime`) has a file inside it held open with a
     /// share mode that denies everything — standing in for a straggling
-    /// `clio_run.exe` handle `installer_runtime_stop`'s sweep did not reach —
+    /// daemon handle `installer_runtime_stop`'s sweep did not reach —
     /// right as a second `prepare_bundled_runtime` call needs to rename that
     /// directory out of the way. Before the retry/backoff added in #I1, this
     /// failed immediately with "Access is denied. (os error 5)"; now the

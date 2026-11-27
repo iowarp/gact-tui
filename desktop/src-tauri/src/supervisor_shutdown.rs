@@ -37,6 +37,7 @@ use windows_sys::Win32::{
     },
 };
 
+use crate::clio_core_daemon::is_bundled_daemon_image;
 use crate::supervisor_types::BackendHandle;
 
 /// Grace period between SIGTERM (or graceful kill on Windows) and SIGKILL.
@@ -65,7 +66,7 @@ pub(crate) const SYNCHRONIZE: u32 = 0x0010_0000;
 
 /// A single process observed in a process-tree snapshot: just enough
 /// parent/child linkage plus the executable name to walk descendants and
-/// spare `clio_run.exe`.
+/// spare the clio-core daemon.
 ///
 /// Platform-independent and pure so [`owned_descendants`] is testable with a
 /// synthetic snapshot on any target, without touching a real process tree.
@@ -80,9 +81,9 @@ pub(crate) struct ProcessEntry {
 }
 
 /// Walk `snapshot` breadth-first from `roots`, collecting every reachable
-/// descendant PID except `clio_run.exe` and anything beneath it.
+/// descendant PID except the clio-core daemon and anything beneath it.
 ///
-/// `clio_run.exe` is the host-global clio-core runtime daemon: it can appear
+/// The clio-core daemon ([`is_bundled_daemon_image`]) is host-global: it can appear
 /// beneath our launcher in the process tree even though independent CLIO
 /// clients also own it, so it (and its subtree) is always spared here —
 /// callers decide separately whether it should die via last-client release.
@@ -109,7 +110,7 @@ pub(crate) fn owned_descendants(snapshot: &[ProcessEntry], roots: &[u32]) -> Vec
     let mut descendants = Vec::new();
     while let Some(parent) = queue.pop_front() {
         for process in by_parent.get(&parent).into_iter().flatten() {
-            if process.name.eq_ignore_ascii_case("clio_run.exe") || !visited.insert(process.pid) {
+            if is_bundled_daemon_image(&process.name) || !visited.insert(process.pid) {
                 continue;
             }
             descendants.push(process.pid);
@@ -268,7 +269,7 @@ fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandl
     // identity-verified by the held handle) with a fresh live re-walk (for
     // anything spawned since the pre-drain snapshot), then gate every kill
     // on creation time — see `kill_candidates`. `owned_descendants` already
-    // spares the clio_run.exe subtree, so this cannot corrupt independent
+    // spares the daemon's subtree, so this cannot corrupt independent
     // CLIO clients sharing that host-global daemon.
     #[cfg(windows)]
     {
@@ -599,12 +600,16 @@ mod tests {
     }
 
     #[test]
-    fn owned_descendants_skips_clio_run_and_visits_grandchildren() {
+    fn owned_descendants_skips_the_daemon_and_visits_grandchildren() {
+        let daemon = format!(
+            "{}.exe",
+            crate::clio_core_daemon::bundled_daemon_executable()
+        );
         let snapshot = vec![
-            // clio_run.exe hangs off the launcher (pid 100) — it and its own
+            // The daemon hangs off the launcher (pid 100) — it and its own
             // child must be spared entirely.
-            entry(200, 100, "clio_run.exe"),
-            entry(300, 200, "clio_run_child.exe"),
+            entry(200, 100, &daemon),
+            entry(300, 200, "daemon-child.exe"),
             // An ordinary sidecar descendant, two levels deep, must be
             // reached and included — proves the walk actually visits
             // grandchildren rather than stopping at direct children.
@@ -618,21 +623,25 @@ mod tests {
         assert_eq!(
             descendants,
             vec![201, 301],
-            "clio_run.exe and everything beneath it must be spared, the ordinary \
+            "the daemon and everything beneath it must be spared, the ordinary \
              branch must be walked down to its grandchild"
         );
     }
 
     #[test]
-    fn owned_descendants_spares_clio_run_when_it_is_a_grandchild() {
-        // clio_run.exe is NOT a direct child of the launcher here — it hangs
+    fn owned_descendants_spares_the_daemon_when_it_is_a_grandchild() {
+        // The daemon is NOT a direct child of the launcher here — it hangs
         // off an ordinary intermediate (worker.exe) two levels down. It and
         // its own subtree must still be spared; the intermediate itself must
         // still be included.
+        let daemon = format!(
+            "{}.exe",
+            crate::clio_core_daemon::bundled_daemon_executable()
+        );
         let snapshot = vec![
             entry(201, 100, "worker.exe"),
-            entry(400, 201, "clio_run.exe"),
-            entry(401, 400, "clio_run_child.exe"),
+            entry(400, 201, &daemon),
+            entry(401, 400, "daemon-child.exe"),
         ];
 
         let mut descendants = owned_descendants(&snapshot, &[100]);
@@ -641,7 +650,7 @@ mod tests {
         assert_eq!(
             descendants,
             vec![201],
-            "clio_run.exe and its subtree must be spared even several levels deep"
+            "the daemon and its subtree must be spared even several levels deep"
         );
     }
 

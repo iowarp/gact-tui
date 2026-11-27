@@ -221,10 +221,12 @@ What signs what:
 Runtime entitlements: `disable-library-validation` (Python loads wheels that
 the runtime installs after first launch) and
 `allow-unsigned-executable-memory` (cffi and ctypes callbacks). Only
-iowarp-core's `clio_run`, which its parent starts with `DYLD_*` variables,
-also gets `allow-dyld-environment-variables`
-(`entitlements/runtime-dyld.entitlements`; the names come from
-`MACOS_DYLD_EXECUTABLES`). `allow-jit` is deliberately absent; add it only
+the clio-core daemon, which its parent starts with `DYLD_*` variables, also
+gets `allow-dyld-environment-variables`
+(`entitlements/runtime-dyld.entitlements`). Its executable name is the first
+line of `src-tauri/clio-core-daemon-executables.txt`, which the desktop's
+process rules read too; `MACOS_DYLD_EXECUTABLES` overrides the list, and signing
+fails if a named executable is missing from the runtime. `allow-jit` is deliberately absent; add it only
 with a package that needs it. Do not enable the app sandbox.
 
 Repository secrets (Settings → Secrets and variables → Actions):

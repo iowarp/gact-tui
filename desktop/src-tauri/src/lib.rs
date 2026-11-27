@@ -738,7 +738,7 @@ pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<
     // whichever exit path it took — a graceful atexit release, or the forced
     // TerminateProcess fallthrough that skips it) is already gone. The shared
     // clio-core daemon deliberately survives that process-tree reap
-    // (`supervisor_shutdown::owned_descendants` spares `clio_run.exe` for
+    // (`supervisor_shutdown::owned_descendants` spares the clio-core daemon for
     // independent CLIO clients); this is the second line of defense that
     // stops it when THIS desktop's own client was the last one attached.
     release_idle_clio_core_daemon();
