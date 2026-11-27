@@ -516,7 +516,7 @@ export function ClioActivityTimeline({
           >
             <span
               aria-hidden="true"
-              className="size-2 rounded-full"
+              className="h-3 w-[3px] shrink-0 rounded-[1px]"
               style={{ backgroundColor: lane.color }}
             />
             {lane.label}
@@ -646,9 +646,7 @@ function CausalActivityRow({
           ) : null}
         </p>
         {item.detail ? (
-          <p className="line-clamp-2 text-caption leading-4 text-muted-foreground">
-            {item.detail}
-          </p>
+          <p className="line-clamp-2 text-caption leading-4 text-muted-foreground">{item.detail}</p>
         ) : null}
       </div>
       <ClioStatus compact className="shrink-0" value={item.state} />

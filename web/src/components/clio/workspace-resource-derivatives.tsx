@@ -10,6 +10,7 @@ import {
   EyeIcon,
   FileIcon,
   FileStackIcon,
+  InfoIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
 import { RefreshAction } from './refresh-button';
@@ -257,7 +258,7 @@ function ConversionActivityRow({ event }: { event: WorkspaceResourceProcessingEv
           className="mt-0.5 size-3.5 shrink-0 text-destructive"
         />
       ) : (
-        <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
+        <InfoIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
       )}
       <span className="min-w-0 flex-1 break-words">{event.message}</span>
       {event.progress_kind === 'measured' ? (

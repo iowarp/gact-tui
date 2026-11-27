@@ -188,7 +188,8 @@ export function ClioActivityTimelineList({
           row.kind === 'process' &&
           (row.taskId === focusHandle || row.id === focusHandle) &&
           row.lifecycle !== 'close',
-      ) ?? (launcher ? rows.find((row) => row.kind === 'tool' && row.id === launcher.id) : undefined);
+      ) ??
+      (launcher ? rows.find((row) => row.kind === 'tool' && row.id === launcher.id) : undefined);
     return target ? `${target.kind}:${target.id}` : undefined;
   }, [focusHandle, rows, tools]);
   if (focusHandle !== focusedHandle && (!focusHandle || focusTarget)) {
@@ -244,7 +245,7 @@ export function ClioActivityTimelineList({
                   <DropdownMenuRadioItem key={lane.id} value={lane.id}>
                     <span
                       aria-hidden="true"
-                      className="size-2 shrink-0 rounded-full"
+                      className="h-3 w-[3px] shrink-0 rounded-[1px]"
                       style={{ backgroundColor: lane.color }}
                     />
                     <span className="truncate">{lane.label}</span>
@@ -397,9 +398,7 @@ function TimelineRows({
     overscan: 12,
     scrollMargin,
   });
-  const selectedIndex = selectedId
-    ? entries.findIndex((entry) => entry.id === selectedId)
-    : -1;
+  const selectedIndex = selectedId ? entries.findIndex((entry) => entry.id === selectedId) : -1;
   useLayoutEffect(() => {
     if (selectedIndex < 0) return;
     if (windowed) virtualizer.scrollToIndex(selectedIndex, { align: 'center' });

@@ -1,5 +1,13 @@
 import { memo, useState, type ReactElement, type ReactNode } from 'react';
-import { CheckIcon, CircleAlertIcon, CircleStopIcon, TriangleAlertIcon } from 'lucide-react';
+import {
+  CheckIcon,
+  CircleAlertIcon,
+  CircleDashedIcon,
+  CircleStopIcon,
+  InfoIcon,
+  MinusIcon,
+  TriangleAlertIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NamedTooltip } from './icon-button';
 import { RingSpinner } from './ring-spinner';
@@ -16,23 +24,6 @@ export type StatusTone =
   | 'inactive'
   | 'stopped';
 
-/**
- * Shape as well as color, so the mark never relies on color alone: a turning
- * ring for work in progress, a hollow ring for idle, a square for stopped, a
- * dot for an outcome, a faint dot for something switched off. A label always
- * goes with it.
- */
-const MARK: Record<Exclude<StatusTone, 'running'>, string> = {
-  waiting: 'size-1.5 rounded-full bg-action ring-2 ring-action/25',
-  success: 'size-1.5 rounded-full bg-success',
-  warning: 'size-1.5 rounded-full bg-warning',
-  error: 'size-1.5 rounded-full bg-destructive',
-  info: 'size-1.5 rounded-full bg-info',
-  idle: 'size-1.5 rounded-full border border-faint',
-  inactive: 'size-1.5 rounded-full bg-faint',
-  stopped: 'size-1.5 rounded-[1px] bg-muted-foreground',
-};
-
 export interface StatusIndicatorProps {
   tone: StatusTone;
   /** What the state is, in words ("Running", "Needs you"). Always required. */
@@ -45,10 +36,10 @@ export interface StatusIndicatorProps {
    */
   display?: 'visible' | 'column';
   /**
-   * `glyph` draws an outcome as an icon (a check, an alert, a stop sign), as
-   * activity rows do; work in progress is the same spinner either way.
+   * Both draw a sign, never a dot. `glyph` sizes work in progress to the 14px
+   * activity glyphs; `compact` draws a smaller ring for dense lists.
    */
-  mark?: 'dot' | 'glyph';
+  mark?: 'compact' | 'glyph';
   /** A domain's own 14px glyph for this state (a run's question bubble); replaces the mark. */
   icon?: ReactNode;
   /**
@@ -65,6 +56,17 @@ const GLYPH: Partial<Record<StatusTone, ReactNode>> = {
   warning: <TriangleAlertIcon className="size-3.5 text-warning" />,
   // A ring around a square, the stop control's own sign; a bare octagon reads as a hollow ring at 14px.
   stopped: <CircleStopIcon className="size-3.5 text-muted-foreground" />,
+};
+
+/**
+ * A status column always draws a sign, shape as well as color, so it never relies
+ * on color alone and is never a dot. The word stays the accessible and hover name.
+ */
+const COLUMN_GLYPH: Partial<Record<StatusTone, ReactNode>> = {
+  ...GLYPH,
+  info: <InfoIcon className="size-3.5 text-info" />,
+  idle: <CircleDashedIcon className="size-3.5 text-faint" />,
+  inactive: <MinusIcon className="size-3.5 text-faint" />,
 };
 
 /**
@@ -99,24 +101,26 @@ export const StatusIndicator = memo(function StatusIndicator({
   tone,
   label,
   display = 'visible',
-  mark: markStyle = 'dot',
+  mark: markStyle = 'compact',
   icon,
   hoverName,
   className,
 }: StatusIndicatorProps) {
   const glyph = icon ?? (markStyle === 'glyph' ? GLYPH[tone] : undefined);
-  // Work in progress is the shared teal ring; in a glyph column, a wait on the person turns amber.
+  // Work in progress is the shared teal ring; a wait on the person is the amber ring.
   const mark =
-    glyph ??
+    icon ??
+    COLUMN_GLYPH[tone] ??
     (tone === 'running' ? (
       <RingSpinner className={markStyle === 'glyph' ? undefined : 'size-[11px]'} />
-    ) : markStyle === 'glyph' && tone === 'waiting' ? (
+    ) : (
       <span
         aria-hidden="true"
-        className="block size-3 rounded-full border-[1.5px] border-warning border-t-transparent motion-safe:animate-spin motion-safe:will-change-transform"
+        className={cn(
+          'block rounded-full border-[1.5px] border-warning border-t-transparent motion-safe:animate-spin motion-safe:will-change-transform',
+          markStyle === 'glyph' ? 'size-3' : 'size-[11px]',
+        )}
       />
-    ) : (
-      <span aria-hidden="true" className={cn('block', MARK[tone])} />
     ));
   if (display === 'column') {
     return (

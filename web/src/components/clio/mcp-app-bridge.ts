@@ -5,6 +5,7 @@ import {
   type McpAppIdentity,
   type McpAppSavedDownload,
 } from '@clio/core/v3';
+import { formatLocale } from '@/lib/locale-format';
 import { mcpAppStyleVariables } from './mcp-app-host-styles';
 import { t } from '@lingui/core/macro';
 
@@ -151,7 +152,8 @@ export function hostContext(
     availableDisplayModes: placement === 'surface' ? ['inline'] : [...AVAILABLE_DISPLAY_MODES],
     // A tab fixes the view's size; a card lets the view choose its height.
     containerDimensions: placement === 'tab' ? { width, height } : { width, maxHeight: 720 },
-    locale: navigator.language || 'en',
+    // The interface language the person chose, not the browser's: a view's copy follows CLIO's.
+    locale: formatLocale(),
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     userAgent: navigator.userAgent,
     platform: 'web',

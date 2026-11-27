@@ -191,7 +191,7 @@ export function AttentionBreakdown({
           <span className="inline-flex items-center gap-1.5" key={source.domain}>
             <span
               aria-hidden="true"
-              className="size-2 shrink-0 rounded-full"
+              className="h-1.5 w-2.5 shrink-0 rounded-[1px]"
               style={{ backgroundColor: attentionDomainColor(source.domain) }}
             />
             {attentionDomainLabel(source.domain)} {pct(source.share)}
@@ -202,7 +202,7 @@ export function AttentionBreakdown({
             <span className="inline-flex items-center gap-1.5">
               <span
                 aria-hidden="true"
-                className="size-2 shrink-0 rounded-full bg-muted-foreground/30"
+                className="h-1.5 w-2.5 shrink-0 rounded-[1px] bg-muted-foreground/30"
               />
               {t`Spread thin ${ph({ share: pct(data.residual) })}`}
             </span>

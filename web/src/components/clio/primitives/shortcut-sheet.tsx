@@ -1,5 +1,5 @@
 import { memo, useCallback, useDeferredValue, useLayoutEffect, useMemo, useState } from 'react';
-import { SearchIcon } from 'lucide-react';
+import { CheckIcon, SearchIcon } from 'lucide-react';
 import {
   Dialog,
   DialogClose,
@@ -120,7 +120,10 @@ function PairKeys({
     first.length === second.length && first.slice(0, -1).every((cap, i) => cap === second[i]);
   const chords = shared ? [[...first, second.at(-1) ?? '']] : [first, second];
   return (
-    <span data-slot="shortcut-keys" className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
+    <span
+      data-slot="shortcut-keys"
+      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap"
+    >
       {chords.map((caps, chordIndex) => (
         <span key={chordIndex} className="inline-flex items-center gap-1">
           {chordIndex > 0 ? <span className="px-0.5 text-caption text-faint">{t`or`}</span> : null}
@@ -193,7 +196,7 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-4 text-label text-faint max-[599px]:contents">
           <span className="flex items-center gap-1.5 whitespace-nowrap max-[599px]:order-4">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
+            <CheckIcon aria-hidden="true" className="size-3 text-primary" />
             {WORKS_HERE}
           </span>
           <SegmentedControl
@@ -233,9 +236,9 @@ function ShortcutSheetBody({ onColumns }: { onColumns: (columns: number) => void
                         data-slot="shortcut-sheet-row"
                         className="flex min-h-[30px] min-w-0 items-center gap-2 py-1 text-menu"
                       >
-                        <span
+                        <CheckIcon
                           aria-hidden="true"
-                          className={cn('size-1.5 shrink-0 rounded-full', here && 'bg-primary')}
+                          className={cn('size-3 shrink-0 text-primary', !here && 'invisible')}
                         />
                         <span
                           // A long name (Greek) wraps whole; the keys keep their column.
