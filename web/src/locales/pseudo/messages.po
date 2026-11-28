@@ -13354,6 +13354,10 @@ msgstr ""
 msgid "Default agent"
 msgstr ""
 
+#: src/components/clio/default-agents-banner.tsx
+msgid "Default agents aren’t installed"
+msgstr ""
+
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "Default branch"
 msgstr ""
@@ -19059,6 +19063,10 @@ msgstr ""
 
 #: src/lib/mcp-preparation.ts
 msgid "Installing the server’s software stopped making progress."
+msgstr ""
+
+#: src/components/clio/default-agents-banner.tsx
+msgid "Installing them again…"
 msgstr ""
 
 #: src/components/clio/settings-app-updates.tsx
@@ -31030,6 +31038,7 @@ msgstr ""
 #: src/components/clio/composer.tsx
 #: src/components/clio/connect-address.tsx
 #: src/components/clio/conversation-message-blocks.tsx
+#: src/components/clio/default-agents-banner.tsx
 #: src/components/clio/delegate-calls.tsx
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/extension-registry-section.tsx
@@ -31166,6 +31175,10 @@ msgstr ""
 
 #: src/components/clio/message-row-actions.tsx
 msgid "Retrying response"
+msgstr ""
+
+#: src/components/clio/default-agents-banner.tsx
+msgid "Retrying…"
 msgstr ""
 
 #: src/routes/mcp-oauth-return.tsx
@@ -38180,6 +38193,14 @@ msgstr ""
 msgid "the result reached the service limit"
 msgstr ""
 
+#: src/components/clio/default-agents-banner.tsx
+msgid "The retry couldn’t run: {reason}"
+msgstr ""
+
+#: src/components/clio/default-agents-banner.tsx
+msgid "The retry didn’t install them."
+msgstr ""
+
 #: src/components/clio/ssh-host-picker.tsx
 msgid "The route could not be saved"
 msgstr ""
@@ -38473,6 +38494,7 @@ msgid "The service refused."
 msgstr ""
 
 #: src/components/clio/composer.tsx
+#: src/components/clio/default-agents-banner.tsx
 #: src/components/clio/search-assistant.tsx
 #: src/hooks/use-attention-mode.ts
 #: src/hooks/use-more-details.ts
@@ -39349,6 +39371,10 @@ msgstr ""
 
 #: src/components/clio/session-usage-readout.tsx
 msgid "This conversation’s account"
+msgstr ""
+
+#: src/components/clio/composer-failure.ts
+msgid "This conversation’s agent isn’t installed."
 msgstr ""
 
 #: src/lib/shortcuts/catalog.ts

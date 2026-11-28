@@ -9,7 +9,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { QUERY_RESULT_FIELDS } from '@/lib/query-notify';
 import { SANDBOX_INACTIVE_POLL_MS, SANDBOX_RESOLVING_POLL_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { TruncatedText } from './primitives/truncate';
+import { NoticeStrip } from './notice-strip';
 import { sandboxVerdict, type SandboxInactive } from './sandbox-acknowledgement';
 import { ph, t } from '@lingui/core/macro';
 
@@ -81,28 +81,22 @@ export function SandboxInactiveStrip({
     .filter(Boolean)
     .join('. ');
   return (
-    <section
-      aria-label={t`Protected execution is off`}
-      className="flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b border-l-2 border-l-warning bg-warning/10 py-2 pr-1.5 pl-3 text-menu"
-      data-slot="sandbox-inactive-banner"
-      role="alert"
-    >
-      <ShieldAlertIcon aria-hidden="true" className="size-4 shrink-0 text-warning" />
-      <div className="min-w-0 flex-1 basis-[min(100%,20rem)]">
-        <TruncatedText className="font-medium text-foreground">{warning}</TruncatedText>
-        {detail ? (
-          // The next step is the point of the strip, so it wraps rather than truncating.
-          <p className="text-pretty break-words text-muted-foreground">{`${detail}.`}</p>
-        ) : null}
-      </div>
-      <div className="ml-auto flex shrink-0 items-center gap-1.5">
-        <Button onClick={() => navigate('/infrastructure/agent')} type="button" variant="ghost">
-          {t`Details`}
-        </Button>
-        <Button onClick={onAcknowledge} type="button" variant="outline">
-          {t`Continue without protection`}
-        </Button>
-      </div>
-    </section>
+    <NoticeStrip
+      actions={
+        <>
+          <Button onClick={() => navigate('/infrastructure/agent')} type="button" variant="ghost">
+            {t`Details`}
+          </Button>
+          <Button onClick={onAcknowledge} type="button" variant="outline">
+            {t`Continue without protection`}
+          </Button>
+        </>
+      }
+      detail={detail ? `${detail}.` : undefined}
+      icon={ShieldAlertIcon}
+      label={t`Protected execution is off`}
+      slot="sandbox-inactive-banner"
+      title={warning}
+    />
   );
 }

@@ -8,6 +8,8 @@ import {
   type LocalPublishResult,
   type LocalPublishStatus,
   agentResolutionSchema,
+  defaultMarketplaceRetrySchema,
+  type DefaultMarketplaceRetry,
   marketplaceSummarySchema,
   pluginCatalogSchema,
   pluginInspectionSchema,
@@ -267,6 +269,16 @@ export class PluginRepository extends SessionObservabilityRepository {
       method: 'POST',
       path: `/v1/plugins/marketplaces/${encodeURIComponent(name)}/trust`,
       decode: (value) => marketplaceSummarySchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Run the boot install of CLIO's default marketplace again; blocks until it settles. */
+  public retryDefaultMarketplace(signal?: AbortSignal): Promise<DefaultMarketplaceRetry> {
+    return this.transport.request({
+      method: 'POST',
+      path: '/v1/plugins/marketplaces/default/retry',
+      decode: (value) => defaultMarketplaceRetrySchema.parse(value),
       signal,
     });
   }

@@ -13363,6 +13363,10 @@ msgstr "既定値：{value}"
 msgid "Default agent"
 msgstr "デフォルトのエージェント"
 
+#: src/components/clio/default-agents-banner.tsx
+msgid "Default agents aren’t installed"
+msgstr "既定のエージェントがインストールされていません"
+
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "Default branch"
 msgstr "デフォルトのブランチ"
@@ -19078,6 +19082,10 @@ msgstr "この会話のためにサーバーをインストールしています
 #: src/lib/mcp-preparation.ts
 msgid "Installing the server’s software stopped making progress."
 msgstr "サーバーのソフトウェアのインストールが進まなくなりました。"
+
+#: src/components/clio/default-agents-banner.tsx
+msgid "Installing them again…"
+msgstr "もう一度インストールしています…"
 
 #: src/components/clio/settings-app-updates.tsx
 msgid "Installing update"
@@ -31048,6 +31056,7 @@ msgstr "検索取得"
 #: src/components/clio/composer.tsx
 #: src/components/clio/connect-address.tsx
 #: src/components/clio/conversation-message-blocks.tsx
+#: src/components/clio/default-agents-banner.tsx
 #: src/components/clio/delegate-calls.tsx
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/extension-registry-section.tsx
@@ -31185,6 +31194,10 @@ msgstr "再試行中"
 #: src/components/clio/message-row-actions.tsx
 msgid "Retrying response"
 msgstr "応答を再試行中"
+
+#: src/components/clio/default-agents-banner.tsx
+msgid "Retrying…"
+msgstr "再試行中…"
 
 #: src/routes/mcp-oauth-return.tsx
 msgid "Return to {agent}"
@@ -38199,6 +38212,14 @@ msgstr "結果フラグメントがありません。"
 msgid "the result reached the service limit"
 msgstr "結果がサービスの上限に達しました"
 
+#: src/components/clio/default-agents-banner.tsx
+msgid "The retry couldn’t run: {reason}"
+msgstr "再試行できませんでした: {reason}"
+
+#: src/components/clio/default-agents-banner.tsx
+msgid "The retry didn’t install them."
+msgstr "再試行してもインストールされませんでした。"
+
 #: src/components/clio/ssh-host-picker.tsx
 msgid "The route could not be saved"
 msgstr "経路を保存できませんでした"
@@ -38492,6 +38513,7 @@ msgid "The service refused."
 msgstr "サービスが拒否しました。"
 
 #: src/components/clio/composer.tsx
+#: src/components/clio/default-agents-banner.tsx
 #: src/components/clio/search-assistant.tsx
 #: src/hooks/use-attention-mode.ts
 #: src/hooks/use-more-details.ts
@@ -39369,6 +39391,10 @@ msgstr "この会話は定義済みのサブエージェントを実行してい
 #: src/components/clio/session-usage-readout.tsx
 msgid "This conversation’s account"
 msgstr "この会話のアカウント"
+
+#: src/components/clio/composer-failure.ts
+msgid "This conversation’s agent isn’t installed."
+msgstr "この会話のエージェントはインストールされていません。"
 
 #: src/lib/shortcuts/catalog.ts
 msgid "This conversation's menu"

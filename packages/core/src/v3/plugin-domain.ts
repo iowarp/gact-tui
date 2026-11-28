@@ -125,6 +125,14 @@ export const pluginCatalogSchema = z.object({
 
 export type PluginCatalog = z.infer<typeof pluginCatalogSchema>;
 
+/** One more boot install of the default marketplace: `ready`, or the same error the catalog carries. */
+export const defaultMarketplaceRetrySchema = z.object({
+  ready: z.boolean(),
+  default_marketplace_error: marketplaceErrorSchema.nullish().transform((value) => value ?? null),
+});
+
+export type DefaultMarketplaceRetry = z.infer<typeof defaultMarketplaceRetrySchema>;
+
 /** An installed marketplace: a source of plugins and agents, trusted or awaiting trust. */
 export const pluginMarketplaceSchema = z.object({
   name: z.string(),

@@ -210,6 +210,13 @@ export const SANDBOX_SETUP_POLL_MS = 1_000;
  */
 export const SANDBOX_RESOLVING_POLL_MS = 1_000;
 export const SANDBOX_INACTIVE_POLL_MS = 30_000;
+/**
+ * Poll cadence for the default-agents health row. Unit: milliseconds. Booting,
+ * the row appears once the boot install settles; while it is failed, only a fix
+ * made elsewhere (a restart, another window's retry) needs noticing.
+ */
+export const DEFAULT_AGENTS_BOOT_POLL_MS = 2_000;
+export const DEFAULT_AGENTS_UNAVAILABLE_POLL_MS = 30_000;
 
 // ## Streaming and reconnect backoff
 // The client reconnects a dropped SSE stream with exponential backoff between

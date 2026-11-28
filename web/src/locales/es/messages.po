@@ -13363,6 +13363,10 @@ msgstr "Predeterminado: {value}"
 msgid "Default agent"
 msgstr "Agente predeterminado"
 
+#: src/components/clio/default-agents-banner.tsx
+msgid "Default agents aren’t installed"
+msgstr "Los agentes predeterminados no están instalados"
+
 #: src/components/clio/plugin-marketplace-dialog.tsx
 msgid "Default branch"
 msgstr "Rama predeterminada"
@@ -19078,6 +19082,10 @@ msgstr "Instalando el servidor para esta conversación; sus herramientas se inco
 #: src/lib/mcp-preparation.ts
 msgid "Installing the server’s software stopped making progress."
 msgstr "La instalación del software del servidor dejó de avanzar."
+
+#: src/components/clio/default-agents-banner.tsx
+msgid "Installing them again…"
+msgstr "Instalándolos de nuevo…"
 
 #: src/components/clio/settings-app-updates.tsx
 msgid "Installing update"
@@ -31048,6 +31056,7 @@ msgstr "Recuperación"
 #: src/components/clio/composer.tsx
 #: src/components/clio/connect-address.tsx
 #: src/components/clio/conversation-message-blocks.tsx
+#: src/components/clio/default-agents-banner.tsx
 #: src/components/clio/delegate-calls.tsx
 #: src/components/clio/extension-library.tsx
 #: src/components/clio/extension-registry-section.tsx
@@ -31185,6 +31194,10 @@ msgstr "Reintentando"
 #: src/components/clio/message-row-actions.tsx
 msgid "Retrying response"
 msgstr "Reintentando respuesta"
+
+#: src/components/clio/default-agents-banner.tsx
+msgid "Retrying…"
+msgstr "Reintentando…"
 
 #: src/routes/mcp-oauth-return.tsx
 msgid "Return to {agent}"
@@ -38199,6 +38212,14 @@ msgstr "Falta el fragmento del resultado."
 msgid "the result reached the service limit"
 msgstr "el resultado alcanzó el límite del servicio"
 
+#: src/components/clio/default-agents-banner.tsx
+msgid "The retry couldn’t run: {reason}"
+msgstr "No se pudo reintentar: {reason}"
+
+#: src/components/clio/default-agents-banner.tsx
+msgid "The retry didn’t install them."
+msgstr "El reintento no los instaló."
+
 #: src/components/clio/ssh-host-picker.tsx
 msgid "The route could not be saved"
 msgstr "No se pudo guardar la ruta"
@@ -38492,6 +38513,7 @@ msgid "The service refused."
 msgstr "El servicio se negó."
 
 #: src/components/clio/composer.tsx
+#: src/components/clio/default-agents-banner.tsx
 #: src/components/clio/search-assistant.tsx
 #: src/hooks/use-attention-mode.ts
 #: src/hooks/use-more-details.ts
@@ -39369,6 +39391,10 @@ msgstr "Esta conversación ejecuta un subagente definido. Sus complementos sigue
 #: src/components/clio/session-usage-readout.tsx
 msgid "This conversation’s account"
 msgstr "Cuenta de esta conversación"
+
+#: src/components/clio/composer-failure.ts
+msgid "This conversation’s agent isn’t installed."
+msgstr "El agente de esta conversación no está instalado."
 
 #: src/lib/shortcuts/catalog.ts
 msgid "This conversation's menu"

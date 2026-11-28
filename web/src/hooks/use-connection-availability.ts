@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { createRepository, type ConnectionSettings, type SavedConnection } from '@/lib/connection';
 import { ServiceVersionError } from '@/lib/service-version-error';
 import { HISTORY_MODE_DETAIL, HISTORY_MODE_LABEL, isHistoryMode } from '@/lib/context-mode';
+import { unavailableDefaultMarketplace } from '@/lib/default-marketplace-health';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
@@ -205,6 +206,10 @@ export async function probeConnection(
       }
       if (health.healthy && isHistoryMode(health)) {
         return { state: 'degraded', label: HISTORY_MODE_LABEL, detail: HISTORY_MODE_DETAIL };
+      }
+      const defaultAgents = unavailableDefaultMarketplace(health);
+      if (health.healthy && defaultAgents) {
+        return { state: 'degraded', label: t`Limited`, detail: defaultAgents.text };
       }
       return health.healthy
         ? { state: 'healthy', label: t`Ready`, detail: t`Service is available.` }

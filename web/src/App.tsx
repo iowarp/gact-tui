@@ -28,6 +28,7 @@ import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
 import { isSettingsRoute, settingsBackgroundRoute } from '@/lib/settings-window-route';
 import { SandboxSetupNotification } from '@/components/clio/sandbox-setup-notification';
+import { DefaultAgentsBanner } from '@/components/clio/default-agents-banner';
 import { SandboxInactiveBanner } from '@/components/clio/sandbox-inactive-banner';
 import { ConnectionAnnouncer } from '@/components/clio/connection-announcer';
 import { McpOAuthReturn } from '@/routes/mcp-oauth-return';
@@ -203,6 +204,7 @@ export default function App() {
       <UpdateRestartRecovery />
       <div className="flex h-full min-h-0 flex-col">
         <SandboxInactiveBanner />
+        <DefaultAgentsBanner />
         <div className="min-h-0 flex-1">
           <Suspense fallback={<RouteFallback />}>
             <BackgroundRoutes location={routesLocation}>

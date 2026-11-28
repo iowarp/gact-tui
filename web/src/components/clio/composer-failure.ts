@@ -15,6 +15,8 @@ export function composerFailureReason(error: unknown, fallback: string): string 
   if (refusal) return refusal;
   if (error instanceof TransportError) {
     if (error.code === 'network_unavailable') return t`The service can't be reached.`;
+    // The message names the agent's raw reference; the banner above says why it is missing.
+    if (error.code === 'agent_unavailable') return t`This conversation’s agent isn’t installed.`;
     if (error.status && error.status >= 500) return t`The service hit an error.`;
   }
   const message =
