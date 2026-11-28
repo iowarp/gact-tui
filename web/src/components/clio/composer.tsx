@@ -92,6 +92,7 @@ export function ClioComposer({
   summonTargets: summonTargetsProp,
   onSubmit,
   onBehaviorChange,
+  picks,
   spotterModel = '',
   onSpotterModelChange,
   onPrepareFiles,
@@ -134,7 +135,7 @@ export function ClioComposer({
     missing: missingModel,
     selectedOption,
     selectModel,
-  } = useComposerModelSelection(modelOptions, provider, model, connecting);
+  } = useComposerModelSelection(modelOptions, provider, model, connecting, picks);
   // Never a bare "Choose a model" when we know why there is none.
   const modelProblem =
     modelCatalogStatus === 'error' && !selectedOption
@@ -159,6 +160,7 @@ export function ClioComposer({
     effort,
     reasoning: selectedOption?.reasoning,
     onBehaviorChange,
+    picks,
   });
   const spotter = useSpotterModelSelection(spotterModel, onSpotterModelChange);
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();

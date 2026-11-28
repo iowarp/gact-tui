@@ -228,6 +228,7 @@ export function WorkspaceComposer({
           onAnnotationsChange={draft.onAnnotationsChange}
           onReferencesChange={draft.onReferencesChange}
           onValueChange={draft.onValueChange}
+          picks={draft.picks}
           provider={data.activeProvider}
           queuedMessages={queue.messages ?? NO_QUEUED_MESSAGES}
           queuePaused={session.metadata?.composer_queue_paused === true}

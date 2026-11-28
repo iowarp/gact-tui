@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
+import { createDraftPicks } from '@/hooks/use-composer-draft';
 import { ClioComposer, type ClioComposerProps } from './composer';
 
 const repositoryMocks = vi.hoisted(() => ({
@@ -171,6 +172,35 @@ describe('ClioComposer authoritative behavior', () => {
         expect.objectContaining({ confirmation_policy: 'ask', execution_mode: 'plan' }),
       ),
     );
+    expect(screen.getByRole('button', { name: 'Mode: Plan' })).toBeVisible();
+  });
+
+  it('keeps a new conversation’s Plan pick when the layout remounts the composer', async () => {
+    const user = userEvent.setup();
+    const picks = createDraftPicks();
+    const composer = (
+      <QueryClientProvider client={new QueryClient()}>
+        <PromptInputProvider>
+          <ClioComposer
+            attachments={false}
+            confirmationPolicy="ask"
+            executionMode="execute"
+            model="gpt-5.6-luna"
+            onSubmit={vi.fn(async () => undefined)}
+            picks={picks}
+            provider="codex"
+            state="completed"
+          />
+        </PromptInputProvider>
+      </QueryClientProvider>
+    );
+    const first = render(composer);
+    await user.click(screen.getByRole('button', { name: 'Mode: Execute' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /^Plan/ }));
+    expect(screen.getByRole('button', { name: 'Mode: Plan' })).toBeVisible();
+
+    first.unmount();
+    render(composer);
     expect(screen.getByRole('button', { name: 'Mode: Plan' })).toBeVisible();
   });
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useDraftHeldState, type ComposerDraftPicks } from '@/hooks/use-composer-draft';
 import {
   findHeldModelOption,
   findSelectedModelOption,
@@ -32,13 +32,18 @@ export function useComposerModelSelection(
   provider: string | undefined,
   model: string | undefined,
   connecting = false,
+  /** The draft that keeps the pick when the composer remounts. */
+  picks?: ComposerDraftPicks,
 ) {
-  const [selection, setSelection] = useState<ModelSelection>(() => ({
-    provider,
-    model,
-    authoritativeProvider: provider,
-    authoritativeModel: model,
-  }));
+  const [selection, setSelection] = useDraftHeldState<ModelSelection>(
+    picks?.slot('composer-model'),
+    () => ({
+      provider,
+      model,
+      authoritativeProvider: provider,
+      authoritativeModel: model,
+    }),
+  );
   if (selection.pinned && !connecting) {
     setSelection({
       ...selection,

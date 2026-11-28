@@ -99,6 +99,7 @@ function DraftComposer({ draft, ...props }: DraftComposerProps) {
       onValueChange={draft.onValueChange}
       references={draft.references}
       onReferencesChange={draft.onReferencesChange}
+      picks={draft.picks}
     />
   );
 }
@@ -424,7 +425,10 @@ function WorkspaceDraft({ workspaceId }: { workspaceId: string }) {
                       agentRef: agentChoice,
                       text: draft.readValue(),
                     };
-                    void navigate(newConversationRoute(id), { replace: true, state: { movedDraft } });
+                    void navigate(newConversationRoute(id), {
+                      replace: true,
+                      state: { movedDraft },
+                    });
                   }}
                 />{' '}
                 <span>with</span>{' '}

@@ -14,9 +14,49 @@ export interface ComposerDraft {
   onAnnotationsChange: (annotations: readonly CommentAttachment[]) => void;
   onReferencesChange: (references: readonly InlineReferenceSelection[]) => void;
   onValueChange: (value: string) => void;
+  /** The picks the next message is sent with (mode, effort, model). */
+  picks: ComposerDraftPicks;
   readValue: () => string;
   references: readonly InlineReferenceSelection[];
   subscribeValue: (listener: () => void) => () => void;
+}
+
+/** One composer pick the draft keeps, read when the composer mounts. */
+export interface ComposerDraftSlot<T> {
+  read: () => T | undefined;
+  write: (value: T) => void;
+}
+
+/** Named pick slots; each name always returns the same slot. */
+export interface ComposerDraftPicks {
+  slot: <T>(name: string) => ComposerDraftSlot<T>;
+}
+
+export function createDraftPicks(): ComposerDraftPicks {
+  const values = new Map<string, unknown>();
+  const slots = new Map<string, ComposerDraftSlot<unknown>>();
+  return {
+    slot<T>(name: string) {
+      let slot = slots.get(name);
+      if (!slot) {
+        slot = { read: () => values.get(name), write: (value) => void values.set(name, value) };
+        slots.set(name, slot);
+      }
+      return slot as ComposerDraftSlot<T>;
+    },
+  };
+}
+
+/**
+ * Composer state that the draft also keeps: a remounted composer (the layout
+ * crossing a breakpoint) starts from the last value instead of the default.
+ */
+export function useDraftHeldState<T>(slot: ComposerDraftSlot<T> | undefined, initial: () => T) {
+  const [state, setState] = useState<T>(() => slot?.read() ?? initial());
+  useEffect(() => {
+    slot?.write(state);
+  }, [slot, state]);
+  return [state, setState] as const;
 }
 
 const EMPTY_REFERENCES: readonly InlineReferenceSelection[] = [];
@@ -128,7 +168,10 @@ export function useComposerDraftValue(
  * welcome/docked layout branch changes, and a remount destroys component state:
  * a draft whose references lived inside the composer lost its chips while the
  * prose around them survived. Annotations are added from outside the composer
- * (a selection in the transcript), so they must live here too.
+ * (a selection in the transcript), so they must live here too. The mode, effort
+ * and model picks are kept here for the same reason: a new conversation has no
+ * session to store them on, and resizing the window across a layout breakpoint
+ * remounts the composer.
  *
  * Temporary entry composers never persist. Real sessions may opt into restoring
  * unsent text within the tab, scoped to both the agent endpoint and session ID.
@@ -142,6 +185,8 @@ export function useComposerDraft(
   const [draft, setDraft] = useState<HeldDraft>(() => emptyDraft(scope));
   const [text] = useState(createTextStore);
   const [saver] = useState(createDraftSaver);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- a new scope is a new draft
+  const picks = useMemo(createDraftPicks, [scope]);
   const current = draft.scope === scope ? draft : emptyDraft(scope);
 
   // A reload, a closed tab or leaving the session keeps the last keystrokes.
@@ -190,6 +235,7 @@ export function useComposerDraft(
       onAnnotationsChange,
       onReferencesChange,
       onValueChange,
+      picks,
       readValue,
       references: current.references,
       subscribeValue: text.subscribe,
@@ -200,6 +246,7 @@ export function useComposerDraft(
       onAnnotationsChange,
       onReferencesChange,
       onValueChange,
+      picks,
       readValue,
       text,
     ],

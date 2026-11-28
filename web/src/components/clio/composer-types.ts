@@ -10,6 +10,7 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import type { ReactNode } from 'react';
+import type { ComposerDraftPicks } from '@/hooks/use-composer-draft';
 import type { InlineReferenceSelection } from '@/lib/composer-reference-domain';
 import type { ModelReasoningLevels } from '@/lib/reasoning-levels';
 import type { ClioModelOption } from '@/lib/model-options';
@@ -84,6 +85,8 @@ export interface ClioComposerProps extends ComposerQueueControls {
     spotterModel?: string;
   }) => Promise<void>;
   onBehaviorChange?: (behavior: MessageBehavior) => Promise<void>;
+  /** Keeps the mode, effort and model picks while the composer remounts (a layout change). */
+  picks?: ComposerDraftPicks;
   spotterModel?: string;
   /** Stores the session's SPOTTER model (empty: conversation model); else the draft keeps it. */
   onSpotterModelChange?: (ref: string) => Promise<void>;

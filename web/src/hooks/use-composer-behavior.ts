@@ -1,6 +1,6 @@
 import type { MessageBehavior } from '@clio/core/v3';
-import { useState } from 'react';
 import { toast } from 'sonner';
+import { useDraftHeldState, type ComposerDraftPicks } from '@/hooks/use-composer-draft';
 import {
   effectiveReasoningEffort,
   knownReasoningEffort,
@@ -31,6 +31,7 @@ export function useComposerBehavior({
   effort,
   reasoning,
   onBehaviorChange,
+  picks,
 }: {
   confirmationPolicy: MessageBehavior['confirmation_policy'];
   executionMode: MessageBehavior['execution_mode'];
@@ -39,19 +40,24 @@ export function useComposerBehavior({
   /** The levels the selected model offers. */
   reasoning: ModelReasoningLevels | undefined;
   onBehaviorChange?: (behavior: MessageBehavior) => Promise<void>;
+  /** The draft that keeps the pick when the composer remounts. */
+  picks?: ComposerDraftPicks;
 }) {
-  const [selection, setSelection] = useState<BehaviorSelection>(() => ({
-    behavior: {
-      confirmation_policy: confirmationPolicy,
-      execution_mode: executionMode,
-      // The person's explicit choice only; the model's own default fills in below.
-      reasoning_effort: knownReasoningEffort(effort),
-    },
-    authoritativeConfirmationPolicy: confirmationPolicy,
-    authoritativeExecutionMode: executionMode,
-    authoritativeEffort: effort,
-    effortPicked: false,
-  }));
+  const [selection, setSelection] = useDraftHeldState<BehaviorSelection>(
+    picks?.slot('composer-behavior'),
+    () => ({
+      behavior: {
+        confirmation_policy: confirmationPolicy,
+        execution_mode: executionMode,
+        // The person's explicit choice only; the model's own default fills in below.
+        reasoning_effort: knownReasoningEffort(effort),
+      },
+      authoritativeConfirmationPolicy: confirmationPolicy,
+      authoritativeExecutionMode: executionMode,
+      authoritativeEffort: effort,
+      effortPicked: false,
+    }),
+  );
   // Adopt each session change as it arrives (for example the service leaving
   // plan mode once a plan is approved), so a pick that the session has since
   // moved past is never compared against a stale snapshot and shown again.
