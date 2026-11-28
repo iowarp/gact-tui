@@ -301,9 +301,12 @@ function fallbackIterations(
     if (block.type === 'tool') {
       const recorded = tools[block.tool_id];
       // A call whose outcome went unrecorded when its turn ended was cut off with
-      // the turn: it reads as stopped, not as an unexplained unknown.
+      // the turn: it reads as stopped, not as an unexplained unknown. A call joined
+      // to its execution task carries that task's recorded state, which outlives the turn.
       const tool =
-        recorded?.state === 'unknown' && (message.stop_reason || message.completed_at)
+        recorded?.state === 'unknown' &&
+        !recorded.execution_task &&
+        (message.stop_reason || message.completed_at)
           ? { ...recorded, state: 'cancelled' as const }
           : recorded;
       // An unresolved invocation contributes nothing here; the block stays in the
