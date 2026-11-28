@@ -552,6 +552,8 @@ export function ConnectionPage({ dialog }: { dialog?: { onClose: () => void } } 
                                 connection.endpoint === settings.endpoint,
                               ),
                             }}
+                            // Above the title's row-wide click target, like the row's other controls.
+                            className="relative z-10"
                             compact
                             endpoint={connection.endpoint}
                           />

@@ -28,7 +28,7 @@ export function ConnectionAvailabilityIndicator({
       <HoverCardTrigger asChild>
         <span
           className={cn('inline-flex rounded-md outline-none focus-visible:ring-2', className)}
-          tabIndex={compact ? -1 : 0}
+          tabIndex={0}
         >
           <StatusIndicator
             className={cn(
