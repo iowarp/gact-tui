@@ -3485,6 +3485,10 @@ msgstr ""
 msgid "{ready} of {total} ready"
 msgstr ""
 
+#: src/lib/connector-presentation.ts
+msgid "{reason} {elapsed} so far."
+msgstr ""
+
 #: src/components/clio/composer.tsx
 msgid "{reason} Choose another model."
 msgstr ""
@@ -23240,6 +23244,14 @@ msgstr ""
 msgid "No answer was recorded."
 msgstr ""
 
+#: src/lib/connector-presentation.ts
+msgid "No answer yet"
+msgstr ""
+
+#: src/lib/connector-presentation.ts
+msgid "No answer yet, {elapsed}"
+msgstr ""
+
 #: src/components/clio/archived-sessions-dialog.tsx
 msgid "No archived conversations"
 msgstr ""
@@ -35541,6 +35553,10 @@ msgstr ""
 msgid "Starting it keeps its version and data."
 msgstr ""
 
+#: src/lib/connector-presentation.ts
+msgid "Starting its server."
+msgstr ""
+
 #: src/components/clio/desktop-boot.tsx
 msgid "Starting local {agent}"
 msgstr ""
@@ -35583,6 +35599,10 @@ msgstr ""
 
 #: src/components/clio/composer-attachment-chip.tsx
 msgid "Starting upload"
+msgstr ""
+
+#: src/lib/connector-presentation.ts
+msgid "Starting, {elapsed}"
 msgstr ""
 
 #: src/components/clio/connector-pane.tsx

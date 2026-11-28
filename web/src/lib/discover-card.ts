@@ -72,6 +72,7 @@ export type DiscoverCardAction =
 export function discoverCardAction(
   connector: Connector,
   change?: ConnectorChange,
+  now?: number,
 ): DiscoverCardAction {
   if (change === 'starting')
     // A clio-kit server is downloaded when it is first enabled (LZ-D1).
@@ -85,5 +86,5 @@ export function discoverCardAction(
     return needs ? { kind: 'setup', needs } : { kind: 'enable' };
   }
   if (connector.state.status === 'ready') return { kind: 'enabled' };
-  return { kind: 'state', status: connectorStatus(connector) };
+  return { kind: 'state', status: connectorStatus(connector, undefined, now) };
 }

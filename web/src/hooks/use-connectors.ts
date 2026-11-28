@@ -3,9 +3,10 @@ import { useMutation, useMutationState, useQuery, useQueryClient } from '@tansta
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
 import { connectionScope } from '@/lib/connection-scope';
-import type { ConnectorChange } from '@/lib/connector-presentation';
+import { anyConnectorStarting, type ConnectorChange } from '@/lib/connector-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { useLiveStore } from '@/store/live-store';
 import { t } from '@lingui/core/macro';
 
 /**
@@ -23,14 +24,33 @@ export const CONNECTOR_DEPENDENT_READS = [
   'session-agent',
 ] as const;
 
+/**
+ * `connector.changed` says when a check starts, stalls and ends, but it reaches the
+ * app only on a conversation's event stream; the service has no stream of its own.
+ * While a check runs and no conversation's stream is live, the read is repeated this
+ * often instead, and stops when nothing is starting.
+ */
+const CHECK_WITHOUT_EVENTS_MS = 5_000;
+
+/** How often to read a list again while `starting` is true; never while events arrive. */
+export function useConnectorCheckRefetch(): (starting: boolean) => number | false {
+  const live = useLiveStore((state) => state.streamOwners > 0 && state.entities.stream === 'live');
+  return (starting) => (starting && !live ? CHECK_WITHOUT_EVENTS_MS : false);
+}
+
 /** Every connector with its state for the person asking (`GET /v1/connectors`). */
 export function useConnectors(enabled = true) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const refetch = useConnectorCheckRefetch();
+  // An Enable in flight is a check too: its row reads `starting` once read again.
+  const changing = useConnectorChanges().size > 0;
   return useQuery({
     queryKey: queryKeys.key('connectors', settings.endpoint, connectionScope(settings)),
     queryFn: ({ signal }) => repository.connectors(signal),
     enabled,
+    refetchInterval: (query) =>
+      refetch(changing || anyConnectorStarting((query.state.data ?? []).map((row) => row.state))),
   });
 }
 

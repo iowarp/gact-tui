@@ -108,6 +108,33 @@ describe('connector state in words', () => {
     expect(connectorStatus(connector({ enabled: false })).label).toBe('Not enabled');
   });
 
+  it('counts a check in flight from its start and keeps the service’s reason', () => {
+    const started = Date.parse('2026-11-28T10:00:00Z');
+    const starting = (stalled: boolean) =>
+      connector({
+        state: {
+          status: 'starting',
+          needs: [],
+          reason: stalled
+            ? 'Its server has done no work and answered nothing for 30 s; CLIO keeps waiting on it.'
+            : 'Starting its server and listing its tools.',
+          started_at: '2026-11-28T10:00:00Z',
+          elapsed_s: 3,
+          stalled,
+        },
+      });
+    const early = connectorStatus(starting(false), undefined, started + 5_000);
+    const later = connectorStatus(starting(false), undefined, started + 9_000);
+    expect(early).toMatchObject({ tone: 'running' });
+    expect(early.label).toMatch(/^Starting, .*5/);
+    expect(later.label).toMatch(/^Starting, .*9/);
+    expect(early.detail).toMatch(/^Starting its server and listing its tools\. .*5.* so far\.$/);
+    const stalled = connectorStatus(starting(true), 'starting', started + 70_000);
+    expect(stalled.tone).toBe('warning');
+    expect(stalled.label).toMatch(/^No answer yet, /);
+    expect(stalled.detail).toContain('answered nothing for 30 s; CLIO keeps waiting on it.');
+  });
+
   it('makes a monogram from the first and last words, or a single word’s parts', () => {
     expect(monogramInitials('Fixture Sign-in')).toBe('FS');
     expect(monogramInitials('Jaime Cernuda')).toBe('JC');

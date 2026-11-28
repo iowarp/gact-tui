@@ -284,8 +284,9 @@ export function connectorRow(
   connector: Connector,
   change?: ConnectorChange,
   plugin?: PluginEntry,
+  now?: number,
 ): ExtensionEntry {
-  const status = connectorStatus(connector, change);
+  const status = connectorStatus(connector, change, now);
   const setup = connectorSetupWords(connector);
   const label = status.tone === 'success' ? t`Ready` : status.label;
   return {
@@ -384,6 +385,7 @@ export function extensionEntries({
   servers,
   connectors = [],
   changes,
+  now,
   term = '',
 }: {
   type: ExtensionType;
@@ -394,6 +396,8 @@ export function extensionEntries({
   connectors?: readonly Connector[];
   /** Connectors with an Enable or Turn off still running (CN3). */
   changes?: ReadonlyMap<string, ConnectorChange>;
+  /** The time a check in flight is counted to (the shared clock while one runs). */
+  now?: number;
   term?: string;
 }): ExtensionEntry[] {
   const query = term.trim().toLocaleLowerCase();
@@ -404,7 +408,7 @@ export function extensionEntries({
   if (type === 'all' || type === 'mcp' || type === 'plugins')
     rows.push(
       ...connectors
-        .map((row) => connectorRow(row, changes?.get(row.id), bundlingPlugin(row, plugins)))
+        .map((row) => connectorRow(row, changes?.get(row.id), bundlingPlugin(row, plugins), now))
         .filter(
           (row) =>
             type === 'all' ||

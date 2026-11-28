@@ -3493,6 +3493,10 @@ msgstr "{ratingLabel}, με σχόλιο"
 msgid "{ready} of {total} ready"
 msgstr "{ready} από {total} έτοιμα"
 
+#: src/lib/connector-presentation.ts
+msgid "{reason} {elapsed} so far."
+msgstr "{reason} {elapsed} μέχρι στιγμής."
+
 #: src/components/clio/composer.tsx
 msgid "{reason} Choose another model."
 msgstr "{reason} Επιλέξτε άλλο μοντέλο."
@@ -23258,6 +23262,14 @@ msgstr "Δεν καταγράφηκε κείμενο απάντησης."
 msgid "No answer was recorded."
 msgstr "Δεν καταγράφηκε απάντηση."
 
+#: src/lib/connector-presentation.ts
+msgid "No answer yet"
+msgstr "Καμία απάντηση ακόμη"
+
+#: src/lib/connector-presentation.ts
+msgid "No answer yet, {elapsed}"
+msgstr "Καμία απάντηση ακόμη, {elapsed}"
+
 #: src/components/clio/archived-sessions-dialog.tsx
 msgid "No archived conversations"
 msgstr "Δεν υπάρχουν αρχειοθετημένες συνομιλίες"
@@ -35560,6 +35572,10 @@ msgstr "Εκκίνηση και έλεγχος των απαιτήσεων."
 msgid "Starting it keeps its version and data."
 msgstr "Η εκκίνηση διατηρεί την έκδοση και τα δεδομένα του."
 
+#: src/lib/connector-presentation.ts
+msgid "Starting its server."
+msgstr "Εκκίνηση του διακομιστή του."
+
 #: src/components/clio/desktop-boot.tsx
 msgid "Starting local {agent}"
 msgstr "Εκκίνηση τοπικού {agent}"
@@ -35603,6 +35619,10 @@ msgstr "Εκκίνηση. Ανοίγει αυτόματα όταν είναι έ
 #: src/components/clio/composer-attachment-chip.tsx
 msgid "Starting upload"
 msgstr "Έναρξη μεταφόρτωσης"
+
+#: src/lib/connector-presentation.ts
+msgid "Starting, {elapsed}"
+msgstr "Εκκίνηση, {elapsed}"
 
 #: src/components/clio/connector-pane.tsx
 #: src/components/clio/service-management-panel.tsx

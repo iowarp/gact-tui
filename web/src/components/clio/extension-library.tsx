@@ -9,6 +9,7 @@ import {
   useConnectors,
   useInvalidateConnectors,
 } from '@/hooks/use-connectors';
+import { useNow } from '@/hooks/use-now';
 import { useRepository } from '@/hooks/use-repository';
 import { useWindowContentHeight } from '@/hooks/use-window-content-height';
 import { useRemoveSavedMcp, useSavedMcpServices } from '@/hooks/use-saved-mcp-services';
@@ -20,6 +21,7 @@ import {
 } from '@/hooks/use-session-agent';
 import { connectionScope } from '@/lib/connection-scope';
 import { bundlingPlugin } from '@/lib/connector-plugin';
+import { anyConnectorStarting } from '@/lib/connector-presentation';
 import {
   copyAddress,
   copyReference,
@@ -137,6 +139,8 @@ function ExtensionLibraryContents({
   const services = saved.data ?? [];
   const connectors = connectorList.data ?? [];
   const connectorChanges = useConnectorChanges();
+  // A check in flight counts its time here, between the service's connector.changed events.
+  const now = useNow(anyConnectorStarting(connectors.map((row) => row.state)));
   const serverRows = servers.data ?? [];
   const mine = agents.data?.filter((agent) => agent.kind === 'user') ?? [];
   const hasLocalItems = Boolean(
@@ -159,6 +163,7 @@ function ExtensionLibraryContents({
     servers: serverRows,
     connectors,
     changes: connectorChanges,
+    now,
     term,
   });
   const nothingInstalled =

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { connectorCheckFields } from './connector-domain.js';
 import { forwardCompatibleEnum } from './schema-utils.js';
 
 /**
@@ -53,6 +54,7 @@ export const pluginConnectorSchema = z
       .int()
       .nullish()
       .transform((value) => value ?? null),
+    ...connectorCheckFields,
   })
   .passthrough();
 

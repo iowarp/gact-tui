@@ -2,6 +2,7 @@ import type { Connector } from '@clio/core/v3';
 import { ArrowRightIcon, CheckIcon } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
 import { useConnectorActions, useConnectorChanges } from '@/hooks/use-connectors';
+import { useNow } from '@/hooks/use-now';
 import { groupCatalogEntries } from '@/lib/connector-groups';
 import {
   cardRequiresWords,
@@ -153,7 +154,8 @@ export function DiscoverCard({
   const { connector, plugin } = entry;
   const actions = useConnectorActions();
   const change = useConnectorChanges().get(connector.id);
-  const action = discoverCardAction(connector, change);
+  const now = useNow(connector.state.status === 'starting');
+  const action = discoverCardAction(connector, change, now);
   const requires = cardRequiresWords(connector);
   const titleId = useId();
   return (
@@ -269,7 +271,10 @@ function CardAction({
     );
   if (action.kind === 'enabled')
     return (
-      <span className="flex items-center gap-1 text-xs font-medium" data-slot="discover-card-enabled">
+      <span
+        className="flex items-center gap-1 text-xs font-medium"
+        data-slot="discover-card-enabled"
+      >
         <CheckIcon aria-hidden="true" className="size-3.5 text-primary" />
         {t`Enabled`}
       </span>

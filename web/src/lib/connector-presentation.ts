@@ -2,9 +2,16 @@
  * One state, in words, for a connector everywhere it appears (CN3): the Extensions
  * list, its setup card, and the card in the conversation.
  */
-import type { Connector, ConnectorNeed, PluginConnector, PluginEntry } from '@clio/core/v3';
+import type {
+  Connector,
+  ConnectorNeed,
+  ConnectorState,
+  PluginConnector,
+  PluginEntry,
+} from '@clio/core/v3';
 import type { StatusTone } from '@/components/clio/primitives/status-indicator';
 import { plural, t } from '@lingui/core/macro';
+import { formatDuration } from '@/lib/format';
 import { formatList } from '@/lib/locale-format';
 
 export interface ConnectorStatusWords {
@@ -49,10 +56,55 @@ function namedNeeds(connector: Connector): Pick<ConnectorNeed, 'kind' | 'label' 
  */
 export type ConnectorChange = 'starting' | 'turning-off';
 
+type ConnectorCheck = Pick<ConnectorState, 'reason' | 'started_at' | 'elapsed_s' | 'stalled'>;
+
+/**
+ * How long a check in flight has run, counted here between `connector.changed` events
+ * from `started_at`. Never less than the service's own count at the read, so a clock
+ * behind the service's does not count backwards.
+ */
+export function connectorCheckElapsed(check: ConnectorCheck, now: number): number | null {
+  const read = check.elapsed_s === null ? null : check.elapsed_s * 1000;
+  const started = check.started_at ? Date.parse(check.started_at) : Number.NaN;
+  if (Number.isNaN(started)) return read;
+  return Math.max(now - started, read ?? 0);
+}
+
+/** True while any of these connectors' servers is still being checked. */
+export function anyConnectorStarting(
+  states: readonly ({ status: string } | null | undefined)[],
+): boolean {
+  return states.some((state) => state?.status === 'starting');
+}
+
+/**
+ * A check in flight, in words: still starting, or its server went a whole window with
+ * no work. The reason is the service's own sentence; the time so far is counted here.
+ */
+function checkWords(check: ConnectorCheck, now: number): ConnectorStatusWords {
+  const ms = connectorCheckElapsed(check, now);
+  const elapsed = ms === null ? null : formatDuration(ms, 'short');
+  const label = check.stalled
+    ? elapsed
+      ? t`No answer yet, ${elapsed}`
+      : t`No answer yet`
+    : elapsed
+      ? t`Starting, ${elapsed}`
+      : t`Starting…`;
+  const reason = check.reason ?? (check.stalled ? label : t`Starting its server.`);
+  // An older service writes the time into its reason; then the reason alone.
+  const detail = elapsed && check.started_at ? t`${reason} ${elapsed} so far.` : reason;
+  return { tone: check.stalled ? 'warning' : 'running', label, detail };
+}
+
 export function connectorStatus(
   connector: Connector,
   change?: ConnectorChange,
+  now: number = Date.now(),
 ): ConnectorStatusWords {
+  const { state } = connector;
+  // The service's own check, once it reads one, says more than "Starting…".
+  if (state.status === 'starting' && change !== 'turning-off') return checkWords(state, now);
   if (change === 'starting')
     return {
       tone: 'running',
@@ -63,7 +115,6 @@ export function connectorStatus(
     return { tone: 'running', label: t`Turning off…`, detail: t`Turning off…` };
   if (!connector.enabled)
     return { tone: 'inactive', label: t`Not enabled`, detail: t`Not enabled` };
-  const { state } = connector;
   if (state.status === 'ready') {
     const label = connector.tool_count === null ? t`Ready` : readyWithTools(connector.tool_count);
     return { tone: 'success', label, detail: label };
@@ -106,9 +157,10 @@ export function offeredPlugins<T extends Pick<PluginEntry, 'follows' | 'connecto
  */
 export function pluginConnectorStatus(
   connector: PluginConnector,
-  { counted = false }: { counted?: boolean } = {},
+  { counted = false, now = Date.now() }: { counted?: boolean; now?: number } = {},
 ): string {
   if (!connector.enabled) return t`Not enabled`;
+  if (connector.status === 'starting') return checkWords(connector, now).label;
   if (connector.status === 'ready')
     return connector.tool_count === null || counted
       ? t`Ready`

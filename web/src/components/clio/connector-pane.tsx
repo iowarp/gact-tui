@@ -2,6 +2,7 @@ import type { Connector, ConnectorNeed, PluginEntry } from '@clio/core/v3';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useConnectorActions, useConnectorChanges } from '@/hooks/use-connectors';
+import { useNow } from '@/hooks/use-now';
 import { connectorStatus, type ConnectorChange } from '@/lib/connector-presentation';
 import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { ConnectorLogo, ConnectorNeedRows } from './connector-need-rows';
@@ -43,7 +44,8 @@ export function ConnectorPane({
   // A connector added by URL or command can be removed; a catalog entry is turned off.
   const removable = connector.source === 'custom';
   const change = useConnectorChanges().get(connector.id);
-  const status = connectorStatus(connector, change);
+  const now = useNow(connector.state.status === 'starting');
+  const status = connectorStatus(connector, change, now);
   const values = draftValues(connector.needs, draft);
   const changed = Object.keys(values).length > 0;
   const saving = actions.save.isPending;

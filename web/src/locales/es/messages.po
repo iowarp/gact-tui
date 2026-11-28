@@ -3493,6 +3493,10 @@ msgstr "{ratingLabel}, con comentario"
 msgid "{ready} of {total} ready"
 msgstr "{ready} de {total} listos"
 
+#: src/lib/connector-presentation.ts
+msgid "{reason} {elapsed} so far."
+msgstr "{reason} Lleva {elapsed}."
+
 #: src/components/clio/composer.tsx
 msgid "{reason} Choose another model."
 msgstr "{reason} Elige otro modelo."
@@ -23258,6 +23262,14 @@ msgstr "No se registró ningún texto de respuesta."
 msgid "No answer was recorded."
 msgstr "No se registró ninguna respuesta."
 
+#: src/lib/connector-presentation.ts
+msgid "No answer yet"
+msgstr "Aún sin respuesta"
+
+#: src/lib/connector-presentation.ts
+msgid "No answer yet, {elapsed}"
+msgstr "Aún sin respuesta, {elapsed}"
+
 #: src/components/clio/archived-sessions-dialog.tsx
 msgid "No archived conversations"
 msgstr "No hay conversaciones archivadas"
@@ -35560,6 +35572,10 @@ msgstr "Iniciándolo y comprobando qué necesita."
 msgid "Starting it keeps its version and data."
 msgstr "Al iniciarlo se conservan su versión y sus datos."
 
+#: src/lib/connector-presentation.ts
+msgid "Starting its server."
+msgstr "Iniciando su servidor."
+
 #: src/components/clio/desktop-boot.tsx
 msgid "Starting local {agent}"
 msgstr "Iniciando {agent} local"
@@ -35603,6 +35619,10 @@ msgstr "Iniciando. Se abre solo cuando esté listo."
 #: src/components/clio/composer-attachment-chip.tsx
 msgid "Starting upload"
 msgstr "Iniciando la subida"
+
+#: src/lib/connector-presentation.ts
+msgid "Starting, {elapsed}"
+msgstr "Iniciando, {elapsed}"
 
 #: src/components/clio/connector-pane.tsx
 #: src/components/clio/service-management-panel.tsx

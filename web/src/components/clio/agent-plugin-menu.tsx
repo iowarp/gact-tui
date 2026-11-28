@@ -8,7 +8,8 @@ import { BoxesIcon, PackageIcon } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { bringsMoreThanItsServer, connectorPluginContents } from '@/lib/connector-plugin';
-import { pluginConnectorStatus } from '@/lib/connector-presentation';
+import { useNow } from '@/hooks/use-now';
+import { anyConnectorStarting, pluginConnectorStatus } from '@/lib/connector-presentation';
 import { CapabilityPicker } from './capability-picker';
 import { ConnectorLogo } from './connector-need-rows';
 import { t } from '@lingui/core/macro';
@@ -36,6 +37,7 @@ function availability(
   plugin: PluginEntry,
   active: ReadonlyMap<string, string>,
   delta: AgentDelta,
+  now: number,
 ): Availability {
   if (plugin.pending_trust) return { selectable: false, label: t`Waiting for trust in Settings` };
   if (!plugin.trusted) return { selectable: false, label: t`Marketplace not trusted` };
@@ -52,7 +54,7 @@ function availability(
   if (plugin.connector)
     return {
       selectable: true,
-      label: pluginConnectorStatus(plugin.connector, { counted: bundles(plugin) }),
+      label: pluginConnectorStatus(plugin.connector, { counted: bundles(plugin), now }),
     };
   return { selectable: true, label: t`Add` };
 }
@@ -68,6 +70,8 @@ export function AgentPluginMenu({
   children,
   align = 'start',
 }: AgentPluginMenuProps) {
+  // A connector still starting counts its time here, between connector.changed events.
+  const now = useNow(anyConnectorStarting((plugins ?? []).map((plugin) => plugin.connector)));
   const items = useMemo(() => {
     const active = new Map(resolution.plugins.map((plugin) => [plugin.id, plugin.marketplace]));
     const rows = (plugins ?? []).filter((plugin) => plugin.id !== 'core');
@@ -80,7 +84,7 @@ export function AgentPluginMenu({
       ...rows.filter((plugin) => bundles(plugin)),
       ...rows.filter((plugin) => plugin.kind !== 'pack' && !plugin.connector),
     ].map((plugin) => {
-      const state = availability(plugin, active, delta);
+      const state = availability(plugin, active, delta, now);
       const Icon = plugin.kind === 'pack' ? BoxesIcon : PackageIcon;
       const connector = plugin.connector;
       const bundled = bundles(plugin);
@@ -113,7 +117,7 @@ export function AgentPluginMenu({
         ],
       };
     });
-  }, [plugins, resolution.plugins, delta]);
+  }, [plugins, resolution.plugins, delta, now]);
   return (
     <CapabilityPicker
       items={items}

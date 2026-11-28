@@ -3493,6 +3493,10 @@ msgstr "{ratingLabel}、コメントあり"
 msgid "{ready} of {total} ready"
 msgstr "{total}件中{ready}件準備完了"
 
+#: src/lib/connector-presentation.ts
+msgid "{reason} {elapsed} so far."
+msgstr "{reason} 経過 {elapsed}。"
+
 #: src/components/clio/composer.tsx
 msgid "{reason} Choose another model."
 msgstr "{reason}別のモデルを選択してください。"
@@ -23258,6 +23262,14 @@ msgstr "回答テキストは記録されていません。"
 msgid "No answer was recorded."
 msgstr "回答は記録されていません。"
 
+#: src/lib/connector-presentation.ts
+msgid "No answer yet"
+msgstr "応答なし"
+
+#: src/lib/connector-presentation.ts
+msgid "No answer yet, {elapsed}"
+msgstr "応答なし、{elapsed}"
+
 #: src/components/clio/archived-sessions-dialog.tsx
 msgid "No archived conversations"
 msgstr "アーカイブした会話はありません"
@@ -35560,6 +35572,10 @@ msgstr "起動して必要なものを確認しています。"
 msgid "Starting it keeps its version and data."
 msgstr "起動してもバージョンとデータは維持されます。"
 
+#: src/lib/connector-presentation.ts
+msgid "Starting its server."
+msgstr "サーバーを起動しています。"
+
 #: src/components/clio/desktop-boot.tsx
 msgid "Starting local {agent}"
 msgstr "ローカルの{agent}を起動中"
@@ -35603,6 +35619,10 @@ msgstr "起動中です。準備ができると自動的に開きます。"
 #: src/components/clio/composer-attachment-chip.tsx
 msgid "Starting upload"
 msgstr "アップロードを開始中"
+
+#: src/lib/connector-presentation.ts
+msgid "Starting, {elapsed}"
+msgstr "起動中、{elapsed}"
 
 #: src/components/clio/connector-pane.tsx
 #: src/components/clio/service-management-panel.tsx

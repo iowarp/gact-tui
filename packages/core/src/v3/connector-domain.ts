@@ -63,8 +63,32 @@ export const connectorNeedSchema = z
   .transform((need) => (need.kind === 'secret' ? { ...need, value: null } : need));
 export type ConnectorNeed = z.infer<typeof connectorNeedSchema>;
 
-export const connectorStatusSchema = forwardCompatibleEnum(['ready', 'needs', 'unreachable']);
+export const connectorStatusSchema = forwardCompatibleEnum([
+  'ready',
+  'needs',
+  'unreachable',
+  'starting',
+]);
 export type ConnectorStatus = z.infer<typeof connectorStatusSchema>;
+
+/**
+ * A check in flight (`status: "starting"`): when it started, the seconds so far at the
+ * read, and whether its server went a whole window with no work. Null otherwise.
+ */
+export const connectorCheckFields = {
+  started_at: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? null),
+  elapsed_s: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? null),
+  stalled: z
+    .boolean()
+    .nullish()
+    .transform((value) => value ?? false),
+};
 
 export const connectorStateSchema = z.object({
   status: connectorStatusSchema,
@@ -73,6 +97,7 @@ export const connectorStateSchema = z.object({
     .string()
     .nullish()
     .transform((value) => value ?? null),
+  ...connectorCheckFields,
 });
 export type ConnectorState = z.infer<typeof connectorStateSchema>;
 

@@ -7,7 +7,9 @@ import {
   type SessionAgent,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useConnectorCheckRefetch } from '@/hooks/use-connectors';
 import { useRepository } from '@/hooks/use-repository';
+import { anyConnectorStarting } from '@/lib/connector-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { connectionScope } from '@/lib/connection-scope';
 import { CAPABILITIES_RETRY_MS } from '@/lib/runtime-limits';
@@ -109,10 +111,16 @@ export function usePluginCatalog(enabled = true) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const supported = useAgentPluginsSupported();
+  const refetch = useConnectorCheckRefetch();
   return useQuery({
     queryKey: queryKeys.key('plugins', settings.endpoint, connectionScope(settings)),
     enabled: enabled && supported === true,
     queryFn: ({ signal }) => repository.plugins(signal),
+    // A connector a plugin follows may still be starting (CN3).
+    refetchInterval: (query) =>
+      refetch(
+        anyConnectorStarting((query.state.data?.plugins ?? []).map((plugin) => plugin.connector)),
+      ),
   });
 }
 

@@ -9,6 +9,7 @@ import {
 import { PlugIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useConnector, useInvalidateConnectors, useSessionConnector } from '@/hooks/use-connectors';
+import { useNow } from '@/hooks/use-now';
 import { connectorStatus } from '@/lib/connector-presentation';
 import { AskBody, AskCard, AskError, AskSection } from './ask-card';
 import { BinaryAsk } from './ask-binary';
@@ -83,7 +84,8 @@ function ConnectorSetupCard({
     if (disabled || unfilled.length) return;
     respondFromControl(onResponse(interaction, answer()));
   };
-  const status = connector ? connectorStatus(connector) : undefined;
+  const now = useNow(connector?.state.status === 'starting');
+  const status = connector ? connectorStatus(connector, undefined, now) : undefined;
   const tool = payload?.tool_name ?? interaction.source.tool_name;
   return (
     <AskCard
